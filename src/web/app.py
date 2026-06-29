@@ -1973,7 +1973,8 @@ def create_app(session_secret: str) -> FastAPI:
             return RedirectResponse("/login", status_code=302)
         try:
             import sys as _ssys
-            _ssys.path.insert(0, "/app")
+            if "/app" not in _ssys.path:
+                _ssys.path.insert(0, "/app")
             from acme_auto import status as _acme_status, detect_public_ip, hostname_for_ip
         except Exception as e:
             logger.error("auto-tls import: %s", e)
@@ -2006,7 +2007,8 @@ def create_app(session_secret: str) -> FastAPI:
             return RedirectResponse("/login", status_code=302)
         try:
             import sys as _ssys
-            _ssys.path.insert(0, "/app")
+            if "/app" not in _ssys.path:
+                _ssys.path.insert(0, "/app")
             from acme_auto import request_cert
             from db import audit
             import asyncio as _aio_ssl
@@ -2036,7 +2038,8 @@ def create_app(session_secret: str) -> FastAPI:
             return RedirectResponse("/login", status_code=302)
         try:
             import sys as _ssys
-            _ssys.path.insert(0, "/app")
+            if "/app" not in _ssys.path:
+                _ssys.path.insert(0, "/app")
             from acme_auto import renew_if_due
             from db import audit
             import asyncio as _aio_ssl
@@ -6260,7 +6263,9 @@ def create_app(session_secret: str) -> FastAPI:
     def _make_printix_client(tenant: dict):
         """Erstellt einen PrintixClient aus Tenant-Credentials (Full-Record mit Secrets)."""
         import sys, os
-        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        _src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if _src_dir not in sys.path:
+            sys.path.insert(0, _src_dir)
         from printix_client import PrintixClient
         return PrintixClient(
             tenant_id=tenant.get("printix_tenant_id", ""),
@@ -6333,6 +6338,13 @@ def create_app(session_secret: str) -> FastAPI:
     # IPP/IPPS endpoint + listener entfernt (mysecureprint-server v0.1.0).
     # update-check entfernt (kein Pro-License-/Roadmap-UI).
 
+    # TODO (v0.6.4, S-6): migrate to FastAPI lifespan context manager.
+    # @app.on_event("startup") ist in FastAPI deprecated. Konservativ
+    # belassen, weil alle 5 Startup-Bodies hier auf Closure-Variablen aus
+    # create_app() (u.a. _run_printix_user_sync_once) zugreifen — eine
+    # saubere Migration erfordert Restrukturierung des Bodies oder den
+    # Umzug der lifespan-Funktion ans Ende von create_app() mit
+    # `app.router.lifespan_context = lifespan` (FastAPI erlaubt das).
     @app.on_event("startup")
     async def _start_periodic_refresher():
         """Periodic Cache Refresher fuer Printix-API-Antworten."""
@@ -6346,6 +6358,7 @@ def create_app(session_secret: str) -> FastAPI:
     # Eintraege aus desktop_entra_pending + desktop_entra_authcode_pending
     # entfernen. Fail-soft: jede Iteration in try/except, ein DB-Fehler
     # killt den Task nicht.
+    # TODO (v0.6.4, S-6): migrate to FastAPI lifespan (s. Hinweis oben).
     @app.on_event("startup")
     async def _start_entra_pending_gc():
         import asyncio as _asyncio
@@ -6371,6 +6384,7 @@ def create_app(session_secret: str) -> FastAPI:
     # `entra_continuous_eval_enabled=1`, geht alle 24h durch die
     # gespeicherten refresh_tokens und revoked Server-Bearer-Tokens
     # falls Microsoft den User als deaktiviert meldet.
+    # TODO (v0.6.4, S-6): migrate to FastAPI lifespan (s. Hinweis oben).
     @app.on_event("startup")
     async def _start_entra_continuous_eval():
         import asyncio as _asyncio
@@ -6410,6 +6424,7 @@ def create_app(session_secret: str) -> FastAPI:
     # Sleeps `printix_user_sync_interval_minutes` between iterations,
     # re-reads settings each tick. Sync helper runs via asyncio.to_thread
     # so the synchronous Printix-API calls + DB writes stay off the loop.
+    # TODO (v0.6.4, S-6): migrate to FastAPI lifespan (s. Hinweis oben).
     @app.on_event("startup")
     async def _start_printix_user_sync_scheduler():
         import asyncio as _asyncio
@@ -6455,6 +6470,7 @@ def create_app(session_secret: str) -> FastAPI:
     # blob_backup_enabled=1. First tick fires 60s after startup so the DB
     # is initialised; subsequent ticks are 24h apart. Errors are logged
     # but don't crash the loop.
+    # TODO (v0.6.4, S-6): migrate to FastAPI lifespan (s. Hinweis oben).
     @app.on_event("startup")
     async def _start_blob_backup_scheduler():
         import asyncio as _asyncio
@@ -6631,7 +6647,8 @@ def create_app(session_secret: str) -> FastAPI:
     # remaining) ist das idempotent — keine Action.
     try:
         import sys as _acme_sys
-        _acme_sys.path.insert(0, "/app")
+        if "/app" not in _acme_sys.path:
+            _acme_sys.path.insert(0, "/app")
         from acme_auto import start_renewal_scheduler as _acme_start
         _acme_start()
     except Exception as e:

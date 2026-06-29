@@ -56,7 +56,18 @@ if __name__ == "__main__":
     log_lvl  = os.environ.get("MCP_LOG_LEVEL", "info").lower()
     session_secret = _get_or_create_session_key()
 
-    app = create_app(session_secret=session_secret)
+    # v0.6.4 (S-3): create_app() kapseln. Wenn der Builder eine Exception
+    # wirft (z.B. defekter Import, DB-Init-Fehler), landet der Traceback
+    # ohne diesen Wrapper nur als Uvicorn-Banner ohne Detail im Container-
+    # Log — der eigentliche Crash-Grund bleibt unsichtbar. Mit
+    # logger.exception + sys.exit(1) ist der volle Stack im stdout-Log
+    # und der Container terminiert sauber statt im halb-gestarteten
+    # Zustand zu hängen.
+    try:
+        app = create_app(session_secret=session_secret)
+    except Exception:
+        logger.exception("create_app failed — container will exit")
+        sys.exit(1)
 
     # v7.2.35: Wenn der Admin im Web-UI ein eigenes TLS-Cert importiert
     # hat, läuft die Web-UI direkt auf HTTPS — ohne Cloudflare oder

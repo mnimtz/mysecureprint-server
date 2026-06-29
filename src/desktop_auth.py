@@ -115,16 +115,22 @@ def revoke_all_tokens_for_user(user_id: str) -> int:
 
 
 def list_tokens_for_user(user_id: str) -> list[dict]:
-    """Alle aktiven Tokens eines Users (für `/settings` → Desktop-Clients-Liste)."""
+    """Alle aktiven Tokens eines Users (für `/settings` → Desktop-Clients-Liste).
+
+    v0.6.4 (S-5): liefert zusätzlich `id` (SQLite rowid) im Output zurück,
+    damit das Admin-/Settings-UI einzelne Tokens gezielt revoken kann ohne
+    den vollständigen Token-Wert im DOM exponieren zu müssen.
+    """
     from db import _conn
     with _conn() as conn:
         rows = conn.execute(
-            "SELECT token, device_name, created_at, last_used_at "
+            "SELECT rowid AS id, token, device_name, created_at, last_used_at "
             "FROM desktop_tokens WHERE user_id = ? "
             "ORDER BY last_used_at DESC",
             (user_id,),
         ).fetchall()
-    # Token maskieren für UI (nur letzte 8 Zeichen zeigen)
+    # Token maskieren für UI (nur letzte 8 Zeichen zeigen).
+    # `id` (rowid) bleibt drin für UI-Revoke-Buttons.
     result = []
     for r in rows:
         d = dict(r)

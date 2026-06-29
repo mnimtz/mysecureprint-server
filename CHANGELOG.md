@@ -1,5 +1,48 @@
 # Changelog — MySecurePrint Server
 
+## 0.6.4 — 2026-06-29 — Audit-Cleanups (S-3 … S-7): Crash-Logging, Boot-Härtung, Token-IDs
+
+Code-Audit-Cleanups, alle nicht-funktional — reine Härtung von
+Fehlerpfaden + Vorbereitung auf saubere FastAPI-Migration.
+
+- **S-3 (HIGH) — `create_app()` Crash-Logging** (`src/web/run.py`):
+  Aufruf in try/except gewrapped. Bei Boot-Fehler landet jetzt der
+  volle Traceback via `logger.exception()` im stdout-Log; danach
+  `sys.exit(1)`. Vorher: Uvicorn hat den halb-gestarteten Container
+  weiterlaufen lassen, der eigentliche Crash-Grund war im Log nicht
+  sichtbar.
+- **S-4 (HIGH) — `sitecustomize.py` Top-Level-Imports**
+  (`src/sitecustomize.py`): `from printix_client import …` aus dem
+  Modul-Top in eine Installer-Funktion verschoben + try/except um den
+  Monkey-Patch-Install. `sitecustomize` wird bei JEDEM Python-Start
+  geladen — ein ImportError dort hätte sonst auch Healthcheck-,
+  CLI- und Sub-Tooling-Prozesse blockiert. Eine Umbenennung in
+  `card_transform.py` (S-11) wäre die saubere Lösung, ist aber
+  riskant (Such-/Diff-Aufwand) und im Kommentar als TODO vermerkt.
+- **S-5 (HIGH) — `list_tokens_for_user` ohne ID** (`src/desktop_auth.py`):
+  SELECT auf `rowid AS id` erweitert; Output-Dict trägt jetzt eine
+  stabile `id`, mit der das Settings-/Admin-UI gezielt einzelne
+  Tokens revoken kann, ohne den vollständigen Token-Wert im DOM zu
+  exponieren. Aufrufer (`web/app.py` zählt nur `len(...)`,
+  `desktop_routes.py` importiert nur das Symbol) sind unverändert
+  kompatibel.
+- **S-6 (HIGH) — `@app.on_event("startup")` Deprecation** (`src/web/app.py`):
+  Alle 5 Startup-Handler hängen an Closure-Variablen aus `create_app()`
+  (u.a. `_run_printix_user_sync_once`); eine saubere Lifespan-Migration
+  hätte den ganzen Builder restrukturiert. Konservativ: Decorators
+  belassen + TODO-Kommentare gesetzt mit Hinweis auf die Migration
+  via `app.router.lifespan_context`.
+- **S-7 (MEDIUM) — `sys.path.insert` Spam** (`src/web/app.py`): die 5
+  unkonditionalen `sys.path.insert(0, "/app")` (bzw. den
+  `_src_dir`-Insert in `_make_printix_client`) auf
+  `if "/app" not in sys.path` umgestellt. Reduziert wiederholtes
+  Voranstellen bei jedem Handler-Call. Die bereits konditionalen
+  Inserts in `web/desktop_routes.py` blieben unverändert.
+
+Kein User-sichtbares Feature, keine API-Änderung. Nach Deploy
+verifizieren: `/desktop/auth/login` + Settings-Seite + Auto-TLS-Routen
+müssen unverändert funktionieren.
+
 ## 0.6.3 — 2026-06-29 — CRITICAL: cloudprint.printix_cache_db wiederhergestellt
 
 Server-Audit hat einen toten Import-Pfad gefunden: der slim-Commit
