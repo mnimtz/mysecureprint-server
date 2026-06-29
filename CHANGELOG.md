@@ -1,5 +1,18 @@
 # Changelog — MySecurePrint Server
 
+## 0.6.3 — 2026-06-29 — CRITICAL: cloudprint.printix_cache_db wiederhergestellt
+
+Server-Audit hat einen toten Import-Pfad gefunden: der slim-Commit
+(f95afe2) hat `src/cloudprint/printix_cache_db.py` mitgeloescht,
+obwohl 5+ Aufrufstellen (desktop_routes._process_desktop_send_bg,
+cloudprint/db_extensions, etc.) `find_printix_user_by_identity`
+importieren. Folge: jeder /desktop/send-Upload und jede LPR-Job-
+Identity-Resolution waere mit ImportError im Background-Task
+abgestuerzt — Client haette HTTP 202 gesehen und kein Druck.
+
+Fix: schlankes Modul mit nur der Lookup-Funktion (sync-Logik gehoert
+inzwischen woanders hin) wiederhergestellt.
+
 ## 0.6.2 — 2026-06-29 — Fix /desktop/me/jobs 500 (Spalten-Mismatch)
 
 User-Report: Jobs-Tab in iOS zeigt „server antwortet 500". Root-Cause:
