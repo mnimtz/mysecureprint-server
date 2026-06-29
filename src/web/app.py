@@ -297,8 +297,10 @@ def create_app(session_secret: str) -> FastAPI:
             "/admin/settings": "admin_settings",
             "/admin/blob-backup": "admin_blob_backup",
             "/admin/mcp-access": "admin_mcp_access",
+            "/admin/mcp-permissions": "admin_rbac",
             "/admin/gdpr": "admin_gdpr",
             "/admin/groups": "admin_groups",
+            "/account": "account",
             "/admin/printix-sync": "admin_printix_sync",
             "/admin/email-templates": "admin_email_templates",
             "/my/cloud-print": "my_cloud_print",
@@ -346,11 +348,15 @@ def create_app(session_secret: str) -> FastAPI:
             return "/login"
         if user.get("is_admin"):
             return "/admin"
-        if user.get("role_type") == "employee":
-            return "/my"
         if user.get("status") == "pending":
             return "/pending"
-        return "/admin"
+        if user.get("role_type") == "employee":
+            return "/my"
+        # v0.5.6: Regulaere User (role_type=user, nicht admin/employee)
+        # landeten vorher auf /admin und bekamen eine Admin-Seite die
+        # sie nicht bedienen konnten. Jetzt: eigene Info-Seite mit QR
+        # + MCP-Credentials + GDPR-Daten-Export-Link.
+        return "/account"
 
     @app.middleware("http")
     async def invitation_activation_guard(request: Request, call_next):
@@ -5532,6 +5538,73 @@ def create_app(session_secret: str) -> FastAPI:
                   f"group={printix_group_id} → queue={queue_id}")
         return RedirectResponse("/admin/groups?ok=saved", status_code=302)
 
+    # ─── User-Account-Seite (v0.5.6) ─────────────────────────────────────
+    # Regulaere User (nicht Admin, nicht Employee) landeten vorher auf
+    # /admin und bekamen eine ungeeignete Seite. Jetzt: eigene
+    # /account-Seite mit User-Info, iOS-App-QR, eigenen MCP-Credentials
+    # (Bearer fuer API-Direkt-Zugriff + tenant OAuth fuer claude.ai/
+    # ChatGPT-Connector-Setup) und GDPR-Daten-Export-Link.
+    @app.get("/account", response_class=HTMLResponse)
+    async def account_page(request: Request):
+        user = get_session_user(request)
+        if not user:
+            return RedirectResponse("/login", status_code=302)
+        # Admin → eigentlich /admin, aber wenn jemand explizit /account
+        # ansurft, soll er trotzdem die Seite sehen koennen (gleicher
+        # Inhalt + zusaetzlicher Admin-Badge).
+        base_url = mcp_base_url_or(request)
+        qr_payload = f"mysecureprint://setup?server={base_url}/"
+        qr_svg = _make_welcome_qr_svg(qr_payload)
+
+        # Tenant-OAuth-Credentials laden (per-user-tenant). Sind formal
+        # Tenant-weit, aber jeder User braucht sie um z.B. claude.ai
+        # einzurichten — der OAuth-Flow ist user-spezifisch (eigener
+        # Bearer-Token), die Client-ID/Secret ist tenant-weit.
+        tenant = None
+        try:
+            from db import (
+                get_tenant_full_by_user_id, _find_tenant_owner_user_id,
+            )
+            tenant = get_tenant_full_by_user_id(user["id"])
+            if not tenant:
+                oid = _find_tenant_owner_user_id()
+                tenant = get_tenant_full_by_user_id(oid) if oid else None
+        except Exception:
+            tenant = None
+
+        # User-spezifischen Bearer (fuer MCP-API-Direktzugriff) anzeigen
+        # — nur wenn explizit gewuenscht (per Klick auf „Anzeigen"-Button
+        # via JS-toggle, im Template umgesetzt).
+        try:
+            from desktop_auth import list_tokens_for_user
+            user_tokens = list_tokens_for_user(user["id"])
+        except Exception:
+            user_tokens = []
+
+        # MCP-Aktiv-Status fuer den Hinweis-Block
+        try:
+            from db import get_setting
+            mcp_enabled = get_setting("mcp_enabled", "0") == "1"
+        except Exception:
+            mcp_enabled = False
+
+        return templates.TemplateResponse("account.html", {
+            "request": request,
+            "user": user,
+            "base_url": base_url,
+            "qr_payload": qr_payload,
+            "qr_svg": qr_svg,
+            "tenant": tenant or {},
+            "mcp_enabled": mcp_enabled,
+            "mcp_url": f"{base_url}/mcp",
+            "sse_url": f"{base_url}/sse",
+            "oauth_authorize_url": f"{base_url}/oauth/authorize",
+            "oauth_token_url": f"{base_url}/oauth/token",
+            "user_token_count": len(user_tokens),
+            "active_page": "account",
+            **t_ctx(request),
+        })
+
     # ─── GDPR / Datenschutz Admin Page (v0.4.6) ──────────────────────────
     # Zentralisiert die DSGVO-relevanten Settings: Daten-Retention (wie
     # lange Audit-Logs, Mobile-Invites und gelaufene Backups gespeichert
@@ -5624,6 +5697,331 @@ def create_app(session_secret: str) -> FastAPI:
             logger.error("gdpr export failed: %s", e, exc_info=True)
             return RedirectResponse(
                 f"/admin/gdpr?err={quote_plus(str(e))}", status_code=302)
+
+    # ─── MCP Permissions Admin Page (GDPR / RBAC) ────────────────────────
+    # Manages the role-based permission model for MCP tool calls. Roles are
+    # set per-Printix-group (highest wins) or per-user (explicit override).
+    # The RBAC enforcement gate lives in src/server.py — it consults the
+    # rbac_enabled DB setting (toggled here) and rejects calls that don't
+    # match the caller's resolved role's scope.
+    #
+    # Privacy guards on this page:
+    #   - rbac_enabled         → master switch for enforcement
+    #   - group_peer_reports_enabled → opt-in for cross-employee printing
+    #     comparisons (off by default; Works-Council approval required in
+    #     Germany before enabling).
+    @app.get("/admin/mcp-permissions", response_class=HTMLResponse)
+    async def admin_mcp_permissions(request: Request):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        import asyncio as _aio
+        try:
+            from db import (
+                get_all_users, get_tenant_full_by_user_id,
+                list_group_mcp_roles, get_setting,
+            )
+            import permissions as _perm
+        except Exception as e:
+            logger.error("MCP-Permissions: import error: %s", e)
+            return RedirectResponse("/admin?err=import_error", status_code=302)
+
+        all_users = get_all_users() or []
+        group_role_rows = list_group_mcp_roles() or []
+        group_role_map = {r["group_id"]: r for r in group_role_rows}
+
+        live_groups: list[dict] = []
+        groups_error = ""
+        try:
+            tenant_full = get_tenant_full_by_user_id(user["id"])
+            if tenant_full and (tenant_full.get("print_client_id")
+                                or tenant_full.get("shared_client_id")):
+                px = _make_printix_client(tenant_full)
+
+                def _fetch_groups():
+                    raw = px.list_groups(page=0, size=200)
+                    if isinstance(raw, dict):
+                        return raw.get("groups", raw.get("content", []))
+                    return raw if isinstance(raw, list) else []
+
+                fetched = await _aio.to_thread(_fetch_groups)
+
+                stub_groups: list[dict] = []
+                for g in fetched or []:
+                    if not isinstance(g, dict):
+                        continue
+                    gid = ""
+                    links = g.get("_links") or {}
+                    self_link = (links.get("self") or {}).get("href") or ""
+                    if self_link:
+                        gid = self_link.rstrip("/").split("/")[-1]
+                    if not gid:
+                        gid = str(g.get("id") or g.get("groupId") or "")
+                    if not gid:
+                        continue
+                    stub_groups.append({
+                        "id": gid,
+                        "name": g.get("name") or g.get("displayName") or gid,
+                        "raw": g,
+                    })
+
+                async def _resolve_member_count(gid: str, raw_g: dict) -> int:
+                    for key in ("memberCount", "userCount", "numMembers",
+                                "numUsers", "size", "totalMembers"):
+                        v = raw_g.get(key)
+                        if isinstance(v, (int, float)):
+                            return int(v)
+                    members_field = raw_g.get("members")
+                    if isinstance(members_field, list):
+                        return len(members_field)
+                    try:
+                        gobj = await _aio.to_thread(lambda: px.get_group(gid))
+                    except Exception as exc:
+                        logger.debug("get_group(%s) failed: %s", gid, exc)
+                        return 0
+                    if not isinstance(gobj, dict):
+                        return 0
+                    for key in ("members", "users", "memberUsers"):
+                        v = gobj.get(key)
+                        if isinstance(v, list):
+                            return len(v)
+                    for key in ("memberCount", "userCount", "numMembers",
+                                "numUsers", "size", "totalMembers"):
+                        v = gobj.get(key)
+                        if isinstance(v, (int, float)):
+                            return int(v)
+                    ul = ((gobj.get("_links") or {}).get("users") or {}).get("href")
+                    if ul:
+                        return -1
+                    return 0
+
+                counts = await _aio.gather(
+                    *[_resolve_member_count(s["id"], s["raw"]) for s in stub_groups],
+                    return_exceptions=True,
+                )
+
+                for stub, mc in zip(stub_groups, counts):
+                    gid = stub["id"]
+                    if isinstance(mc, Exception):
+                        mc_val = 0
+                    elif isinstance(mc, (int, float)):
+                        mc_val = int(mc)
+                    else:
+                        mc_val = 0
+                    live_groups.append({
+                        "id": gid,
+                        "name": stub["name"],
+                        "member_count": mc_val,
+                        "current_role": (group_role_map.get(gid) or {}).get("mcp_role", ""),
+                    })
+            else:
+                groups_error = "no_credentials"
+        except Exception as e:
+            logger.warning("MCP-Permissions: list_groups failed: %s", e)
+            groups_error = "api_error"
+
+        show_all = (request.query_params.get("show_all") or "").strip() in ("1", "true", "yes")
+        total_live = len(live_groups)
+        if not show_all:
+            live_groups = [
+                g for g in live_groups
+                if (isinstance(g["member_count"], int) and g["member_count"] != 0)
+                or g["current_role"]
+            ]
+        hidden_count = total_live - len(live_groups)
+
+        live_ids = {g["id"] for g in live_groups}
+        orphan_groups = [
+            {"id": r["group_id"], "name": r["group_name"],
+             "member_count": 0, "current_role": r["mcp_role"], "_orphan": True}
+            for r in group_role_rows
+            if r["group_id"] not in live_ids
+        ]
+
+        users_view = []
+        for u in all_users:
+            override = (u.get("mcp_role") or "").strip().lower()
+            users_view.append({
+                "id": u.get("id", ""),
+                "username": u.get("username", ""),
+                "email": u.get("email", ""),
+                "full_name": u.get("full_name", ""),
+                "is_admin": bool(u.get("is_admin")),
+                "status": u.get("status", ""),
+                "mcp_role_override": override,
+                "mcp_role_resolved": override or "end_user",
+                "mcp_role_source": "override" if override else "default",
+            })
+
+        flash_ok = (request.query_params.get("ok") or "").strip() or None
+        flash_err = (request.query_params.get("err") or "").strip() or None
+
+        ctx = t_ctx(request)
+        if ctx.get("lang") == "de":
+            role_labels = _perm.ROLE_LABELS_DE
+            role_descriptions = _perm.ROLE_DESCRIPTIONS_DE
+        else:
+            role_labels = _perm.ROLE_LABELS_EN
+            role_descriptions = _perm.ROLE_DESCRIPTIONS_EN
+
+        try:
+            db_val = (get_setting("rbac_enabled", "") or "").strip().lower()
+        except Exception:
+            db_val = ""
+        if db_val:
+            rbac_enabled = db_val in ("1", "true", "yes", "on")
+            rbac_source = "db"
+        else:
+            rbac_enabled = (os.getenv("MCP_RBAC_ENABLED", "0").strip().lower()
+                            in ("1", "true", "yes", "on"))
+            rbac_source = "env"
+
+        return templates.TemplateResponse("admin_mcp_permissions.html", {
+            "request": request, "user": user,
+            "users": users_view,
+            "live_groups": live_groups,
+            "orphan_groups": orphan_groups,
+            "groups_error": groups_error,
+            "show_all_groups": show_all,
+            "hidden_inactive_count": hidden_count,
+            "all_roles": _perm.ALL_ROLES,
+            "group_assignable_roles": _perm.GROUP_ASSIGNABLE_ROLES,
+            "role_labels": role_labels,
+            "role_descriptions": role_descriptions,
+            "rbac_enabled": rbac_enabled,
+            "group_peer_reports_enabled": (
+                (get_setting("group_peer_reports_enabled", "0") or "0").strip().lower()
+                in ("1", "true", "yes", "on")
+            ),
+            "rbac_source": rbac_source,
+            "flash_ok": flash_ok, "flash_err": flash_err,
+            "active_page": "admin_rbac",
+            **ctx,
+        })
+
+    @app.post("/admin/mcp-permissions/rbac-toggle")
+    async def admin_mcp_rbac_toggle(request: Request, action: str = Form("")):
+        admin = get_session_user(request)
+        if not admin or not admin.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        try:
+            from db import set_setting, audit
+            new_state = "1" if action == "enable" else "0"
+            set_setting("rbac_enabled", new_state)
+            audit(
+                admin["id"],
+                "rbac_enabled_set" if new_state == "1" else "rbac_disabled_set",
+                f"RBAC {'enabled' if new_state == '1' else 'disabled'} via Admin-UI",
+                object_type="setting", object_id="rbac_enabled",
+            )
+            return RedirectResponse(
+                "/admin/mcp-permissions?ok=" + ("rbac_enabled" if new_state == "1" else "rbac_disabled"),
+                status_code=302,
+            )
+        except Exception as e:
+            logger.error("rbac toggle: %s", e)
+            return RedirectResponse(
+                f"/admin/mcp-permissions?err={quote_plus(str(e))}",
+                status_code=302,
+            )
+
+    @app.post("/admin/mcp-permissions/group-peer-toggle")
+    async def admin_group_peer_toggle(request: Request, action: str = Form("")):
+        """Toggle for `group_peer_reports_enabled` — when on, end-users may
+        compare their own print activity to anonymized peers in the same
+        Printix group. Default OFF for GDPR / employee privacy."""
+        admin = get_session_user(request)
+        if not admin or not admin.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        try:
+            from db import set_setting, audit
+            new_state = "1" if action == "enable" else "0"
+            set_setting("group_peer_reports_enabled", new_state)
+            audit(
+                admin["id"],
+                "group_peer_reports_set",
+                f"Group peer reports {'enabled' if new_state == '1' else 'disabled'} via Admin-UI",
+                object_type="setting", object_id="group_peer_reports_enabled",
+            )
+            return RedirectResponse(
+                "/admin/mcp-permissions?ok=" + ("group_peer_enabled" if new_state == "1" else "group_peer_disabled"),
+                status_code=302,
+            )
+        except Exception as e:
+            logger.error("group peer toggle: %s", e)
+            return RedirectResponse(
+                f"/admin/mcp-permissions?err={quote_plus(str(e))}",
+                status_code=302,
+            )
+
+    @app.post("/admin/mcp-permissions/user-role")
+    async def admin_mcp_set_user_role(
+        request: Request,
+        user_id: str = Form(...),
+        mcp_role: str = Form(""),
+    ):
+        admin = get_session_user(request)
+        if not admin or not admin.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        try:
+            from db import set_user_mcp_role, audit
+            ok = set_user_mcp_role(user_id, mcp_role)
+            if ok:
+                audit(
+                    admin["id"], "mcp_set_user_role",
+                    f"User {user_id} → mcp_role='{mcp_role or '(cleared)'}'",
+                    object_type="user", object_id=user_id,
+                )
+                return RedirectResponse(
+                    "/admin/mcp-permissions?ok=user_role_updated",
+                    status_code=302,
+                )
+            return RedirectResponse(
+                "/admin/mcp-permissions?err=user_not_found", status_code=302,
+            )
+        except Exception as e:
+            logger.error("MCP-Permissions user-role POST: %s", e)
+            return RedirectResponse(
+                "/admin/mcp-permissions?err=update_failed", status_code=302,
+            )
+
+    @app.post("/admin/mcp-permissions/group-role")
+    async def admin_mcp_set_group_role(
+        request: Request,
+        group_id: str = Form(...),
+        group_name: str = Form(""),
+        mcp_role: str = Form(""),
+    ):
+        admin = get_session_user(request)
+        if not admin or not admin.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        try:
+            from db import set_group_mcp_role, audit
+            ok = set_group_mcp_role(
+                group_id=group_id,
+                group_name=group_name or group_id,
+                mcp_role=mcp_role,
+                assigned_by=admin.get("id", ""),
+            )
+            if ok:
+                action = "mcp_clear_group_role" if not mcp_role else "mcp_set_group_role"
+                audit(
+                    admin["id"], action,
+                    f"Group {group_name or group_id} → '{mcp_role or '(cleared)'}'",
+                    object_type="printix_group", object_id=group_id,
+                )
+                return RedirectResponse(
+                    "/admin/mcp-permissions?ok=group_role_updated",
+                    status_code=302,
+                )
+            return RedirectResponse(
+                "/admin/mcp-permissions?err=invalid_role", status_code=302,
+            )
+        except Exception as e:
+            logger.error("MCP-Permissions group-role POST: %s", e)
+            return RedirectResponse(
+                "/admin/mcp-permissions?err=update_failed", status_code=302,
+            )
 
     # ─── MCP Access Admin Page (v0.4.0) ──────────────────────────────────
     # Opt-in MCP exposure. The MCP server itself runs in the same container

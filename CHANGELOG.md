@@ -1,5 +1,25 @@
 # Changelog — MySecurePrint Server
 
+## 0.5.6 — 2026-06-29 — User-Account-Seite + ChatGPT-MCP-DCR verifiziert
+
+User-Feedback: „wenn ich mit als user anmelde, kommt eine komplett
+falsche seite" — reguläre User (role_type=user) landeten via Fallback
+auf /admin.
+
+### Neue /account Seite
+- `_user_home_target()` routet reguläre User auf `/account` statt
+  Admin-Fallback.
+- Eigene Info-Seite: 👋 Begrüßung, 📱 iOS-App-Setup mit QR + 3-Step-
+  Anleitung, 🤖 MCP-Zugang (claude.ai-URL + ChatGPT-URL + OAuth-Client-
+  ID/Secret mit Show/Hide-Toggle wenn MCP aktiv), 🛡️ DSGVO-Block (Email,
+  Name, Rolle, aktive Tokens + Privacy-Link).
+- ~30 neue i18n-Keys (account_*) in DE+EN.
+
+### ChatGPT MCP-DCR verifiziert
+/.well-known/oauth-authorization-server liefert
+`registration_endpoint = .../oauth/register`. Test-POST mit JSON-Body
+returnt korrekt einen client_id — DCR funktioniert.
+
 ## 0.5.5 — 2026-06-29 — Entra-DC DB-persistiert + Queue-Filter + slim Users-Search
 
 Drei offene Punkte aus User-Feedback.

@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}{{ _('account_title') }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width: 920px; margin: 32px auto;">
+
+  <h1 style="color: var(--text-strong); font-size: 1.8em; font-weight: 800; margin-bottom: 4px;">
+    👋 {{ _('account_hello') }}, {{ user.full_name or user.username }}
+  </h1>
+  <p style="color: var(--text-muted); margin-bottom: 24px;">
+    {{ _('account_intro') }}
+  </p>
+
+  {# ── iOS App Setup ─────────────────────────────────────────────── #}
+  <div class="card" style="margin-bottom: 24px;">
+    <h2 class="section-title">📱 {{ _('account_ios_title') }}</h2>
+    <div style="display: grid; grid-template-columns: 220px 1fr; gap: 24px; align-items: start;">
+      <div style="background:#fff; border:1px solid var(--border); border-radius: var(--radius); padding: 8px;">
+        {% if qr_svg %}
+          {{ qr_svg | safe }}
+        {% else %}
+          <div style="padding:60px 10px; color: var(--text-faint); font-size:.85em; text-align:center;">
+            {{ _('welcome_qr_unavailable') }}
+          </div>
+        {% endif %}
+      </div>
+      <div>
+        <p style="margin-bottom: 12px;">{{ _('account_ios_intro') }}</p>
+        <ol style="margin-left: 18px; line-height: 1.8; color: var(--text);">
+          <li>{{ _('account_ios_step_1') }}</li>
+          <li>{{ _('account_ios_step_2') }}</li>
+          <li>{{ _('account_ios_step_3') }}</li>
+        </ol>
+        <div style="margin-top: 16px; padding: 12px; background: var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: .9em; word-break: break-all;">
+          {{ base_url }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── MCP-Zugang (claude.ai / ChatGPT) ───────────────────────────── #}
+  <div class="card" style="margin-bottom: 24px;">
+    <h2 class="section-title">🤖 {{ _('account_mcp_title') }}</h2>
+
+    {% if not mcp_enabled %}
+    <div class="alert alert-warning" style="margin-bottom: 14px;">
+      ⚠ {{ _('account_mcp_disabled') }}
+    </div>
+    {% else %}
+    <p style="color: var(--text-muted); margin-bottom: 14px;">{{ _('account_mcp_intro') }}</p>
+
+    <table style="width:100%; border-collapse: collapse; font-size:.92em;">
+      <tr style="border-top:1px solid var(--border-subtle);">
+        <td style="padding:8px 10px; font-weight:600;">{{ _('account_mcp_claude_url') }}</td>
+        <td style="padding:8px 10px;"><code style="font-size:.9em;">{{ mcp_url }}</code></td>
+      </tr>
+      <tr style="border-top:1px solid var(--border-subtle);">
+        <td style="padding:8px 10px; font-weight:600;">{{ _('account_mcp_chatgpt_url') }}</td>
+        <td style="padding:8px 10px;"><code style="font-size:.9em;">{{ sse_url }}</code></td>
+      </tr>
+      <tr style="border-top:1px solid var(--border-subtle);">
+        <td style="padding:8px 10px; font-weight:600;">OAuth Authorize</td>
+        <td style="padding:8px 10px;"><code style="font-size:.9em;">{{ oauth_authorize_url }}</code></td>
+      </tr>
+      <tr style="border-top:1px solid var(--border-subtle);">
+        <td style="padding:8px 10px; font-weight:600;">OAuth Token</td>
+        <td style="padding:8px 10px;"><code style="font-size:.9em;">{{ oauth_token_url }}</code></td>
+      </tr>
+    </table>
+
+    {% if tenant.oauth_client_id %}
+    <div style="margin-top: 18px;">
+      <h3 style="font-size: 1em; font-weight: 700; color: var(--text-strong); margin-bottom: 8px;">
+        {{ _('account_oauth_creds_title') }}
+      </h3>
+      <p style="color: var(--text-muted); font-size: .85em; margin-bottom: 10px;">
+        {{ _('account_oauth_creds_help') }}
+      </p>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <div>
+          <label style="font-weight:600; font-size:.85em; color: var(--text-muted);">Client-ID</label>
+          <div style="background: var(--code-bg); color: var(--code-text); border-radius: var(--radius-sm); padding:10px; font-family: var(--font-mono); font-size:.85em; word-break:break-all; margin-top:4px;">
+            {{ tenant.oauth_client_id }}
+          </div>
+        </div>
+        <div>
+          <label style="font-weight:600; font-size:.85em; color: var(--text-muted);">Client-Secret</label>
+          <div style="background: var(--code-bg); color: var(--code-text); border-radius: var(--radius-sm); padding:10px; font-family: var(--font-mono); font-size:.85em; word-break:break-all; margin-top:4px;">
+            <span id="oauth-secret-mask">••••••••••••••••</span>
+            <span id="oauth-secret-real" style="display:none;">{{ tenant.oauth_client_secret }}</span>
+            <button type="button" onclick="toggleOauthSecret()" style="float:right; background: transparent; border:1px solid #475569; color: #cbd5e1; padding:2px 8px; border-radius:4px; font-size:.75em; cursor:pointer;">
+              {{ _('account_show_hide') }}
+            </button>
+          </div>
+        </div>
+      </div>
+      <script>
+        function toggleOauthSecret() {
+          var m = document.getElementById('oauth-secret-mask');
+          var r = document.getElementById('oauth-secret-real');
+          if (m.style.display === 'none') { m.style.display = ''; r.style.display = 'none'; }
+          else { m.style.display = 'none'; r.style.display = ''; }
+        }
+      </script>
+    </div>
+    {% endif %}
+    {% endif %}
+  </div>
+
+  {# ── Eigene Daten (GDPR) ───────────────────────────────────────── #}
+  <div class="card" style="margin-bottom: 24px;">
+    <h2 class="section-title">🛡️ {{ _('account_gdpr_title') }}</h2>
+    <p style="color: var(--text-muted); margin-bottom: 14px;">
+      {{ _('account_gdpr_intro') }}
+    </p>
+    <table style="width:100%; border-collapse: collapse; font-size:.92em;">
+      <tr style="border-top:1px solid var(--border-subtle);">
+        <td style="padding:8px 10px; font-weight:600;">{{ _('account_field_email') }}</td>
+        <td style="padding:8px 10px;">{{ user.email or '—' }}</td>
+      </tr>
+      <tr style="border-top:1px solid var(--border-subtle);">
+        <td style="padding:8px 10px; font-weight:600;">{{ _('account_field_name') }}</td>
+        <td style="padding:8px 10px;">{{ user.full_name or '—' }}</td>
+      </tr>
+      <tr style="border-top:1px solid var(--border-subtle);">
+        <td style="padding:8px 10px; font-weight:600;">{{ _('account_field_role') }}</td>
+        <td style="padding:8px 10px;">
+          {% if user.is_admin %}<span style="background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:999px; font-size:.78em; font-weight:700;">Admin</span>
+          {% elif user.role_type == 'employee' %}<span style="background:#e0f2fe; color:#075985; padding:2px 8px; border-radius:999px; font-size:.78em; font-weight:700;">Employee</span>
+          {% else %}<span style="background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:999px; font-size:.78em; font-weight:700;">User</span>
+          {% endif %}
+        </td>
+      </tr>
+      <tr style="border-top:1px solid var(--border-subtle);">
+        <td style="padding:8px 10px; font-weight:600;">{{ _('account_field_devices') }}</td>
+        <td style="padding:8px 10px;">{{ user_token_count }} {{ _('account_active_tokens') }}</td>
+      </tr>
+    </table>
+    <div style="margin-top: 16px;">
+      <a href="/privacy" target="_blank" rel="noopener" class="action-btn outline" style="font-size:.9em;">
+        {{ _('account_privacy_view') }} ↗
+      </a>
+      <span style="color: var(--text-muted); font-size: .85em; margin-left: 12px;">
+        {{ _('account_gdpr_request_info') }}
+      </span>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

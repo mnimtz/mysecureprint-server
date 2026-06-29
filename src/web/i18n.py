@@ -33302,3 +33302,67 @@ for _lang, _keys in _V055_KEYS.items():
 for _lang in list(TRANSLATIONS.keys()):
     if _lang not in _V055_KEYS:
         TRANSLATIONS[_lang].update(_V055_KEYS["en"])
+
+
+# v0.5.6: /account page (regular user landing)
+_V056_ACCOUNT_KEYS: dict[str, dict[str, str]] = {
+    "de": {
+        "account_title":            "Mein Account",
+        "account_hello":             "Hallo",
+        "account_intro":             "Übersicht über deine Druckverwaltung, MCP-Zugangsdaten und Datenschutz-Informationen.",
+        "account_ios_title":         "iOS-App einrichten",
+        "account_ios_intro":         "Scan den QR-Code mit deiner iPhone-Kamera, um die App-Konfiguration automatisch zu setzen.",
+        "account_ios_step_1":        "MySecurePrint im App Store installieren",
+        "account_ios_step_2":        "QR-Code scannen oder URL manuell eintragen",
+        "account_ios_step_3":        "Mit Microsoft-Konto anmelden — fertig",
+        "account_mcp_title":         "MCP-Zugang (Claude / ChatGPT)",
+        "account_mcp_disabled":      "Der MCP-Zugang ist administrativ deaktiviert. Frage deinen Administrator falls du AI-Assistenten verbinden willst.",
+        "account_mcp_intro":         "Diese URLs in claude.ai oder ChatGPT als MCP-Konnektor eintragen:",
+        "account_mcp_claude_url":    "claude.ai (Streamable HTTP)",
+        "account_mcp_chatgpt_url":   "ChatGPT (SSE)",
+        "account_oauth_creds_title": "OAuth 2.0 Credentials",
+        "account_oauth_creds_help":  "Im AI-Konnektor eintragen. Nach Klick auf „Erlauben“ bekommst du persönlich einen Bearer-Token.",
+        "account_show_hide":         "Anzeigen / Verbergen",
+        "account_gdpr_title":        "Deine Daten (DSGVO)",
+        "account_gdpr_intro":        "Was wir über dich gespeichert haben + dein Recht auf Auskunft + Löschung.",
+        "account_field_email":       "E-Mail",
+        "account_field_name":        "Name",
+        "account_field_role":        "Rolle",
+        "account_field_devices":     "Geräte",
+        "account_active_tokens":     "aktive Token",
+        "account_privacy_view":      "Datenschutzerklärung",
+        "account_gdpr_request_info": "Für Auskunft oder Löschung: kontaktiere deinen Administrator (DSGVO Art. 15/17).",
+    },
+    "en": {
+        "account_title":            "My Account",
+        "account_hello":             "Hello",
+        "account_intro":             "Overview of your print management, MCP credentials and privacy info.",
+        "account_ios_title":         "Set up the iOS app",
+        "account_ios_intro":         "Scan the QR code with your iPhone camera to auto-configure the app.",
+        "account_ios_step_1":        "Install MySecurePrint from the App Store",
+        "account_ios_step_2":        "Scan the QR code (or enter the URL manually)",
+        "account_ios_step_3":        "Sign in with Microsoft — done",
+        "account_mcp_title":         "MCP access (Claude / ChatGPT)",
+        "account_mcp_disabled":      "MCP access is administratively disabled. Ask your administrator if you want to connect AI assistants.",
+        "account_mcp_intro":         "Paste these URLs into claude.ai or ChatGPT as an MCP connector:",
+        "account_mcp_claude_url":    "claude.ai (Streamable HTTP)",
+        "account_mcp_chatgpt_url":   "ChatGPT (SSE)",
+        "account_oauth_creds_title": "OAuth 2.0 credentials",
+        "account_oauth_creds_help":  "Paste into the AI connector. After clicking \"Allow\" you'll get a personal bearer token.",
+        "account_show_hide":         "Show / Hide",
+        "account_gdpr_title":        "Your data (GDPR)",
+        "account_gdpr_intro":        "What we have about you + your right to access + erasure.",
+        "account_field_email":       "Email",
+        "account_field_name":        "Name",
+        "account_field_role":        "Role",
+        "account_field_devices":     "Devices",
+        "account_active_tokens":     "active tokens",
+        "account_privacy_view":      "Privacy notice",
+        "account_gdpr_request_info": "For data access or erasure: contact your administrator (GDPR Art. 15/17).",
+    },
+}
+for _lang, _keys in _V056_ACCOUNT_KEYS.items():
+    TRANSLATIONS.setdefault(_lang, {}).update(_keys)
+for _lang in list(TRANSLATIONS.keys()):
+    if _lang not in _V056_ACCOUNT_KEYS:
+        TRANSLATIONS[_lang].update(_V056_ACCOUNT_KEYS["en"])
