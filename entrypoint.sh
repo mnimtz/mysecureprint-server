@@ -59,4 +59,9 @@ shutdown() {
 trap shutdown SIGTERM SIGINT
 
 log_info "Starte Web-UI auf ${WEB_HOST}:${WEB_PORT}..."
-exec python3 /app/web/run.py
+log_info "Diag: uid=$(id -u) gid=$(id -g) user=$(whoami)"
+log_info "Diag: /data perms: $(ls -ld /data 2>&1) — writable: $([ -w /data ] && echo yes || echo NO)"
+log_info "Diag: python: $(python3 --version 2>&1)"
+log_info "Diag: run.py exists: $([ -f /app/web/run.py ] && echo yes || echo NO)"
+# stderr -> stdout damit Tracebacks im Azure-Log landen
+exec python3 -X faulthandler -u /app/web/run.py 2>&1
