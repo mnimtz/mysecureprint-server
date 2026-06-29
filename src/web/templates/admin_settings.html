@@ -154,6 +154,74 @@
     </form>
   </div>
 
+  {# ── Printix-Zugangsdaten (v0.4.5) ─────────────────────────────────── #}
+  <div id="printix" class="card" style="max-width:680px;margin:0 auto 20px auto; border-left:4px solid #002854;">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+      <div style="font-size:1.4em;">🖨️</div>
+      <div>
+        <div class="section-title" style="margin:0;">{{ _('printix_creds_title') }}</div>
+        <div style="font-size:.85em; color:#666;">{{ _('printix_creds_sub') }}</div>
+      </div>
+    </div>
+
+    {% if request.query_params.get('ok') == 'printix_saved' %}
+      <div class="alert alert-success" style="margin:12px 0;">✓ {{ _('printix_creds_saved') }}</div>
+    {% endif %}
+    {% if request.query_params.get('err') %}
+      <div class="alert alert-error" style="margin:12px 0;">⚠ {{ request.query_params.get('err') }}</div>
+    {% endif %}
+
+    <form method="post" action="/admin/settings/printix">
+      <div class="form-group">
+        <label>{{ _('printix_creds_tenant_name') }}</label>
+        <input type="text" name="tenant_name" value="{{ tenant_full.name | default('') }}"
+               placeholder="z.B. Firma GmbH oder Standort München">
+      </div>
+      <div class="form-group">
+        <label>Printix Tenant-ID <span style="color:#ef4444">*</span></label>
+        <input type="text" name="printix_tenant_id"
+               value="{{ tenant_full.printix_tenant_id | default('') }}"
+               placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" required>
+        <small class="hint">{{ _('printix_creds_tenant_id_hint') }}</small>
+      </div>
+
+      <div style="font-size:.87em; font-weight:600; color:#374151; margin: 16px 0 8px;">
+        {{ _('printix_creds_api_pairs_hint') }}
+      </div>
+
+      {% for pair in [
+          ('print',  _('settings_print_api')),
+          ('card',   _('settings_card_api')),
+          ('ws',     _('settings_workstation_api')),
+          ('um',     _('settings_user_management_api')),
+          ('shared', 'Shared Credentials (Fallback)'),
+      ] %}
+      <details style="margin-bottom:12px;" {% if pair[0] == 'print' %}open{% endif %}>
+        <summary style="cursor:pointer; font-size:.9em; font-weight:600; color:#002854; padding:8px 0;">
+          {{ pair[1] }}
+        </summary>
+        <div style="padding: 12px 0 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label>{{ _('common_client_id') }}</label>
+            <input type="text" name="{{ pair[0] }}_client_id"
+                   value="{{ tenant_full.get(pair[0] ~ '_client_id') | default('') }}"
+                   placeholder="xxxxxxxx-xxxx-...">
+          </div>
+          <div class="form-group">
+            <label>{{ _('common_client_secret') }}</label>
+            <input type="password" name="{{ pair[0] }}_client_secret"
+                   placeholder="{% if tenant_full.get(pair[0] ~ '_client_secret') %}{{ _('printix_creds_secret_set') }}{% else %}{{ _('printix_creds_secret_empty') }}{% endif %}">
+            <small class="hint">{{ _('printix_creds_secret_help') }}</small>
+          </div>
+        </div>
+      </details>
+      {% endfor %}
+
+      <button type="submit" class="btn btn-primary">{{ _('btn_save') }}</button>
+    </form>
+  </div>
+
+  {# ── Allgemeine Settings (Server-URL, Mail, Entra) ─────────────────── #}
   <div class="card" style="max-width:680px;margin:0 auto 40px auto;">
     <h2 class="section-title">{{ _('admin_settings') }}</h2>
     <p class="section-sub" style="margin-bottom:24px;">
@@ -241,6 +309,7 @@
       <div class="divider"></div>
 
       <!-- ── Entra ID (Azure AD) SSO ─────────────────────────────────────── -->
+      <div id="entra"></div>
       <div style="margin-bottom:24px;">
         <div class="section-title" style="margin-bottom:4px;">
           <img src="https://learn.microsoft.com/favicon.ico" alt="" style="width:18px;height:18px;vertical-align:text-bottom;margin-right:4px;">

@@ -3970,6 +3970,20 @@ def create_app(session_secret: str) -> FastAPI:
             public_url = ""
         if not public_url:
             public_url = os.environ.get("MCP_PUBLIC_URL", "")
+        # v0.4.5: Tenant-Record laden fuer Printix-Credentials-Editor.
+        # Wir zeigen die Tenant-ID + Client-IDs im Klartext (sind keine
+        # Secrets — die Tenant-ID hat eh jeder im Printix-Admin der die
+        # Domain kennt). Die Secret-Felder bleiben leer; ein leer-gelassenes
+        # Feld bedeutet im POST-Handler "unveraendert lassen".
+        try:
+            from db import get_tenant_full_by_user_id, _find_tenant_owner_user_id
+            tenant_full = get_tenant_full_by_user_id(user["id"])
+            if not tenant_full:
+                oid = _find_tenant_owner_user_id()
+                if oid:
+                    tenant_full = get_tenant_full_by_user_id(oid)
+        except Exception:
+            tenant_full = None
         # v4.5.0: Capture-spezifische URL (optional — nur wenn eigene Domain)
         try:
             from db import get_setting as _gs
@@ -4023,6 +4037,7 @@ def create_app(session_secret: str) -> FastAPI:
             "request": request, "user": user,
             "public_url": public_url,
             "base_url": _get_base_url(request),
+            "tenant_full": tenant_full or {},
             "capture_public_url": capture_public_url,
             "ipps_public_url": ipps_public_url,
             "ipps_public_host": ipps_public_host,
@@ -4196,6 +4211,77 @@ def create_app(session_secret: str) -> FastAPI:
 
         return templates.TemplateResponse("admin_settings.html",
             _admin_settings_ctx(request, user, saved=True))
+
+    # v0.4.5: Printix-Zugangsdaten editieren. Vorher nur ueber den
+    # Register-Wizard setzbar — Rotation/Update der API-Secrets im
+    # laufenden Betrieb war nicht moeglich. Aktualisiert den Tenant-
+    # Record des aktuellen Owner-Admins. Leere Felder lassen den
+    # bestehenden Wert unveraendert (entspricht der Semantik bei den
+    # anderen Secret-Feldern, z.B. entra_client_secret).
+    @app.post("/admin/settings/printix", response_class=HTMLResponse)
+    async def admin_settings_printix_save(
+        request: Request,
+        printix_tenant_id:    str = Form(default=""),
+        tenant_name:          str = Form(default=""),
+        print_client_id:      str = Form(default=""),
+        print_client_secret:  str = Form(default=""),
+        card_client_id:       str = Form(default=""),
+        card_client_secret:   str = Form(default=""),
+        ws_client_id:         str = Form(default=""),
+        ws_client_secret:     str = Form(default=""),
+        um_client_id:         str = Form(default=""),
+        um_client_secret:     str = Form(default=""),
+        shared_client_id:     str = Form(default=""),
+        shared_client_secret: str = Form(default=""),
+    ):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        try:
+            from db import (
+                update_tenant_credentials, get_tenant_full_by_user_id,
+                _find_tenant_owner_user_id, audit,
+            )
+            owner_id = user["id"]
+            tenant = get_tenant_full_by_user_id(owner_id)
+            if not tenant:
+                # Fallback: irgendein Admin-Tenant — fuer Single-Tenant-Setups
+                oid = _find_tenant_owner_user_id()
+                if oid:
+                    owner_id = oid
+            kwargs = {
+                "name":                 tenant_name.strip() or None,
+                "printix_tenant_id":    printix_tenant_id.strip() or None,
+                "print_client_id":      print_client_id.strip() or None,
+                "card_client_id":       card_client_id.strip() or None,
+                "ws_client_id":         ws_client_id.strip() or None,
+                "um_client_id":         um_client_id.strip() or None,
+                "shared_client_id":     shared_client_id.strip() or None,
+            }
+            # Secrets nur ueberschreiben wenn neuer Wert eingegeben
+            if print_client_secret.strip():
+                kwargs["print_client_secret"] = print_client_secret.strip()
+            if card_client_secret.strip():
+                kwargs["card_client_secret"] = card_client_secret.strip()
+            if ws_client_secret.strip():
+                kwargs["ws_client_secret"] = ws_client_secret.strip()
+            if um_client_secret.strip():
+                kwargs["um_client_secret"] = um_client_secret.strip()
+            if shared_client_secret.strip():
+                kwargs["shared_client_secret"] = shared_client_secret.strip()
+            update_tenant_credentials(owner_id, **kwargs)
+            audit(user["id"], "printix_credentials_updated",
+                  f"tenant={tenant.get('id') if tenant else owner_id}")
+        except Exception as e:
+            logger.error("Printix-Credentials-Save fehlgeschlagen: %s",
+                         e, exc_info=True)
+            return RedirectResponse(
+                f"/admin/settings?err={quote_plus(str(e))}#printix",
+                status_code=302,
+            )
+        return RedirectResponse(
+            "/admin/settings?ok=printix_saved#printix", status_code=302,
+        )
 
     # v7.2.48: Display-Timezone speichern
     @app.post("/admin/settings/timezone")

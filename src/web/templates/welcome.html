@@ -175,13 +175,13 @@
         <span class="status-dot {{ 'ok' if printix_ok else 'miss' }}"></span>
         <span class="status-label">{{ _('welcome_status_printix') }}</span>
         <span class="status-state">{{ _('welcome_status_ok') if printix_ok else _('welcome_status_missing') }}</span>
-        <a class="status-link" href="/admin/settings">{{ _('welcome_configure') }} →</a>
+        <a class="status-link" href="/admin/settings#printix">{{ _('welcome_configure') }} →</a>
       </li>
       <li class="status-row">
         <span class="status-dot {{ 'ok' if entra_ok else 'miss' }}"></span>
         <span class="status-label">{{ _('welcome_status_entra') }}</span>
         <span class="status-state">{{ _('welcome_status_ok') if entra_ok else _('welcome_status_missing') }}</span>
-        <a class="status-link" href="/admin/settings">{{ _('welcome_configure') }} →</a>
+        <a class="status-link" href="/admin/settings#entra">{{ _('welcome_configure') }} →</a>
       </li>
       <li class="status-row">
         <span class="status-dot {{ 'ok' if legal_ok else 'warn' }}"></span>

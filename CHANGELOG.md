@@ -1,5 +1,30 @@
 # Changelog — MySecurePrint Server
 
+## 0.4.5 — 2026-06-29 — Printix-Zugangsdaten editierbar + Anchor-Sprung
+
+User stellte fest dass die Welcome-Status-Links für „Printix-
+Zugangsdaten" und „Microsoft Entra ID" beide auf dieselbe Seite
+(`/admin/settings`) führten — ohne dort eine Printix-Sektion vorzufinden.
+Tenant-Credentials waren seit v0.1.0 NUR über den Register-Wizard
+setzbar, nicht editierbar im laufenden Betrieb.
+
+Eingebaut:
+- Neue **Printix-Sektion** in `admin_settings.html` (anchor `#printix`)
+  mit allen 5 API-Client-Pairs (Print/Card/Workstation/UserMgmt/Shared)
+  + Tenant-ID + Tenant-Name. Felder zeigen aktuelle Client-IDs
+  vorausgefüllt; Secrets bleiben leer (= unverändert). Verschlüsselte
+  Speicherung via Fernet.
+- Neuer POST-Endpoint `/admin/settings/printix` ruft
+  `db.update_tenant_credentials()` — bestehende Tenant-Update-Logik aus
+  der DB-Schicht wiederverwendet.
+- Anchor `#entra` in der Entra-Sektion ergänzt — Sprung von Welcome.
+- Welcome-Status-Links zeigen jetzt:
+  - Printix → `/admin/settings#printix`
+  - Entra → `/admin/settings#entra`
+  - Legal → `/admin/settings#legal` (war schon richtig)
+- Audit-Event `printix_credentials_updated`.
+- Neue i18n-Keys (printix_creds_*) in DE+EN, Fallback Rest.
+
 ## 0.4.4 — 2026-06-29 — Breadcrumb "← Zurück zum Dashboard"
 
 User landete auf `/admin/settings` / `/admin/mcp-access` etc. ohne
