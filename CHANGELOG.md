@@ -1,5 +1,45 @@
 # Changelog — MySecurePrint Server
 
+## 0.5.3 — 2026-06-29 — Mobile-Invite Bulk + Email-Template + Auto-User-Sync von Printix
+
+User wollte: Email beim Printix-Import vorausfüllen, Bulk-Einladungen,
+konfigurierbare Email-Vorlage, Auto-Sync alle X Min mit optionaler
+Auto-Mobile-Invite.
+
+### Mobile-Invite
+- **Email-Prefill aus Printix**: Beim User-Import aus Printix wird die
+  Email-Adresse jetzt automatisch in den lokalen User-Record übernommen
+  (bisher leer falls Form-Field nicht ausgefüllt).
+- **Bulk-Mobile-Invite**: Checkbox-Spalte in `/admin/users` + Bulk-
+  Aktions-Button → `POST /admin/users/bulk-mobile-invite` erzeugt + sendet
+  pro selektiertem User einen Invite in einem Schritt.
+- **Email-Template-Editor**: neue Seite `/admin/email-templates` mit
+  Subject + Body-Editor, Live-Vorschau, Placeholder-Liste (`{full_name}`,
+  `{server_url}`, `{invite_url}`, `{expires_at}`, `{admin_name}`). Wird
+  via `str.format_map(defaultdict(str, …))` substituiert — fehlende
+  Placeholder werfen keinen Exception.
+
+### Auto-User-Sync von Printix
+- **Neue Settings**:
+  - `printix_user_sync_enabled` (default 0)
+  - `printix_user_sync_interval_minutes` (default 60, range 5..1440)
+  - `printix_user_sync_auto_invite` (default 0)
+  - `printix_user_sync_last_run_at` / `_last_result` (Status)
+- **Admin-Seite `/admin/printix-sync`**: Toggle, Intervall-Picker, Auto-
+  Invite-Toggle, „Jetzt synchronisieren"-Button, Last-Run-Status.
+- **Background-Scheduler**: Startup-Event-Loop, fragt alle 5 Min ob
+  enabled. Wenn ja + Intervall fällig → `_run_printix_user_sync_once`
+  via `asyncio.to_thread`. Diff gegen lokale `users`-Tabelle, neue
+  User werden mit role=employee + status=approved angelegt; Auto-Invite
+  triggert pro neuem User einen 7-Tage Mobile-Invite mit Email-Versand.
+- **Audit-Events**: `printix_sync_run`, `printix_sync_user_imported`,
+  `printix_sync_settings_saved`, `mobile_invite_email_template_saved`.
+
+### Sidebar
+Unter „👥 Benutzer" zwei neue Einträge:
+- „Printix-Sync" → `/admin/printix-sync`
+- „E-Mail-Vorlagen" → `/admin/email-templates`
+
 ## 0.5.2 — 2026-06-29 — Section-Filter Entra-Split + MCP-DCR /oauth/register + Audit-iOS-Jobs + iOS Multi-Target
 
 User-Feedback:

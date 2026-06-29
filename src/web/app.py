@@ -299,6 +299,8 @@ def create_app(session_secret: str) -> FastAPI:
             "/admin/mcp-access": "admin_mcp_access",
             "/admin/gdpr": "admin_gdpr",
             "/admin/groups": "admin_groups",
+            "/admin/printix-sync": "admin_printix_sync",
+            "/admin/email-templates": "admin_email_templates",
             "/my/cloud-print": "my_cloud_print",
             "/my/mobile-app": "my_mobile_app",
         }
@@ -3231,6 +3233,511 @@ def create_app(session_secret: str) -> FastAPI:
             logger.warning("mobile-invite qr.png failed: %s", e)
             return Response(status_code=500)
 
+    # ── v0.5.2: Bulk Mobile-Invite ───────────────────────────────────────────
+
+    @app.post("/admin/users/bulk-mobile-invite")
+    async def admin_users_bulk_mobile_invite(request: Request):
+        admin = get_session_user(request)
+        if not admin or not admin.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        try:
+            form = await request.form()
+            ids = form.getlist("user_ids")
+        except Exception:
+            try:
+                body = await request.json()
+                ids = body.get("user_ids") or []
+            except Exception:
+                ids = []
+        ids = [str(x).strip() for x in (ids or []) if str(x).strip()]
+        from db import (
+            get_user_by_id, create_mobile_invite, audit,
+            mark_mobile_invite_email_sent,
+        )
+        base_url = mcp_base_url_or(request)
+        ok = 0
+        failed = 0
+        errors: list[str] = []
+        for uid in ids:
+            try:
+                target = get_user_by_id(uid)
+                if not target:
+                    failed += 1
+                    errors.append(f"{uid}: not_found")
+                    continue
+                recipient = (target.get("email") or "").strip()
+                inv = create_mobile_invite(
+                    user_id=uid,
+                    server_url=base_url,
+                    ttl_seconds=7 * 24 * 3600,
+                    created_by_id=admin["id"],
+                    channel="email",
+                    email_recipient=recipient,
+                )
+                invite_url = f"{base_url}/m/setup?i={inv['token']}"
+                try:
+                    audit(
+                        admin["id"],
+                        "mobile_invite_created",
+                        f"Bulk-Invite fuer user_id={uid}",
+                        object_type="mobile_invite",
+                        object_id=inv["id"],
+                    )
+                except Exception:
+                    pass
+                if recipient:
+                    email_ok = _send_mobile_invite_email(
+                        admin=admin,
+                        recipient=recipient,
+                        full_name=target.get("full_name", "")
+                            or target.get("username", ""),
+                        invite_url=invite_url,
+                        expires_at=inv["expires_at"],
+                        lang=(target.get("invitation_language") or "en"),
+                    )
+                    if email_ok:
+                        try:
+                            mark_mobile_invite_email_sent(inv["id"])
+                            audit(
+                                admin["id"],
+                                "mobile_invite_sent_email",
+                                f"recipient={recipient} (bulk)",
+                                object_type="mobile_invite",
+                                object_id=inv["id"],
+                            )
+                        except Exception:
+                            pass
+                        ok += 1
+                    else:
+                        failed += 1
+                        errors.append(f"{uid}: smtp_failed")
+                else:
+                    ok += 1
+            except Exception as e:
+                failed += 1
+                errors.append(f"{uid}: {str(e)[:120]}")
+        accept = (request.headers.get("accept") or "").lower()
+        if "application/json" in accept:
+            return JSONResponse({"ok": ok, "failed": failed, "errors": errors})
+        return RedirectResponse(
+            f"/admin/users?bulk_ok={ok}&bulk_failed={failed}",
+            status_code=302,
+        )
+
+    # ── v0.5.2: Email-Template Editor ────────────────────────────────────────
+
+    _EMAIL_TPL_DEFAULT_SUBJECT = (
+        "MySecurePrint — set up the app on your iPhone"
+    )
+    _EMAIL_TPL_DEFAULT_BODY = (
+        "Hi {full_name},\n\n"
+        "Your mobile setup link is ready: {invite_url}\n\n"
+        "This invite expires on {expires_at}.\n\n"
+        "— {admin_name}"
+    )
+
+    @app.get("/admin/email-templates", response_class=HTMLResponse)
+    async def admin_email_templates_get(request: Request):
+        admin = get_session_user(request)
+        if not admin or not admin.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        from db import get_setting
+        subject_val = get_setting("mobile_invite_email_subject", "")
+        body_val = get_setting("mobile_invite_email_body", "")
+        return templates.TemplateResponse(
+            "admin_email_templates.html",
+            {
+                "request": request,
+                "user": admin,
+                "saved": False,
+                "subject_val": subject_val,
+                "body_val": body_val,
+                "default_subject": _EMAIL_TPL_DEFAULT_SUBJECT,
+                "default_body": _EMAIL_TPL_DEFAULT_BODY,
+                "preview_html": "",
+                "preview_subject": "",
+                **t_ctx(request),
+            },
+        )
+
+    @app.post("/admin/email-templates", response_class=HTMLResponse)
+    async def admin_email_templates_post(
+        request: Request,
+        subject: str = Form(default=""),
+        body: str = Form(default=""),
+        preview: str = Form(default=""),
+    ):
+        admin = get_session_user(request)
+        if not admin or not admin.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        from db import set_setting, audit
+        preview_only = bool(preview)
+        # Save (or preview-write so preview reflects the would-be state)
+        set_setting("mobile_invite_email_subject", subject.strip())
+        set_setting("mobile_invite_email_body", body)
+        if not preview_only:
+            try:
+                audit(
+                    admin["id"],
+                    "mobile_invite_email_template_saved",
+                    "Mobile-Invite Email-Template aktualisiert",
+                    object_type="setting",
+                    object_id="mobile_invite_email_body",
+                )
+            except Exception:
+                pass
+        preview_subject, preview_html = ("", "")
+        try:
+            preview_subject, preview_html = _build_mobile_invite_email_html(
+                recipient="user@example.com",
+                full_name="Erika Mustermann",
+                invite_url=(
+                    f"{mcp_base_url_or(request)}/m/setup?i=PREVIEW_TOKEN"
+                ),
+                expires_at="2026-12-31T23:59:59",
+                lang=(admin.get("invitation_language") or "de"),
+                server_url=mcp_base_url_or(request),
+                admin_name=admin.get("full_name", "")
+                    or admin.get("username", ""),
+            )
+        except Exception as e:
+            logger.warning("email-template preview failed: %s", e)
+        return templates.TemplateResponse(
+            "admin_email_templates.html",
+            {
+                "request": request,
+                "user": admin,
+                "saved": (not preview_only),
+                "subject_val": subject,
+                "body_val": body,
+                "default_subject": _EMAIL_TPL_DEFAULT_SUBJECT,
+                "default_body": _EMAIL_TPL_DEFAULT_BODY,
+                "preview_html": preview_html,
+                "preview_subject": preview_subject,
+                **t_ctx(request),
+            },
+        )
+
+    # ── v0.5.2: Printix Auto-User-Sync ───────────────────────────────────────
+
+    def _get_printix_sync_cfg() -> dict:
+        from db import get_setting
+        def _int(key: str, default: int) -> int:
+            try:
+                return int(get_setting(key, str(default)) or default)
+            except Exception:
+                return default
+        return {
+            "enabled": get_setting("printix_user_sync_enabled", "0") == "1",
+            "interval_minutes": max(5, min(1440, _int(
+                "printix_user_sync_interval_minutes", 60))),
+            "auto_invite":
+                get_setting("printix_user_sync_auto_invite", "0") == "1",
+            "last_run_at": get_setting(
+                "printix_user_sync_last_run_at", ""),
+        }
+
+    def _get_printix_sync_last_result() -> dict:
+        from db import get_setting
+        raw = get_setting("printix_user_sync_last_result", "")
+        if not raw:
+            return {}
+        try:
+            return json.loads(raw)
+        except Exception:
+            return {}
+
+    def _persist_sync_result(admin_user_id: str, result: dict) -> None:
+        from db import set_setting, audit
+        from datetime import datetime, timezone
+        try:
+            set_setting(
+                "printix_user_sync_last_run_at",
+                datetime.now(timezone.utc).isoformat(),
+            )
+            set_setting(
+                "printix_user_sync_last_result",
+                json.dumps(result)[:8000],
+            )
+        except Exception:
+            pass
+        try:
+            audit(
+                admin_user_id or "system",
+                "printix_sync_run",
+                f"new={result.get('new_users_count', 0)} "
+                f"errors={len(result.get('errors', []))}",
+                object_type="setting",
+                object_id="printix_user_sync",
+            )
+        except Exception:
+            pass
+
+    def _run_printix_user_sync_once(admin_user_id: str = "") -> dict:
+        """Eine Sync-Iteration: cached_printix_users auffrischen + neue
+        Printix-User als lokale `users` anlegen. Optional pro neuem User
+        einen Mobile-Invite erzeugen.
+
+        Synchron — Caller wickelt asyncio.to_thread ab.
+        """
+        from db import (
+            get_tenant_full_by_user_id,
+            create_user_admin, update_user, get_all_users, audit,
+            create_mobile_invite,
+        )
+        result: dict = {"ok": False, "new_users_count": 0, "errors": []}
+        try:
+            tenant = None
+            if admin_user_id:
+                tenant = get_tenant_full_by_user_id(admin_user_id) or None
+            if not tenant:
+                try:
+                    from db import _find_tenant_owner_user_id
+                    owner_id = _find_tenant_owner_user_id() or ""
+                except Exception:
+                    owner_id = ""
+                if owner_id:
+                    tenant = get_tenant_full_by_user_id(owner_id) or None
+            if not tenant or not tenant.get("printix_tenant_id"):
+                result["errors"].append("printix_tenant_not_configured")
+                _persist_sync_result(admin_user_id, result)
+                return result
+
+            # 1) Refresh cached_printix_users via Printix-API
+            try:
+                from printix_client import PrintixClient
+                from cloudprint.printix_cache_db import sync_users_for_tenant
+                client = PrintixClient(
+                    tenant_id=tenant["printix_tenant_id"],
+                    print_client_id=tenant.get("print_client_id", ""),
+                    print_client_secret=tenant.get("print_client_secret", ""),
+                    ws_client_id=tenant.get("ws_client_id", ""),
+                    ws_client_secret=tenant.get("ws_client_secret", ""),
+                    um_client_id=tenant.get("um_client_id", ""),
+                    um_client_secret=tenant.get("um_client_secret", ""),
+                    shared_client_id=tenant.get("shared_client_id", ""),
+                    shared_client_secret=tenant.get(
+                        "shared_client_secret", ""),
+                )
+                sync_stats = sync_users_for_tenant(
+                    tenant_id=tenant["id"],
+                    printix_tenant_id=tenant["printix_tenant_id"],
+                    client=client,
+                )
+                if isinstance(sync_stats, dict) and sync_stats.get("error"):
+                    result["errors"].append(
+                        f"printix_sync: {sync_stats.get('error')}"
+                    )
+            except Exception as e:
+                result["errors"].append(f"printix_sync: {str(e)[:160]}")
+
+            # 2) Read cached_printix_users
+            from db import _conn as _db_conn
+            with _db_conn() as conn:
+                rows = conn.execute(
+                    "SELECT printix_user_id, username, email, full_name, role "
+                    "FROM cached_printix_users WHERE tenant_id = ?",
+                    (tenant["id"],),
+                ).fetchall()
+            cached = [dict(r) for r in rows]
+
+            local_users = get_all_users()
+            local_by_pxid = {
+                (u.get("printix_user_id") or ""): u for u in local_users
+                if u.get("printix_user_id")
+            }
+            local_by_email = {
+                (u.get("email") or "").strip().lower(): u
+                for u in local_users if u.get("email")
+            }
+            local_by_username = {
+                (u.get("username") or "").strip().lower(): u
+                for u in local_users if u.get("username")
+            }
+
+            cfg = _get_printix_sync_cfg()
+            base_url = (tenant.get("tenant_url") or "").strip()
+
+            new_count = 0
+            for px in cached:
+                pxid = (px.get("printix_user_id") or "").strip()
+                if not pxid or pxid.startswith("mgr:") or ":" in pxid:
+                    continue
+                email = (px.get("email") or "").strip()
+                username = (px.get("username") or email or pxid).strip()
+                if pxid in local_by_pxid:
+                    existing = local_by_pxid[pxid]
+                    # Feature 1A: Email aus Printix nachpflegen
+                    if email and not (existing.get("email") or "").strip():
+                        try:
+                            update_user(user_id=existing["id"], email=email)
+                        except Exception as e:
+                            result["errors"].append(
+                                f"update_email {pxid}: {str(e)[:80]}"
+                            )
+                    continue
+                if email and email.lower() in local_by_email:
+                    existing = local_by_email[email.lower()]
+                    try:
+                        update_user(
+                            user_id=existing["id"], printix_user_id=pxid)
+                    except Exception:
+                        pass
+                    continue
+                if username and username.lower() in local_by_username:
+                    existing = local_by_username[username.lower()]
+                    try:
+                        kwargs = {"printix_user_id": pxid}
+                        if email:
+                            kwargs["email"] = email
+                        update_user(user_id=existing["id"], **kwargs)
+                    except Exception:
+                        pass
+                    continue
+                # Neu anlegen
+                try:
+                    import secrets as _sec
+                    temp_pw = _sec.token_urlsafe(24)
+                    created = create_user_admin(
+                        username=(username[:64] or pxid[:32]),
+                        password=temp_pw,
+                        email=email,
+                        role_type="employee",
+                        status="approved",
+                        full_name=(px.get("full_name") or "").strip(),
+                    )
+                    if created and pxid:
+                        try:
+                            update_user(
+                                user_id=created["id"],
+                                printix_user_id=pxid,
+                            )
+                        except Exception:
+                            pass
+                    new_count += 1
+                    try:
+                        audit(
+                            admin_user_id or "system",
+                            "printix_sync_user_imported",
+                            f"Printix-User {username} ({email}) "
+                            f"importiert (pxid={pxid})",
+                            object_type="user",
+                            object_id=(created or {}).get("id", ""),
+                        )
+                    except Exception:
+                        pass
+                    if cfg.get("auto_invite") and created and email:
+                        try:
+                            srv = base_url or ""
+                            inv = create_mobile_invite(
+                                user_id=created["id"],
+                                server_url=srv,
+                                ttl_seconds=7 * 24 * 3600,
+                                created_by_id=admin_user_id or "system",
+                                channel="email",
+                                email_recipient=email,
+                            )
+                            if admin_user_id:
+                                try:
+                                    from db import get_user_by_id as _gub
+                                    _admin = _gub(admin_user_id) or {}
+                                    invite_url = (
+                                        f"{srv}/m/setup?i={inv['token']}"
+                                    )
+                                    _send_mobile_invite_email(
+                                        admin=_admin,
+                                        recipient=email,
+                                        full_name=created.get(
+                                            "full_name", "")
+                                            or created.get("username", ""),
+                                        invite_url=invite_url,
+                                        expires_at=inv["expires_at"],
+                                        lang="de",
+                                    )
+                                except Exception:
+                                    pass
+                        except Exception as e:
+                            result["errors"].append(
+                                f"auto_invite {username}: {str(e)[:80]}"
+                            )
+                except Exception as e:
+                    result["errors"].append(
+                        f"create_user {username}: {str(e)[:120]}"
+                    )
+
+            result["new_users_count"] = new_count
+            result["ok"] = True
+        except Exception as e:
+            result["errors"].append(f"fatal: {str(e)[:200]}")
+        _persist_sync_result(admin_user_id, result)
+        return result
+
+    @app.get("/admin/printix-sync", response_class=HTMLResponse)
+    async def admin_printix_sync_get(request: Request):
+        admin = get_session_user(request)
+        if not admin or not admin.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        cfg = _get_printix_sync_cfg()
+        run_result = _get_printix_sync_last_result()
+        saved = request.query_params.get("saved") == "1"
+        return templates.TemplateResponse(
+            "admin_printix_sync.html",
+            {
+                "request": request,
+                "user": admin,
+                "cfg": cfg,
+                "run_result": run_result,
+                "saved": saved,
+                **t_ctx(request),
+            },
+        )
+
+    @app.post("/admin/printix-sync")
+    async def admin_printix_sync_post(
+        request: Request,
+        enabled: str = Form(default=""),
+        interval_minutes: str = Form(default="60"),
+        auto_invite: str = Form(default=""),
+    ):
+        admin = get_session_user(request)
+        if not admin or not admin.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        from db import set_setting, audit
+        try:
+            iv = int(interval_minutes)
+        except Exception:
+            iv = 60
+        iv = max(5, min(1440, iv))
+        set_setting("printix_user_sync_enabled", "1" if enabled else "0")
+        set_setting("printix_user_sync_interval_minutes", str(iv))
+        set_setting("printix_user_sync_auto_invite",
+                    "1" if auto_invite else "0")
+        try:
+            audit(
+                admin["id"],
+                "printix_sync_settings_saved",
+                f"enabled={'1' if enabled else '0'} "
+                f"interval={iv}min "
+                f"auto_invite={'1' if auto_invite else '0'}",
+                object_type="setting",
+                object_id="printix_user_sync",
+            )
+        except Exception:
+            pass
+        return RedirectResponse("/admin/printix-sync?saved=1", status_code=302)
+
+    @app.post("/admin/printix-sync/run-now")
+    async def admin_printix_sync_run_now(request: Request):
+        admin = get_session_user(request)
+        if not admin or not admin.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        import asyncio as _asyncio
+        try:
+            await _asyncio.to_thread(_run_printix_user_sync_once, admin["id"])
+        except Exception as e:
+            logger.warning("printix-sync run-now failed: %s", e)
+        return RedirectResponse("/admin/printix-sync?saved=1", status_code=302)
+
     # ── v0.2.0: Public Redemption Endpoints ──────────────────────────────────
 
     @app.get("/m/setup", response_class=HTMLResponse)
@@ -5350,6 +5857,51 @@ def create_app(session_secret: str) -> FastAPI:
             logger.info("Entra continuous-eval scheduler bereit (opt-in)")
         except Exception as e:
             logger.warning("Entra continuous-eval startup failed: %s", e)
+
+
+    # v0.5.2: Printix Auto-User-Sync scheduler — opt-in.
+    # Sleeps `printix_user_sync_interval_minutes` between iterations,
+    # re-reads settings each tick. Sync helper runs via asyncio.to_thread
+    # so the synchronous Printix-API calls + DB writes stay off the loop.
+    @app.on_event("startup")
+    async def _start_printix_user_sync_scheduler():
+        import asyncio as _asyncio
+
+        async def _loop():
+            # Kurzer Boot-Delay damit init_db sicher durch ist
+            await _asyncio.sleep(60)
+            while True:
+                try:
+                    from db import get_setting
+                    if get_setting(
+                            "printix_user_sync_enabled", "0") != "1":
+                        # Disabled: in 5min erneut prüfen
+                        await _asyncio.sleep(300)
+                        continue
+                    try:
+                        iv = int(get_setting(
+                            "printix_user_sync_interval_minutes", "60") or 60)
+                    except Exception:
+                        iv = 60
+                    iv = max(5, min(1440, iv))
+                    try:
+                        await _asyncio.to_thread(
+                            _run_printix_user_sync_once, "")
+                    except Exception as e:
+                        logger.warning(
+                            "printix-sync iteration failed: %s", e)
+                    await _asyncio.sleep(iv * 60)
+                except Exception as exc:
+                    logger.debug(
+                        "printix-sync scheduler tick failed: %s", exc)
+                    await _asyncio.sleep(300)
+
+        try:
+            _asyncio.create_task(_loop())
+            logger.info("Printix user-sync scheduler bereit (opt-in)")
+        except Exception as e:
+            logger.warning(
+                "Printix user-sync scheduler startup failed: %s", e)
 
 
     # v0.3.0: Blob auto-backup — daily scheduler. Opt-in via

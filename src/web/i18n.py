@@ -33178,3 +33178,109 @@ for _lang, _keys in _V052_AUDIT_KEYS.items():
 for _lang in list(TRANSLATIONS.keys()):
     if _lang not in _V052_AUDIT_KEYS:
         TRANSLATIONS[_lang].update(_V052_AUDIT_KEYS["en"])
+
+
+# v0.5.2 — Bulk Mobile-Invite, configurable Email-Template, Printix Auto-Sync
+_V052_INVITE_SYNC_KEYS: dict[str, dict[str, str]] = {
+    "de": {
+        "bulk_mobile_invite_btn": "Mobile-Invite an alle ausgewählten",
+        "bulk_mobile_invite_confirm":
+            "Wirklich für alle ausgewählten Benutzer eine "
+            "Mobile-Invite erstellen und per E-Mail versenden?",
+        "bulk_mobile_invite_none_selected":
+            "Bitte mindestens einen Benutzer auswählen.",
+        "bulk_mobile_invite_summary": "Bulk-Invite",
+        "bulk_selected_suffix": "Benutzer ausgewählt",
+        "email_templates_title": "E-Mail-Vorlagen",
+        "email_templates_action": "Vorlagen",
+        "email_templates_sub":
+            "Betreff und Inhalt der Mobile-Invite-Mail anpassen.",
+        "email_templates_subject": "Betreff",
+        "email_templates_body": "Inhalt (Text oder HTML)",
+        "email_templates_body_help":
+            "Platzhalter wie {full_name} werden vor dem Versand "
+            "ersetzt. Leer lassen, um die Standardvorlage zu nutzen.",
+        "email_templates_placeholders": "Verfügbare Platzhalter",
+        "email_templates_preview": "Vorschau",
+        "email_templates_saved": "Vorlage gespeichert.",
+        "printix_sync_title": "Printix-Benutzer-Sync",
+        "printix_sync_action": "Sync",
+        "printix_sync_sub":
+            "Neue Printix-Benutzer automatisch importieren.",
+        "printix_sync_enable_label":
+            "Automatischen Sync aktivieren",
+        "printix_sync_enable_help":
+            "Wenn aktiv, fragt der Server in regelmäßigen Abständen die "
+            "Printix-API ab und importiert neue Benutzer als lokale Konten.",
+        "printix_sync_interval_label": "Intervall (Minuten)",
+        "printix_sync_interval_help": "5 bis 1440 Minuten.",
+        "printix_sync_auto_invite_label":
+            "Nach Import direkt Mobile-Invite versenden",
+        "printix_sync_auto_invite_help":
+            "Wenn aktiv, bekommt jeder neu importierte Benutzer "
+            "automatisch eine Setup-Mail.",
+        "printix_sync_run_now": "Jetzt synchronisieren",
+        "printix_sync_run_now_help":
+            " — führt einen Sync sofort aus.",
+        "printix_sync_saved": "Einstellungen gespeichert.",
+        "printix_sync_last_run_at": "Letzter Lauf",
+        "printix_sync_last_result": "Letztes Ergebnis",
+        "printix_sync_new_users": "Neue Benutzer",
+        "printix_sync_errors": "Fehler",
+        "nav_printix_sync": "Printix-Sync",
+        "nav_email_templates": "E-Mail-Vorlagen",
+        "common_save": "Speichern",
+    },
+    "en": {
+        "bulk_mobile_invite_btn": "Mobile-invite all selected",
+        "bulk_mobile_invite_confirm":
+            "Really create + email a mobile-invite for every "
+            "selected user?",
+        "bulk_mobile_invite_none_selected":
+            "Please select at least one user.",
+        "bulk_mobile_invite_summary": "Bulk-invite",
+        "bulk_selected_suffix": "user(s) selected",
+        "email_templates_title": "Email templates",
+        "email_templates_action": "Templates",
+        "email_templates_sub":
+            "Customize subject + body of the mobile-invite email.",
+        "email_templates_subject": "Subject",
+        "email_templates_body": "Body (text or HTML)",
+        "email_templates_body_help":
+            "Placeholders like {full_name} are substituted before send. "
+            "Leave blank to use the built-in default.",
+        "email_templates_placeholders": "Available placeholders",
+        "email_templates_preview": "Preview",
+        "email_templates_saved": "Template saved.",
+        "printix_sync_title": "Printix user sync",
+        "printix_sync_action": "Sync",
+        "printix_sync_sub":
+            "Auto-import new Printix users into the local database.",
+        "printix_sync_enable_label": "Enable automatic sync",
+        "printix_sync_enable_help":
+            "When on, the server polls the Printix API on a schedule and "
+            "imports any new users as local accounts.",
+        "printix_sync_interval_label": "Interval (minutes)",
+        "printix_sync_interval_help": "5 to 1440 minutes.",
+        "printix_sync_auto_invite_label":
+            "Send a mobile-invite right after import",
+        "printix_sync_auto_invite_help":
+            "When on, every newly imported user automatically receives "
+            "the iOS setup email.",
+        "printix_sync_run_now": "Sync now",
+        "printix_sync_run_now_help": " — runs one sync immediately.",
+        "printix_sync_saved": "Settings saved.",
+        "printix_sync_last_run_at": "Last run",
+        "printix_sync_last_result": "Last result",
+        "printix_sync_new_users": "New users",
+        "printix_sync_errors": "Errors",
+        "nav_printix_sync": "Printix sync",
+        "nav_email_templates": "Email templates",
+        "common_save": "Save",
+    },
+}
+for _lang, _keys in _V052_INVITE_SYNC_KEYS.items():
+    TRANSLATIONS.setdefault(_lang, {}).update(_keys)
+for _lang in list(TRANSLATIONS.keys()):
+    if _lang not in _V052_INVITE_SYNC_KEYS:
+        TRANSLATIONS[_lang].update(_V052_INVITE_SYNC_KEYS["en"])
