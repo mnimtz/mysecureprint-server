@@ -1,5 +1,38 @@
 # Changelog — MySecurePrint Server
 
+## 0.1.2 — 2026-06-29 — Entra ID security hygiene fixes
+
+Three critical fixes identified in `ENTRA_REVIEW.md`.
+
+### #1 — Verify `tid` claim against configured Entra Tenant ID
+Previously the server accepted ANY Microsoft account if
+`entra_tenant_id` was unconfigured (fell back to `common`). Now the
+server refuses to start an Entra flow when `entra_tenant_id` is empty
+(`is_enabled()` returns False, `build_authorize_url*` returns None)
+and verifies the `tid` claim on every returned token — both in the
+web Authorization-Code flow (`exchange_code_for_user`) and the iOS
+PKCE flow (`exchange_code_pkce`). Foreign-tenant sign-ins are
+rejected with an audit-log line `Entra rejected signin: tid mismatch
+(got=X expected=Y)`.
+
+### #2 — Stop linking accounts by email
+Email-based account-linking on Entra sign-in was the second half of
+the same attack vector. `get_or_create_entra_user` now matches
+strictly on `entra_oid`; the email-fallback branch is gone. If the
+oid is unknown, the function only auto-creates a new account when
+`entra_auto_approve` is enabled. A bootstrap exception kicks in when
+the DB is empty: the very first Entra sign-in becomes admin (so the
+auto-setup wizard still works). Existing local accounts must be
+linked explicitly by an admin before their owner can sign in via Entra.
+
+### #3 — Delete pending row at start of exchange, not at end
+A failed Microsoft token exchange used to leave the `state` row
+behind for 10 minutes, allowing the same value to be replayed. The
+row is now deleted as soon as it's found in `/desktop/auth/entra/
+authcode/exchange`, before any downstream Microsoft call. Plus a
+constant-time `state` compare (`secrets.compare_digest`) and an
+opportunistic sweep of expired rows on each exchange.
+
 ## 0.1.1 — 2026-06-29 — Public welcome page with QR
 
 New `/welcome` route (also default at `/` for fresh deployments) shows

@@ -78,9 +78,61 @@ def get_config() -> dict:
 
 
 def is_enabled() -> bool:
-    """Prüft ob Entra-Login aktiviert und konfiguriert ist."""
+    """Prüft ob Entra-Login aktiviert und konfiguriert ist.
+
+    v0.1.2 — `tenant_id` MUSS gesetzt sein. Ohne konfigurierte Tenant-ID
+    würde der Authorize-URL-Fallback auf `common` jeden Microsoft-Account
+    weltweit (inklusive privater MSAs) zulassen. Wir lehnen das ab.
+    """
     cfg = get_config()
-    return cfg["enabled"] and bool(cfg["client_id"]) and bool(cfg["client_secret"])
+    return (
+        cfg["enabled"]
+        and bool(cfg["client_id"])
+        and bool(cfg["client_secret"])
+        and bool((cfg.get("tenant_id") or "").strip())
+    )
+
+
+def _require_tenant() -> str | None:
+    """Liefert die konfigurierte Tenant-ID oder None.
+
+    Im Gegensatz zum frueheren `tenant_id or "common"` Fallback gibt
+    es bewusst KEIN Default mehr — Aufrufer muessen den Fehler sauber
+    behandeln (Admin auf /admin/settings hinweisen)."""
+    cfg = get_config()
+    tid = (cfg.get("tenant_id") or "").strip()
+    if not tid:
+        logger.error(
+            "Entra: kein entra_tenant_id konfiguriert — Flow abgebrochen. "
+            "Admin muss /admin/settings ausfuellen."
+        )
+        return None
+    return tid
+
+
+def _verify_tid(token_tid: str) -> bool:
+    """Prueft den `tid`-Claim aus einem MS-Token gegen die konfigurierte
+    Tenant-ID. Defensive Pre-Check: Token-Tid muss exakt gleich sein.
+
+    Returns True wenn ok, False wenn Mismatch (Aufrufer lehnt Login ab)."""
+    cfg = get_config()
+    expected = (cfg.get("tenant_id") or "").strip().lower()
+    got = (token_tid or "").strip().lower()
+    if not expected:
+        # `is_enabled()` schliesst das eigentlich schon aus — hier
+        # nochmal hart, damit niemand `exchange_code_*` direkt umgeht.
+        logger.error("Entra _verify_tid: kein entra_tenant_id konfiguriert")
+        return False
+    if not got:
+        logger.warning("Entra _verify_tid: Token ohne tid-Claim — abgelehnt")
+        return False
+    if got != expected:
+        logger.warning(
+            "Entra rejected signin: tid mismatch (got=%s expected=%s)",
+            got, expected,
+        )
+        return False
+    return True
 
 
 # ─── OAuth2 Authorization Code Flow ─────────────────────────────────────────
@@ -90,10 +142,17 @@ def generate_state() -> str:
     return secrets.token_urlsafe(32)
 
 
-def build_authorize_url(redirect_uri: str, state: str) -> str:
-    """Baut die Microsoft-Login-URL für den Authorization Code Flow."""
+def build_authorize_url(redirect_uri: str, state: str) -> str | None:
+    """Baut die Microsoft-Login-URL für den Authorization Code Flow.
+
+    v0.1.2: Gibt None zurueck wenn keine Tenant-ID konfiguriert ist —
+    der Aufrufer soll dem Admin einen sauberen Fehler anzeigen
+    ("Konfiguriere Entra Tenant ID in /admin/settings").
+    """
+    tenant = _require_tenant()
+    if not tenant:
+        return None
     cfg = get_config()
-    tenant = cfg["tenant_id"] or "common"
     params = {
         "client_id":     cfg["client_id"],
         "response_type": "code",
@@ -113,8 +172,10 @@ def exchange_code_for_user(code: str, redirect_uri: str) -> dict | None:
 
     Returns dict mit keys: oid, email, name, tid — oder None bei Fehler.
     """
+    tenant = _require_tenant()
+    if not tenant:
+        return None
     cfg = get_config()
-    tenant = cfg["tenant_id"] or "common"
 
     try:
         resp = _requests.post(
@@ -150,6 +211,13 @@ def exchange_code_for_user(code: str, redirect_uri: str) -> dict | None:
     if not payload:
         return None
 
+    # v0.1.2: tid-Claim ZWINGEND gegen konfigurierte Tenant-ID validieren.
+    # Verhindert Cross-Tenant-Sign-in, falls jemand `common` umgeht oder
+    # die Settings inkonsistent sind.
+    token_tid = payload.get("tid", "")
+    if not _verify_tid(token_tid):
+        return None
+
     email = (
         payload.get("email", "")
         or payload.get("preferred_username", "")
@@ -160,7 +228,7 @@ def exchange_code_for_user(code: str, redirect_uri: str) -> dict | None:
         "oid":   payload.get("oid", ""),
         "email": email,
         "name":  payload.get("name", ""),
-        "tid":   payload.get("tid", ""),
+        "tid":   token_tid,
     }
 
 
@@ -203,7 +271,7 @@ def build_authorize_url_pkce(redirect_uri: str,
                              code_challenge: str,
                              *,
                              prompt: str = "select_account",
-                             scope: str = _SCOPES_GRAPH_USER_READ) -> str:
+                             scope: str = _SCOPES_GRAPH_USER_READ) -> str | None:
     """Baut die Microsoft-Login-URL für den Authorization Code Flow mit
     PKCE — gedacht für die iOS-App und andere native Clients.
 
@@ -213,8 +281,10 @@ def build_authorize_url_pkce(redirect_uri: str,
     fordert `User.Read` an, damit das anschliessende Graph `/me`
     funktioniert (sonst 403 Forbidden).
     """
+    tenant = _require_tenant()
+    if not tenant:
+        return None
     cfg = get_config()
-    tenant = cfg["tenant_id"] or "common"
     params = {
         "client_id":             cfg["client_id"],
         "response_type":         "code",
@@ -242,8 +312,10 @@ def exchange_code_pkce(code: str,
 
     Returns dict mit keys: oid, email, name, tid — oder None bei Fehler.
     """
+    tenant = _require_tenant()
+    if not tenant:
+        return None
     cfg = get_config()
-    tenant = cfg["tenant_id"] or "common"
 
     # WICHTIG: KEIN client_secret beim PKCE-Flow fuer Mobile/Desktop-Apps!
     # Wenn die Redirect-URI ein Custom-Scheme ist (z.B.
@@ -283,6 +355,17 @@ def exchange_code_pkce(code: str,
         logger.error("Entra PKCE: kein access_token in der Antwort")
         return None
 
+    # v0.1.2: tid-Claim aus dem id_token gegen Konfiguration pruefen,
+    # BEVOR wir den Token fuer Graph-Aufrufe akzeptieren. Verhindert
+    # Cross-Tenant-Sign-in via mobile PKCE-Flow.
+    id_token = data.get("id_token", "")
+    token_tid = ""
+    if id_token:
+        idt_payload = _decode_jwt_payload(id_token) or {}
+        token_tid = idt_payload.get("tid", "")
+    if not _verify_tid(token_tid):
+        return None
+
     # Profil aus Microsoft Graph holen — wie im Device-Code-Flow, damit
     # das User-Mapping konsistent ist.
     try:
@@ -303,7 +386,7 @@ def exchange_code_pkce(code: str,
                   me_data.get("userPrincipalName") or ""),
         "name":  (me_data.get("displayName") or
                   me_data.get("givenName") or ""),
-        "tid":   "",
+        "tid":   token_tid,
     }
 
 

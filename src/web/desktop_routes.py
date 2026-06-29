@@ -1254,12 +1254,35 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         ci = _log_req(request, "POST /auth/entra/authcode/exchange",
                       f"session={session_id[:12] if session_id else '-'}…")
         from db import _conn
+        # v0.1.2 (CRITICAL #3 aus ENTRA_REVIEW.md):
+        # Pending-Row SOFORT loeschen, sobald wir sie gefunden haben —
+        # noch BEVOR wir Microsoft kontaktieren. Sonst bleibt der State
+        # bei einem fehlgeschlagenen Token-Exchange (Netzwerk-Fehler,
+        # MS-502, etc.) bis zu 10 Minuten replay-faehig. Mit dem
+        # Sofort-Delete ist jeder session_id strikt one-shot.
         with _conn() as conn:
             row = conn.execute(
                 "SELECT code_verifier, state, redirect_uri, device_name "
                 "FROM desktop_entra_authcode_pending WHERE session_id = ?",
                 (session_id,),
             ).fetchone()
+            if row:
+                conn.execute(
+                    "DELETE FROM desktop_entra_authcode_pending "
+                    "WHERE session_id = ?",
+                    (session_id,),
+                )
+            # Bonus: opportunistisches Aufraeumen abgelaufener Eintraege
+            try:
+                from datetime import datetime, timezone
+                _now_iso = datetime.now(timezone.utc).isoformat()
+                conn.execute(
+                    "DELETE FROM desktop_entra_authcode_pending "
+                    "WHERE expires_at < ?",
+                    (_now_iso,),
+                )
+            except Exception:
+                pass
         if not row:
             logger.warning(
                 "Desktop-Entra-AuthCode-Exchange FAIL (session unknown) — "
@@ -1271,7 +1294,9 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
 
         # CSRF-Schutz: state aus dem Callback muss zu unserem gespeicherten
         # state passen. Wenn nicht → Angriffsversuch oder kaputter Client.
-        if state != row["state"]:
+        # (constant-time compare als defence-in-depth)
+        import secrets as _secrets
+        if not _secrets.compare_digest(state or "", row["state"] or ""):
             logger.warning(
                 "Desktop-Entra-AuthCode-Exchange FAIL (state mismatch) — "
                 "session=%s… got=%s… expected=%s… peer=%s",
@@ -1329,14 +1354,10 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             return JSONResponse({"status": "no_match",
                                  "error": "user not approved"})
 
-        # Desktop-Token anlegen + Pending-Eintrag löschen
+        # Desktop-Token anlegen. Pending-Row wurde bereits ganz am
+        # Anfang dieser Funktion geloescht (v0.1.2 single-use state).
         token = create_token(user["id"],
                              device_name=device_name or "Entra-Mobile")
-        with _conn() as conn:
-            conn.execute(
-                "DELETE FROM desktop_entra_authcode_pending WHERE session_id = ?",
-                (session_id,),
-            )
         logger.info(
             "Desktop-Entra-AuthCode-Exchange OK — user='%s' uid=%s email='%s' "
             "oid=%s… token=%s device='%s'",

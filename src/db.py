@@ -1305,15 +1305,23 @@ def get_or_create_entra_user(
     """
     Findet oder erstellt einen Benutzer anhand der Entra Object-ID.
 
-    Reihenfolge:
-      1. User mit passender entra_oid → direkt zurückgeben
-      2. User mit passender E-Mail → entra_oid verknüpfen
-      3. Neuen User anlegen (Status: pending oder approved je nach Einstellung)
+    v0.1.2 — Sicherheits-Hygiene:
+      1. User mit passender entra_oid → direkt zurueckgeben
+      2. KEINE Email-Verknuepfung mehr (CRITICAL #2 aus ENTRA_REVIEW.md).
+         Ein Angreifer mit gleicher E-Mail in einem anderen Tenant
+         konnte sonst bestehende lokale Accounts uebernehmen. Linking
+         eines bestehenden Accounts an eine Entra-Identitaet muss
+         explizit durch einen Admin in /admin/users/{id}/edit erfolgen.
+      3. Bootstrap-Ausnahme: wenn die DB noch GAR KEINE User hat,
+         wird der erste Entra-Sign-in als initialer Owner angelegt
+         (Auto-Setup-Wizard-Pfad).
+      4. Auto-Create nur wenn `entra_auto_approve` aktiv ist (oder DB
+         ist leer = Bootstrap).
     """
     if not entra_oid:
         return None
 
-    # 1. Suche nach entra_oid
+    # 1. Suche nach entra_oid (immutable, tenant-eindeutig)
     with _conn() as conn:
         row = conn.execute(
             "SELECT * FROM users WHERE entra_oid = ?", (entra_oid,)
@@ -1321,21 +1329,23 @@ def get_or_create_entra_user(
         if row:
             return _user_public(dict(row))
 
-    # 2. Suche nach E-Mail und verknüpfe (case-insensitive)
-    if email:
-        with _conn() as conn:
-            row = conn.execute(
-                "SELECT * FROM users WHERE email COLLATE NOCASE = ?", (email.strip(),)
-            ).fetchone()
-            if row:
-                conn.execute(
-                    "UPDATE users SET entra_oid = ? WHERE id = ?",
-                    (entra_oid, row["id"]),
-                )
-                user = dict(row)
-                user["entra_oid"] = entra_oid
-                return _user_public(user)
-
+    # 2. KEINE Email-Fallback-Verknuepfung mehr — siehe Docstring.
+    #    Frueher: hier wurde bei Email-Match `entra_oid` einfach an den
+    #    bestehenden Account angeheftet. Das ist jetzt nur noch ein
+    #    manueller Admin-Schritt.
+    is_bootstrap = not has_users()
+    if not is_bootstrap:
+        # Im Normalbetrieb pruefen wir Auto-Approve — wenn aus, kein
+        # Auto-Create (Admin muss den Account erst anlegen oder Auto-
+        # Approve aktivieren). Verhindert silent-create durch Foreign-
+        # Tenant-Sign-ins (defence-in-depth zusaetzlich zur tid-Pruefung).
+        if get_setting("entra_auto_approve", "0") != "1":
+            logger.warning(
+                "Entra get_or_create_entra_user: kein oid-match, "
+                "Auto-Approve aus -> kein Account angelegt (oid=%s email='%s')",
+                entra_oid[:10], email,
+            )
+            return None
     # 3. Neuen User anlegen
     uid = str(uuid.uuid4())
     now = _now()
@@ -1354,11 +1364,19 @@ def get_or_create_entra_user(
     from crypto import hash_password
     pw_hash = hash_password(random_pw)
 
-    # Auto-Approve prüfen
-    auto_approve = get_setting("entra_auto_approve", "0") == "1"
-    status = "approved" if auto_approve else "pending"
-    # Entra-SSO-User wird Mitarbeiter im bestehenden (einzigen) Tenant
-    parent_uid = _find_tenant_owner_user_id()
+    # Auto-Approve prüfen (Bootstrap = immer approved + admin)
+    if is_bootstrap:
+        status = "approved"
+        is_admin_flag = 1
+        role_type_v = "admin"
+        parent_uid = ""
+    else:
+        auto_approve = get_setting("entra_auto_approve", "0") == "1"
+        status = "approved" if auto_approve else "pending"
+        is_admin_flag = 0
+        role_type_v = "employee"
+        # Entra-SSO-User wird Mitarbeiter im bestehenden (einzigen) Tenant
+        parent_uid = _find_tenant_owner_user_id()
 
     with _conn() as conn:
         conn.execute(
@@ -1367,7 +1385,7 @@ def get_or_create_entra_user(
             " is_admin, role_type, parent_user_id, status, created_at, entra_oid) "
             "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
             (uid, username, email.strip(), display_name, "",
-             pw_hash, 0, "employee", parent_uid, status, now, entra_oid),
+             pw_hash, is_admin_flag, role_type_v, parent_uid, status, now, entra_oid),
         )
 
     logger.info("Entra-User angelegt: %s (%s) → status=%s, parent=%s",
