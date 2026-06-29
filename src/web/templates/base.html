@@ -1036,15 +1036,13 @@
     {% endif %}
     {% endif %}
 
-    {# ── Employees sehen nur Pro-Features ────────────────────────────── #}
+    {# ── Employee-Portal ──────────────────────────────────────────────── #}
     {% if user.role_type == 'employee' %}
-      {% if pro_print_job_mgmt_enabled %}
-      <div class="sidebar-section">
-        <a href="/my" class="sidebar-top-link {% if active_page == 'my_portal' %}active{% endif %}">
-          <span class="sb-icon">📄</span> {{ _('nav_my_portal') }}
-        </a>
-      </div>
-      {% endif %}
+    <div class="sidebar-section">
+      <a href="/my" class="sidebar-top-link {% if active_page == 'my_portal' %}active{% endif %}">
+        <span class="sb-icon">📄</span> {{ _('nav_my_portal') }}
+      </a>
+    </div>
     {% endif %}
 
     {# ── Bottom: Connect, Profil, Hilfe, Sprache, Logout ───────────── #}

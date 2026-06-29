@@ -3,79 +3,9 @@
 {% block content %}
 <div class="container">
 
-  <!-- ── Pro-Feature-Lizenz (v7.2.39) ───────────────────────────────────── -->
-  <div id="license" class="card" style="max-width:680px; margin:40px auto 20px auto; border-left:4px solid #16a34a;">
-    <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-      <div style="font-size:1.4em;">🎫</div>
-      <div>
-        <div class="section-title" style="margin:0;">{{ _('lic_card_title') }}</div>
-        <div style="font-size:.85em; color:#666;">
-          {{ license_active_count }} / {{ license_total_count }} {{ _('lic_card_active') }}
-        </div>
-      </div>
-    </div>
-
-    {% if license_status %}
-      {% if license_status.ok %}
-      <div class="alert alert-success" style="margin-bottom:14px;">
-        ✓ <strong>{{ _('lic_activated_ok') }}</strong>
-        {% if license_status.newly_unlocked %}
-        — {{ _('lic_newly_unlocked') }}: {{ license_status.newly_unlocked | join(', ') }}
-        {% endif %}
-      </div>
-      {% else %}
-      <div class="alert alert-error" style="margin-bottom:14px;">
-        ⚠ <strong>{{ _('lic_invalid_code') }}</strong>
-        <div style="font-size:.88em; margin-top:4px;">{{ _('lic_ask_contact') }}</div>
-      </div>
-      {% endif %}
-    {% endif %}
-
-    <!-- Feature-Status-Liste -->
-    <div style="margin-bottom:18px;">
-      {% for f in license_features %}
-      <div style="display:flex; align-items:center; gap:10px; padding:8px 12px; margin-bottom:6px; background:{% if f.enabled %}#dcfce7{% else %}#f7f9fb{% endif %}; border-radius:6px;">
-        <div style="font-size:1.2em;">{{ f.icon }}</div>
-        <div style="flex:1;">
-          <div style="font-weight:600; color:#003366; font-size:.92em;">
-            {% if lang == 'en' %}{{ f.label_en }}{% elif lang == 'no' %}{{ f.label_no }}{% else %}{{ f.label }}{% endif %}
-            {% if f.enabled %}<span style="color:#16a34a; font-weight:700;">✓</span>{% else %}<span style="color:#999;">🔒</span>{% endif %}
-          </div>
-          <div style="font-size:.82em; color:#666;">
-            {% if lang == 'en' %}{{ f.desc_en }}{% elif lang == 'no' %}{{ f.desc_no }}{% else %}{{ f.desc }}{% endif %}
-          </div>
-        </div>
-        {% if f.enabled %}
-        <form method="post" action="/admin/settings/license/deactivate" style="margin:0;">
-          <input type="hidden" name="feature" value="{{ f.id }}">
-          <button type="submit" class="btn btn-secondary btn-sm" style="font-size:.78em;" onclick="return confirm('{{ _('lic_deact_confirm') }}');">
-            {{ _('lic_deact') }}
-          </button>
-        </form>
-        {% endif %}
-      </div>
-      {% endfor %}
-    </div>
-
-    {% if not license_all_active %}
-    <form method="post" action="/admin/settings/license/activate">
-      <div class="form-group">
-        <label>{{ _('lic_code_label') }}</label>
-        <input type="text" name="license_code" required autocomplete="off"
-               placeholder="z.B. ABCD-EFGH-1234"
-               style="font-family:monospace; letter-spacing:.05em; text-transform:uppercase;">
-        <small style="color:#666;">{{ _('lic_ask_contact') }}</small>
-      </div>
-      <button type="submit" class="btn btn-success" style="background:#16a34a; color:#fff;">
-        🎫 {{ _('lic_activate_btn') }}
-      </button>
-    </form>
-    {% else %}
-    <div class="alert alert-success" style="margin:0;">
-      ✓ <strong>{{ _('lic_all_active') }}</strong>
-    </div>
-    {% endif %}
-  </div>
+  <!-- v0.4.2: Pro-Feature-Lizenz-Box entfernt — license.py ist seit
+       v0.2.2 ein Stub (everything always-on); die Aktivierungs-Box
+       hatte keine Funktion mehr. -->
 
   <!-- ── Anzeige-Zeitzone (v7.2.48) ──────────────────────────────────────── -->
   <div id="timezone" class="card" style="max-width:680px; margin:0 auto 20px auto;">
@@ -263,61 +193,9 @@
         </small>
       </div>
 
-      <!-- ── Capture Webhook URL (v4.5.0) ─────────────────────────────────── -->
-      <div class="form-group">
-        <label>{{ _('admin_capture_public_url') }}</label>
-        <input type="url" name="capture_public_url" value="{{ capture_public_url | default('') }}"
-               placeholder="https://capture.firma.de">
-        <small class="hint">{{ _('admin_capture_public_url_hint') }}</small>
-      </div>
-
-      <div class="alert alert-info" style="margin-bottom:20px;font-size:.88em;">
-        <strong>{{ _('admin_capture_webhook') }}:</strong><br>
-        {% if capture_public_url %}
-        <code>{{ capture_public_url }}/capture/webhook/&lt;profile_id&gt;</code>
-        <span style="color:#059669;font-weight:600;"> {{ _('admin_capture_mode_separate') }}</span>
-        {% else %}
-        <code>{{ public_url or base_url or '(URL nicht gesetzt)' }}/capture/webhook/&lt;profile_id&gt;</code>
-        <span style="color:#6b7280;"> {{ _('admin_capture_mode_shared') }}</span>
-        {% endif %}
-      </div>
-
-      <!-- v6.6.0: LPR-Section entfernt — IPPS ist der einzige Cloud-Print-Eingang. -->
-
-      <!-- ── Cloud Print / IPPS (v6.5.0) ─────────────────────────────────── -->
-      <div style="padding:12px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;margin-bottom:20px;">
-        <div style="font-weight:700;color:#065f46;margin-bottom:10px;">
-          🔐 {{ _('admin_ipps_section') }}
-          <span style="font-size:.72em;padding:2px 8px;border-radius:999px;background:#10b981;color:#fff;font-weight:700;margin-left:6px;">{{ _('emp_ipps_recommended') }}</span>
-        </div>
-        <div style="font-size:.85em;color:#065f46;margin-bottom:12px;">{{ _('admin_ipps_desc') }}</div>
-
-        <div class="form-group">
-          <label>{{ _('admin_ipps_url') }}</label>
-          <input type="text" name="ipps_public_url" value="{{ ipps_public_url | default('') }}"
-                 placeholder="https://ipps.printix.cloud">
-          <small class="hint">{{ _('admin_ipps_url_hint') }}</small>
-        </div>
-
-        <div class="form-group">
-          <label>{{ _('admin_ipps_port') }}</label>
-          <input type="number" name="ipps_port" value="{{ ipps_port | default('') }}"
-                 placeholder="8080" min="1" max="65535" style="max-width:200px;">
-          <small class="hint">{{ _('admin_ipps_port_hint') }}</small>
-        </div>
-
-        <div class="alert alert-info" style="font-size:.85em;">
-          <strong>{{ _('admin_ipps_printix_hint') }}</strong><br>
-          {{ _('admin_ipps_printix_setup') }}:<br>
-          <code>{{ _('admin_lpr_protocol_label') }}: IPPS</code><br>
-          <code>{{ _('admin_lpr_host_label') }}: {{ ipps_public_host or 'ipps.printix.cloud' }} $$ipps</code><br>
-          <div style="margin-top:6px;color:#6b7280;font-size:.85em;">
-            {{ _('admin_ipps_cloudflare_hint') }}
-          </div>
-        </div>
-      </div>
-
-      <div class="divider"></div>
+      <!-- v0.4.2: Capture-Webhook + IPPS-Cloud-Print-Sections entfernt.
+           Beide Module wurden im v0.1.0 Slim-Down gestrichen — die
+           Eingabefelder hatten keine Backend-Verarbeitung mehr. -->
 
       <!-- ── Global Mail Fallback (v6.7.25) ─────────────────────────────────
            Tenant-User können ihre eigene Resend-API hinterlegen (/settings).

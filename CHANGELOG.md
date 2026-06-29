@@ -1,5 +1,24 @@
 # Changelog — MySecurePrint Server
 
+## 0.4.2 — 2026-06-29 — Admin-Settings: tote Module-Sektionen weg
+
+User entdeckte dass `/admin/settings` immer noch Eingabefelder für
+Capture-Webhook + IPPS Cloud-Print + die Pro-Feature-Lizenz-Box zeigte
+— alles Module die seit v0.1.0 nicht mehr existieren.
+
+Entfernt aus `admin_settings.html`:
+- **Pro-Feature-Lizenz-Box** (Lines 6–78) — `license.py` ist seit v0.2.2
+  ein Stub, die Aktivierungs-Felder hatten keine Backend-Funktion mehr.
+- **Capture-Webhook-URL**-Sektion + Beispiel-URL — Capture-Modul ist
+  weg.
+- **Cloud Print / IPPS**-Sektion mit ipps_public_url + ipps_port — IPPS-
+  Listener wurde im v0.1.0 Slim-Down rausgeworfen.
+
+Auch in `base.html`: das letzte „Pro-Features"-Kommentar war noch im
+Employee-Sidebar-Bereich. Vereinfacht auf direkt zugängliches
+„Employee-Portal" — der `pro_print_job_mgmt_enabled`-Gate war seit dem
+license.py-Stub eh immer True, also redundant.
+
 ## 0.4.1 — 2026-06-29 — Fix Welcome-QR-Code (silent TypeError)
 
 Welcome-Page + Mobile-Invite zeigten "QR unavailable" statt einen QR-
