@@ -1,5 +1,17 @@
 # Changelog — MySecurePrint Server
 
+## 0.3.3 — 2026-06-29 — Fix /admin → 500 (missing template)
+
+After successful admin registration the redirect target /admin tried to
+render `admin_dashboard.html` which was dropped in the slim-down →
+TemplateNotFound → 500 Internal Server Error.
+
+- /admin now redirects authenticated admins to /welcome (the proper
+  admin dashboard with config-status panel). The old handler had
+  MCP/SSE/Tunnel-Info logic that's been irrelevant since v0.1.0 — full
+  body removed.
+- Non-admins hitting /admin go to their role-based home target.
+
 ## 0.3.2 — 2026-06-29 — MCP-Leftover-Bereinigung
 
 User reported that the registration-success page still showed Bearer
