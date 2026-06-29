@@ -1,5 +1,22 @@
 # Changelog — MySecurePrint Server
 
+## 0.6.5 — 2026-06-29 — Mobile-Invite redeem ohne entra_oid
+
+iOS-Audit hat aufgedeckt, dass der Mobile-Invite-Flow End-to-End
+unbenutzbar war: die iOS-App kennt den Entra-OID nicht (PKCE-Flow tauscht
+serverseitig), `/api/v1/mobile-invite/redeem` verlangte ihn aber als
+Pflichtfeld und gab sonst 400 `missing_oid` zurueck. Folge: der QR-Code
+in der Admin-Mobile-Invite-Email konnte nie zu einem fertigen Login
+fuehren; iOS fiel immer auf manuelle Username/Passwort-Eingabe zurueck.
+
+Aenderung: `entra_oid` ist jetzt optional. Wenn der Client keinen oid
+mitliefert, wird der Bearer-Token rein gegen den Invite-Token getauscht.
+Bei vorhandenem oid greifen weiterhin Mismatch-Check + Erst-Linking.
+
+Security-Tradeoff: der Invite-Token ist one-shot, admin-issued, mit
+Expiry — ausreichend als Auth-Proof. Die zusaetzliche oid-Verifikation
+war defense-in-depth, blockierte aber den Flow vollstaendig.
+
 ## 0.6.4 — 2026-06-29 — Audit-Cleanups (S-3 … S-7): Crash-Logging, Boot-Härtung, Token-IDs
 
 Code-Audit-Cleanups, alle nicht-funktional — reine Härtung von

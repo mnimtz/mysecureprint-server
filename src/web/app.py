@@ -3916,11 +3916,15 @@ def create_app(session_secret: str) -> FastAPI:
                 {"error": "missing token", "code": "missing_token"},
                 status_code=400,
             )
-        if not entra_oid:
-            return JSONResponse(
-                {"error": "missing entra_oid", "code": "missing_oid"},
-                status_code=400,
-            )
+        # v0.6.5: entra_oid ist optional — der Invite-Token ist bereits
+        # one-shot + admin-issued + Expiry-gebunden und damit ausreichend
+        # als Auth-Proof fuer Mobile-Setup. Wenn der Client einen oid
+        # mitliefert (Future: PKCE-Flow extrahiert ihn aus ID-Token),
+        # wird er fuer Erst-Linking + Mismatch-Check verwendet. Sonst
+        # wird der Bearer-Token rein gegen den Invite-Token getauscht.
+        # SECURITY-Hinweis: Tradeoff bewusst — ohne diese Lockerung war
+        # der Mobile-Invite-Flow End-to-End unbenutzbar weil iOS den oid
+        # nicht durchreicht.
         from db import (
             get_mobile_invite_by_token, get_user_by_id, get_or_create_entra_user,
             redeem_mobile_invite, audit, _conn as _db_conn,
@@ -3963,8 +3967,10 @@ def create_app(session_secret: str) -> FastAPI:
             )
 
         # entra_oid muss matchen ODER User hat noch keinen oid (Erst-Linking).
+        # Wenn der Client keinen oid liefert (Mobile-Invite-Default-Flow),
+        # ueberspringen wir Linking und Mismatch-Check ganz.
         existing_oid = (target.get("entra_oid") or "").strip()
-        if existing_oid and existing_oid != entra_oid:
+        if entra_oid and existing_oid and existing_oid != entra_oid:
             return JSONResponse(
                 {
                     "error": "Entra identity mismatch",
@@ -3972,7 +3978,7 @@ def create_app(session_secret: str) -> FastAPI:
                 },
                 status_code=403,
             )
-        if not existing_oid:
+        if entra_oid and not existing_oid:
             # Erst-Linking — entra_oid + ggf. email/full_name nachtragen.
             try:
                 with _db_conn() as conn:
