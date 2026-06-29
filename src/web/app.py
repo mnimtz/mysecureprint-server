@@ -2887,6 +2887,35 @@ def create_app(session_secret: str) -> FastAPI:
         except Exception:
             subject = subject_tpl
 
+        # v0.6.1: QR-Code inline einbetten — Nutzer kann ihn vom Bildschirm
+        # mit der iPhone-Kamera scannen (alternative zum Klick auf den Link).
+        # PNG-Bytes als base64 data:URI — funktioniert in allen modernen
+        # Mail-Clients ohne Anhang-Roundtrip.
+        qr_data_uri = ""
+        try:
+            import segno as _segno
+            import io as _io
+            import base64 as _b64
+            _qr = _segno.make(invite_url, error="m")
+            _buf = _io.BytesIO()
+            _qr.save(_buf, kind="png", scale=6, border=2, dark="#002854")
+            qr_data_uri = "data:image/png;base64," + _b64.b64encode(_buf.getvalue()).decode("ascii")
+        except Exception:
+            qr_data_uri = ""
+
+        qr_html_block = ""
+        if qr_data_uri:
+            qr_label = tr.get("mobile_invite_email_qr_label",
+                              "Oder scanne diesen QR-Code mit der iPhone-Kamera:")
+            qr_html_block = (
+                "<div style=\"text-align:center;margin:24px 0;padding:18px;"
+                "background:#f8fafc;border-radius:10px;\">"
+                f"<p style=\"font-size:.88em;color:#475569;margin-bottom:10px;\">{qr_label}</p>"
+                f"<img src=\"{qr_data_uri}\" alt=\"QR-Code\" "
+                "style=\"max-width:200px;height:auto;border-radius:6px;\">"
+                "</div>"
+            )
+
         if body_tpl.strip():
             try:
                 body_text = body_tpl.format_map(ctx)
@@ -2900,6 +2929,7 @@ def create_app(session_secret: str) -> FastAPI:
                 "<div style=\"font-family:Helvetica,Arial,sans-serif;"
                 "color:#1a1a1a;line-height:1.55;max-width:560px;\">"
                 + body_text
+                + qr_html_block
                 + "</div>"
             )
         else:
@@ -2924,6 +2954,7 @@ def create_app(session_secret: str) -> FastAPI:
                 "background:#002854;color:#fff;border-radius:8px;"
                 "text-decoration:none;font-weight:600;\">"
                 f"{open_link}</a></p>"
+                + qr_html_block +
                 f"<p style=\"font-size:.92em;color:#555;\">{fallback}</p>"
                 f"<p style=\"font-size:.85em;color:#666;word-break:break-all;\">"
                 f"<a href=\"{invite_url}\">{invite_url}</a></p>"
@@ -6262,14 +6293,26 @@ def create_app(session_secret: str) -> FastAPI:
         logger.error("Employee-Routen konnten nicht registriert werden: %s", _ep)
 
     # ── Desktop-Client-API (v6.7.31) ─────────────────────────────────────────
+    # v0.6.1: User berichtet /desktop/targets → 404. Step-by-step
+    # Diagnose: jeden Sub-Schritt einzeln logging damit wir genau sehen
+    # wo's haengt. Auch wenn alles still durchlaeuft sieht man hier ob's
+    # bis zum Ende kam.
+    logger.info("Desktop-Init: starting…")
     try:
         from desktop_auth import init_desktop_schema
+        logger.info("Desktop-Init: imported desktop_auth")
         init_desktop_schema()
+        logger.info("Desktop-Init: init_desktop_schema() OK")
         from web.desktop_routes import register_desktop_routes
+        logger.info("Desktop-Init: imported register_desktop_routes")
         from app_version import APP_VERSION as _APP_V
+        logger.info("Desktop-Init: imported APP_VERSION = %s", _APP_V)
         register_desktop_routes(app, lambda: _APP_V)
+        logger.info("Desktop-Init: register_desktop_routes() COMPLETED — "
+                     "alle /desktop/* sollten registriert sein")
     except Exception as _dp:
-        logger.error("Desktop-Routen konnten nicht registriert werden: %s", _dp)
+        logger.exception("Desktop-Init: FAILED with exception:")
+        logger.error("Desktop-Routen Fehler: %s (alle /desktop/* werden 404 zurueckgeben!)", _dp)
 
     # ── Desktop Management (iOS Mgmt-Tab, v6.7.66) ──────────────────────────
     try:

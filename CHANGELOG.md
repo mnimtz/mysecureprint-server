@@ -1,5 +1,26 @@
 # Changelog — MySecurePrint Server
 
+## 0.6.1 — 2026-06-29 — CRITICAL: Diagnostik /desktop/* 404 + QR-Email + Erweiterte-Fix
+
+User-Report: iOS-App-Anmeldung geht nicht mehr (/desktop/auth/login →
+404). ALLE /desktop/*-Endpoints 404 obwohl im Code definiert.
+Container-Log zeigt keinen Registrierungs-Fehler.
+
+### Diagnostik
+- 6 neue logger.info-Marker um den register_desktop_routes-Block —
+  Init, imports, init_desktop_schema, register-call, COMPLETED.
+- Bei Exception: logger.exception(...) mit vollem Traceback statt
+  1-Zeiler. Beim nächsten Restart sehen wir wo's haengt.
+
+### QR-Code in Mobile-Invite-Email
+- PNG inline als base64 data:URI im HTML
+- Im Default-Template + konfigurierbaren Body
+- Scanbar vom Bildschirm wenn User Email auf PC liest und Phone scannen will
+
+### „Erweiterte Einstellungen" Section-Fix
+- Sidebar-Link zeigt jetzt nur Server-URL + Mail + Backups
+  (?section=general) statt aller Sektionen
+
 ## 0.6.0 — 2026-06-29 — Share-Extension zurück + Jobs-Tab + Queue-Browser + Anywhere-Detection
 
 Größerer Release: vier zusammenhängende User-Wünsche.
