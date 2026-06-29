@@ -4851,6 +4851,7 @@ def create_app(session_secret: str) -> FastAPI:
             return RedirectResponse("/login", status_code=302)
         try:
             from db import get_all_users, audit
+            from gdpr_export import gdpr_collect_user_data
             target_key = email_or_username.strip().lower()
             target = None
             for u in get_all_users():
@@ -4862,22 +4863,11 @@ def create_app(session_secret: str) -> FastAPI:
                 return RedirectResponse(
                     "/admin/gdpr?err=user_not_found", status_code=302)
             audit(user["id"], "gdpr_export_user",
-                  f"target={target.get('username')}")
-            export = {
-                "subject": {
-                    "username": target.get("username"),
-                    "email":    target.get("email", ""),
-                    "full_name": target.get("full_name", ""),
-                    "created_at": target.get("created_at"),
-                    "status":      target.get("status"),
-                    "is_admin":    target.get("is_admin", False),
-                    "role_type":   target.get("role_type", "user"),
-                    "entra_oid":   target.get("entra_oid", ""),
-                },
-                "exported_at": datetime.now(timezone.utc).isoformat(),
-                "exported_by": user.get("username"),
-                "note": "DSAR (Data Subject Access Request) export. Forward to data subject within 30 days per Art. 12 GDPR.",
-            }
+                  f"target={target.get('username')}",
+                  object_type="user", object_id=target.get("id", ""))
+            export = gdpr_collect_user_data(target["id"])
+            # Wer den Export gemacht hat dokumentieren (Art. 5 Abs. 2 — Accountability).
+            export["exported_by"] = user.get("username")
             uname = target.get("username") or "unknown"
             return Response(
                 content=json.dumps(export, indent=2, default=str),

@@ -1,5 +1,32 @@
 # Changelog — MySecurePrint Server
 
+## 0.5.1 — 2026-06-29 — Sektion-Filter + Sidebar-Cleanup + Brand-Refresh + GDPR voll + Entra-LoginView-Fix
+
+User-Feedback adressiert:
+- „bei jedem Punkt links erscheinen rechts alle Punkte" → Sidebar-Links
+  fuehrten zur grossen /admin/settings-Seite mit allen Sektionen
+- „Sicherheit-Bereich braucht's nicht fuer Azure" → SSL/TLS/Tunnel-
+  Seiten sind HomeAssistant-Relikte
+
+### Eingebaut
+- **Section-Filter** in /admin/settings: Sidebar verlinkt mit
+  `?section=queue|printix|entra|legal`; Template zeigt nur die
+  angeforderte Sektion. „Alle Einstellungen anzeigen →"-Link oben.
+- **🔐 Sicherheit-Kategorie weg** aus der Sidebar (Routen bleiben
+  erreichbar via direkter URL).
+- **Brand-Refresh** (parallel Agent): Inter-Font via Bunny Fonts
+  (DSGVO), modernes Token-System; Legacy --ta-* Variablen aliased.
+- **GDPR-Export voll** (parallel Agent): neues `src/gdpr_export.py`
+  mit komplettem User-Data-Sammler (audit_log, mobile_invites,
+  cloudprint_jobs, delegations, cards etc.). Sensitive Felder
+  redacted, Listen-Truncation, Smoke-Test bestanden.
+- **iOS Entra-LoginView-Fix** (parallel Agent): MS-Fehlermeldungen
+  aus dem Callback-URL werden jetzt im UI gezeigt statt generisches
+  „Login fehlgeschlagen".
+- **iOS App Store-Audit** (parallel Agent): App ist build-ready;
+  Privacy-Manifest, Icons, Info.plist, Team-ID alles korrekt. Nur
+  User-Side Tasks offen (App Store Connect Listing, Screenshots).
+
 ## 0.5.0 — 2026-06-29 — Queue-Hierarchie + 11 fehlende Employee-Templates + Audit-Fixes
 
 Combined release: drei zusammenhängende Themen aus User-Feedback.

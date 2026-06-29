@@ -3,11 +3,21 @@
 {% block content %}
 <div class="container">
 
-  <!-- v0.4.2: Pro-Feature-Lizenz-Box entfernt — license.py ist seit
-       v0.2.2 ein Stub (everything always-on); die Aktivierungs-Box
-       hatte keine Funktion mehr. -->
+  {# v0.5.1: Section-Filter — Sidebar verlinkt mit ?section=printix etc.
+     damit nur die relevante Sektion gezeigt wird, nicht die ganze Seite.
+     Default (leer) = alle Sektionen (Erweiterte Einstellungen Link). #}
+  {% set section = request.query_params.get('section', '') %}
+
+  {% if section %}
+  <div style="max-width:680px; margin:0 auto 12px; font-size:.9em; color:#64748b;">
+    <a href="/admin/settings" style="color:var(--ta-cyan-dark); text-decoration:none; font-weight:600;">
+      {{ _('settings_show_all') }} →
+    </a>
+  </div>
+  {% endif %}
 
   {# ── Queue-Defaults (v0.5.0) ─────────────────────────────────────── #}
+  {% if not section or section == 'queue' %}
   <div id="queue" class="card" style="max-width:680px;margin:0 auto 20px auto; border-left:4px solid #3FA9F5;">
     <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
       <div style="font-size:1.4em;">🖨️</div>
@@ -68,8 +78,10 @@
       </ol>
     </div>
   </div>
+  {% endif %}
 
   <!-- ── Anzeige-Zeitzone (v7.2.48) ──────────────────────────────────────── -->
+  {% if not section or section == 'timezone' %}
   <div id="timezone" class="card" style="max-width:680px; margin:0 auto 20px auto;">
     <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
       <div style="font-size:1.4em;">🕐</div>
@@ -126,8 +138,10 @@
       </div>
     </form>
   </div>
+  {% endif %}
 
   <!-- ── Rechtliche Angaben / Legal Information (v7.9.4) ─────────────────── -->
+  {% if not section or section == 'legal' %}
   <div id="legal" class="card" style="max-width:680px; margin:0 auto 20px auto;">
     <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
       <div style="font-size:1.4em;">🏛</div>
@@ -215,8 +229,10 @@
       </div>
     </form>
   </div>
+  {% endif %}
 
   {# ── Printix-Zugangsdaten (v0.4.5) ─────────────────────────────────── #}
+  {% if not section or section == 'printix' %}
   <div id="printix" class="card" style="max-width:680px;margin:0 auto 20px auto; border-left:4px solid #002854;">
     <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
       <div style="font-size:1.4em;">🖨️</div>
@@ -282,8 +298,10 @@
       <button type="submit" class="btn btn-primary">{{ _('btn_save') }}</button>
     </form>
   </div>
+  {% endif %}
 
   {# ── Allgemeine Settings (Server-URL, Mail, Entra) ─────────────────── #}
+  {% if not section or section == 'entra' or section == 'general' %}
   <div class="card" style="max-width:680px;margin:0 auto 40px auto;">
     <h2 class="section-title">{{ _('admin_settings') }}</h2>
     <p class="section-sub" style="margin-bottom:24px;">
@@ -820,6 +838,7 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
       </div>
     </div>
   </div>
+  {% endif %}
 </div>
 
 <!-- i18n strings for JavaScript -->

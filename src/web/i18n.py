@@ -33130,3 +33130,15 @@ for _lang, _keys in _V050_QUEUE_KEYS.items():
 for _lang in list(TRANSLATIONS.keys()):
     if _lang not in _V050_QUEUE_KEYS:
         TRANSLATIONS[_lang].update(_V050_QUEUE_KEYS["en"])
+
+
+# v0.5.1: settings_show_all link in admin_settings.html when filtered
+_V051_MISC: dict[str, dict[str, str]] = {
+    "de": {"settings_show_all": "Alle Einstellungen anzeigen"},
+    "en": {"settings_show_all": "Show all settings"},
+}
+for _lang, _keys in _V051_MISC.items():
+    TRANSLATIONS.setdefault(_lang, {}).update(_keys)
+for _lang in list(TRANSLATIONS.keys()):
+    if _lang not in _V051_MISC:
+        TRANSLATIONS[_lang].update(_V051_MISC["en"])
