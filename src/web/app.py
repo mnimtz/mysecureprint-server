@@ -2949,10 +2949,35 @@ def create_app(session_secret: str) -> FastAPI:
         zeigt dann die Copy-Link-Fallback-UI.
         """
         try:
-            from db import get_tenant_full_by_user_id
-            from reporting.mail_client import send_report
+            from db import get_tenant_full_by_user_id, get_setting, _dec
+            # v0.5.7: Slim Resend-Client statt geloeschtem reporting.mail_client.
+            # Mail-Credentials werden in dieser Reihenfolge aufgeloest:
+            #   1. tenant.mail_api_key + tenant.mail_from (per-Tenant)
+            #   2. global_mail_api_key + global_mail_from (DB-Settings)
+            #   3. ENV-Variablen RESEND_API_KEY + RESEND_FROM (deployment)
+            from mail_client import send_report, MailSendError
             tenant = get_tenant_full_by_user_id(admin["id"]) or {}
-            if not tenant.get("mail_api_key") or not tenant.get("mail_from"):
+            api_key = (tenant.get("mail_api_key") or "").strip()
+            mail_from = (tenant.get("mail_from") or "").strip()
+            mail_from_name = tenant.get("mail_from_name", "") or "MySecurePrint"
+            if not api_key:
+                _enc_global = get_setting("global_mail_api_key", "")
+                if _enc_global:
+                    try:
+                        api_key = _dec(_enc_global)
+                    except Exception:
+                        api_key = ""
+                mail_from = mail_from or (get_setting("global_mail_from", "") or "")
+                mail_from_name = (get_setting("global_mail_from_name", "")
+                                  or mail_from_name)
+            if not api_key:
+                api_key = os.environ.get("RESEND_API_KEY", "")
+                mail_from = mail_from or os.environ.get("RESEND_FROM", "")
+            if not api_key or not mail_from:
+                logger.warning(
+                    "mobile-invite email skipped — no Resend API key + from "
+                    "configured (tenant/global/env all empty)."
+                )
                 return False
             subject, html_body = _build_mobile_invite_email_html(
                 recipient=recipient,
@@ -2968,15 +2993,16 @@ def create_app(session_secret: str) -> FastAPI:
                 recipients=[recipient],
                 subject=subject,
                 html_body=html_body,
-                api_key=tenant.get("mail_api_key", ""),
-                mail_from=tenant.get("mail_from", ""),
-                mail_from_name=tenant.get(
-                    "mail_from_name", ""
-                ) or "MySecurePrint",
+                api_key=api_key,
+                mail_from=mail_from,
+                mail_from_name=mail_from_name,
             )
             return True
+        except MailSendError as me:
+            logger.warning("mobile-invite email failed: %s", me)
+            return False
         except Exception as e:
-            logger.warning("mobile-invite email failed: %s", e)
+            logger.warning("mobile-invite email unexpected error: %s", e)
             return False
 
     def _make_mobile_invite_qr_svg(payload: str) -> str:

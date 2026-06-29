@@ -1,5 +1,39 @@
 # Changelog — MySecurePrint Server
 
+## 0.5.7 — 2026-06-29 — Mail-Versand-Fix + /admin/mcp-permissions + Account-Page
+
+### Mobile-Invite Email-Versand-Bug
+User-Report: „E-Mail-Versand fehlgeschlagen — URL kann manuell kopiert
+werden". Ursache: `_send_mobile_invite_email` importierte das im
+Slim-Down geloeschte `reporting.mail_client`-Modul → ImportError →
+try/except returnte stillschweigend False → User sah Fallback-Hinweis.
+
+Fix: neues schlankes `src/mail_client.py` mit HTTP-Resend-Client
+(POST api.resend.com/emails, kein SMTP — laeuft auf Azure App Service).
+Credentials-Fallback-Kette:
+1. tenant.mail_api_key + tenant.mail_from (per Tenant)
+2. global_mail_api_key + global_mail_from (DB-Settings unter
+   /admin/settings?section=general)
+3. ENV-Variablen RESEND_API_KEY + RESEND_FROM (Deployment)
+
+### MCP-Berechtigungen (Agent v0.5.6)
+- `/admin/mcp-permissions` Seite + 5 Routen aus printix-mcp-linux
+  portiert
+- 2 Master-Toggles: `rbac_enabled` + `group_peer_reports_enabled`
+- 5 MCP-Rollen: end_user / helpdesk / admin / auditor (DPO) / service_account
+- Auditor + Service-Account nur per-User zuweisbar (nie via Gruppe) —
+  Art. 37-39 GDPR / Art. 28 GDPR Mapping
+- Orphan-Group-Cleanup-UI
+- RBAC ist FULLY WIRED: server.py `_check_tool_permission` greift bei
+  jedem MCP-Tool-Call, Denials landen im Audit-Log, live-toggleable
+  ohne Container-Restart
+- 54 neue i18n-Keys (mp_*, nav_rbac)
+- Sidebar-Link „MCP-Berechtigungen" unter 🛡️ Datenschutz
+
+### Aus v0.5.6 ueberschrieben
+- /account Seite (war v0.5.6, jetzt im selben Push)
+- ChatGPT-MCP-DCR verifiziert via curl-Test
+
 ## 0.5.6 — 2026-06-29 — User-Account-Seite + ChatGPT-MCP-DCR verifiziert
 
 User-Feedback: „wenn ich mit als user anmelde, kommt eine komplett
