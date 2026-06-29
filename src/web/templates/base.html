@@ -980,31 +980,72 @@
 
     {% if user.role_type != 'employee' %}
 
-    {# ── Administration (nur Admin) ──────────────────────────────────── #}
+    {# v0.4.6: Nav-Restrukturierung — alle Kategorien open by default,
+       klare Gruppierung: Benutzer / Konfiguration / Sicherheit /
+       Datenschutz / Cloud. Sub-Links per Kategorie statt einem riesigen
+       Admin-Block. #}
+
     {% if user.is_admin %}
-    <button class="sb-cat-toggle" onclick="toggleSbCat(this)">
-      <span>⚙️</span> {{ _('nav_cat_admin') }}
+
+    {# ── 👥 Benutzer ──────────────────────────────────────────────────── #}
+    <button class="sb-cat-toggle open" onclick="toggleSbCat(this)">
+      <span>👥</span> {{ _('nav_cat_users') }}
       <span class="sb-cat-chevron">▸</span>
     </button>
-    <div class="sb-cat-items">
-      <div class="sb-subgroup-label">{{ _('nav_user_mgmt') }}</div>
-      <a href="/admin/users"               class="sb-sublink {% if active_page == 'admin_users' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_overview') }}</a>
-      <a href="/admin/users/invite"        class="sb-sublink {% if active_page == 'admin_invite' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_invite') }}</a>
-      <a href="/admin/users/bulk-import"   class="sb-sublink {% if active_page == 'admin_bulk' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_bulk_import') }}</a>
-      <a href="/admin/users/create"        class="sb-sublink {% if active_page == 'admin_create_user' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_create_user') }}</a>
-      <div class="sb-subgroup-label">{{ _('nav_security') }}</div>
+    <div class="sb-cat-items open">
+      <a href="/admin/users"             class="sb-sublink {% if active_page == 'admin_users' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_overview') }}</a>
+      <a href="/admin/users/invite"      class="sb-sublink {% if active_page == 'admin_invite' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_invite') }}</a>
+      <a href="/admin/users/create"      class="sb-sublink {% if active_page == 'admin_create_user' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_create_user') }}</a>
+      <a href="/admin/users/bulk-import" class="sb-sublink {% if active_page == 'admin_bulk' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_bulk_import') }}</a>
+    </div>
+
+    {# ── ⚙️ Konfiguration ──────────────────────────────────────────────── #}
+    <button class="sb-cat-toggle open" onclick="toggleSbCat(this)">
+      <span>⚙️</span> {{ _('nav_cat_config') }}
+      <span class="sb-cat-chevron">▸</span>
+    </button>
+    <div class="sb-cat-items open">
+      <a href="/welcome"                   class="sb-sublink {% if active_page == 'welcome' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_setup_status') }}</a>
+      <a href="/admin/settings#printix"    class="sb-sublink"><span class="sb-dot"></span>{{ _('nav_cfg_printix') }}</a>
+      <a href="/admin/settings#entra"      class="sb-sublink"><span class="sb-dot"></span>{{ _('nav_cfg_entra') }}</a>
+      <a href="/admin/settings#legal"      class="sb-sublink"><span class="sb-dot"></span>{{ _('nav_cfg_legal') }}</a>
+      <a href="/admin/settings"            class="sb-sublink {% if active_page == 'admin_settings' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_cfg_advanced') }}</a>
+    </div>
+
+    {# ── 🔐 Sicherheit ─────────────────────────────────────────────────── #}
+    <button class="sb-cat-toggle open" onclick="toggleSbCat(this)">
+      <span>🔐</span> {{ _('nav_cat_security') }}
+      <span class="sb-cat-chevron">▸</span>
+    </button>
+    <div class="sb-cat-items open">
       <a href="/admin/ssl"          class="sb-sublink {% if active_page == 'admin_ssl' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_ssl') }}</a>
       <a href="/admin/ssl/diagnose" class="sb-sublink {% if active_page == 'admin_ssl_diagnose' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_ssl_diagnose') }}</a>
       <a href="/admin/tls"          class="sb-sublink {% if active_page == 'admin_tls' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_tls') }}</a>
       <a href="/admin/auto-tls"     class="sb-sublink {% if active_page == 'admin_auto_tls' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_auto_tls') }}</a>
       <a href="/admin/tunnel"       class="sb-sublink {% if active_page == 'admin_tunnel' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_tunnel') }}</a>
-      <div class="sb-subgroup-label">{{ _('nav_system') }}</div>
-      <a href="/welcome"           class="sb-sublink {% if active_page == 'welcome' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_setup_status') }}</a>
-      <a href="/admin/settings"    class="sb-sublink {% if active_page == 'admin_settings' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_settings') }}</a>
+    </div>
+
+    {# ── 🛡️ Datenschutz / GDPR ─────────────────────────────────────────── #}
+    <button class="sb-cat-toggle open" onclick="toggleSbCat(this)">
+      <span>🛡️</span> {{ _('nav_cat_gdpr') }}
+      <span class="sb-cat-chevron">▸</span>
+    </button>
+    <div class="sb-cat-items open">
+      <a href="/admin/gdpr"    class="sb-sublink {% if active_page == 'admin_gdpr' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_gdpr_settings') }}</a>
+      <a href="/admin/audit"   class="sb-sublink {% if active_page == 'audit' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_audit') }}</a>
+      <a href="/privacy"       class="sb-sublink" target="_blank" rel="noopener"><span class="sb-dot"></span>{{ _('nav_gdpr_privacy_preview') }}</a>
+    </div>
+
+    {# ── ☁️ Cloud & Integrationen ──────────────────────────────────────── #}
+    <button class="sb-cat-toggle open" onclick="toggleSbCat(this)">
+      <span>☁️</span> {{ _('nav_cat_cloud') }}
+      <span class="sb-cat-chevron">▸</span>
+    </button>
+    <div class="sb-cat-items open">
       <a href="/admin/blob-backup" class="sb-sublink {% if active_page == 'admin_blob_backup' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_blob_backup') }}</a>
       <a href="/admin/mcp-access"  class="sb-sublink {% if active_page == 'admin_mcp_access' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_mcp_access') }}</a>
-      <a href="/admin/audit"       class="sb-sublink {% if active_page == 'audit' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_audit') }}</a>
     </div>
+
     {% endif %}
     {% endif %}
 

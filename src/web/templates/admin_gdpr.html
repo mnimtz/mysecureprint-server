@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}{{ _('gdpr_title') }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width: 920px; margin: 32px auto;">
+
+  <h1 style="color: var(--ta-navy); font-size: 1.8em; font-weight: 800; margin-bottom: 4px;">
+    🛡️ {{ _('gdpr_title') }}
+  </h1>
+  <p style="color: #64748b; margin-bottom: 24px;">{{ _('gdpr_intro') }}</p>
+
+  {% if request.query_params.get('ok') == 'saved' %}
+    <div class="alert alert-success" style="margin-bottom: 16px;">✓ {{ _('gdpr_saved') }}</div>
+  {% endif %}
+  {% if request.query_params.get('err') %}
+    <div class="alert alert-error" style="margin-bottom: 16px;">⚠ {{ request.query_params.get('err') }}</div>
+  {% endif %}
+
+  {# ── Data-Retention-Settings ─────────────────────────────────── #}
+  <div class="card" style="margin-bottom: 24px;">
+    <h2 class="section-title">{{ _('gdpr_retention_title') }}</h2>
+    <p style="color:#64748b; margin-bottom: 14px;">{{ _('gdpr_retention_intro') }}</p>
+
+    <form method="post" action="/admin/gdpr/save">
+      <div class="form-group">
+        <label>{{ _('gdpr_audit_retention_label') }}</label>
+        <input type="number" name="audit_retention_days" min="7" max="3650"
+               value="{{ audit_retention_days }}" style="max-width:160px;">
+        <small class="hint">{{ _('gdpr_audit_retention_help') }}</small>
+      </div>
+
+      <div class="form-group">
+        <label>{{ _('gdpr_invite_retention_label') }}</label>
+        <input type="number" name="invite_retention_days" min="1" max="365"
+               value="{{ invite_retention_days }}" style="max-width:160px;">
+        <small class="hint">{{ _('gdpr_invite_retention_help') }}</small>
+      </div>
+
+      <div class="form-group">
+        <label>{{ _('gdpr_session_max_age_label') }}</label>
+        <input type="number" name="session_max_age_hours" min="1" max="8760"
+               value="{{ session_max_age_hours }}" style="max-width:160px;">
+        <small class="hint">{{ _('gdpr_session_max_age_help') }}</small>
+      </div>
+
+      <hr style="margin:18px 0; border:0; border-top:1px solid var(--ta-gray-200);">
+
+      <div class="form-group">
+        <label style="display:flex; align-items:center; gap:8px; font-weight:600;">
+          <input type="checkbox" name="auto_purge_disabled_users" value="1"
+                 {% if auto_purge_disabled_users %}checked{% endif %}>
+          {{ _('gdpr_auto_purge_label') }}
+        </label>
+        <div style="font-size:.85em; color:#64748b; margin-top:4px; margin-left:24px;">
+          {{ _('gdpr_auto_purge_help') }}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>{{ _('gdpr_auto_purge_after_label') }}</label>
+        <input type="number" name="auto_purge_after_days" min="7" max="3650"
+               value="{{ auto_purge_after_days }}" style="max-width:160px;">
+        <small class="hint">{{ _('gdpr_auto_purge_after_help') }}</small>
+      </div>
+
+      <button type="submit" class="btn btn-primary">{{ _('btn_save') }}</button>
+    </form>
+  </div>
+
+  {# ── Personal Data Export (DSAR) ─────────────────────────────── #}
+  <div class="card" style="margin-bottom: 24px;">
+    <h2 class="section-title">{{ _('gdpr_dsar_title') }}</h2>
+    <p style="color:#64748b; margin-bottom: 14px;">{{ _('gdpr_dsar_intro') }}</p>
+
+    <form method="post" action="/admin/gdpr/export-user">
+      <div class="form-group">
+        <label>{{ _('gdpr_dsar_email_label') }}</label>
+        <input type="text" name="email_or_username" required
+               placeholder="user@firma.de oder username">
+      </div>
+      <button type="submit" class="btn btn-secondary">⬇ {{ _('gdpr_dsar_export_btn') }}</button>
+    </form>
+  </div>
+
+  {# ── Right to be Forgotten ───────────────────────────────────── #}
+  <div class="card" style="margin-bottom: 24px;">
+    <h2 class="section-title">{{ _('gdpr_purge_title') }}</h2>
+    <p style="color:#64748b; margin-bottom: 14px;">{{ _('gdpr_purge_intro') }}</p>
+    <p style="color:#64748b; font-size:.92em;">
+      {{ _('gdpr_purge_pointer') }} <code>/admin/users</code> → {{ _('gdpr_purge_pointer_2') }}
+    </p>
+  </div>
+
+  {# ── Privacy Notice Preview ──────────────────────────────────── #}
+  <div class="card">
+    <h2 class="section-title">{{ _('gdpr_privacy_title') }}</h2>
+    <p style="color:#64748b; margin-bottom: 14px;">{{ _('gdpr_privacy_intro') }}</p>
+    <div style="display:flex; gap:12px;">
+      <a href="/privacy" target="_blank" rel="noopener" class="btn btn-secondary">
+        🇩🇪 {{ _('gdpr_privacy_view_de') }}
+      </a>
+      <a href="/imprint" target="_blank" rel="noopener" class="btn btn-secondary">
+        📋 {{ _('gdpr_imprint_view') }}
+      </a>
+      <a href="/admin/settings#legal" class="btn btn-primary">
+        ✏️ {{ _('gdpr_legal_edit') }}
+      </a>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

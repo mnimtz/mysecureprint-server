@@ -1,5 +1,38 @@
 # Changelog — MySecurePrint Server
 
+## 0.4.6 — 2026-06-29 — Nav-Restrukturierung + GDPR-Seite
+
+User-Feedback: keine erkennbare Menüstruktur (Admin-Kategorie war
+collapsed-by-default → User sah nur „Dashboard") plus GDPR-Settings
+nirgends auffindbar.
+
+### Neue Sidebar-Struktur (alle Kategorien open-by-default)
+```
+🏠 Dashboard
+👥 Benutzer (Übersicht / Einladen / User anlegen / Bulk-Import)
+⚙️ Konfiguration (Setup-Status / Printix / Entra / Legal / Erweitert)
+🔐 Sicherheit (SSL / TLS / Auto-TLS / Tunnel)
+🛡️ Datenschutz (Datenschutz-Settings / Audit / Privacy-Preview)
+☁️ Cloud (Backup / MCP-Zugang)
+```
+
+### Neue Admin-Seite /admin/gdpr
+- **Daten-Retention**: Audit-Log (default 365 Tage), Mobile-Invites
+  (30 Tage), Session-Max-Age (168h), opt-in Auto-Löschung disabled
+  User nach X Tagen (90).
+- **DSAR-Export** (Art. 15 DSGVO): Form mit Email/Username → JSON-
+  Download aller Subject-Daten — Datenauskunft-Anfragen direkt admin-
+  bedienbar.
+- **Right-to-be-forgotten** (Art. 17): Pointer auf /admin/users +
+  Erklärung der Anonymisierung.
+- **Privacy-Preview**: Links zu öffentlicher /privacy + /imprint +
+  Edit-Button für die Settings.
+
+### Audit-Events: gdpr_settings_saved, gdpr_export_user
+
+### i18n: 35 neue Keys (nav_cat_*, nav_cfg_*, nav_gdpr_*, gdpr_*) in
+DE+EN, EN-Fallback für die anderen 12 Sprachen.
+
 ## 0.4.5 — 2026-06-29 — Printix-Zugangsdaten editierbar + Anchor-Sprung
 
 User stellte fest dass die Welcome-Status-Links für „Printix-

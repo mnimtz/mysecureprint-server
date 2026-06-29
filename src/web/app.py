@@ -5,6 +5,7 @@ import json
 import logging
 import secrets
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 from urllib.parse import quote_plus
@@ -296,6 +297,7 @@ def create_app(session_secret: str) -> FastAPI:
             "/admin/settings": "admin_settings",
             "/admin/blob-backup": "admin_blob_backup",
             "/admin/mcp-access": "admin_mcp_access",
+            "/admin/gdpr": "admin_gdpr",
             "/my/cloud-print": "my_cloud_print",
             "/my/mobile-app": "my_mobile_app",
         }
@@ -4584,6 +4586,109 @@ def create_app(session_secret: str) -> FastAPI:
                     os.unlink(tmp_path)
             except Exception:
                 pass
+
+    # ─── GDPR / Datenschutz Admin Page (v0.4.6) ──────────────────────────
+    # Zentralisiert die DSGVO-relevanten Settings: Daten-Retention (wie
+    # lange Audit-Logs, Mobile-Invites und gelaufene Backups gespeichert
+    # werden), Self-Service-Export pro User (DSAR), und Right-to-be-
+    # forgotten (User-Purge). Public Privacy-Page bleibt unter /privacy
+    # — die hier sind die ADMIN-seitigen Steuerungen.
+
+    @app.get("/admin/gdpr", response_class=HTMLResponse)
+    async def admin_gdpr_page(request: Request):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        from db import get_setting
+        ctx = {
+            "request": request,
+            "user": user,
+            "active_page": "admin_gdpr",
+            "audit_retention_days":      get_setting("gdpr_audit_retention_days", "365"),
+            "invite_retention_days":     get_setting("gdpr_invite_retention_days", "30"),
+            "blob_retention_days":       get_setting("blob_backup_retention_days", "30"),
+            "session_max_age_hours":     get_setting("gdpr_session_max_age_hours", "168"),
+            "auto_purge_disabled_users": get_setting("gdpr_auto_purge_disabled_users", "0") == "1",
+            "auto_purge_after_days":     get_setting("gdpr_auto_purge_after_days", "90"),
+            **t_ctx(request),
+        }
+        return templates.TemplateResponse("admin_gdpr.html", ctx)
+
+    @app.post("/admin/gdpr/save", response_class=HTMLResponse)
+    async def admin_gdpr_save(
+        request: Request,
+        audit_retention_days:      str = Form(default="365"),
+        invite_retention_days:     str = Form(default="30"),
+        session_max_age_hours:     str = Form(default="168"),
+        auto_purge_disabled_users: str = Form(default=""),
+        auto_purge_after_days:     str = Form(default="90"),
+    ):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        from db import set_setting, audit
+        def _clamp(s: str, lo: int, hi: int, default: int) -> int:
+            try: v = int(s)
+            except Exception: v = default
+            return max(lo, min(hi, v))
+        set_setting("gdpr_audit_retention_days",  str(_clamp(audit_retention_days, 7, 3650, 365)))
+        set_setting("gdpr_invite_retention_days", str(_clamp(invite_retention_days, 1, 365, 30)))
+        set_setting("gdpr_session_max_age_hours", str(_clamp(session_max_age_hours, 1, 8760, 168)))
+        set_setting("gdpr_auto_purge_disabled_users",
+                    "1" if auto_purge_disabled_users in ("1", "on", "true") else "0")
+        set_setting("gdpr_auto_purge_after_days",
+                    str(_clamp(auto_purge_after_days, 7, 3650, 90)))
+        audit(user["id"], "gdpr_settings_saved", "retention+purge config updated")
+        return RedirectResponse("/admin/gdpr?ok=saved", status_code=302)
+
+    @app.post("/admin/gdpr/export-user", response_class=HTMLResponse)
+    async def admin_gdpr_export_user(request: Request,
+                                       email_or_username: str = Form(...)):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        try:
+            from db import get_all_users, audit
+            target_key = email_or_username.strip().lower()
+            target = None
+            for u in get_all_users():
+                if (u.get("email", "").lower() == target_key
+                        or u.get("username", "").lower() == target_key):
+                    target = u
+                    break
+            if not target:
+                return RedirectResponse(
+                    "/admin/gdpr?err=user_not_found", status_code=302)
+            audit(user["id"], "gdpr_export_user",
+                  f"target={target.get('username')}")
+            export = {
+                "subject": {
+                    "username": target.get("username"),
+                    "email":    target.get("email", ""),
+                    "full_name": target.get("full_name", ""),
+                    "created_at": target.get("created_at"),
+                    "status":      target.get("status"),
+                    "is_admin":    target.get("is_admin", False),
+                    "role_type":   target.get("role_type", "user"),
+                    "entra_oid":   target.get("entra_oid", ""),
+                },
+                "exported_at": datetime.now(timezone.utc).isoformat(),
+                "exported_by": user.get("username"),
+                "note": "DSAR (Data Subject Access Request) export. Forward to data subject within 30 days per Art. 12 GDPR.",
+            }
+            uname = target.get("username") or "unknown"
+            return Response(
+                content=json.dumps(export, indent=2, default=str),
+                media_type="application/json",
+                headers={
+                    "Content-Disposition":
+                    f'attachment; filename="dsar_{uname}.json"',
+                },
+            )
+        except Exception as e:
+            logger.error("gdpr export failed: %s", e, exc_info=True)
+            return RedirectResponse(
+                f"/admin/gdpr?err={quote_plus(str(e))}", status_code=302)
 
     # ─── MCP Access Admin Page (v0.4.0) ──────────────────────────────────
     # Opt-in MCP exposure. The MCP server itself runs in the same container
