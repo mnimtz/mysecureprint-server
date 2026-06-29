@@ -1,5 +1,60 @@
 # Changelog — MySecurePrint Server
 
+## 0.6.0 — 2026-06-29 — Share-Extension zurück + Jobs-Tab + Queue-Browser + Anywhere-Detection
+
+Größerer Release: vier zusammenhängende User-Wünsche.
+
+### Share-Extension restauriert
+War der Original-USP. Im v0.4-Slim-Down faelschlich rausgeworfen. Jetzt
+wieder im Build mit Root-Cause-Fix:
+- Hybrid aus älterer (179 LOC, war funktional) + neuerer (PrintixSendCore-
+  Upload-Helper) Version
+- Diagnose-Logs via `os_log` (Subsystem `de.nimtz.mysecureprint.share`)
+- 6 Bug-Fix-Kandidaten preventiv:
+  1. App-Group-Mismatch behoben (Share-Ext las nach falscher Group-ID)
+  2. Token-Migration: Keychain-First mit UserDefaults-Fallback
+  3. Target-ID-Fallback (selectedTargetIds → lastTargetId → print:self)
+  4. `ProcessInfo.performExpiringActivity` (App-Extension-safe Background-Task)
+  5. Sichtbare Status-Meldungen statt silent-fail
+  6. „Kein Login gefunden" / „App nicht eingerichtet" UX-Hinweise
+- Fehler werden zusätzlich als JSON in App-Group-UserDefaults
+  (`lastShareError`) abgelegt — Haupt-App kann's lesen + anzeigen
+
+### iOS Jobs-Tab
+Neuer „Jobs" Tab in der Haupt-App (zwischen Ziele und Konto). Zeigt die
+letzten 30 Print-Jobs des Users mit:
+- Status-Badge (grün=gesendet, orange=läuft, rot=Fehler)
+- Queue + Zeitstempel
+- Fehlermeldung bei Failure
+- Pull-to-Refresh
+
+### Server: Queue-Browser-Endpoint
+- `GET /desktop/queues` — alle Tenant-Queues für iOS-Picker (Anywhere
+  oben sortiert, Vendor + Model im Payload)
+- `GET /desktop/me/jobs` — Job-History für den aktuellen User (Filter
+  auf username/email/printix_user_id, max 200)
+- `POST /desktop/send` versteht `print:queue:<queue_id>` — User kann
+  jetzt eine **beliebige** Queue als Ziel wählen, nicht nur die
+  resolved Default-Queue
+
+### Anywhere-Detection: Multi-Signal statt nur Name
+User-Report: „Filter ‚nur Anywhere' bleibt leer obwohl Anywhere-Queues
+existieren — User-Vorschlag: hersteller=Printix".
+
+Neue `_is_anywhere_queue()`-Helper-Logik. Wird in **3 Stellen** genutzt
+(`/admin/settings#queue`, `/admin/groups`, `/desktop/queues`):
+- vendor / manufacturer / brand == „Printix" (User-Tipp)
+- printerType / type / queueType enthält „anywhere" oder „virtual"
+- model enthält „anywhere"
+- isAnywhere Boolean-Field
+- name-Fallback (legacy)
+Response liefert jetzt vendor + model mit zurück.
+
+### Version-Badge in Top-Bar
+Auf JEDER Seite oben links sichtbar (dunkles Monospace-Badge) damit man
+auf einen Blick weiß welche Version läuft. Plus `GET /health` returnt
+die Version als JSON.
+
 ## 0.5.7 — 2026-06-29 — Mail-Versand-Fix + /admin/mcp-permissions + Account-Page
 
 ### Mobile-Invite Email-Versand-Bug

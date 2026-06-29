@@ -412,6 +412,30 @@ async def _process_desktop_send_bg(
                 user.get("username"), target_user_email,
                 target_user_full_name, target_id, internal_id,
             )
+        elif target_id.startswith("print:queue:"):
+            # v0.6.0: Spezifische Printix-Queue-Auswahl (vs. default-resolution).
+            # User picks aus /desktop/queues eine konkrete Queue um den Job
+            # NICHT in die persoenliche SecurePrint-Queue zu legen sondern
+            # direkt z.B. an einen Drucker im Konferenzraum zu schicken.
+            chosen_queue_id = target_id.split(":", 2)[2].strip()
+            # submit_user_email bleibt = owner_email (User ist Job-Owner),
+            # aber wir ueberschreiben die Ziel-Queue beim Submit unten.
+            submit_user_email = owner_email
+            target_type = "print_queue_specific"
+            # Trick: config["lpr_target_queue"] wird unten beim Submit
+            # benutzt — wir patchen es lokal damit die Stage-3-Submit-Logik
+            # die richtige Queue trifft.
+            try:
+                if isinstance(config, dict):
+                    config = dict(config)  # shallow copy, mutate ist legitim
+                    config["lpr_target_queue"] = chosen_queue_id
+            except Exception:
+                pass
+            logger.info(
+                "Desktop-Send [2/5] queue-specific — user='%s' → "
+                "queue=%s target_id=%s job_id=%s",
+                user.get("username"), chosen_queue_id, target_id, internal_id,
+            )
         else:
             _fail(f"unsupported target: {target_id}", code="target_unsupported")
             return
@@ -747,6 +771,140 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         else:
             logger.debug("Desktop-Logout — kein Token im Header (peer=%s)", ci["peer"])
         return JSONResponse({"ok": True})
+
+    @app.get("/desktop/queues")
+    async def desktop_queues(request: Request,
+                                authorization: str = Header(default="")):
+        """v0.6.0: Liste aller Printix-Queues des Tenants fuer iOS-Queue-
+        Browser. iOS-User kann eine beliebige Queue zusaetzlich zur
+        Default-Queue als Druck-Ziel anvisieren. Anywhere-Queues sind
+        in der Antwort markiert + nach oben sortiert.
+        """
+        _log_req(request, "GET /desktop/queues")
+        user = _require_token(authorization)
+        if not user:
+            return _json_error("token invalid", code="auth_required", status=401)
+        try:
+            import sys as _s, os as _o, re as _re
+            src_dir = _o.path.dirname(_o.path.dirname(__file__))
+            if src_dir not in _s.path:
+                _s.path.insert(0, src_dir)
+            from db import get_tenant_full_by_user_id
+            from cloudprint.db_extensions import get_parent_user_id
+            from printix_client import PrintixClient
+            parent_id = get_parent_user_id(user["user_id"]) or user["user_id"]
+            tenant = get_tenant_full_by_user_id(parent_id)
+            if not tenant or not (tenant.get("print_client_id")
+                                  or tenant.get("shared_client_id")):
+                return JSONResponse({"queues": [], "available": False})
+            client = PrintixClient(
+                tenant_id=tenant["printix_tenant_id"],
+                print_client_id=tenant.get("print_client_id", ""),
+                print_client_secret=tenant.get("print_client_secret", ""),
+                shared_client_id=tenant.get("shared_client_id", ""),
+                shared_client_secret=tenant.get("shared_client_secret", ""),
+            )
+            data = client.list_printers(size=200)
+            raw = data.get("printers", []) if isinstance(data, dict) else []
+            if not raw:
+                raw = (data.get("_embedded") or {}).get("printers", []) if isinstance(data, dict) else []
+            def _is_any(it: dict, n: str) -> bool:
+                # v0.6.0: Multi-Signal-Detection — vendor/manufacturer=Printix,
+                # Type=anywhere/virtual, model enthaelt anywhere, oder
+                # name-fallback. Vorher: nur name.contains("anywhere").
+                if not isinstance(it, dict):
+                    return bool(n and "anywhere" in n.lower())
+                def _lc(v) -> str:
+                    return str(v or "").strip().lower()
+                for k in ("isAnywhere", "is_anywhere", "anywhere"):
+                    v = it.get(k)
+                    if isinstance(v, bool) and v:
+                        return True
+                if _lc(it.get("vendor")) == "printix": return True
+                if _lc(it.get("manufacturer")) == "printix": return True
+                if _lc(it.get("brand")) == "printix": return True
+                for k in ("printerType", "type", "queueType"):
+                    s = _lc(it.get(k))
+                    if "anywhere" in s or "virtual" in s:
+                        return True
+                if "anywhere" in _lc(it.get("model")): return True
+                if n and "anywhere" in n.lower(): return True
+                return False
+
+            queues = []
+            for item in raw:
+                href = (item.get("_links") or {}).get("self", {}).get("href", "")
+                m = _re.search(r"/printers/([^/]+)/queues/([^/?]+)", href)
+                if m:
+                    name = item.get("name", "") or m.group(2)
+                    is_any = _is_any(item, name)
+                    queues.append({
+                        "id":           f"print:queue:{m.group(2)}",
+                        "queue_id":     m.group(2),
+                        "queue_name":   name,
+                        "printer_id":   m.group(1),
+                        "printer_name": item.get("name", ""),
+                        "vendor":       item.get("vendor", "") or item.get("manufacturer", ""),
+                        "model":        item.get("model", ""),
+                        "is_anywhere":  is_any,
+                        "location":     item.get("location", ""),
+                    })
+            queues.sort(key=lambda q: (not q["is_anywhere"], q["queue_name"].lower()))
+            return JSONResponse({"queues": queues, "available": True,
+                                  "count": len(queues)})
+        except Exception as e:
+            logger.warning("desktop_queues: %s", e)
+            return _json_error(str(e)[:200], code="queues_query_failed", status=502)
+
+    @app.get("/desktop/me/jobs")
+    async def desktop_me_jobs(request: Request,
+                                 limit: int = 20,
+                                 authorization: str = Header(default="")):
+        """v0.5.8: Job-History fuer den eingeloggten User.
+        Liefert die letzten N Print-Jobs aus cloudprint_jobs gefiltert
+        nach username / email / printix_user_id (gleiche Logik wie /admin/audit
+        Filter, aber per-User). Pro Job:
+            { id, filename, status, queue, created_at, forwarded_at,
+              error_message, source }
+        Wird vom iOS-App-„Jobs"-Tab benutzt fuer Send-Feedback + History.
+        """
+        _log_req(request, "GET /me/jobs")
+        user = _require_token(authorization)
+        if not user:
+            return _json_error("token invalid", code="auth_required", status=401)
+        try:
+            from db import _conn
+            from cloudprint.db_extensions import get_parent_user_id, get_tenant_for_user
+            parent_id = get_parent_user_id(user["user_id"]) or user["user_id"]
+            tenant = get_tenant_for_user(parent_id) or get_tenant_for_user(user["user_id"])
+            tid = (tenant or {}).get("id", "")
+            limit_int = max(1, min(int(limit or 20), 200))
+            uname = (user.get("username") or "").lower()
+            uemail = (user.get("email") or "").lower()
+            pxid = (user.get("printix_user_id") or "").lower()
+            with _conn() as conn:
+                rows = conn.execute(
+                    """SELECT job_id, filename, status, queue_name AS queue,
+                              created_at, forwarded_at, error_message,
+                              detected_identity AS source_identity
+                       FROM cloudprint_jobs
+                       WHERE tenant_id = ?
+                         AND (
+                           LOWER(IFNULL(username,'')) = ?
+                           OR LOWER(IFNULL(username,'')) = ?
+                           OR LOWER(IFNULL(detected_identity,'')) = ?
+                           OR LOWER(IFNULL(detected_identity,'')) = ?
+                           OR LOWER(IFNULL(detected_identity,'')) = ?
+                         )
+                       ORDER BY COALESCE(forwarded_at, created_at) DESC
+                       LIMIT ?""",
+                    (tid, uname, uemail, uname, uemail, pxid, limit_int),
+                ).fetchall()
+            items = [dict(r) for r in rows]
+            return JSONResponse({"jobs": items, "count": len(items)})
+        except Exception as e:
+            logger.warning("desktop_me_jobs: %s", e)
+            return _json_error(str(e)[:200], code="jobs_query_failed", status=500)
 
     @app.get("/desktop/me")
     async def desktop_me(request: Request,

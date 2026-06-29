@@ -5386,6 +5386,59 @@ def create_app(session_secret: str) -> FastAPI:
     # Globaler Default + Override-Toggle leben in /admin/settings#queue;
     # per-Gruppe-Defaults haben ihre eigene Seite /admin/groups.
 
+    def _is_anywhere_queue(printer_item: dict, name: str = "") -> bool:
+        """v0.6.0: Multi-Signal-Detection ob ein Drucker eine
+        Printix-Anywhere-Virtual-Queue ist.
+
+        Vorher: nur `"anywhere" in name.lower()` — viel zu schmal, viele
+        Tenants haben Anywhere-Queues NICHT „Anywhere…" benannt.
+
+        Neue Logik (OR — irgendein Signal reicht):
+        - `vendor` oder `manufacturer` = „Printix" (User-Hinweis)
+        - `model` enthaelt „anywhere"
+        - `printerType` / `type` = „anywhere" / „virtual"
+        - `isAnywhere` Boolean-Feld (falls Printix API es liefert)
+        - `name` enthaelt „anywhere" (Fallback fuer alte Tenants)
+        """
+        if not isinstance(printer_item, dict):
+            return bool(name and "anywhere" in name.lower())
+
+        def _lc(v) -> str:
+            return str(v or "").strip().lower()
+
+        # Signal 1: explizites Boolean-Feld
+        for k in ("isAnywhere", "is_anywhere", "anywhere"):
+            v = printer_item.get(k)
+            if isinstance(v, bool) and v:
+                return True
+
+        # Signal 2: Hersteller / Vendor = Printix
+        if _lc(printer_item.get("vendor")) == "printix":
+            return True
+        if _lc(printer_item.get("manufacturer")) == "printix":
+            return True
+        if _lc(printer_item.get("brand")) == "printix":
+            return True
+
+        # Signal 3: Type / printerType-Feld
+        for k in ("printerType", "type", "queueType"):
+            if "anywhere" in _lc(printer_item.get(k)):
+                return True
+            if "virtual" in _lc(printer_item.get(k)):
+                return True
+
+        # Signal 4: Model enthaelt anywhere
+        if "anywhere" in _lc(printer_item.get("model")):
+            return True
+
+        # Signal 5: Name-Fallback (Legacy)
+        if name and "anywhere" in name.lower():
+            return True
+        if "anywhere" in _lc(printer_item.get("name")):
+            return True
+
+        return False
+
     def _load_printix_queues_for_admin(tenant) -> list[dict]:
         """Lädt alle Queues des Printix-Tenants für Dropdowns."""
         if not tenant or not (tenant.get("print_client_id")
@@ -5412,12 +5465,14 @@ def create_app(session_secret: str) -> FastAPI:
                 m = _re.search(r"/printers/([^/]+)/queues/([^/?]+)", href)
                 if m:
                     name = item.get("name", "") or m.group(2)
-                    is_any = "anywhere" in name.lower()
+                    is_any = _is_anywhere_queue(item, name)
                     queues.append({
                         "queue_id":      m.group(2),
                         "queue_name":    name,
                         "printer_id":    m.group(1),
                         "printer_name":  item.get("name", ""),
+                        "vendor":        item.get("vendor", "") or item.get("manufacturer", ""),
+                        "model":         item.get("model", ""),
                         "is_anywhere":   is_any,
                     })
             # Anywhere-Queues nach oben sortieren
