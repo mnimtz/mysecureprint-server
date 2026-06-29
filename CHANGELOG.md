@@ -1,5 +1,30 @@
 # Changelog — MySecurePrint Server
 
+## 0.3.1 — 2026-06-29 — Restrict landing UX (no public config leakage)
+
+The `/welcome` page used to be public and showed status indicators
+revealing which modules (Printix, Entra, Legal, Admin) were configured
+or missing. That leaked operational info to any anonymous visitor and
+also confused fresh-deploy admins (clicking "Configure →" hit a login
+wall with no obvious next step).
+
+### Changes
+- `GET /` redirect logic:
+  - no users yet → `/register` (first-admin wizard)
+  - logged in → `_user_home_target(user)` (`/admin` for admins,
+    `/my` for employees)
+  - anonymous → `/login` (which already shows the Microsoft SSO button
+    when Entra is configured, so end-users sign in with one click)
+- `GET /welcome` now requires an authenticated admin. Non-authenticated
+  visitors are sent to `/login`; logged-in non-admins go to their
+  role-based home (`/my` for employees). The status-indicator dashboard
+  stays exactly as designed — it just isn't world-readable anymore.
+- Sidebar nav: added "Setup-Status" and "Cloud-Backup" entries under
+  the admin "System" sub-group so admins can find the welcome dashboard
+  and blob-backup page via the menu.
+- New i18n keys: `nav_setup_status`, `nav_blob_backup` (DE/EN, EN
+  fallback for the others).
+
 ## 0.3.0 — 2026-06-29 — Blob auto-backup + i18n hardening
 
 ### Cloud-Backup nach Azure Blob Storage (new)

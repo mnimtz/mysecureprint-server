@@ -438,16 +438,18 @@ def create_app(session_secret: str) -> FastAPI:
 
     @app.get("/", response_class=RedirectResponse)
     async def root(request: Request):
-        # v0.1.1: Fresh deployments (no users yet) land on the public
-        # welcome page instead of the bare register wizard — gives the
-        # admin a friendly overview with QR code + setup status before
-        # they dive into the form.
+        # v0.3.1: Fresh deploy → register (first-admin onboarding); else
+        # role-based home target. Anonymous visitors land on /login and
+        # see the Microsoft SSO button if Entra is configured. The
+        # public /welcome page with config-status indicators was leaking
+        # operational info to unauthenticated visitors — it's now
+        # admin-only and reached via the admin nav.
         try:
             from db import has_users
             if not has_users():
-                return RedirectResponse("/welcome", status_code=302)
+                return RedirectResponse("/register", status_code=302)
         except Exception:
-            return RedirectResponse("/welcome", status_code=302)
+            return RedirectResponse("/register", status_code=302)
         user = get_session_user(request)
         if user:
             return RedirectResponse(_user_home_target(user), status_code=302)
@@ -551,9 +553,17 @@ def create_app(session_secret: str) -> FastAPI:
 
     @app.get("/welcome", response_class=HTMLResponse)
     async def welcome_page(request: Request):
-        """Oeffentliche Welcome-/Landing-Seite. Kein Auth noetig — wird
-        u.a. nach frischem Azure-Deploy als Default-Target von ``/``
-        verwendet. Zeigt Server-URL, iOS-Setup-QR und Setup-Status."""
+        """Admin-Dashboard mit Konfigurations-Status, Server-URL und
+        iOS-Setup-QR. v0.3.1: Nicht mehr oeffentlich — die Setup-Status-
+        Indikatoren leakten vorher Betriebsdetails (welche Module
+        unkonfiguriert sind) an jeden anonymen Besucher. Anon-Besucher
+        landen seit /-Redirect-Refactor auf /login (mit MS-SSO-Button
+        falls Entra konfiguriert ist), End-User auf /my."""
+        user = get_session_user(request)
+        if not user:
+            return RedirectResponse("/login", status_code=302)
+        if not user.get("is_admin"):
+            return RedirectResponse(_user_home_target(user), status_code=302)
         base_url = mcp_base_url_or(request)
         # iOS-Deep-Link-Payload — der App-URL-Scheme ist `mysecureprint`,
         # der Setup-Pfad ist eine v0.2.0-Planung. Der QR ist heute schon
