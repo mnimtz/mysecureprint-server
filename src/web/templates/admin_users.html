@@ -96,6 +96,11 @@
                class="btn btn-secondary btn-sm" style="margin-right:4px;">
               ✏️ {{ _('admin_edit') }}
             </a>
+            <a href="/admin/users/{{ u.id }}/mobile-invite"
+               class="btn btn-secondary btn-sm" style="margin-right:4px;"
+               title="{{ _('mobile_invite_title') }}">
+              {{ _('mobile_invite_action') }}
+            </a>
             {% if u.id != user.id %}
               <!-- Genehmigen / Sperren -->
               {% if u.status != 'approved' %}

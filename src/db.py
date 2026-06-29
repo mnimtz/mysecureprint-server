@@ -2648,6 +2648,242 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# ─── Mobile Invites (v0.2.0) ─────────────────────────────────────────────────
+#
+# One-time admin-issued tokens that let an iPhone bootstrap the
+# MySecurePrint app without manual server-URL entry. See
+# IOS_ONBOARDING_DESIGN.md for the full design.
+
+def _init_mobile_invites_schema() -> None:
+    """Idempotente Schema-Migration fuer die mobile_invites-Tabelle."""
+    with _conn() as conn:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS mobile_invites (
+                id              TEXT PRIMARY KEY,
+                user_id         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                token           TEXT NOT NULL UNIQUE,
+                token_hash      TEXT NOT NULL,
+                server_url      TEXT NOT NULL,
+                ttl_seconds     INTEGER NOT NULL DEFAULT 604800,
+                created_at      TEXT NOT NULL,
+                expires_at      TEXT NOT NULL,
+                redeemed_at     TEXT NOT NULL DEFAULT '',
+                redeemed_from   TEXT NOT NULL DEFAULT '',
+                created_by      TEXT NOT NULL,
+                channel         TEXT NOT NULL DEFAULT 'email',
+                email_sent_at   TEXT NOT NULL DEFAULT '',
+                email_recipient TEXT NOT NULL DEFAULT ''
+            );
+            CREATE INDEX IF NOT EXISTS idx_mobile_invites_user
+                ON mobile_invites (user_id);
+            CREATE INDEX IF NOT EXISTS idx_mobile_invites_token_hash
+                ON mobile_invites (token_hash);
+            CREATE INDEX IF NOT EXISTS idx_mobile_invites_expires
+                ON mobile_invites (expires_at);
+        """)
+
+
+try:
+    _init_mobile_invites_schema()
+except Exception as _e:
+    logger.warning("mobile_invites Schema-Migration fehlgeschlagen: %s", _e)
+
+
+def _mobile_invite_public(row: dict) -> dict:
+    """Liefert das Public-Dict eines Invites — OHNE den Roh-Token.
+
+    Der Roh-Token ist nur direkt nach create_mobile_invite() zugaenglich
+    und wird danach nie wieder ausgegeben (analog zu OAuth-Client-Secrets).
+    """
+    return {
+        "id":              row["id"],
+        "user_id":         row["user_id"],
+        "server_url":      row["server_url"],
+        "ttl_seconds":     int(row.get("ttl_seconds") or 0),
+        "created_at":      row.get("created_at", ""),
+        "expires_at":      row.get("expires_at", ""),
+        "redeemed_at":     row.get("redeemed_at", "") or "",
+        "redeemed_from":   row.get("redeemed_from", "") or "",
+        "created_by":      row.get("created_by", ""),
+        "channel":         row.get("channel", "email"),
+        "email_sent_at":   row.get("email_sent_at", "") or "",
+        "email_recipient": row.get("email_recipient", "") or "",
+    }
+
+
+def create_mobile_invite(
+    user_id: str,
+    server_url: str,
+    ttl_seconds: int,
+    created_by_id: str,
+    channel: str = "email",
+    email_recipient: str = "",
+) -> dict:
+    """Erzeugt einen neuen mobile invite + Token.
+
+    Der Roh-Token (`token`) ist NUR im Rueckgabewert dieses Aufrufs zu
+    sehen — danach wird nur noch der SHA-256-Hash gespeichert (analog
+    zum Pattern in tenants.bearer_token_hash).
+
+    Args:
+        user_id:        Ziel-User (FK users.id)
+        server_url:     Snapshot der MCP_PUBLIC_URL beim Anlegen
+        ttl_seconds:    Lebensdauer (default 7 Tage)
+        created_by_id:  Admin-User der den Invite erstellt
+        channel:        'email' | 'qr' | 'both'
+        email_recipient:Snapshot der users.email beim Anlegen
+
+    Returns: dict mit dem Roh-Token (`token`) + allen Metadaten.
+    """
+    if not user_id:
+        raise ValueError("user_id required")
+    inv_id = str(uuid.uuid4())
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    now_dt = datetime.now(timezone.utc)
+    now_iso = now_dt.isoformat()
+    from datetime import timedelta
+    expires_iso = (now_dt + timedelta(seconds=int(ttl_seconds))).isoformat()
+    ch = (channel or "email").strip().lower()
+    if ch not in ("email", "qr", "both"):
+        ch = "email"
+    with _conn() as conn:
+        conn.execute(
+            "INSERT INTO mobile_invites ("
+            "id, user_id, token, token_hash, server_url, ttl_seconds, "
+            "created_at, expires_at, created_by, channel, email_recipient"
+            ") VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                inv_id, user_id, raw_token, token_hash, server_url.strip(),
+                int(ttl_seconds), now_iso, expires_iso, created_by_id, ch,
+                (email_recipient or "").strip(),
+            ),
+        )
+    return {
+        "id":              inv_id,
+        "user_id":         user_id,
+        "token":           raw_token,
+        "token_hash":      token_hash,
+        "server_url":      server_url.strip(),
+        "ttl_seconds":     int(ttl_seconds),
+        "created_at":      now_iso,
+        "expires_at":      expires_iso,
+        "redeemed_at":     "",
+        "redeemed_from":   "",
+        "created_by":      created_by_id,
+        "channel":         ch,
+        "email_sent_at":   "",
+        "email_recipient": (email_recipient or "").strip(),
+    }
+
+
+def get_mobile_invite_by_token(raw_token: str) -> Optional[dict]:
+    """Schlaegt einen Invite per Roh-Token nach (per Hash).
+
+    Liefert None, wenn der Token unbekannt ist. Status/Expiry wird
+    NICHT geprueft — das muss der Aufrufer machen. So kann die
+    Redeem-Route klare Fehlermeldungen (gone vs expired) liefern.
+    """
+    if not raw_token:
+        return None
+    th = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM mobile_invites WHERE token_hash = ?",
+            (th,),
+        ).fetchone()
+    if not row:
+        return None
+    d = dict(row)
+    out = _mobile_invite_public(d)
+    out["token_hash"] = d["token_hash"]
+    return out
+
+
+def get_mobile_invite_by_id(invite_id: str) -> Optional[dict]:
+    if not invite_id:
+        return None
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM mobile_invites WHERE id = ?", (invite_id,)
+        ).fetchone()
+    if not row:
+        return None
+    return _mobile_invite_public(dict(row))
+
+
+def redeem_mobile_invite(token_hash: str, redeemed_from: str = "") -> bool:
+    """Markiert einen Invite atomar als eingeloest.
+
+    Returns True bei Erfolg (= Invite war noch nicht eingeloest und
+    noch nicht abgelaufen). False sonst — der Aufrufer kann dann
+    zwischen "schon eingeloest" und "abgelaufen" unterscheiden, indem
+    er get_mobile_invite_by_token() vorher liest.
+    """
+    if not token_hash:
+        return False
+    now_iso = datetime.now(timezone.utc).isoformat()
+    with _conn() as conn:
+        cur = conn.execute(
+            "UPDATE mobile_invites "
+            "SET redeemed_at = ?, redeemed_from = ? "
+            "WHERE token_hash = ? "
+            "  AND (redeemed_at = '' OR redeemed_at IS NULL) "
+            "  AND expires_at > ?",
+            (now_iso, (redeemed_from or "")[:64], token_hash, now_iso),
+        )
+    return cur.rowcount > 0
+
+
+def mark_mobile_invite_email_sent(invite_id: str) -> bool:
+    if not invite_id:
+        return False
+    now_iso = datetime.now(timezone.utc).isoformat()
+    with _conn() as conn:
+        cur = conn.execute(
+            "UPDATE mobile_invites SET email_sent_at = ? WHERE id = ?",
+            (now_iso, invite_id),
+        )
+    return cur.rowcount > 0
+
+
+def list_mobile_invites_for_user(user_id: str) -> list[dict]:
+    if not user_id:
+        return []
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM mobile_invites WHERE user_id = ? "
+            "ORDER BY created_at DESC",
+            (user_id,),
+        ).fetchall()
+    return [_mobile_invite_public(dict(r)) for r in rows]
+
+
+def delete_mobile_invite(invite_id: str) -> bool:
+    """Loescht einen Invite (Admin-Revoke)."""
+    if not invite_id:
+        return False
+    with _conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM mobile_invites WHERE id = ?", (invite_id,)
+        )
+    return cur.rowcount > 0
+
+
+def revoke_mobile_invite(invite_id: str) -> bool:
+    """Soft-revoke: setzt expires_at = now."""
+    if not invite_id:
+        return False
+    now_iso = datetime.now(timezone.utc).isoformat()
+    with _conn() as conn:
+        cur = conn.execute(
+            "UPDATE mobile_invites SET expires_at = ? "
+            "WHERE id = ? AND (redeemed_at = '' OR redeemed_at IS NULL)",
+            (now_iso, invite_id),
+        )
+    return cur.rowcount > 0
+
+
 # ─── Entra Pending-Tables GC (v0.1.3) ────────────────────────────────────────
 
 def cleanup_expired_pending() -> int:
@@ -2657,7 +2893,10 @@ def cleanup_expired_pending() -> int:
     aufgerufen. Idempotent — wenn die Tabellen noch nicht existieren
     (frischer DB-State), wird nichts gemacht und 0 zurueckgegeben.
 
-    Returns: Anzahl geloeschter Zeilen (Summe beider Tabellen).
+    v0.2.0: zusaetzlich werden abgelaufene, nicht eingeloeste mobile_invites
+    geloescht (TTL-GC fuer den iOS-Onboarding-Flow).
+
+    Returns: Anzahl geloeschter Zeilen (Summe ueber alle Tabellen).
     """
     deleted = 0
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -2679,6 +2918,18 @@ def cleanup_expired_pending() -> int:
                 deleted += cur.rowcount or 0
         except Exception as e:
             logger.debug("cleanup_expired_pending: %s skipped: %s", table, e)
+    # v0.2.0: mobile_invites GC — nur abgelaufene + nicht eingeloeste
+    try:
+        with _conn() as conn:
+            cur = conn.execute(
+                "DELETE FROM mobile_invites "
+                "WHERE expires_at < ? "
+                "  AND (redeemed_at = '' OR redeemed_at IS NULL)",
+                (now_iso,),
+            )
+            deleted += cur.rowcount or 0
+    except Exception as e:
+        logger.debug("cleanup_expired_pending: mobile_invites skipped: %s", e)
     return deleted
 
 

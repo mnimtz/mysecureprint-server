@@ -1,5 +1,63 @@
 # Changelog — MySecurePrint Server
 
+## 0.2.0 — 2026-06-29 — iOS Onboarding: Email-Deeplink + Admin-QR
+
+Admins can now invite users to the MySecurePrint iOS app with a single
+click. The user receives an email (or QR code, or both) containing a
+one-time redemption URL. The iOS app on iPhone receives a pre-configured
+server URL — no manual typing.
+
+### New
+- DB: `mobile_invites` table (id, user_id, token, token_hash,
+  server_url, ttl_seconds, created_at, expires_at, redeemed_at,
+  redeemed_from, created_by, channel, email_sent_at, email_recipient)
+  with idempotent migration via `_init_mobile_invites_schema()`.
+- Admin routes:
+  - `GET /admin/users/{id}/mobile-invite` — manage page
+  - `POST /admin/users/{id}/mobile-invite/create` — create invite
+  - `POST /admin/users/{id}/mobile-invite/{invite_id}/email` — resend
+  - `POST /admin/users/{id}/mobile-invite/{invite_id}/revoke`
+  - `GET  /admin/users/{id}/mobile-invite/{invite_id}/qr.png`
+- Public route: `GET /m/setup?i=<token>` shows an explainer page on iOS
+  (with App-Store link if app not installed) and offers the deep-link
+  `mysecureprint://setup?server=...&token=...` directly.
+- API: `POST /api/v1/mobile-invite/redeem` — iOS app exchanges the
+  token + MS-signed-in identity for a permanent Bearer token. Returns
+  410 Gone on already-redeemed/expired (idempotent).
+- New templates: `admin_user_mobile_invite.html`, `m_setup.html`.
+- Existing `/admin/users/invite` now has a "Mobile Invite" checkbox
+  (default ON) — admin creates user + mobile invite in one step.
+- New "📱 Mobile invite" action button per row in `admin_users.html`.
+- Audit log: 4 new event types — `mobile_invite_created`,
+  `mobile_invite_sent_email`, `mobile_invite_redeemed`,
+  `mobile_invite_revoked`.
+- Token is `secrets.token_urlsafe(32)` (≈256 bits). Only the SHA-256
+  hash is persisted after creation; the raw token is shown to the
+  admin exactly once.
+- Single-use enforcement: redemption is atomic via UPDATE with
+  redeemed_at + expires_at predicate; second redeem returns 410.
+- GC: `cleanup_expired_pending()` now also sweeps abandoned
+  (expired + unredeemed) `mobile_invites` rows.
+
+### Defaults from the 8-question design review
+1. Custom URL scheme `mysecureprint://setup` (Universal Links → v0.3)
+2. Invite TTL: 7 days default, override per-invite to 24h / 30d
+3. QR token stable until redeemed (no per-view regen)
+4. Combined account-create + mobile-invite checkbox default ON
+5. Copy-link fallback when SMTP isn't configured
+6. Self-service /my/mobile-app/qr.png preserved alongside admin push
+7. TestFlight: explainer page with App-Store link, no forced redirect
+8. MS sign-in still required after redemption (audit-trail value)
+
+### iOS-side follow-up
+The MySecurePrint iOS app needs a corresponding update to handle the
+`mysecureprint://setup` URL scheme. That commit lives in
+`printix-mcp-addon/MobileApp/ios-client/` and ships in iOS app v1.1.0.
+Until then, users see the explainer page with a "Copy URL" fallback.
+
+### Effort
+~10 hours (matches design estimate)
+
 ## 0.1.3 — 2026-06-29 — Entra hardening (continuous evaluation + GC + secret expiry warnings)
 
 Five 🟠 items from ENTRA_REVIEW.md.

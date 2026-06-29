@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}{{ _('mobile_invite_title') }} — {{ target_user.username }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="card" style="max-width:760px;margin:32px auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div>
+        <div class="section-title">{{ _('mobile_invite_title') }}</div>
+        <div class="section-sub">{{ _('mobile_invite_sub') }}</div>
+        <p style="margin-top:8px;font-size:.92em;color:#475569;">
+          <strong>{{ target_user.username }}</strong>
+          {% if target_user.email %}· {{ target_user.email }}{% endif %}
+        </p>
+      </div>
+      <a href="/admin/users" class="btn btn-secondary btn-sm">← {{ _('admin_users') }}</a>
+    </div>
+
+    {% if flash_ok %}
+    <div class="alert alert-success" style="margin-top:18px;">✓ {{ _(flash_ok) }}</div>
+    {% endif %}
+    {% if flash_err %}
+    <div class="alert alert-error" style="margin-top:18px;">⚠ {{ _(flash_err) }}</div>
+    {% endif %}
+
+    {% if fresh_invite_url %}
+    <div class="alert alert-info" style="margin-top:18px;">
+      <div style="font-weight:600;margin-bottom:8px;">{{ _('mobile_invite_url_label') }}</div>
+      <div style="font-size:.78em;color:#475569;margin-bottom:8px;">{{ _('mobile_invite_url_hint') }}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <code id="freshInviteUrl" style="background:#0f172a;color:#e2e8f0;padding:8px 12px;border-radius:6px;font-size:.82em;word-break:break-all;flex:1;min-width:240px;">{{ fresh_invite_url }}</code>
+        <button type="button" class="btn btn-secondary btn-sm"
+                onclick="(function(){var t=document.getElementById('freshInviteUrl').textContent;navigator.clipboard&&navigator.clipboard.writeText(t);})()">
+          📋 {{ _('mobile_invite_copy_url') }}
+        </button>
+      </div>
+      {% if fresh_invite_qr_svg %}
+      <div style="margin-top:18px;text-align:center;">{{ fresh_invite_qr_svg | safe }}</div>
+      {% endif %}
+      {% if fresh_invite_id %}
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+        <a href="/admin/users/{{ target_user.id }}/mobile-invite/{{ fresh_invite_id }}/qr.png"
+           class="btn btn-secondary btn-sm" target="_blank">⬇ QR PNG</a>
+        {% if smtp_configured %}
+        <form method="post" action="/admin/users/{{ target_user.id }}/mobile-invite/{{ fresh_invite_id }}/email" style="display:inline;">
+          <button type="submit" class="btn btn-primary btn-sm">✉️ {{ _('mobile_invite_send_email') }}</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <h3 style="margin-top:28px;">{{ _('mobile_invite_create') }}</h3>
+    <form method="post" action="/admin/users/{{ target_user.id }}/mobile-invite/create" style="margin-top:12px;">
+      <div class="form-group">
+        <label>{{ _('mobile_invite_ttl_label') }}</label>
+        <select name="ttl_seconds">
+          <option value="86400">{{ _('mobile_invite_ttl_24h') }}</option>
+          <option value="604800" selected>{{ _('mobile_invite_ttl_7d') }}</option>
+          <option value="2592000">{{ _('mobile_invite_ttl_30d') }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>{{ _('mobile_invite_channel_label') }}</label>
+        <select name="channel">
+          <option value="email" selected>{{ _('mobile_invite_channel_email') }}</option>
+          <option value="qr">{{ _('mobile_invite_channel_qr') }}</option>
+          <option value="both">{{ _('mobile_invite_channel_both') }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>{{ _('mobile_invite_recipient_label') }}</label>
+        <input type="email" name="recipient_email" value="{{ target_user.email | default('') }}">
+      </div>
+      {% if smtp_configured %}
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" name="send_email_now" value="1" checked>
+          <span>{{ _('mobile_invite_send_email') }}</span>
+        </label>
+      </div>
+      {% else %}
+      <div class="alert alert-info" style="margin-bottom:14px;font-size:.88em;">
+        {{ _('mobile_invite_created_no_email') }}
+      </div>
+      {% endif %}
+      <button type="submit" class="btn btn-primary">📱 {{ _('mobile_invite_create') }}</button>
+    </form>
+
+    {% if invites %}
+    <h3 style="margin-top:32px;">{{ _('mobile_invite_open_invites') }}</h3>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:8px;">
+    <table>
+      <thead>
+        <tr>
+          <th>{{ _('common_created') }}</th>
+          <th>{{ _('mobile_invite_expires_at') }}</th>
+          <th>{{ _('mobile_invite_channel_label') }}</th>
+          <th>{{ _('admin_status') }}</th>
+          <th>{{ _('common_actions') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in invites %}
+        <tr>
+          <td style="font-size:.85em;">{{ inv.created_at[:19] }}</td>
+          <td style="font-size:.85em;">{{ inv.expires_at[:19] }}</td>
+          <td>{{ inv.channel }}</td>
+          <td>
+            {% if inv.redeemed_at %}
+              <span class="badge badge-green">✓ {{ _('mobile_invite_status_redeemed') }}</span>
+            {% else %}
+              <span class="badge badge-yellow">⏳ {{ _('mobile_invite_status_open') }}</span>
+            {% endif %}
+          </td>
+          <td style="white-space:nowrap;">
+            <a href="/admin/users/{{ target_user.id }}/mobile-invite/{{ inv.id }}/qr.png"
+               class="btn btn-secondary btn-sm" target="_blank">QR</a>
+            {% if smtp_configured and not inv.redeemed_at %}
+            <form method="post" action="/admin/users/{{ target_user.id }}/mobile-invite/{{ inv.id }}/email" style="display:inline;">
+              <button type="submit" class="btn btn-secondary btn-sm">✉️</button>
+            </form>
+            {% endif %}
+            {% if not inv.redeemed_at %}
+            <form method="post" action="/admin/users/{{ target_user.id }}/mobile-invite/{{ inv.id }}/revoke" style="display:inline;"
+                  onsubmit="return confirm('{{ _('mobile_invite_revoke_confirm') }}');">
+              <button type="submit" class="btn btn-danger btn-sm">✗</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

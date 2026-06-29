@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ _('m_setup_title') }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="card" style="max-width:520px;margin:48px auto;text-align:center;">
+    <h1 class="section-title" style="text-align:center;">{{ _('m_setup_title') }}</h1>
+
+    {% if status == 'invalid' %}
+      <div class="alert alert-error" style="margin-top:18px;">⚠ {{ _('mobile_invite_invalid_token') }}</div>
+    {% elif status == 'redeemed' %}
+      <div class="alert alert-info" style="margin-top:18px;">{{ _('mobile_invite_already_redeemed') }}</div>
+    {% elif status == 'expired' %}
+      <div class="alert alert-error" style="margin-top:18px;">⚠ {{ _('mobile_invite_expired_err') }}</div>
+    {% else %}
+      {% if is_ios %}
+      <p style="margin:18px 0;">
+        <a href="{{ deep_link }}" class="btn btn-primary"
+           style="display:inline-block;padding:14px 28px;font-size:1.05em;">
+          {{ _('m_setup_open_button') }}
+        </a>
+      </p>
+      <p style="font-size:.88em;color:#475569;margin-top:18px;">
+        {{ _('m_setup_no_app_yet') }}
+        <a href="https://apps.apple.com/app/mysecureprint/id0000000000" target="_blank" rel="noopener">
+          {{ _('m_setup_install_label') }} →
+        </a>
+      </p>
+      {% else %}
+      <p style="margin:18px 0;color:#475569;">
+        {{ _('m_setup_qr_caption') }}
+      </p>
+      {% endif %}
+
+      {% if qr_svg %}
+      <div style="margin:24px auto;max-width:280px;">{{ qr_svg | safe }}</div>
+      {% endif %}
+
+      <div style="margin-top:18px;text-align:left;font-size:.85em;color:#475569;">
+        <div style="font-weight:600;margin-bottom:6px;">{{ _('m_setup_fallback_url_label') }}</div>
+        <code style="display:block;background:#0f172a;color:#e2e8f0;padding:10px 12px;border-radius:6px;word-break:break-all;">{{ deep_link }}</code>
+      </div>
+
+      <p style="font-size:.85em;color:#64748b;margin-top:22px;">
+        {{ _('m_setup_ms_signin_note') }}
+      </p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

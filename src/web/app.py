@@ -2687,6 +2687,7 @@ def create_app(session_secret: str) -> FastAPI:
         company: str = Form(default=""),
         invite_lang: str = Form(default="de"),
         role_type: str = Form(default="employee"),
+        also_create_mobile_invite: str = Form(default="on"),
     ):
         admin = get_session_user(request)
         if not admin or not admin.get("is_admin"):
@@ -2786,6 +2787,37 @@ def create_app(session_secret: str) -> FastAPI:
                 **tc,
             })
 
+        # v0.2.0: optional auch eine Mobile-Setup-Einladung anlegen.
+        # Default: ON (Checkbox standardmaessig aktiviert).
+        mobile_invite_url = ""
+        if also_create_mobile_invite and created_user:
+            try:
+                from db import create_mobile_invite as _cmi
+                base_url = mcp_base_url_or(request)
+                inv = _cmi(
+                    user_id=created_user["id"],
+                    server_url=base_url,
+                    ttl_seconds=7 * 24 * 3600,
+                    created_by_id=admin["id"],
+                    channel="email",
+                    email_recipient=email.strip(),
+                )
+                mobile_invite_url = f"{base_url}/m/setup?i={inv['token']}"
+                try:
+                    from db import audit
+                    audit(
+                        admin["id"],
+                        "mobile_invite_created",
+                        f"Mobile-Invite fuer '{username.strip()}' (TTL 7d, "
+                        f"channel=email) waehrend Account-Invite",
+                        object_type="mobile_invite",
+                        object_id=inv["id"],
+                    )
+                except Exception:
+                    pass
+            except Exception as _mi_err:
+                logger.warning("combined mobile invite failed: %s", _mi_err)
+
         return templates.TemplateResponse("admin_user_invite.html", {
             "request": request,
             "user": admin,
@@ -2793,8 +2825,593 @@ def create_app(session_secret: str) -> FastAPI:
             "error": None,
             "created_username": username.strip(),
             "created_email": email.strip(),
+            "mobile_invite_url": mobile_invite_url,
             **tc,
         })
+
+    # ── v0.2.0: Mobile Invites (iOS-Onboarding) ──────────────────────────────
+
+    def _is_smtp_configured_for(user_dict: dict) -> bool:
+        """True wenn Tenant des Users mail_api_key + mail_from gesetzt hat."""
+        try:
+            from db import get_tenant_full_by_user_id
+            tenant = get_tenant_full_by_user_id(user_dict["id"]) or {}
+            return bool(tenant.get("mail_api_key")) and bool(tenant.get("mail_from"))
+        except Exception:
+            return False
+
+    def _send_mobile_invite_email(
+        admin: dict,
+        recipient: str,
+        full_name: str,
+        invite_url: str,
+        expires_at: str,
+        lang: str,
+    ) -> bool:
+        """Versendet die Mobile-Invite-Mail über die existierende SMTP-Helper.
+
+        Returns True bei Erfolg, False bei jeder Form von Fehler. Der Caller
+        zeigt dann die Copy-Link-Fallback-UI.
+        """
+        try:
+            from db import get_tenant_full_by_user_id
+            from reporting.mail_client import send_report
+            tenant = get_tenant_full_by_user_id(admin["id"]) or {}
+            if not tenant.get("mail_api_key") or not tenant.get("mail_from"):
+                return False
+            from web.i18n import TRANSLATIONS
+            tr = TRANSLATIONS.get(lang or "en") or TRANSLATIONS.get("en", {})
+            subject = tr.get(
+                "mobile_invite_email_subject",
+                "MySecurePrint — set up the app on your iPhone",
+            )
+            greeting = tr.get("mobile_invite_email_greeting", "Hi")
+            intro = tr.get("mobile_invite_email_intro", "")
+            open_link = tr.get("mobile_invite_email_open_link", "Open app setup")
+            fallback = tr.get("mobile_invite_email_fallback", "")
+            signin = tr.get("mobile_invite_email_signin_note", "")
+            footer_tpl = tr.get(
+                "mobile_invite_email_footer",
+                "This invite expires on {expires_at}.",
+            )
+            footer = footer_tpl.replace("{expires_at}", expires_at[:19])
+            display_name = full_name.strip() or recipient
+            html_body = (
+                "<div style=\"font-family:Helvetica,Arial,sans-serif;"
+                "color:#1a1a1a;line-height:1.55;max-width:560px;\">"
+                f"<p>{greeting} {display_name},</p>"
+                f"<p>{intro}</p>"
+                "<p style=\"margin:28px 0;text-align:center;\">"
+                f"<a href=\"{invite_url}\" "
+                "style=\"display:inline-block;padding:14px 28px;"
+                "background:#002854;color:#fff;border-radius:8px;"
+                "text-decoration:none;font-weight:600;\">"
+                f"{open_link}</a></p>"
+                f"<p style=\"font-size:.92em;color:#555;\">{fallback}</p>"
+                f"<p style=\"font-size:.85em;color:#666;word-break:break-all;\">"
+                f"<a href=\"{invite_url}\">{invite_url}</a></p>"
+                f"<p style=\"font-size:.88em;color:#555;\">{signin}</p>"
+                "<hr style=\"border:none;border-top:1px solid #e2e8f0;"
+                "margin:24px 0;\">"
+                f"<p style=\"font-size:.78em;color:#888;\">{footer}</p>"
+                "</div>"
+            )
+            send_report(
+                recipients=[recipient],
+                subject=subject,
+                html_body=html_body,
+                api_key=tenant.get("mail_api_key", ""),
+                mail_from=tenant.get("mail_from", ""),
+                mail_from_name=tenant.get(
+                    "mail_from_name", ""
+                ) or "MySecurePrint",
+            )
+            return True
+        except Exception as e:
+            logger.warning("mobile-invite email failed: %s", e)
+            return False
+
+    def _make_mobile_invite_qr_svg(payload: str) -> str:
+        """SVG-QR fuer Mobile-Invites (wiederverwendet welcome-QR-Style)."""
+        try:
+            import segno
+            import io
+            qr = segno.make(payload, error="m")
+            buf = io.StringIO()
+            qr.save(
+                buf, kind="svg", scale=8, border=2,
+                dark="#002854", light="#ffffff", xmldecl=False, svgns=True,
+            )
+            return buf.getvalue()
+        except Exception as e:
+            logger.warning("mobile-invite QR generation failed: %s", e)
+            return ""
+
+    @app.get("/admin/users/{user_id}/mobile-invite", response_class=HTMLResponse)
+    async def admin_user_mobile_invite_get(user_id: str, request: Request):
+        admin = get_session_user(request)
+        if not admin or not admin.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        from db import get_user_by_id, list_mobile_invites_for_user
+        target = get_user_by_id(user_id)
+        if not target:
+            return RedirectResponse("/admin/users", status_code=302)
+        invites = list_mobile_invites_for_user(user_id)
+        return templates.TemplateResponse(
+            "admin_user_mobile_invite.html",
+            {
+                "request": request,
+                "user": admin,
+                "target_user": target,
+                "invites": invites,
+                "fresh_invite_url": "",
+                "fresh_invite_qr_svg": "",
+                "fresh_invite_id": "",
+                "smtp_configured": _is_smtp_configured_for(admin),
+                "flash_ok": request.query_params.get("ok", ""),
+                "flash_err": request.query_params.get("err", ""),
+                **t_ctx(request),
+            },
+        )
+
+    @app.post(
+        "/admin/users/{user_id}/mobile-invite/create",
+        response_class=HTMLResponse,
+    )
+    async def admin_user_mobile_invite_create(
+        user_id: str,
+        request: Request,
+        ttl_seconds: str = Form(default="604800"),
+        channel: str = Form(default="email"),
+        recipient_email: str = Form(default=""),
+        send_email_now: str = Form(default=""),
+    ):
+        admin = get_session_user(request)
+        if not admin or not admin.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        from db import (
+            get_user_by_id, create_mobile_invite, list_mobile_invites_for_user,
+            audit, mark_mobile_invite_email_sent,
+        )
+        target = get_user_by_id(user_id)
+        if not target:
+            return RedirectResponse("/admin/users", status_code=302)
+        try:
+            ttl_int = int(ttl_seconds)
+        except Exception:
+            ttl_int = 7 * 24 * 3600
+        if ttl_int not in (24 * 3600, 7 * 24 * 3600, 30 * 24 * 3600):
+            ttl_int = 7 * 24 * 3600
+        ch = (channel or "email").strip().lower()
+        if ch not in ("email", "qr", "both"):
+            ch = "email"
+        recipient = (recipient_email or target.get("email", "") or "").strip()
+        base_url = mcp_base_url_or(request)
+        inv = create_mobile_invite(
+            user_id=user_id,
+            server_url=base_url,
+            ttl_seconds=ttl_int,
+            created_by_id=admin["id"],
+            channel=ch,
+            email_recipient=recipient,
+        )
+        invite_url = f"{base_url}/m/setup?i={inv['token']}"
+        try:
+            audit(
+                admin["id"],
+                "mobile_invite_created",
+                f"Mobile-Invite fuer user_id={user_id} channel={ch} "
+                f"ttl={ttl_int}s",
+                object_type="mobile_invite",
+                object_id=inv["id"],
+            )
+        except Exception:
+            pass
+
+        email_ok = False
+        email_err = ""
+        if ch in ("email", "both") and bool(send_email_now) and recipient:
+            email_ok = _send_mobile_invite_email(
+                admin=admin,
+                recipient=recipient,
+                full_name=target.get("full_name", "") or target.get("username", ""),
+                invite_url=invite_url,
+                expires_at=inv["expires_at"],
+                lang=(target.get("invitation_language") or "en"),
+            )
+            if email_ok:
+                try:
+                    mark_mobile_invite_email_sent(inv["id"])
+                    audit(
+                        admin["id"],
+                        "mobile_invite_sent_email",
+                        f"recipient={recipient}",
+                        object_type="mobile_invite",
+                        object_id=inv["id"],
+                    )
+                except Exception:
+                    pass
+            else:
+                email_err = "smtp_failed"
+
+        qr_svg = ""
+        if ch in ("qr", "both"):
+            qr_svg = _make_mobile_invite_qr_svg(invite_url)
+
+        invites = list_mobile_invites_for_user(user_id)
+        flash_ok = ""
+        flash_err = ""
+        if email_ok:
+            flash_ok = "mobile_invite_created_email_sent"
+        elif email_err:
+            flash_err = "mobile_invite_email_failed"
+        elif ch == "qr":
+            flash_ok = "mobile_invite_created_qr_only"
+        else:
+            flash_ok = "mobile_invite_created_no_email"
+        return templates.TemplateResponse(
+            "admin_user_mobile_invite.html",
+            {
+                "request": request,
+                "user": admin,
+                "target_user": target,
+                "invites": invites,
+                "fresh_invite_url": invite_url,
+                "fresh_invite_qr_svg": qr_svg,
+                "fresh_invite_id": inv["id"],
+                "fresh_invite_expires_at": inv["expires_at"],
+                "smtp_configured": _is_smtp_configured_for(admin),
+                "flash_ok": flash_ok,
+                "flash_err": flash_err,
+                **t_ctx(request),
+            },
+        )
+
+    @app.post(
+        "/admin/users/{user_id}/mobile-invite/{invite_id}/email",
+        response_class=HTMLResponse,
+    )
+    async def admin_user_mobile_invite_email(
+        user_id: str,
+        invite_id: str,
+        request: Request,
+    ):
+        admin = get_session_user(request)
+        if not admin or not admin.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        from db import (
+            get_user_by_id, get_mobile_invite_by_id,
+            mark_mobile_invite_email_sent, audit,
+        )
+        target = get_user_by_id(user_id)
+        inv = get_mobile_invite_by_id(invite_id)
+        if not target or not inv or inv["user_id"] != user_id:
+            return RedirectResponse(
+                f"/admin/users/{user_id}/mobile-invite?err=mobile_invite_invalid_token",
+                status_code=302,
+            )
+        # Roh-Token ist nicht mehr abrufbar — wir koennen die URL aber
+        # rekonstruieren, indem wir die token-Spalte direkt lesen (nur fuer
+        # admin-resend-Funktionalitaet; nicht via API exposiert).
+        from db import _conn as _db_conn
+        with _db_conn() as conn:
+            row = conn.execute(
+                "SELECT token FROM mobile_invites WHERE id = ?", (invite_id,)
+            ).fetchone()
+        if not row:
+            return RedirectResponse(
+                f"/admin/users/{user_id}/mobile-invite?err=mobile_invite_invalid_token",
+                status_code=302,
+            )
+        invite_url = f"{inv['server_url']}/m/setup?i={row['token']}"
+        recipient = inv.get("email_recipient") or target.get("email", "")
+        ok = _send_mobile_invite_email(
+            admin=admin,
+            recipient=recipient,
+            full_name=target.get("full_name") or target.get("username", ""),
+            invite_url=invite_url,
+            expires_at=inv["expires_at"],
+            lang=(target.get("invitation_language") or "en"),
+        )
+        if ok:
+            mark_mobile_invite_email_sent(invite_id)
+            try:
+                audit(
+                    admin["id"],
+                    "mobile_invite_sent_email",
+                    f"resend recipient={recipient}",
+                    object_type="mobile_invite",
+                    object_id=invite_id,
+                )
+            except Exception:
+                pass
+            return RedirectResponse(
+                f"/admin/users/{user_id}/mobile-invite?ok=mobile_invite_email_sent_ok",
+                status_code=302,
+            )
+        return RedirectResponse(
+            f"/admin/users/{user_id}/mobile-invite?err=mobile_invite_email_failed",
+            status_code=302,
+        )
+
+    @app.post(
+        "/admin/users/{user_id}/mobile-invite/{invite_id}/revoke",
+        response_class=HTMLResponse,
+    )
+    async def admin_user_mobile_invite_revoke(
+        user_id: str,
+        invite_id: str,
+        request: Request,
+    ):
+        admin = get_session_user(request)
+        if not admin or not admin.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        from db import revoke_mobile_invite, audit
+        revoked = revoke_mobile_invite(invite_id)
+        if revoked:
+            try:
+                audit(
+                    admin["id"],
+                    "mobile_invite_revoked",
+                    f"invite_id={invite_id}",
+                    object_type="mobile_invite",
+                    object_id=invite_id,
+                )
+            except Exception:
+                pass
+        return RedirectResponse(
+            f"/admin/users/{user_id}/mobile-invite?ok=mobile_invite_revoked_ok",
+            status_code=302,
+        )
+
+    @app.get("/admin/users/{user_id}/mobile-invite/{invite_id}/qr.png")
+    async def admin_user_mobile_invite_qr(
+        user_id: str,
+        invite_id: str,
+        request: Request,
+    ):
+        admin = get_session_user(request)
+        if not admin or not admin.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        from db import get_mobile_invite_by_id, _conn as _db_conn
+        inv = get_mobile_invite_by_id(invite_id)
+        if not inv or inv["user_id"] != user_id:
+            return Response(status_code=404)
+        with _db_conn() as conn:
+            row = conn.execute(
+                "SELECT token FROM mobile_invites WHERE id = ?", (invite_id,)
+            ).fetchone()
+        if not row:
+            return Response(status_code=404)
+        invite_url = f"{inv['server_url']}/m/setup?i={row['token']}"
+        try:
+            import segno
+            import io
+            qr = segno.make(invite_url, error="m")
+            buf = io.BytesIO()
+            qr.save(buf, kind="png", scale=10, border=2, dark="#002854")
+            return Response(content=buf.getvalue(), media_type="image/png")
+        except Exception as e:
+            logger.warning("mobile-invite qr.png failed: %s", e)
+            return Response(status_code=500)
+
+    # ── v0.2.0: Public Redemption Endpoints ──────────────────────────────────
+
+    @app.get("/m/setup", response_class=HTMLResponse)
+    async def m_setup(request: Request, i: str = ""):
+        """Public explainer page for the iOS app deep-link.
+
+        Detects iOS Safari and exposes a "Open MySecurePrint" button that
+        triggers the `mysecureprint://setup?...` custom-scheme handover.
+        On all platforms it also shows a QR fallback + the raw URL so the
+        user can copy/paste it into a future iOS app build.
+        """
+        from db import get_mobile_invite_by_token
+        ua = request.headers.get("user-agent", "")
+        is_ios = ("iPhone" in ua) or ("iPad" in ua) or ("iPod" in ua)
+        inv = get_mobile_invite_by_token(i) if i else None
+        status = "ok"
+        deep_link = ""
+        qr_svg = ""
+        server_url_for_app = ""
+        if not inv:
+            status = "invalid"
+        elif inv.get("redeemed_at"):
+            status = "redeemed"
+        else:
+            try:
+                from datetime import datetime, timezone
+                exp = inv.get("expires_at", "")
+                if exp:
+                    when = datetime.fromisoformat(exp.replace("Z", "+00:00"))
+                    if when.tzinfo is None:
+                        when = when.replace(tzinfo=__import__(
+                            "datetime"
+                        ).timezone.utc)
+                    if when < datetime.now(timezone.utc):
+                        status = "expired"
+            except Exception:
+                pass
+        if status == "ok" and inv:
+            server_url_for_app = inv["server_url"]
+            deep_link = (
+                "mysecureprint://setup?server="
+                f"{quote_plus(inv['server_url'])}&token={quote_plus(i)}"
+            )
+            qr_svg = _make_mobile_invite_qr_svg(deep_link)
+        return templates.TemplateResponse(
+            "m_setup.html",
+            {
+                "request": request,
+                "user": None,
+                "status": status,
+                "is_ios": is_ios,
+                "deep_link": deep_link,
+                "qr_svg": qr_svg,
+                "server_url": server_url_for_app,
+                **t_ctx(request),
+            },
+        )
+
+    @app.post("/api/v1/mobile-invite/redeem")
+    async def api_mobile_invite_redeem(request: Request):
+        """iOS app exchanges (token + verified MS identity) for a Bearer token.
+
+        Request body (JSON):
+            {
+              "token": "<raw invite token from /m/setup>",
+              "entra_oid": "<MS oid the app got from PKCE>",
+              "email": "<MS email (optional)>",
+              "display_name": "<MS display name (optional)>",
+              "device_name": "<optional, for desktop_tokens.device_name>"
+            }
+
+        Response: { bearer_token, server_url, user: {...} }
+        """
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        token = (body.get("token") or "").strip()
+        entra_oid = (body.get("entra_oid") or "").strip()
+        email = (body.get("email") or "").strip()
+        display_name = (body.get("display_name") or "").strip()
+        device_name = (body.get("device_name") or "iOS-Mobile").strip()
+        if not token:
+            return JSONResponse(
+                {"error": "missing token", "code": "missing_token"},
+                status_code=400,
+            )
+        if not entra_oid:
+            return JSONResponse(
+                {"error": "missing entra_oid", "code": "missing_oid"},
+                status_code=400,
+            )
+        from db import (
+            get_mobile_invite_by_token, get_user_by_id, get_or_create_entra_user,
+            redeem_mobile_invite, audit, _conn as _db_conn,
+        )
+        inv = get_mobile_invite_by_token(token)
+        if not inv:
+            return JSONResponse(
+                {"error": "unknown invite", "code": "invalid_token"},
+                status_code=404,
+            )
+        if inv.get("redeemed_at"):
+            return JSONResponse(
+                {
+                    "error": "invite already redeemed",
+                    "code": "already_redeemed",
+                },
+                status_code=410,
+            )
+        # Expiry-Check
+        try:
+            from datetime import datetime, timezone
+            exp = inv.get("expires_at", "")
+            if exp:
+                when = datetime.fromisoformat(exp.replace("Z", "+00:00"))
+                if when.tzinfo is None:
+                    when = when.replace(tzinfo=timezone.utc)
+                if when < datetime.now(timezone.utc):
+                    return JSONResponse(
+                        {"error": "invite expired", "code": "expired"},
+                        status_code=410,
+                    )
+        except Exception:
+            pass
+
+        target = get_user_by_id(inv["user_id"])
+        if not target:
+            return JSONResponse(
+                {"error": "user not found", "code": "user_missing"},
+                status_code=404,
+            )
+
+        # entra_oid muss matchen ODER User hat noch keinen oid (Erst-Linking).
+        existing_oid = (target.get("entra_oid") or "").strip()
+        if existing_oid and existing_oid != entra_oid:
+            return JSONResponse(
+                {
+                    "error": "Entra identity mismatch",
+                    "code": "oid_mismatch",
+                },
+                status_code=403,
+            )
+        if not existing_oid:
+            # Erst-Linking — entra_oid + ggf. email/full_name nachtragen.
+            try:
+                with _db_conn() as conn:
+                    parts = ["entra_oid = ?"]
+                    params: list = [entra_oid]
+                    if email and not (target.get("email") or "").strip():
+                        parts.append("email = ?")
+                        params.append(email)
+                    if display_name and not (target.get("full_name") or "").strip():
+                        parts.append("full_name = ?")
+                        params.append(display_name)
+                    params.append(target["id"])
+                    conn.execute(
+                        f"UPDATE users SET {', '.join(parts)} WHERE id = ?",
+                        params,
+                    )
+                target = get_user_by_id(target["id"])
+            except Exception as link_err:
+                logger.warning(
+                    "mobile-invite redeem: oid linking failed: %s", link_err
+                )
+
+        # Atomar redeem markieren.
+        peer_ip = (
+            request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+            or (request.client.host if request.client else "")
+        )
+        ok = redeem_mobile_invite(inv["token_hash"], redeemed_from=peer_ip)
+        if not ok:
+            # Race: jemand anders war schneller, oder TTL exakt jetzt abgelaufen.
+            return JSONResponse(
+                {
+                    "error": "could not redeem invite",
+                    "code": "redeem_conflict",
+                },
+                status_code=410,
+            )
+
+        # Bearer Token ausstellen — gleiche Funktion wie die Desktop-Flows.
+        try:
+            from desktop_auth import create_token
+            bearer = create_token(target["id"], device_name=device_name or "iOS-Mobile")
+        except Exception as ct_err:
+            logger.error("mobile-invite redeem: create_token failed: %s", ct_err)
+            return JSONResponse(
+                {"error": "token issue failed", "code": "token_failed"},
+                status_code=500,
+            )
+
+        try:
+            audit(
+                target["id"],
+                "mobile_invite_redeemed",
+                f"invite_id={inv['id']} from={peer_ip} device='{device_name}'",
+                object_type="mobile_invite",
+                object_id=inv["id"],
+            )
+        except Exception:
+            pass
+
+        return JSONResponse(
+            {
+                "bearer_token": bearer,
+                "server_url": inv["server_url"],
+                "user": {
+                    "id":        target["id"],
+                    "username":  target.get("username", ""),
+                    "email":     target.get("email", ""),
+                    "full_name": target.get("full_name", ""),
+                    "role_type": target.get("role_type", "employee"),
+                },
+            }
+        )
 
     @app.get("/admin/users/bulk-import", response_class=HTMLResponse)
     async def admin_bulk_import_get(request: Request):
