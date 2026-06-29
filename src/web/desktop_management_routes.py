@@ -357,6 +357,68 @@ def register_desktop_management_routes(app: FastAPI) -> None:
             logger.warning("mgmt printer-detail: %s", e)
             return _json_error(str(e)[:200], code="printix_error", status=502)
 
+    @app.get("/desktop/users/search")
+    async def users_search(request: Request,
+                            q: str = "",
+                            authorization: str = Header(default="")):
+        """v0.5.5: Slim Printix-User-Suche fuer Delegation-Druck-Picker.
+        Im Gegensatz zu /desktop/management/users ist dieser Endpoint
+        auch fuer Employees zugaenglich — liefert aber nur Minimal-Felder
+        (id, full_name, email) und zwingt einen Tenant-Scope. Liest aus
+        cached_printix_users statt live Printix API, daher kein Auth-
+        Overhead und keine Tenant-Credentials-Pruefung."""
+        _log_req(request, "GET /desktop/users/search")
+        user = _require_token(authorization)
+        if not user:
+            return _json_error("token invalid", code="auth_required", status=401)
+        # Suche im Cache, nicht live API. Caller bekommt nur Printix-User
+        # aus seinem eigenen Tenant (resolved via parent_user_id).
+        try:
+            import sys as _s, os as _o
+            src_dir = _o.path.dirname(_o.path.dirname(__file__))
+            if src_dir not in _s.path:
+                _s.path.insert(0, src_dir)
+            from db import _conn
+            from cloudprint.db_extensions import get_parent_user_id, get_tenant_for_user
+            parent_id = get_parent_user_id(user["user_id"]) or user["user_id"]
+            tenant = get_tenant_for_user(parent_id) or get_tenant_for_user(user["user_id"])
+            if not tenant:
+                return JSONResponse({"users": [], "tenant": None})
+            tid = tenant.get("id") or tenant.get("tenant_id") or ""
+            q_norm = (q or "").strip().lower()
+            with _conn() as conn:
+                if q_norm:
+                    rows = conn.execute(
+                        """SELECT printix_user_id, full_name, email, role
+                           FROM cached_printix_users
+                           WHERE tenant_id = ?
+                             AND (LOWER(IFNULL(full_name,'')) LIKE ?
+                                  OR LOWER(IFNULL(email,'')) LIKE ?
+                                  OR LOWER(IFNULL(username,'')) LIKE ?)
+                           ORDER BY full_name, email
+                           LIMIT 50""",
+                        (tid, f"%{q_norm}%", f"%{q_norm}%", f"%{q_norm}%"),
+                    ).fetchall()
+                else:
+                    rows = conn.execute(
+                        """SELECT printix_user_id, full_name, email, role
+                           FROM cached_printix_users
+                           WHERE tenant_id = ?
+                           ORDER BY full_name, email
+                           LIMIT 50""",
+                        (tid,),
+                    ).fetchall()
+            items = [{
+                "id":        r["printix_user_id"],
+                "full_name": r["full_name"] or "",
+                "email":     r["email"] or "",
+                "role":      r["role"] or "USER",
+            } for r in rows]
+            return JSONResponse({"users": items, "tenant": tid, "count": len(items)})
+        except Exception as e:
+            logger.warning("users_search: %s", e)
+            return _json_error(str(e)[:200], code="search_error", status=500)
+
     @app.get("/desktop/management/users")
     async def mgmt_users(request: Request,
                          authorization: str = Header(default="")):

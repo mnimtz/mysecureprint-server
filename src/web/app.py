@@ -1343,19 +1343,29 @@ def create_app(session_secret: str) -> FastAPI:
                 status_code=502,
             )
 
-        # Device code in Session speichern (fuer Polling)
+        # v0.5.5: Device-Code in DB statt nur Session speichern.
+        # Vorher: starlette session-cookie verlor das device_code auf
+        # Azure App Service zwischen Start- und Poll-Request → User sah
+        # „no_device_code". DB-Persistierung pro user_id ist robuster
+        # (kein Cookie-Roundtrip noetig). Session bleibt als Backup.
         request.session["entra_device_code"] = result["device_code"]
         request.session["entra_device_interval"] = result.get("interval", 5)
-        # v0.5.2: Diagnostik — User berichtet dass die Polling-Phase mit
-        # „no_device_code" fehlschlaegt obwohl der user_code kurz angezeigt
-        # wird. Loggen wir die Session-Schluessel + tail des device_code
-        # damit wir Cookie- vs Session-Probleme unterscheiden koennen.
+        try:
+            import json as _j_dc
+            from datetime import datetime as _dt_dc, timezone as _tz_dc
+            from db import set_setting as _ss_dc
+            _payload_dc = _j_dc.dumps({
+                "device_code": result["device_code"],
+                "interval":    result.get("interval", 5),
+                "created_at":  _dt_dc.now(_tz_dc.utc).isoformat(),
+            })
+            _ss_dc(f"entra_dc_pending_{user['id']}", _payload_dc)
+        except Exception as _dc_e:
+            logger.warning("Entra device-code DB persist failed: %s", _dc_e)
         logger.info(
-            "Entra device-code START OK: user=%s dc_tail=...%s user_code=%s "
-            "session_keys=%s",
+            "Entra device-code START OK: user=%s dc_tail=...%s user_code=%s",
             user.get("username"), result["device_code"][-8:],
             result.get("user_code", ""),
-            list(request.session.keys()),
         )
 
         return JSONResponse({
@@ -1373,21 +1383,28 @@ def create_app(session_secret: str) -> FastAPI:
         if not user or not user.get("is_admin"):
             return JSONResponse({"error": "unauthorized"}, status_code=401)
 
-        device_code = request.session.get("entra_device_code", "")
+        # v0.5.5: DB-Persistenz zuerst probieren (robuster auf Azure),
+        # Session als Fallback.
+        device_code = ""
+        try:
+            import json as _j_dcp
+            from db import get_setting as _gs_dcp
+            _raw = _gs_dcp(f"entra_dc_pending_{user['id']}", "")
+            if _raw:
+                _d = _j_dcp.loads(_raw)
+                device_code = _d.get("device_code", "")
+        except Exception:
+            pass
         if not device_code:
-            # v0.5.2: Diagnostik — Session hat den device_code verloren.
-            # Auf Azure App Service kann das passieren wenn der
-            # Session-Cookie ueber CDN / Cloudflare verloren geht oder
-            # SameSite=lax bei der zweiten Anfrage greift. Logging hilft
-            # die Wurzel zu identifizieren.
+            device_code = request.session.get("entra_device_code", "")
+        if not device_code:
             logger.warning(
-                "Entra device-code POLL: kein device_code in Session — "
-                "user=%s session_keys=%s cookie_present=%s",
-                user.get("username"), list(request.session.keys()),
-                bool(request.cookies.get("session")),
+                "Entra device-code POLL: kein device_code in DB+Session — "
+                "user=%s",
+                user.get("username"),
             )
             return JSONResponse({"status": "error", "error": "no_device_code",
-                                  "hint": "Session-Cookie verloren — bitte „Auto-Setup starten“ erneut klicken."})
+                                  "hint": "Bitte „Auto-Setup starten“ erneut klicken — der Flow ist abgelaufen oder verloren gegangen."})
 
         try:
             from entra import poll_device_code_token, auto_register_app
@@ -1396,20 +1413,28 @@ def create_app(session_secret: str) -> FastAPI:
 
         poll_result = poll_device_code_token(device_code)
 
+        def _clear_dc_state():
+            request.session.pop("entra_device_code", None)
+            try:
+                from db import set_setting as _ss_cl
+                _ss_cl(f"entra_dc_pending_{user['id']}", "")
+            except Exception:
+                pass
+
         if poll_result["status"] == "pending":
             return JSONResponse({"status": "pending"})
 
         if poll_result["status"] == "expired":
-            request.session.pop("entra_device_code", None)
+            _clear_dc_state()
             return JSONResponse({"status": "expired"})
 
         if poll_result["status"] == "error":
-            request.session.pop("entra_device_code", None)
+            _clear_dc_state()
             return JSONResponse({"status": "error", "error": poll_result.get("error", "")})
 
         # status == "success" — Token erhalten, App erstellen
         access_token = poll_result["access_token"]
-        request.session.pop("entra_device_code", None)
+        _clear_dc_state()
 
         base = _get_base_url(request)
         sso_redirect_uri = f"{base}/auth/entra/callback"

@@ -35,15 +35,47 @@
       <div class="form-group">
         <label>{{ _('queue_global_default_label') }}</label>
         {% if queues_for_picker %}
-        <select name="default_queue_id" onchange="this.form.default_queue_label.value=this.options[this.selectedIndex].text" style="width:100%;">
+        <div style="display:flex; gap:14px; align-items:center; margin-bottom:6px; font-size:.85em;">
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+            <input type="checkbox" id="filter-anywhere-global" onchange="applyQueueFilter(this, 'queue-select-global')">
+            🌐 {{ _('queue_filter_anywhere_only') }}
+          </label>
+          <input type="text" id="queue-search-global" placeholder="{{ _('queue_filter_search_ph') }}"
+                 oninput="applyQueueFilter(document.getElementById('filter-anywhere-global'), 'queue-select-global')"
+                 style="flex:1; padding:4px 8px;">
+        </div>
+        <select name="default_queue_id" id="queue-select-global" onchange="this.form.default_queue_label.value=this.options[this.selectedIndex].text" style="width:100%;" size="8">
           <option value="">— {{ _('queue_global_default_none') }} —</option>
           {% for q in queues_for_picker %}
           <option value="{{ q.queue_id }}"
+                  data-anywhere="{{ '1' if q.is_anywhere else '0' }}"
+                  data-name="{{ (q.queue_name + ' ' + (q.printer_name or '')) | lower }}"
                   {% if q.queue_id == current_global_default_queue_id %}selected{% endif %}>
             {% if q.is_anywhere %}🌐 {% endif %}{{ q.queue_name }}{% if q.printer_name and q.printer_name != q.queue_name %} ({{ q.printer_name }}){% endif %}
           </option>
           {% endfor %}
         </select>
+        <script>
+          // v0.5.5: clientseitiger Filter — versteckt Optionen die nicht
+          // den aktiven Filter erfuellen (Anywhere + Suche).
+          if (typeof window.applyQueueFilter !== 'function') {
+            window.applyQueueFilter = function(toggle, selectId) {
+              var sel = document.getElementById(selectId);
+              if (!sel) return;
+              var onlyAny = toggle && toggle.checked;
+              var searchEl = document.getElementById(selectId.replace('queue-select-', 'queue-search-'));
+              var q = (searchEl ? searchEl.value : '').trim().toLowerCase();
+              for (var i = 0; i < sel.options.length; i++) {
+                var opt = sel.options[i];
+                if (!opt.value) { opt.hidden = false; continue; }
+                var isAny = opt.dataset.anywhere === '1';
+                var name = opt.dataset.name || opt.textContent.toLowerCase();
+                var visible = (!onlyAny || isAny) && (!q || name.indexOf(q) !== -1);
+                opt.hidden = !visible;
+              }
+            };
+          }
+        </script>
         <input type="hidden" name="default_queue_label" value="{{ current_global_default_queue_label }}">
         {% else %}
         <input type="text" name="default_queue_id" value="{{ current_global_default_queue_id }}"

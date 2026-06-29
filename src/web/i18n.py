@@ -33284,3 +33284,21 @@ for _lang, _keys in _V052_INVITE_SYNC_KEYS.items():
 for _lang in list(TRANSLATIONS.keys()):
     if _lang not in _V052_INVITE_SYNC_KEYS:
         TRANSLATIONS[_lang].update(_V052_INVITE_SYNC_KEYS["en"])
+
+
+# v0.5.5: queue-picker filter + entra-dc hint
+_V055_KEYS: dict[str, dict[str, str]] = {
+    "de": {
+        "queue_filter_anywhere_only": "Nur Anywhere-Queues",
+        "queue_filter_search_ph":     "Suche Queue (Name oder Drucker)…",
+    },
+    "en": {
+        "queue_filter_anywhere_only": "Only Anywhere queues",
+        "queue_filter_search_ph":     "Search queue (name or printer)…",
+    },
+}
+for _lang, _keys in _V055_KEYS.items():
+    TRANSLATIONS.setdefault(_lang, {}).update(_keys)
+for _lang in list(TRANSLATIONS.keys()):
+    if _lang not in _V055_KEYS:
+        TRANSLATIONS[_lang].update(_V055_KEYS["en"])

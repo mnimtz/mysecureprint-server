@@ -1,5 +1,42 @@
 # Changelog — MySecurePrint Server
 
+## 0.5.5 — 2026-06-29 — Entra-DC DB-persistiert + Queue-Filter + slim Users-Search
+
+Drei offene Punkte aus User-Feedback.
+
+### Entra Device-Code: DB-Persistenz statt Session
+User-Symptom: „kurz Code angezeigt, dann no device". Diagnose-Logs
+(v0.5.2) wiesen auf Session-Cookie-Verlust hin — auf Azure App Service
+passiert das laut diversen Berichten gelegentlich (Cookie-Verlust ueber
+Reverse-Proxy, SameSite-Quirks, etc.).
+
+Fix: device_code wird jetzt in der DB (settings-table, Key
+`entra_dc_pending_<user_id>`) als JSON-Payload persistiert. Poll-
+Endpoint liest **zuerst** aus DB, **dann** Session als Fallback.
+Erfolg/Expire/Error löscht den DB-Eintrag (kein Stale-State).
+
+### Queue-Picker: Anywhere-Filter + Suchfeld
+In /admin/settings?section=queue: zwei neue Controls oben am Picker:
+- 🌐 „Nur Anywhere-Queues" Checkbox
+- Suchfeld (filtert nach Queue-Name + Drucker-Name)
+JS hide/show auf den Select-Options, kein Round-Trip. Picker als
+`<select size="8">` damit mehrere Optionen direkt sichtbar.
+
+### Neuer Endpoint /desktop/users/search
+Bisher konnten Employees keinen Printix-User auf dem iOS-Delegation-
+Picker suchen (`/desktop/management/users` ist admin-only).
+
+Neuer Endpoint: open fuer alle eingeloggten Token, liest aus
+`cached_printix_users`-Cache (kein Live-Printix-API-Call → schnell +
+keine Tenant-Credentials-Pruefung). Liefert nur Minimal-Felder
+(`id, full_name, email, role`) und zwingt einen Tenant-Scope ueber
+`get_parent_user_id` → `get_tenant_for_user`. Limit 50 Treffer pro
+Suche.
+
+iOS-App nutzt aktuell noch `managementUsers()` — wird in einem
+Follow-up auf `users/search` umgestellt damit Employees den Picker
+auch verwenden koennen.
+
 ## 0.5.4 — 2026-06-29 — Server-Handler für iOS-Delegation-Druck + iOS-Queue-Label-Fix
 
 iOS-Picker erstellt seit v0.5.2 Targets mit ID `print:user:<printix_id>`
