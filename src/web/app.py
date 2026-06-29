@@ -177,10 +177,6 @@ def create_app(session_secret: str) -> FastAPI:
         except Exception:
             return "?"
 
-    # ── Package Builder (singleton, lebt für die Laufzeit der App) ────────────
-    from package_builder import PackageBuilderCore as _PBC
-    _pkg_builder = _PBC()
-
     # ── i18n ──────────────────────────────────────────────────────────────────
 
     from i18n import (
