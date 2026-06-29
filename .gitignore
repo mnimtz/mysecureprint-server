@@ -1,0 +1,36 @@
+# Environment (may contain secrets / public URLs)
+.env
+
+# Persistent data (never goes into the repo)
+data/
+certs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs / temp files
+*.log
+*.sqlite*
+*.bak
+
+# HA add-on backup directory — local reference only, not part of the new repo
+backup_HA/
+
+# Claude Code local memory (agent guidance, not for public consumption)
+memory/

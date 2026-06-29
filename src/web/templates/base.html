@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="{{ lang | default('en') }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <title>{% block title %}{{ _('brand_console_name') }}{% endblock %}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --workspace-max-width: 1460px;
+      --workspace-gutter: 16px;
+      /* Tungsten Automation — Print & Workplace Automation Brand Colors */
+      --ta-navy: #002854;
+      --ta-navy-dark: #00123B;
+      --ta-cyan: #00A0FB;
+      --ta-cyan-light: #9DDDF9;
+      --ta-cyan-dark: #004766;
+      --ta-green: #00EB86;
+      --ta-gold: #FFC600;
+      --ta-gold-hover: #e6b200;
+      --ta-gray-100: #FAFAFA;
+      --ta-gray-200: #F0F0F0;
+      --ta-gray-300: #E4E4E4;
+      --ta-gray-400: #D9DFE6;
+      --ta-gray-500: #8094AA;
+      --ta-black: #231F20;
+    }
+    body {
+      font-family: 'Red Hat Display', Arial, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(0, 160, 251, .08), transparent 24%),
+        radial-gradient(circle at right 20%, rgba(0, 235, 134, .06), transparent 22%),
+        linear-gradient(180deg, var(--ta-gray-100) 0%, var(--ta-gray-200) 100%);
+      color: var(--ta-black);
+      min-height: 100vh;
+    }
+    img, svg, video, canvas {
+      max-width: 100%;
+      height: auto;
+    }
+
+    /* ── Navigation ──────────────────────────────────────────────────────── */
+    nav {
+      background: linear-gradient(90deg, var(--ta-navy-dark) 0%, var(--ta-navy) 100%); color: #fff;
+      min-height: 56px; box-shadow: 0 8px 24px rgba(0, 18, 59, .20);
+      position: sticky; top: 0; z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+    .nav-shell {
+      width: min(100%, var(--workspace-max-width));
+      margin: 0 auto;
+      padding: 0 var(--workspace-gutter);
+      min-height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .nav-brand {
+      font-weight: 700; font-size: 1.05em;
+      display: flex; align-items: center; gap: 8px;
+      white-space: nowrap; text-decoration: none; color: #fff;
+    }
+    .nav-brand-mark {
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: #fff;
+    }
+    .nav-brand-mark svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .nav-right { display: flex; align-items: center; gap: 8px; }
+
+    /* Desktop links */
+    .nav-links {
+      display: flex; align-items: center; gap: 2px; flex-wrap: nowrap;
+    }
+    .nav-links a {
+      color: rgba(255,255,255,.8); text-decoration: none;
+      font-size: .875em; padding: 6px 10px; border-radius: 6px;
+      transition: background .15s, color .15s; white-space: nowrap;
+    }
+    .nav-links a:hover { color: #fff; background: rgba(255,255,255,.12); }
+
+    /* Hamburger button — mobile only */
+    .hamburger {
+      display: none; background: none; border: none; cursor: pointer;
+      padding: 8px; color: #fff; flex-direction: column; gap: 5px;
+      border-radius: 6px; transition: background .15s;
+    }
+    .hamburger:hover { background: rgba(255,255,255,.12); }
+    .hamburger span {
+      display: block; width: 22px; height: 2px;
+      background: #fff; border-radius: 2px;
+      transition: transform .25s, opacity .2s;
+    }
+    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    /* Mobile drawer — rendered below sticky nav */
+    .mobile-menu {
+      display: none; position: fixed; top: 56px; left: 0; right: 0;
+      background: var(--ta-navy); box-shadow: 0 6px 24px rgba(0,0,0,.35);
+      z-index: 99; padding-bottom: 12px;
+      max-height: calc(100vh - 56px); overflow-y: auto;
+    }
+    .mobile-menu.open { display: block; }
+    .mobile-menu a {
+      display: flex; align-items: center; padding: 13px 20px;
+      color: rgba(255,255,255,.85); text-decoration: none;
+      font-size: .95em; border-bottom: 1px solid rgba(255,255,255,.06);
+      transition: background .15s;
+    }
+    .mobile-menu a:hover { background: rgba(255,255,255,.1); color: #fff; }
+    .mobile-menu .drawer-divider {
+      height: 1px; background: rgba(255,255,255,.12); margin: 8px 0;
+    }
+    .mobile-lang-section { padding: 10px 20px 6px; }
+    .mobile-lang-section > small {
+      display: block; font-size: .72em; color: rgba(255,255,255,.45);
+      text-transform: uppercase; letter-spacing: .07em; margin-bottom: 10px;
+    }
+    .mobile-lang-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+    .mobile-lang-grid a {
+      display: inline-block !important; padding: 5px 11px !important;
+      background: rgba(255,255,255,.1); border-radius: 6px;
+      font-size: .82em !important; color: rgba(255,255,255,.8) !important;
+      border-bottom: none !important; transition: background .15s;
+    }
+    .mobile-lang-grid a.active {
+      background: var(--ta-cyan); color: #fff !important; font-weight: 700;
+    }
+    .mobile-lang-grid a:hover { background: rgba(255,255,255,.2); }
+
+    /* Language Switcher — desktop */
+    .lang-switcher { position: relative; }
+    .lang-btn {
+      background: rgba(255,255,255,.12); border: none; color: rgba(255,255,255,.9);
+      padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: .82em;
+      display: flex; align-items: center; gap: 4px; white-space: nowrap;
+    }
+    .lang-btn:hover { background: rgba(255,255,255,.2); }
+    .lang-dropdown {
+      display: none; position: absolute; right: 0; top: 100%;
+      padding-top: 6px; z-index: 999;
+    }
+    .lang-dropdown-inner {
+      background: #fff; border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.15);
+      overflow: hidden; min-width: 140px;
+      max-height: 320px; overflow-y: auto;
+    }
+    .lang-dropdown.open { display: block; }
+    .lang-dropdown a {
+      display: block; padding: 8px 14px; color: #374151 !important;
+      font-size: .88em; text-decoration: none; transition: background .1s;
+    }
+    .lang-dropdown a:hover { background: #f1f5f9; color: var(--ta-navy) !important; }
+    .lang-dropdown a.active { font-weight: 700; color: var(--ta-cyan) !important; }
+
+
+    /* ── Sidebar Navigation (v7.9.0) ─────────────────────────────────── */
+    .sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0;
+      width: 260px; background: #fff;
+      border-right: 1px solid var(--ta-gray-300);
+      overflow-y: auto; overflow-x: hidden;
+      z-index: 90; padding: 10px 0 80px;
+      transition: transform .3s cubic-bezier(.4,0,.2,1);
+      scrollbar-width: thin;
+      scrollbar-color: var(--ta-gray-300) transparent;
+    }
+    .sidebar::-webkit-scrollbar { width: 5px; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--ta-gray-300); border-radius: 3px; }
+
+    .sidebar-section { padding: 4px 10px; }
+
+    /* Dashboard top link */
+    .sidebar-top-link {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; margin: 0 10px 4px;
+      border-radius: 10px; text-decoration: none;
+      color: var(--ta-black); font-weight: 600; font-size: .9em;
+      transition: all .15s;
+    }
+    .sidebar-top-link:hover { background: var(--ta-gray-200); }
+    .sidebar-top-link.active {
+      background: linear-gradient(135deg, var(--ta-navy) 0%, var(--ta-navy-dark) 100%);
+      color: #fff; box-shadow: 0 4px 12px rgba(0,40,84,.18);
+    }
+    .sidebar-top-link .sb-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: rgba(0,160,251,.08); font-size: .85em; flex-shrink: 0;
+    }
+    .sidebar-top-link.active .sb-icon { background: rgba(255,255,255,.18); }
+
+    /* Category header (collapsible toggle) */
+    .sb-cat-toggle {
+      display: flex; align-items: center; gap: 8px; width: 100%;
+      padding: 8px 16px; margin: 2px 10px; width: calc(100% - 20px);
+      border: none; background: none; cursor: pointer;
+      font-family: inherit; font-size: .78em; font-weight: 700;
+      color: var(--ta-gray-500); text-transform: uppercase;
+      letter-spacing: .06em; border-radius: 8px;
+      transition: color .15s, background .15s;
+    }
+    .sb-cat-toggle:hover { color: var(--ta-navy); background: var(--ta-gray-100); }
+    .sb-cat-chevron {
+      margin-left: auto; font-size: .7em;
+      transition: transform .25s; display: inline-block;
+    }
+    .sb-cat-toggle.open .sb-cat-chevron { transform: rotate(90deg); }
+
+    /* Category items container */
+    .sb-cat-items {
+      max-height: 0; overflow: hidden;
+      transition: max-height .3s cubic-bezier(.4,0,.2,1);
+    }
+    .sb-cat-items.open { max-height: 800px; }
+
+    /* Sub-link */
+    .sb-sublink {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 16px 7px 26px; margin: 1px 10px;
+      border-radius: 8px; text-decoration: none;
+      color: #475569; font-size: .87em; font-weight: 500;
+      transition: all .15s; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .sb-sublink:hover { background: var(--ta-gray-100); color: var(--ta-navy); }
+    .sb-sublink.active {
+      background: rgba(0,160,251,.08); color: var(--ta-navy);
+      font-weight: 700;
+    }
+    .sb-sublink .sb-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--ta-gray-400); flex-shrink: 0;
+    }
+    .sb-sublink.active .sb-dot { background: var(--ta-cyan); }
+
+    /* Sub-group label inside Administration */
+    .sb-subgroup-label {
+      font-size: .74em; font-weight: 700; color: var(--ta-gray-500);
+      padding: 10px 16px 3px 32px; text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    /* Sidebar divider */
+    .sb-divider { height: 1px; background: var(--ta-gray-300); margin: 8px 16px; }
+
+    /* Bottom section (profile, logout etc) */
+    .sidebar-bottom {
+      padding: 4px 0; margin-top: 4px;
+      border-top: 1px solid var(--ta-gray-200);
+    }
+    .sb-bottom-link {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 16px; margin: 1px 10px;
+      border-radius: 8px; text-decoration: none;
+      color: #475569; font-size: .85em; font-weight: 500;
+      transition: all .15s;
+    }
+    .sb-bottom-link:hover { background: var(--ta-gray-100); color: var(--ta-navy); }
+    .sb-bottom-link.active { background: rgba(0,160,251,.08); color: var(--ta-navy); font-weight: 700; }
+    .sb-bottom-link .sb-icon {
+      width: 22px; text-align: center; flex-shrink: 0; font-size: .85em;
+    }
+
+    /* Main area offset for sidebar */
+    .main-area {
+      margin-left: 260px;
+      min-height: 100vh;
+      transition: margin-left .3s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* Sidebar overlay for mobile */
+    .sidebar-overlay {
+      display: none; position: fixed; inset: 0; top: 0;
+      background: rgba(0,0,0,.4); z-index: 89;
+      opacity: 0; transition: opacity .3s;
+    }
+    .sidebar-overlay.visible { display: block; opacity: 1; }
+
+
+    /* v7.9.1: Mobile hamburger (logged-in users — no top bar) */
+    .mobile-hamburger {
+      display: none;
+      position: fixed;
+      top: 12px;
+      right: 14px;
+      z-index: 1100;
+      background: var(--ta-navy);
+      border: none;
+      border-radius: 10px;
+      padding: 10px;
+      cursor: pointer;
+      flex-direction: column;
+      gap: 4px;
+      box-shadow: 0 4px 12px rgba(0,40,84,.25);
+    }
+    .mobile-hamburger span {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: #fff;
+      border-radius: 2px;
+    }
+
+    /* v7.9.1: Sidebar branding */
+    .sidebar-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid #e8ecf0;
+      margin-bottom: 4px;
+    }
+    .sidebar-brand-logo {
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+    .sidebar-brand-logo svg {
+      width: 100%;
+      height: 100%;
+    }
+    .sidebar-brand-text {
+      font-size: .82em;
+      font-weight: 800;
+      color: var(--ta-navy);
+      letter-spacing: .01em;
+    }
+
+    /* v7.9.1: Language switcher in sidebar */
+    .sb-lang-switcher { padding: 0 4px; }
+    .sb-lang-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      padding: 7px 8px;
+      border: none;
+      background: transparent;
+      color: #64748b;
+      font-size: .82em;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 6px;
+      font-family: inherit;
+      transition: background .15s;
+    }
+    .sb-lang-btn:hover { background: #f1f5f9; }
+    .sb-lang-chevron {
+      margin-left: auto;
+      font-size: .7em;
+      transition: transform .2s;
+    }
+    .sb-lang-btn.open .sb-lang-chevron { transform: rotate(90deg); }
+    .sb-lang-grid {
+      display: none;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+      padding: 4px 8px 8px;
+    }
+    .sb-lang-grid.open { display: grid; }
+    .sb-lang-option {
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: .78em;
+      color: #334155;
+      text-decoration: none;
+      text-align: center;
+      font-weight: 500;
+      transition: background .15s;
+    }
+    .sb-lang-option:hover { background: #f1f5f9; }
+    .sb-lang-option.active {
+      background: var(--ta-navy);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    /* v7.9.1: Prefetch pill floating (no top bar for logged-in users) */
+    .prefetch-pill-float {
+      position: fixed;
+      top: 12px;
+      right: 14px;
+      z-index: 1050;
+    }
+    /* ── Layout ──────────────────────────────────────────────────────────── */
+    .container {
+      width: min(100%, var(--workspace-max-width));
+      margin: 16px auto;
+      padding: 0 var(--workspace-gutter);
+    }
+
+    /* ── Card ────────────────────────────────────────────────────────────── */
+    .card {
+      background: rgba(255,255,255,.92);
+      border-radius: 18px;
+      padding: 28px 30px;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, .08);
+      border: 1px solid rgba(226, 232, 240, .92);
+      overflow-x: clip;
+    }
+
+
+    /* -- v7.9.2: Modern Sub-Page Styling -- */
+
+    /* Page header with Tungsten branding */
+    .section-title {
+      font-size: 1.3em;
+      font-weight: 800;
+      color: var(--ta-navy);
+      letter-spacing: -.01em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-sub {
+      color: var(--ta-gray-500);
+      font-size: .88em;
+      margin-top: 2px;
+    }
+
+    /* Modern table styling */
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    table thead th {
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+      font-size: .76em;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--ta-gray-500);
+      padding: 10px 14px;
+      border-bottom: 2px solid var(--ta-gray-300);
+      text-align: left;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    table thead th:first-child { border-radius: 10px 0 0 0; }
+    table thead th:last-child { border-radius: 0 10px 0 0; }
+    table tbody tr {
+      transition: all .15s ease;
+    }
+    table tbody tr:hover {
+      background: rgba(0, 160, 251, .04);
+    }
+    table tbody td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: .9em;
+      color: #334155;
+      vertical-align: middle;
+    }
+    table tbody tr:last-child td {
+      border-bottom: none;
+    }
+    table tbody td a {
+      color: var(--ta-cyan-dark);
+      font-weight: 600;
+      text-decoration: none;
+      transition: color .15s;
+    }
+    table tbody td a:hover {
+      color: var(--ta-cyan);
+      text-decoration: underline;
+    }
+
+    /* Modern search bar */
+    .search-bar, .card input[type="text"][placeholder*="earch"],
+    .card input[type="text"][placeholder*="uche"],
+    .card input[type="text"][placeholder*="ilter"] {
+      background: #f8fafc;
+      border: 1.5px solid var(--ta-gray-300);
+      border-radius: 12px;
+      padding: 12px 18px;
+      font-size: .92em;
+      transition: all .2s;
+    }
+    .search-bar:focus, .card input[type="text"]:focus {
+      background: #fff;
+      border-color: var(--ta-cyan);
+      box-shadow: 0 0 0 4px rgba(0,160,251,.1);
+    }
+
+    /* Better card with backdrop blur */
+    .card {
+      backdrop-filter: blur(8px);
+    }
+
+    /* Enhanced badges */
+    .badge, .role-badge, [class*="badge"] {
+      font-size: .72em;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      letter-spacing: .02em;
+      white-space: nowrap;
+    }
+
+    /* Queue pills / tags */
+    .tag, .queue-tag, .pill {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 8px;
+      font-size: .78em;
+      font-weight: 600;
+      background: rgba(0,160,251,.08);
+      color: var(--ta-cyan-dark);
+      margin: 2px 3px 2px 0;
+      transition: all .15s;
+    }
+    .tag:hover, .queue-tag:hover, .pill:hover {
+      background: rgba(0,160,251,.14);
+    }
+
+    /* Divider gradient */
+    .divider, hr {
+      border: none;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--ta-gray-300), transparent);
+      margin: 20px 0;
+    }
+
+    /* Modernized alerts */
+    .alert {
+      border-radius: 12px;
+      padding: 14px 18px;
+      font-size: .88em;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      border: none;
+    }
+    .alert-success {
+      background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+      color: #14532d;
+    }
+    .alert-error, .alert-danger {
+      background: linear-gradient(135deg, #fef2f2, #fecaca);
+      color: #991b1b;
+    }
+    .alert-info {
+      background: linear-gradient(135deg, #eff6ff, #dbeafe);
+      color: #1e40af;
+    }
+    .alert-warning {
+      background: linear-gradient(135deg, #fffbeb, #fef3c7);
+      color: #92400e;
+    }
+
+    /* Filter buttons as pills */
+    .filter-btn, .card .btn-sm {
+      font-size: .82em;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1.5px solid var(--ta-gray-300);
+      background: #fff;
+      color: #64748b;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .filter-btn:hover, .card .btn-sm:hover {
+      border-color: var(--ta-cyan);
+      color: var(--ta-cyan-dark);
+      background: rgba(0,160,251,.04);
+    }
+    .filter-btn.active, .card .btn-sm.active {
+      background: var(--ta-navy);
+      color: #fff;
+      border-color: var(--ta-navy);
+    }
+
+    /* Primary button with Gold gradient */
+    .btn-primary {
+      background: linear-gradient(135deg, var(--ta-gold) 0%, #e6b200 100%);
+      box-shadow: 0 2px 8px rgba(255,198,0,.25);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #e6b200 0%, #cc9e00 100%);
+      box-shadow: 0 4px 16px rgba(255,198,0,.35);
+      transform: translateY(-1px);
+    }
+
+    /* Better scrollbar for main area */
+    .main-area {
+      scrollbar-width: thin;
+      scrollbar-color: var(--ta-gray-300) transparent;
+    }
+
+    /* ── Forms ───────────────────────────────────────────────────────────── */
+    .form-group { margin-bottom: 20px; }
+    label { display: block; font-size: .87em; font-weight: 600; color: #444; margin-bottom: 6px; }
+    input[type=text], input[type=password], input[type=email],
+    input[type=url], input[type=number], input[type=time], select, textarea {
+      width: 100%; padding: 10px 14px; border: 1px solid #d1d5db;
+      border-radius: 8px; font-size: .95em; transition: border-color .15s;
+      background: #fff;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none; border-color: var(--ta-cyan); box-shadow: 0 0 0 3px rgba(0,160,251,.15);
+    }
+    small.hint { display: block; margin-top: 4px; color: #6b7280; font-size: .82em; }
+
+    /* ── Buttons ─────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 10px 22px; border: none; border-radius: 8px;
+      font-size: .95em; font-weight: 600; cursor: pointer;
+      transition: background .15s, box-shadow .15s;
+      text-decoration: none; white-space: nowrap; gap: 6px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-primary { background: var(--ta-gold); color: var(--ta-navy); font-weight: 700; }
+    .btn-primary:hover { background: var(--ta-gold-hover); box-shadow: 0 2px 8px rgba(255,198,0,.35); }
+    .btn-secondary { background: #f1f5f9; color: #374151; }
+    .btn-secondary:hover { background: #e2e8f0; }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-success { background: #16a34a; color: #fff; }
+    .btn-success:hover { background: #15803d; }
+    .btn-sm { padding: 6px 14px; font-size: .85em; }
+
+    /* ── Alerts ──────────────────────────────────────────────────────────── */
+    /* alert base replaced by v7.9.2 */
+    /* alert-error replaced by v7.9.2 */
+    /* alert-success replaced by v7.9.2 */
+    /* alert-info replaced by v7.9.2 */
+    /* alert-warning replaced by v7.9.2 */
+
+    /* ── Tables ──────────────────────────────────────────────────────────── */
+    /* table base replaced by v7.9.2 */
+    /* th replaced by v7.9.2 */
+    /* td replaced by v7.9.2 */
+    /* tr:last-child replaced by v7.9.2 */
+    /* tr:hover replaced by v7.9.2 */
+    /* Table scroll wrapper (use on wide tables) */
+    .table-scroll {
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      background:#fff;
+    }
+    .table-scroll table { min-width: 720px; }
+
+    /* ── Badges ──────────────────────────────────────────────────────────── */
+    /* badge base replaced by v7.9.2 */
+    .badge-green  { background: #dcfce7; color: #166534; }
+    .badge-yellow { background: #fef9c3; color: #854d0e; }
+    .badge-red    { background: #fee2e2; color: #991b1b; }
+    .badge-blue   { background: rgba(0,160,251,.12); color: var(--ta-navy); }
+
+    /* ── Code Block ──────────────────────────────────────────────────────── */
+    .code-block {
+      background: #1e293b; color: #e2e8f0; padding: 14px 16px;
+      border-radius: 8px; font-family: 'Courier New', monospace; font-size: .88em;
+      word-break: break-all; position: relative;
+    }
+    .copy-btn {
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(255,255,255,.1); color: #e2e8f0;
+      border: none; border-radius: 6px; padding: 4px 10px;
+      font-size: .78em; cursor: pointer; transition: background .15s;
+    }
+    .copy-btn:hover { background: rgba(255,255,255,.2); }
+
+    /* ── Divider ─────────────────────────────────────────────────────────── */
+    /* divider replaced by v7.9.2 */
+
+    /* ── Step Indicator ──────────────────────────────────────────────────── */
+    .steps { display: flex; align-items: center; margin-bottom: 32px; gap: 0; }
+    .step-item { display: flex; align-items: center; flex: 1; min-width: 0; }
+    .step-circle {
+      width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: .85em;
+    }
+    .step-circle.active  { background: var(--ta-cyan); color: #fff; }
+    .step-circle.done    { background: #16a34a; color: #fff; }
+    .step-circle.pending { background: #e5e7eb; color: #9ca3af; }
+    .step-label { margin-left: 8px; font-size: .82em; font-weight: 500; color: #6b7280; white-space: nowrap; }
+    .step-label.active { color: #1a1a2e; font-weight: 700; }
+    .step-connector { flex: 1; height: 2px; background: #e5e7eb; margin: 0 8px; min-width: 8px; }
+
+    /* ── Section header ──────────────────────────────────────────────────── */
+    /* section-title replaced by v7.9.2 */
+    /* section-sub replaced by v7.9.2 */
+
+    /* ── Checkbox row ────────────────────────────────────────────────────── */
+    .check-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .check-row input[type=checkbox] { width: auto; min-width: 18px; min-height: 18px; }
+
+    /* ── Printix section shell ───────────────────────────────────────────── */
+    .tenant-shell {
+      display: block;
+    }
+    .tenant-main {
+      min-width: 0;
+    }
+    .tenant-main-card {
+      border-radius: 20px;
+      box-shadow: 0 16px 36px rgba(15, 23, 42, .06);
+    }
+
+    /* ── Responsive ──────────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+
+      /* Sidebar → off-screen on mobile */
+      .mobile-hamburger { display: flex; }
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); }
+      .main-area { margin-left: 0 !important; }
+      /* Show hamburger, hide desktop links & lang switcher */
+      .hamburger         { display: flex; }
+      .nav-links         { display: none; }
+      .lang-switcher     { display: none; }
+
+      /* Layout */
+      .container { width: 100%; padding: 0 12px; margin: 14px auto; }
+      .card      { padding: 18px 14px; border-radius: 14px; }
+
+      /* All inline grid layouts → single column on mobile.
+         Targets every inline style="display:grid;grid-template-columns:..."
+         across settings, admin_dashboard, notifications, etc. */
+      [style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+      }
+
+      /* Tables: wrap in scrollable container, auto column widths */
+      .card > table,
+      .card > div > table {
+        display: block; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
+      }
+      table { min-width: 520px; font-size: .85em; }
+      td, th { padding: 8px 10px; }
+      th[style*="width"] { width: auto !important; }
+      .table-scroll { margin-inline: -2px; }
+      .table-scroll table { min-width: 520px; }
+
+      /* Tenant sub-tabs: horizontal scroll instead of wrap */
+      .tenant-tabs {
+        overflow-x: auto; -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap !important; gap: 0 !important;
+        scrollbar-width: none; /* Firefox */
+      }
+      .tenant-tabs::-webkit-scrollbar { display: none; }
+      .tenant-tab { flex-shrink: 0; padding: 8px 14px; font-size: .82em; }
+
+      /* Preset cards (demo page + report presets) — stack vertically */
+      .preset-cards {
+        flex-direction: column !important;
+      }
+      .preset-cards .preset-card { min-width: 0 !important; }
+      .preset-grid { grid-template-columns: 1fr !important; }
+
+      /* Code blocks — smaller font, break long URLs */
+      .code-block { font-size: .78em; padding: 10px 12px; word-break: break-all; }
+
+      /* Demo grid → single column (already has its own @media but enforce) */
+      .demo-grid { grid-template-columns: 1fr !important; }
+
+      .tenant-shell { grid-template-columns: 1fr; gap: 12px; }
+        .tenant-sidebar-card { padding: 14px; }
+      .tenant-sidebar-nav {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        padding: 0;
+        background: transparent;
+        border: none;
+        backdrop-filter: none;
+      }
+      .tenant-sidebar-link { min-height: 52px; }
+
+      /* Stat boxes — 2 per row on tablet */
+      .stats-summary { gap: 8px; }
+      .stat-box { min-width: 80px; padding: 6px 10px; }
+
+      /* Prevent iOS font-size zoom on inputs */
+      input[type=text], input[type=password], input[type=email],
+      input[type=url], input[type=number], input[type=time], select, textarea {
+        font-size: 16px;
+      }
+
+      /* Step labels hidden on small screens */
+      .step-label { display: none; }
+
+      /* Action buttons — full width on small screens */
+      td[style*="white-space:nowrap"] { white-space: normal !important; }
+
+      /* Search bars — stack vertically */
+      .search-bar { flex-wrap: wrap; }
+      .search-bar input { min-width: 0 !important; }
+
+      /* Reports form — class-based grids → single column */
+      .date-preset-row,
+      .custom-date-row,
+      .cost-grid,
+      .sched-grid {
+        grid-template-columns: 1fr !important;
+      }
+
+      /* Form actions — wrap on mobile */
+      .form-actions { flex-wrap: wrap; }
+      .form-actions > * { max-width: 100%; }
+      textarea, input, select { max-width: 100%; }
+
+      /* Help page — reduce list indent */
+      ol { padding-left: 16px !important; }
+    }
+
+    @media (max-width: 480px) {
+      :root { --workspace-gutter: 12px; }
+      .nav-brand { font-size: .92em; }
+      .card { padding: 14px 12px; }
+      .container { margin: 10px auto; }
+      .btn { padding: 9px 16px; font-size: .9em; }
+
+      /* Very small screens — tables can be narrower */
+      table { min-width: 400px; }
+      .table-scroll table { min-width: 400px; }
+
+      /* Single stat box per row */
+      .stats-summary { flex-direction: column; }
+
+      /* Buttons stack vertically in major flex containers */
+      [style*="display:flex"][style*="gap"] {
+        flex-direction: column !important;
+      }
+      /* But not nav-related or inline flex containers */
+      nav, .nav-right, .nav-links, .mobile-menu,
+      .mobile-lang-grid, .tenant-tabs, .search-bar,
+      .check-row, .slider-wrap, .lang-checkboxes,
+      .fmt-row, .color-row,
+      .preset-cards { flex-direction: row !important; }
+      .preset-cards { flex-direction: column !important; }
+
+
+      /* Full-width buttons — but not small action buttons in tables */
+      .btn:not(.btn-sm) { width: 100%; text-align: center; }
+    }
+
+    /* v7.6.0: Prefetch-Status-Pille — kleines Indikator-Pill in der
+       Top-Nav wenn der Tenant-Background-Prefetch noch läuft. */
+    .prefetch-pill {
+      display:flex; align-items:center; gap:6px;
+      padding:5px 10px;
+      background:linear-gradient(135deg,#eff6ff,#dbeafe);
+      border:1px solid #bfdbfe;
+      border-radius:999px;
+      font-size:.78em; color:#1e40af;
+      box-shadow: 0 1px 3px rgba(30,64,175,.08);
+      cursor:default;
+      user-select:none;
+    }
+    .prefetch-pill-spin {
+      display:inline-block;
+      animation: prefetch-spin 1.4s linear infinite;
+    }
+    @keyframes prefetch-spin { to { transform: rotate(360deg); } }
+    .prefetch-pill.done {
+      background:linear-gradient(135deg,#dcfce7,#bbf7d0);
+      border-color:#86efac;
+      color:#14532d;
+      animation: prefetch-fade 2.4s ease-out forwards;
+    }
+    @keyframes prefetch-fade {
+      0%,70% { opacity:1; }
+      100%   { opacity:0; visibility:hidden; }
+    }
+    @media (max-width: 720px) {
+      .prefetch-pill .prefetch-pill-label { display:none; }
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  {% if show_nav | default(true) %}
+  {# v7.9.1: Logged-in users — no top bar, sidebar handles everything.
+     Only a minimal mobile hamburger floats top-right. #}
+  {% if user %}
+  <button class="mobile-hamburger" id="hamburger" aria-label="{{ _('common_open_menu') }}"
+          aria-expanded="false" onclick="toggleMobileMenu()">
+    <span></span><span></span><span></span>
+  </button>
+  {# Prefetch pill — floats top-right on desktop #}
+  {% if user.role_type != 'employee' %}
+  <div id="prefetchPill" class="prefetch-pill prefetch-pill-float" style="display:none;"
+       title="{{ _('prefetch_pill_tip') }}">
+    <span class="prefetch-pill-spin">⏳</span>
+    <span class="prefetch-pill-label">{{ _('prefetch_pill_running') }}</span>
+  </div>
+  {% endif %}
+  {% else %}
+  {# Not logged in — full top nav with branding, login, register, language #}
+  <nav>
+    <div class="nav-shell">
+      <a class="nav-brand" href="/">
+        <span class="nav-brand-mark">{% include "_brand_logo.svg" %}</span>
+        <span>{{ _('brand_console_name') }}</span>
+      </a>
+      <div class="nav-right">
+        <div class="nav-links">
+          <a href="/login">{{ _('nav_login') }}</a>
+          <a href="/register">{{ _('nav_register') }}</a>
+        </div>
+        <div class="lang-switcher" id="langSwitcher">
+          <button class="lang-btn" onclick="toggleLangDropdown(event)">🌐 {{ lang | upper }}</button>
+          <div class="lang-dropdown" id="langDropdown">
+            <div class="lang-dropdown-inner">
+              {% if lang_names and supported_langs %}
+                {% for code in supported_langs %}
+                  <a href="/lang/{{ code }}" {% if code == lang %}class="active"{% endif %}>
+                    {{ lang_names[code] }}
+                  </a>
+                {% endfor %}
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        <button class="hamburger" id="hamburger" aria-label="{{ _('common_open_menu') }}"
+                aria-expanded="false" onclick="toggleMobileMenu()">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </nav>
+  {% endif %}
+
+  <!-- Sidebar Navigation (v7.9.0) -->
+  {% if user %}
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+  <aside class="sidebar" id="sidebar">
+    {# v7.9.1: Branding in Sidebar #}
+    <div class="sidebar-brand">
+      <span class="sidebar-brand-logo">{% include "_brand_logo.svg" %}</span>
+      <span class="sidebar-brand-text">{{ _('brand_console_name') }}</span>
+    </div>
+    <div class="sidebar-section">
+      {# Dashboard — immer sichtbar #}
+      <a href="/dashboard" class="sidebar-top-link {% if active_page == 'dashboard' %}active{% endif %}">
+        <span class="sb-icon">🏠</span> {{ _('nav_dashboard') }}
+      </a>
+    </div>
+
+    {% if user.role_type != 'employee' %}
+    {# ── Printix Management ─────────────────────────────────────────── #}
+    <button class="sb-cat-toggle open" onclick="toggleSbCat(this)">
+      <span>🖨️</span> {{ _('nav_cat_printix_mgmt') }}
+      <span class="sb-cat-chevron">▸</span>
+    </button>
+    <div class="sb-cat-items open">
+      <a href="/tenant"             class="sb-sublink {% if active_page == 'tenant_overview' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_overview') }}</a>
+      <a href="/tenant/users"       class="sb-sublink {% if active_page == 'tenant_users' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_users') }}</a>
+      <a href="/tenant/printers"    class="sb-sublink {% if active_page == 'tenant_printers' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_printers') }}</a>
+      <a href="/tenant/queues"      class="sb-sublink {% if active_page == 'tenant_queues' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_queues') }}</a>
+      <a href="/tenant/workstations" class="sb-sublink {% if active_page == 'tenant_workstations' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_workstations') }}</a>
+      <a href="/tenant/sites"       class="sb-sublink {% if active_page == 'tenant_sites' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_sites') }}</a>
+      <a href="/tenant/networks"    class="sb-sublink {% if active_page == 'tenant_networks' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_networks') }}</a>
+      <a href="/tenant/snmp"        class="sb-sublink {% if active_page == 'tenant_snmp' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_snmp') }}</a>
+      <a href="/tenant/demo"        class="sb-sublink {% if active_page == 'tenant_demo' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_demo') }}</a>
+    </div>
+
+    {# ── Karten & Codes ─────────────────────────────────────────────── #}
+    <button class="sb-cat-toggle" onclick="toggleSbCat(this)">
+      <span>💳</span> {{ _('nav_cat_cards') }}
+      <span class="sb-cat-chevron">▸</span>
+    </button>
+    <div class="sb-cat-items">
+      <a href="/cards" class="sb-sublink {% if active_page == 'cards' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_cards_mapping') }}</a>
+    </div>
+
+    {# ── Fleet Management ────────────────────────────────────────────── #}
+    <button class="sb-cat-toggle" onclick="toggleSbCat(this)">
+      <span>📦</span> {{ _('nav_cat_fleet') }}
+      <span class="sb-cat-chevron">▸</span>
+    </button>
+    <div class="sb-cat-items">
+      <a href="/fleet"                 class="sb-sublink {% if active_page == 'fleet' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_fleet') }}</a>
+      <a href="/fleet/package-builder" class="sb-sublink {% if active_page == 'fleet_packages' %}active{% endif %}"><span class="sb-dot"></span>Package Builder</a>
+    </div>
+
+    {# ── Berichte & Logs ─────────────────────────────────────────────── #}
+    <button class="sb-cat-toggle" onclick="toggleSbCat(this)">
+      <span>📊</span> {{ _('nav_cat_reports') }}
+      <span class="sb-cat-chevron">▸</span>
+    </button>
+    <div class="sb-cat-items">
+      <a href="/reports"                class="sb-sublink {% if active_page == 'reports' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_reports') }}</a>
+      {% if user.is_admin %}<a href="/admin/mcp-reports-cookbook" class="sb-sublink {% if active_page == 'reports_cookbook' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_report_templates') }}</a>{% endif %}
+      <a href="/reports/sustainability" class="sb-sublink {% if active_page == 'sustainability' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_sustainability') }}</a>
+      <a href="/logs"                   class="sb-sublink {% if active_page == 'logs' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_logs') }}</a>
+      {% if user.is_admin %}<a href="/admin/audit" class="sb-sublink {% if active_page == 'audit' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_audit') }}</a>{% endif %}
+    </div>
+
+    {# ── Pro Features (nur wenn mind. 1 Feature aktiv) ───────────────── #}
+    {% if pro_capture_enabled or pro_guestprint_enabled or pro_print_job_mgmt_enabled %}
+    <button class="sb-cat-toggle" onclick="toggleSbCat(this)">
+      <span>⭐</span> {{ _('nav_cat_pro') }}
+      <span class="sb-cat-chevron">▸</span>
+    </button>
+    <div class="sb-cat-items">
+      {% if pro_print_job_mgmt_enabled %}<a href="/my" class="sb-sublink {% if active_page == 'my_portal' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_my_portal') }}</a>{% endif %}
+      {% if pro_capture_enabled %}<a href="/capture" class="sb-sublink {% if active_page == 'capture' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_capture') }}</a>{% endif %}
+      {% if user.is_admin and pro_guestprint_enabled %}<a href="/guestprint" class="sb-sublink {% if active_page == 'guestprint' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_guestprint') }}</a>{% endif %}
+    </div>
+    {% endif %}
+
+    {# ── Administration (nur Admin) ──────────────────────────────────── #}
+    {% if user.is_admin %}
+    <button class="sb-cat-toggle" onclick="toggleSbCat(this)">
+      <span>⚙️</span> {{ _('nav_cat_admin') }}
+      <span class="sb-cat-chevron">▸</span>
+    </button>
+    <div class="sb-cat-items">
+      <div class="sb-subgroup-label">{{ _('nav_user_mgmt') }}</div>
+      <a href="/admin/users"               class="sb-sublink {% if active_page == 'admin_users' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_overview') }}</a>
+      <a href="/admin/users/invite"        class="sb-sublink {% if active_page == 'admin_invite' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_invite') }}</a>
+      <a href="/admin/users/bulk-import"   class="sb-sublink {% if active_page == 'admin_bulk' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_bulk_import') }}</a>
+      <a href="/admin/users/import-printix" class="sb-sublink {% if active_page == 'admin_import_printix' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_printix_import') }}</a>
+      <a href="/admin/users/create"        class="sb-sublink {% if active_page == 'admin_create_user' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_create_user') }}</a>
+      <div class="sb-subgroup-label">{{ _('nav_security') }}</div>
+      <a href="/admin/ssl"          class="sb-sublink {% if active_page == 'admin_ssl' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_ssl') }}</a>
+      <a href="/admin/ssl/diagnose" class="sb-sublink {% if active_page == 'admin_ssl_diagnose' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_ssl_diagnose') }}</a>
+      <a href="/admin/tls"          class="sb-sublink {% if active_page == 'admin_tls' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_tls') }}</a>
+      <a href="/admin/auto-tls"     class="sb-sublink {% if active_page == 'admin_auto_tls' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_auto_tls') }}</a>
+      <a href="/admin/tunnel"       class="sb-sublink {% if active_page == 'admin_tunnel' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_tunnel') }}</a>
+      <div class="sb-subgroup-label">{{ _('nav_system') }}</div>
+      <a href="/admin/settings"        class="sb-sublink {% if active_page == 'admin_settings' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_settings') }}</a>
+      <a href="/settings"              class="sb-sublink {% if active_page == 'settings' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_api_config') }}</a>
+      <a href="/admin/mcp-permissions" class="sb-sublink {% if active_page == 'admin_rbac' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_rbac') }}</a>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {# ── Employees sehen nur Pro-Features ────────────────────────────── #}
+    {% if user.role_type == 'employee' %}
+      {% if pro_print_job_mgmt_enabled %}
+      <div class="sidebar-section">
+        <a href="/my" class="sidebar-top-link {% if active_page == 'my_portal' %}active{% endif %}">
+          <span class="sb-icon">📄</span> {{ _('nav_my_portal') }}
+        </a>
+      </div>
+      {% endif %}
+    {% endif %}
+
+    {# ── Bottom: Connect, Profil, Hilfe, Sprache, Logout ───────────── #}
+    <div class="sidebar-bottom">
+      <a href="/my/connect"       class="sb-bottom-link {% if active_page == 'connect' %}active{% endif %}"><span class="sb-icon">🔌</span>{{ _('cc_nav_label') }}</a>
+      <a href="/settings/password" class="sb-bottom-link {% if active_page == 'password' %}active{% endif %}"><span class="sb-icon">🔑</span>{{ _('nav_password') }}</a>
+      <a href="/feedback"         class="sb-bottom-link {% if active_page == 'feedback' %}active{% endif %}"><span class="sb-icon">💬</span>{{ _('nav_feedback') }}</a>
+      <a href="/help"             class="sb-bottom-link {% if active_page == 'help' %}active{% endif %}"><span class="sb-icon">❓</span>{{ _('nav_help') }}</a>
+      <div class="sb-divider"></div>
+      {# v7.9.1: Language switcher in sidebar bottom #}
+      <div class="sb-lang-switcher">
+        <button class="sb-lang-btn" onclick="toggleSbLang(this)">
+          <span class="sb-icon">🌐</span>{{ _('common_language') }}: {{ lang | upper }}
+          <span class="sb-lang-chevron">▸</span>
+        </button>
+        <div class="sb-lang-grid">
+          {% if lang_names and supported_langs %}
+            {% for code in supported_langs %}
+              <a href="/lang/{{ code }}" class="sb-lang-option {% if code == lang %}active{% endif %}">
+                {{ lang_names[code] }}
+              </a>
+            {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+      <div class="sb-divider"></div>
+      <a href="/logout" class="sb-bottom-link"><span class="sb-icon">🚪</span>{{ _('nav_logout') }}</a>
+    </div>
+  </aside>
+  {% endif %}
+
+  {# Mobile-Drawer für nicht-eingeloggte Benutzer #}
+  {% if not user %}
+  <div class="mobile-menu" id="mobileMenu" aria-hidden="true">
+    <a href="/login"    onclick="closeMobileMenu()">🔑 {{ _('nav_login') }}</a>
+    <a href="/register" onclick="closeMobileMenu()">📝 {{ _('nav_register') }}</a>
+    <div class="drawer-divider"></div>
+    <div class="mobile-lang-section">
+      <small>🌐 {{ _('common_language') }}</small>
+      <div class="mobile-lang-grid">
+        {% if lang_names and supported_langs %}
+          {% for code in supported_langs %}
+            <a href="/lang/{{ code }}" {% if code == lang %}class="active"{% endif %}>
+              {{ lang_names[code] }}
+            </a>
+          {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+
+  <main class="{% if user %}main-area{% endif %}" id="mainArea">
+  {% block content %}{% endblock %}
+
+  {# v7.9.4: Global footer — privacy + imprint links, visible on every page
+     (logged-in and logged-out). Required for App-Review of MySecurePrint
+     iOS app and for German § 5 TMG / § 18 MStV imprint duty. #}
+  <footer style="text-align:center; padding:24px 16px 32px; font-size:.85em;
+                 color:#6b7280; border-top:1px solid rgba(0,0,0,.05);
+                 margin-top:32px;">
+    <a href="/privacy" style="color:#475569; text-decoration:none; font-weight:600;">{{ _('legal_nav_privacy') }}</a>
+    &nbsp;·&nbsp;
+    <a href="/imprint" style="color:#475569; text-decoration:none; font-weight:600;">{{ _('legal_nav_imprint') }}</a>
+    &nbsp;·&nbsp;
+    <a href="/legal" style="color:#475569; text-decoration:none; font-weight:600;">{{ _('legal_nav_legal') }}</a>
+    {% if user and user.is_admin %}
+      &nbsp;·&nbsp;
+      <a href="/admin/mcp-reports-cookbook" style="color:#475569; text-decoration:none; font-weight:600;">{{ _('legal_nav_documentation') }}</a>
+    {% endif %}
+    &nbsp;·&nbsp;
+    <span style="color:#9ca3af;">{{ _('legal_footer_version') }} v{{ app_version }}</span>
+  </footer>
+  </main>
+
+  <script>
+    // ── Sidebar Navigation (v7.9.0) ─────────────────────────────────────
+    function toggleSbLang(btn) {
+      btn.classList.toggle('open');
+      const grid = btn.nextElementSibling;
+      if (grid) grid.classList.toggle('open');
+    }
+    function toggleSbCat(btn) {
+      btn.classList.toggle('open');
+      const items = btn.nextElementSibling;
+      if (items) items.classList.toggle('open');
+    }
+
+    // Mobile: hamburger toggles sidebar (if logged in) or mobile-menu (if not)
+    function toggleMobileMenu() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      const menu    = document.getElementById('mobileMenu');
+      const btn     = document.getElementById('hamburger');
+
+      if (sidebar) {
+        // Logged in → toggle sidebar
+        const isOpen = sidebar.classList.toggle('open');
+        btn.classList.toggle('open', isOpen);
+        btn.setAttribute('aria-expanded', String(isOpen));
+        if (overlay) overlay.classList.toggle('visible', isOpen);
+      } else if (menu) {
+        // Not logged in → toggle old mobile menu
+        const isOpen = menu.classList.toggle('open');
+        btn.classList.toggle('open', isOpen);
+        btn.setAttribute('aria-expanded', String(isOpen));
+        menu.setAttribute('aria-hidden', String(!isOpen));
+      }
+    }
+    function closeSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      const btn     = document.getElementById('hamburger');
+      if (sidebar) sidebar.classList.remove('open');
+      if (overlay) overlay.classList.remove('visible');
+      if (btn) { btn.classList.remove('open'); btn.setAttribute('aria-expanded','false'); }
+    }
+    function closeMobileMenu() {
+      closeSidebar();
+      const menu = document.getElementById('mobileMenu');
+      const btn  = document.getElementById('hamburger');
+      if (menu) { menu.classList.remove('open'); menu.setAttribute('aria-hidden','true'); }
+      if (btn)  { btn.classList.remove('open'); btn.setAttribute('aria-expanded','false'); }
+    }
+    // Close on outside click
+    document.addEventListener('click', function(e) {
+      const sidebar = document.getElementById('sidebar');
+      const btn     = document.getElementById('hamburger');
+      // Only close on mobile (when sidebar uses transform)
+      if (sidebar && sidebar.classList.contains('open') &&
+          !sidebar.contains(e.target) && btn && !btn.contains(e.target)) {
+        closeSidebar();
+      }
+      const menu = document.getElementById('mobileMenu');
+      if (menu && menu.classList.contains('open') &&
+          !menu.contains(e.target) && btn && !btn.contains(e.target)) {
+        closeMobileMenu();
+      }
+    });
+    // Close on Escape
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { closeSidebar(); closeMobileMenu(); }
+    });
+
+    // Auto-open categories that contain the active link
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('.sb-sublink.active').forEach(function(link) {
+        const items = link.closest('.sb-cat-items');
+        if (items) {
+          items.classList.add('open');
+          const toggle = items.previousElementSibling;
+          if (toggle && toggle.classList.contains('sb-cat-toggle')) {
+            toggle.classList.add('open');
+          }
+        }
+      });
+    });
+
+    // ── Language Dropdown (desktop) ───────────────────────────────────────
+    function toggleLangDropdown(e) {
+      e.stopPropagation();
+      document.getElementById('langDropdown').classList.toggle('open');
+    }
+    document.addEventListener('click', function(e) {
+      const s = document.getElementById('langSwitcher');
+      if (s && !s.contains(e.target)) {
+        const dd = document.getElementById('langDropdown');
+        if (dd) dd.classList.remove('open');
+      }
+    });
+
+    // ── Copy to Clipboard ─────────────────────────────────────────────────
+    function copyToClipboard(id, btnEl) {
+      const el   = document.getElementById(id);
+      const text = el ? el.textContent.trim() : '';
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = btnEl || (el && el.parentElement.querySelector('.copy-btn'));
+        if (btn) {
+          const orig = btn.textContent;
+          btn.textContent = '✓';
+          setTimeout(() => btn.textContent = orig, 1500);
+        }
+      });
+    }
+
+    /* v7.6.0: Prefetch-Status-Polling. Solange der Hintergrund-Prefetch
+       läuft, blinkt die ⏳-Pille in der Nav. Sobald 'done' kommt,
+       wechselt sie auf grün und blendet sich nach 2.4s aus. */
+    (function initPrefetchPoll() {
+      const pill = document.getElementById('prefetchPill');
+      if (!pill) return;
+      const labelEl = pill.querySelector('.prefetch-pill-label');
+      const I18N_DONE    = {{ _('prefetch_pill_done')    | tojson }};
+      const I18N_RUNNING = {{ _('prefetch_pill_running') | tojson }};
+      let pollHandle = null, doneShown = false;
+
+      async function poll() {
+        try {
+          const r = await fetch('/api/prefetch-status', { credentials:'same-origin' });
+          if (!r.ok) return;
+          const j = await r.json();
+          if (j.status === 'running') {
+            pill.style.display = 'flex';
+            pill.classList.remove('done');
+            if (labelEl) labelEl.textContent = I18N_RUNNING;
+          } else if (j.status === 'done') {
+            if (!doneShown) {
+              doneShown = true;
+              pill.style.display = 'flex';
+              pill.classList.add('done');
+              if (labelEl) labelEl.textContent = I18N_DONE;
+              pill.querySelector('.prefetch-pill-spin').textContent = '✓';
+            }
+            // Nach erstem 'done' Polling stoppen — Refresher arbeitet im
+            // Hintergrund, User braucht das Feedback nicht mehr.
+            if (pollHandle) { clearInterval(pollHandle); pollHandle = null; }
+          } else {
+            // anon / error / no_tenant / idle → nicht zeigen
+            pill.style.display = 'none';
+          }
+        } catch (e) { /* offline → still */ }
+      }
+
+      // Erstes Poll sofort, danach alle 1.5s bis Done.
+      poll();
+      pollHandle = setInterval(poll, 1500);
+    })();
+  </script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>
