@@ -1,5 +1,19 @@
 # Changelog — MySecurePrint Server
 
+## 0.4.7 — 2026-06-29 — Top-Bar mit User-Menü + Logout
+
+User: „es gibt kein logout-button auf dem server". Der Logout war zwar
+unten in der Sidebar (`<a href="/logout">`), wurde aber leicht
+übersehen — Standard-Pattern ist oben-rechts.
+
+Neue Top-Bar oberhalb der Breadcrumb:
+- 👤 User-Name (+ „Admin"-Badge wenn applicable)
+- 🚪 Logout-Button (rot, klar als „verlassen"-Aktion erkennbar)
+- Sichtbar auf jeder Seite wenn eingeloggt
+
+Der Sidebar-Bottom-Logout bleibt zusätzlich drin als Fallback (Mobile-
+Hamburger-Pfad).
+
 ## 0.4.6 — 2026-06-29 — Nav-Restrukturierung + GDPR-Seite
 
 User-Feedback: keine erkennbare Menüstruktur (Admin-Kategorie war

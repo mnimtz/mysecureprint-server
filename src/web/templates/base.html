@@ -1110,6 +1110,25 @@
 
   <main class="{% if user %}main-area{% endif %}" id="mainArea">
 
+  {# v0.4.7: Top-Bar mit User-Menü + Logout — Standard-Pattern oben rechts.
+     Sidebar-Bottom-Logout war zwar da, wurde aber gerne uebersehen. #}
+  {% if user %}
+  <div style="display:flex; justify-content:flex-end; align-items:center; gap:14px;
+              padding:10px 24px; background:#fff;
+              border-bottom:1px solid var(--ta-gray-200); font-size:.9em;">
+    <span style="color:#475569;">
+      👤 <strong>{{ user.full_name or user.username }}</strong>
+      {% if user.is_admin %}<span style="background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:999px; font-size:.78em; font-weight:700; margin-left:4px;">Admin</span>{% endif %}
+    </span>
+    <a href="/logout" style="color:#dc2626; text-decoration:none; font-weight:600;
+                              display:inline-flex; align-items:center; gap:6px;
+                              padding:6px 12px; border:1px solid #fecaca;
+                              border-radius:6px; background:#fef2f2;">
+      🚪 {{ _('nav_logout') }}
+    </a>
+  </div>
+  {% endif %}
+
   {# v0.4.4: Breadcrumb-Bar — zeigt "← Dashboard" auf jeder Unterseite.
      Sidebar gibt's zwar, ist aber auf Mobile hinter dem Hamburger. Plus
      ein klar sichtbarer Zurueck-Pfad ist Standard-UX. Wird auf der
