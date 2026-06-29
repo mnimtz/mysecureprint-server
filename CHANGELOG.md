@@ -1,5 +1,14 @@
 # Changelog — MySecurePrint Server
 
+## 0.6.2 — 2026-06-29 — Fix /desktop/me/jobs 500 (Spalten-Mismatch)
+
+User-Report: Jobs-Tab in iOS zeigt „server antwortet 500". Root-Cause:
+SQL-Query selectierte `filename`, Spalte heisst aber `job_name`. SQLite
+warf OperationalError, der via 500 zurueckkam.
+
+Fix: `SELECT job_id, job_name AS filename, ...` — App-seitig erwartet
+die Property `filename` (JobsView.PrintJob), bleibt unveraendert.
+
 ## 0.6.1 — 2026-06-29 — CRITICAL: Diagnostik /desktop/* 404 + QR-Email + Erweiterte-Fix
 
 User-Report: iOS-App-Anmeldung geht nicht mehr (/desktop/auth/login →

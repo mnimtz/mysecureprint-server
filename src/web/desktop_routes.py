@@ -884,7 +884,8 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             pxid = (user.get("printix_user_id") or "").lower()
             with _conn() as conn:
                 rows = conn.execute(
-                    """SELECT job_id, filename, status, queue_name AS queue,
+                    """SELECT job_id, job_name AS filename, status,
+                              queue_name AS queue,
                               created_at, forwarded_at, error_message,
                               detected_identity AS source_identity
                        FROM cloudprint_jobs
