@@ -78,6 +78,8 @@ resource site 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'MCP_PUBLIC_URL', value: effectivePublicUrl }
         { name: 'MCP_LOG_LEVEL', value: logLevel }
         { name: 'WEB_PORT', value: '8080' }
+        { name: 'MCP_PORT', value: '8765' }
+        { name: 'MCP_HOST', value: '127.0.0.1' }
         { name: 'TZ', value: tz }
         { name: 'AZURE_STORAGE_CONNECTION_STRING', value: 'DefaultEndpointsProtocol=https;AccountName=${storageName};AccountKey=${listKeys(storage.id, '2023-05-01').keys[0].value};EndpointSuffix=core.windows.net' }
         { name: 'BLOB_BACKUP_CONTAINER_DEFAULT', value: blobBackupContainer }

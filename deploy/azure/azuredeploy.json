@@ -82,6 +82,8 @@
             { "name": "MCP_PUBLIC_URL", "value": "[variables('effectivePublicUrl')]" },
             { "name": "MCP_LOG_LEVEL", "value": "[parameters('logLevel')]" },
             { "name": "WEB_PORT", "value": "8080" },
+            { "name": "MCP_PORT", "value": "8765" },
+            { "name": "MCP_HOST", "value": "127.0.0.1" },
             { "name": "TZ", "value": "[parameters('tz')]" },
             { "name": "AZURE_STORAGE_CONNECTION_STRING", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-05-01').keys[0].value, ';EndpointSuffix=core.windows.net')]" },
             { "name": "BLOB_BACKUP_CONTAINER_DEFAULT", "value": "[variables('blobBackupContainer')]" }

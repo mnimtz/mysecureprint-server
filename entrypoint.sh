@@ -2,8 +2,14 @@
 # =============================================================================
 # mysecureprint-server — Docker Entrypoint
 # =============================================================================
-# Startet einen Python-Service:
-#   - Web-UI + REST-API fuer die MySecurePrint iOS-App (WEB_PORT, default 8080)
+# Startet zwei Python-Services im selben Container:
+#   - Web-UI + REST-API + iOS-App-Endpoints  (WEB_PORT, default 8080) — exposed
+#   - MCP-Server fuer claude.ai / ChatGPT     (MCP_PORT, default 8765) — internal
+#
+# Der MCP-Server hoert nur auf 127.0.0.1 — externer Zugriff erfolgt
+# AUSSCHLIESSLICH ueber den Reverse-Proxy in web/app.py, der durch den
+# `mcp_enabled` DB-Setting freigeschaltet wird (Default: aus). Damit ist
+# ein frisches Deployment OHNE oeffentlich erreichbaren MCP-Endpoint.
 #
 # Alle Secrets + SQLite-DB liegen in /data (muss als Volume gemountet sein).
 # Konfiguration 100% via Environment-Variablen.
@@ -33,6 +39,8 @@ FERNET_KEY="$(cat /data/fernet.key)"
 
 export WEB_HOST="${WEB_HOST:-0.0.0.0}"
 export WEB_PORT="${WEB_PORT:-8080}"
+export MCP_HOST="${MCP_HOST:-127.0.0.1}"
+export MCP_PORT="${MCP_PORT:-8765}"
 export MCP_LOG_LEVEL="${MCP_LOG_LEVEL:-info}"
 export MCP_PUBLIC_URL="${MCP_PUBLIC_URL:-}"
 MCP_PUBLIC_URL="${MCP_PUBLIC_URL%/}"
@@ -52,11 +60,20 @@ cat <<BANNER
 ================================================================================
 BANNER
 
-shutdown() {
-    log_info "SIGTERM erhalten — beende Web-UI..."
+log_info "Starte MCP-Server (intern) auf ${MCP_HOST}:${MCP_PORT}..."
+cd /app
+python3 -X faulthandler -u /app/server.py >&1 &
+MCP_PID=$!
+cd - > /dev/null
+log_info "MCP-Server PID: ${MCP_PID}"
+
+cleanup() {
+    log_info "SIGTERM erhalten — beende MCP (PID ${MCP_PID}) + Web-UI..."
+    kill -TERM "${MCP_PID}" 2>/dev/null || true
+    wait "${MCP_PID}" 2>/dev/null || true
     exit 0
 }
-trap shutdown SIGTERM SIGINT
+trap cleanup SIGTERM SIGINT
 
 log_info "Starte Web-UI auf ${WEB_HOST}:${WEB_PORT}..."
 log_info "Diag: uid=$(id -u) gid=$(id -g) user=$(whoami)"

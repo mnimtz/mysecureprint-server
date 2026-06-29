@@ -1,5 +1,60 @@
 # Changelog — MySecurePrint Server
 
+## 0.4.0 — 2026-06-29 — MCP server zurück (opt-in)
+
+Der MCP-Server für claude.ai / ChatGPT ist zurück — als optionales Feature
+ohne die Reports/Capture/Demo-Lasten des Originals.
+
+### Was dazukommt
+- `src/server.py` (5000 Zeilen, **86 MCP-Tools**) — frisch aus dem
+  printix-mcp-linux-Quellbaum geslimmt: 133 → 86 Tools. Behalten wurden
+  alle Tools rund um User, Workstations, Cards, Printers, Queues,
+  Networks, Sites, SNMP, Audit-Log, Tenant-Browsing und GDPR-Export.
+  Gestrichen wurden Reports, Scheduler, Capture, Demo, Roadmap und alle
+  Tools die intern auf `reporting`/`capture`/`guestprint`/
+  `package_builder` zugriffen.
+- `src/oauth.py` (707 Zeilen) — Multi-Tenant OAuth 2.0 Authorization
+  Code Server für claude.ai/ChatGPT-Konnektoren (1:1 aus dem Original).
+- `src/auth.py` (181 Zeilen) — Bearer-Auth-Middleware (Token → Tenant
+  Lookup pro Request).
+- Proxy-Routen in `web/app.py`: `/mcp`, `/sse`, `/messages`,
+  `/oauth/*`, `/.well-known/*` — leiten an den internen MCP-Server
+  (`127.0.0.1:8765`) durch, Streaming-by-default. Gated durch das
+  `mcp_enabled` Setting: aus → 503, an → durchgereicht.
+- `entrypoint.sh` startet jetzt **zwei** Prozesse: den MCP-Server im
+  Hintergrund (intern), dann die Web-UI als Vordergrund-Prozess.
+  SIGTERM räumt beide sauber ab.
+- ARM/Bicep: neue Env-Variablen `MCP_PORT=8765` + `MCP_HOST=127.0.0.1`
+  (intern only — Azure App Service exposed weiterhin nur Port 8080).
+
+### Neue Admin-Seite
+- `/admin/mcp-access` — Status-Übersicht, Aktivierungs-Toggle,
+  Verbindungs-URLs für claude.ai / ChatGPT, Bearer-Token-Display
+  (für Make.com / curl), OAuth-Client-ID/Secret-Display + Rotate-
+  Buttons, kurze Anleitung pro Client.
+- Sidebar-Nav: „MCP-Zugang" unter „System".
+- Audit-Log-Events: `mcp_enabled_changed`, `mcp_bearer_rotated`,
+  `mcp_oauth_rotated`.
+
+### Sicherheit
+- **Default-aus**: ein frisches Deployment hat den MCP nicht weltweit
+  offen. Admin muss explizit den Schalter umlegen.
+- Der MCP-Sub-Prozess bindet nur auf `127.0.0.1` — selbst wenn jemand
+  den Toggle vergisst, gibt's keine direkte Außenwelt-Anbindung.
+  Nur über den Proxy mit Setting-Check erreichbar.
+- Bearer + OAuth-Credentials rotierbar mit einem Klick.
+
+### Was NICHT wieder eingebaut wurde
+- Reports + Scheduler (die ganzen `query_*`, `top_*`, `cost_*`-Tools)
+- Capture (`send_to_capture`, `capture_status` etc.)
+- Demo (`demo_generate`, `demo_rollback` etc.)
+- Roadmap (`list_feature_requests` etc.)
+- Guest-Print
+- IPP/Cloud-Print-Listener
+
+Diese Module sind in mysecureprint-server nicht vorhanden — die Tools
+wären ins Leere gelaufen.
+
 ## 0.3.3 — 2026-06-29 — Fix /admin → 500 (missing template)
 
 After successful admin registration the redirect target /admin tried to

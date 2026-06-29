@@ -4483,6 +4483,126 @@ def create_app(session_secret: str) -> FastAPI:
             except Exception:
                 pass
 
+    # ─── MCP Access Admin Page (v0.4.0) ──────────────────────────────────
+    # Opt-in MCP exposure. The MCP server itself runs in the same container
+    # (entrypoint.sh starts it on port 8765 — internal only). Setting
+    # mcp_enabled=1 unlocks the proxy routes /mcp /sse /oauth/* etc.
+    # Without this, claude.ai / ChatGPT can't connect — even though the
+    # endpoints exist, they return 503.
+
+    def _mcp_admin_ctx(request: Request, user: dict, **extra) -> dict:
+        tc = t_ctx(request)
+        from db import get_setting
+        try:
+            from db import get_tenant_full_by_user_id, _find_tenant_owner_user_id
+            t = get_tenant_full_by_user_id(user["id"])
+            if not t:
+                oid = _find_tenant_owner_user_id()
+                if oid:
+                    t = get_tenant_full_by_user_id(oid)
+        except Exception:
+            t = None
+        base = mcp_base_url_or(request)
+        return {
+            "request": request,
+            "user":    user,
+            "tenant":  t or {},
+            "enabled": get_setting("mcp_enabled", "0") == "1",
+            "base_url": base,
+            "mcp_url":            f"{base}/mcp",
+            "sse_url":            f"{base}/sse",
+            "oauth_authorize_url": f"{base}/oauth/authorize",
+            "oauth_token_url":     f"{base}/oauth/token",
+            "wellknown_url":       f"{base}/.well-known/oauth-authorization-server",
+            "active_page": "admin_mcp_access",
+            **tc, **extra,
+        }
+
+    @app.get("/admin/mcp-access", response_class=HTMLResponse)
+    async def admin_mcp_access_page(request: Request):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        return templates.TemplateResponse(
+            "admin_mcp_access.html", _mcp_admin_ctx(request, user),
+        )
+
+    @app.post("/admin/mcp-access/toggle", response_class=HTMLResponse)
+    async def admin_mcp_access_toggle(request: Request,
+                                       enabled: str = Form("")):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        from db import set_setting, audit
+        new_state = "1" if enabled in ("1", "on", "true") else "0"
+        set_setting("mcp_enabled", new_state)
+        audit(user["id"], "mcp_enabled_changed", f"value={new_state}")
+        return RedirectResponse("/admin/mcp-access?ok=saved", status_code=302)
+
+    @app.post("/admin/mcp-access/rotate-bearer", response_class=HTMLResponse)
+    async def admin_mcp_access_rotate_bearer(request: Request):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        try:
+            import secrets as _secrets
+            from db import (_conn, get_tenant_full_by_user_id,
+                            _find_tenant_owner_user_id, audit)
+            t = get_tenant_full_by_user_id(user["id"])
+            if not t:
+                oid = _find_tenant_owner_user_id()
+                t = get_tenant_full_by_user_id(oid) if oid else None
+            if not t:
+                return RedirectResponse(
+                    "/admin/mcp-access?err=no_tenant", status_code=302)
+            new_token = _secrets.token_urlsafe(32)
+            with _conn() as conn:
+                conn.execute(
+                    "UPDATE tenants SET bearer_token=? WHERE id=?",
+                    (new_token, t["id"]),
+                )
+                conn.commit()
+            audit(user["id"], "mcp_bearer_rotated", f"tenant={t['id']}")
+        except Exception as e:
+            logger.error("rotate bearer failed: %s", e, exc_info=True)
+            return RedirectResponse(
+                f"/admin/mcp-access?err={quote_plus(str(e))}", status_code=302)
+        return RedirectResponse("/admin/mcp-access?ok=bearer_rotated",
+                                status_code=302)
+
+    @app.post("/admin/mcp-access/rotate-oauth", response_class=HTMLResponse)
+    async def admin_mcp_access_rotate_oauth(request: Request):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        try:
+            import secrets as _secrets
+            from db import (_conn, get_tenant_full_by_user_id,
+                            _find_tenant_owner_user_id, audit)
+            t = get_tenant_full_by_user_id(user["id"])
+            if not t:
+                oid = _find_tenant_owner_user_id()
+                t = get_tenant_full_by_user_id(oid) if oid else None
+            if not t:
+                return RedirectResponse(
+                    "/admin/mcp-access?err=no_tenant", status_code=302)
+            new_id     = "px-" + _secrets.token_hex(8)
+            new_secret = _secrets.token_urlsafe(32)
+            with _conn() as conn:
+                conn.execute(
+                    "UPDATE tenants SET oauth_client_id=?, oauth_client_secret=? "
+                    "WHERE id=?",
+                    (new_id, new_secret, t["id"]),
+                )
+                conn.commit()
+            audit(user["id"], "mcp_oauth_rotated", f"tenant={t['id']}")
+        except Exception as e:
+            logger.error("rotate oauth failed: %s", e, exc_info=True)
+            return RedirectResponse(
+                f"/admin/mcp-access?err={quote_plus(str(e))}", status_code=302)
+        return RedirectResponse("/admin/mcp-access?ok=oauth_rotated",
+                                status_code=302)
+
     # ─── Tenant: Printers / Queues / Users+Cards ─────────────────────────────────
 
     def _make_printix_client(tenant: dict):
@@ -4669,6 +4789,132 @@ def create_app(session_secret: str) -> FastAPI:
             logger.info("Blob-Backup-Scheduler bereit (täglich, opt-in)")
         except Exception as e:
             logger.warning("blob backup scheduler startup failed: %s", e)
+
+    # ─── MCP Proxy (v0.4.0, opt-in) ───────────────────────────────────────
+    # Reicht /mcp, /sse, /oauth, /messages, /register und /.well-known vom
+    # Web-Port (8080) an den lokalen MCP-Server (default 127.0.0.1:8765)
+    # durch. Azure App Service exposed nur 8080 — der MCP-Server ist also
+    # nicht direkt erreichbar; ausschliesslich diese Proxy-Routen geben
+    # Aussenwelt-Zugriff. Wenn `mcp_enabled` Setting = 0 (Default), gibt
+    # die Route 503 zurueck und der MCP-Sub-Prozess wird gar nicht erst
+    # gestartet (siehe entrypoint.sh).
+    #
+    # Streaming-by-default — Streamable-HTTP-Transport haengt sonst 300s
+    # bevor httpx den Body komplett puffert. SSE-Verbindungen bleiben
+    # solange offen wie der Client sie offen haelt.
+
+    def _mcp_proxy_enabled() -> bool:
+        try:
+            from db import get_setting
+            return get_setting("mcp_enabled", "0") == "1"
+        except Exception:
+            return False
+
+    @app.api_route("/mcp", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+    @app.api_route("/mcp/{rest:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+    async def mcp_proxy(request: Request, rest: str = ""):
+        if not _mcp_proxy_enabled():
+            return JSONResponse({"detail": "MCP server disabled"}, status_code=503)
+        return await _proxy_to_mcp(request, "/mcp" + (("/" + rest) if rest else ""))
+
+    @app.api_route("/sse", methods=["GET", "POST"])
+    @app.api_route("/sse/{rest:path}", methods=["GET", "POST"])
+    async def sse_proxy(request: Request, rest: str = ""):
+        if not _mcp_proxy_enabled():
+            return JSONResponse({"detail": "MCP server disabled"}, status_code=503)
+        return await _proxy_to_mcp(request, "/sse" + (("/" + rest) if rest else ""))
+
+    @app.api_route("/messages", methods=["GET", "POST"])
+    @app.api_route("/messages/", methods=["GET", "POST"])
+    @app.api_route("/messages/{rest:path}", methods=["GET", "POST"])
+    async def messages_proxy(request: Request, rest: str = ""):
+        if not _mcp_proxy_enabled():
+            return JSONResponse({"detail": "MCP server disabled"}, status_code=503)
+        return await _proxy_to_mcp(request, "/messages" + (("/" + rest) if rest else "/"))
+
+    @app.api_route("/oauth/{rest:path}", methods=["GET", "POST"])
+    async def oauth_proxy(request: Request, rest: str):
+        if not _mcp_proxy_enabled():
+            return JSONResponse({"detail": "MCP server disabled"}, status_code=503)
+        return await _proxy_to_mcp(request, "/oauth/" + rest)
+
+    @app.api_route("/.well-known/{rest:path}", methods=["GET"])
+    async def wellknown_proxy(request: Request, rest: str):
+        if not _mcp_proxy_enabled():
+            return JSONResponse({"detail": "MCP server disabled"}, status_code=503)
+        return await _proxy_to_mcp(request, "/.well-known/" + rest)
+
+    async def _proxy_to_mcp(request: Request, path: str):
+        try:
+            import httpx as _httpx
+        except Exception as e:
+            return JSONResponse(
+                {"detail": f"MCP proxy unavailable: httpx not installed ({e})"},
+                status_code=503,
+            )
+        from fastapi.responses import StreamingResponse
+
+        mcp_port = (os.environ.get("MCP_PORT", "") or "8765").strip()
+        target = f"http://127.0.0.1:{mcp_port}{path}"
+
+        excluded_request = {
+            "host", "content-length", "connection", "keep-alive", "transfer-encoding",
+            "upgrade", "proxy-authenticate", "proxy-authorization", "te", "trailers",
+        }
+        forward_headers = {
+            k: v for k, v in request.headers.items()
+            if k.lower() not in excluded_request
+        }
+        body = await request.body() if request.method in ("POST", "PUT", "PATCH") else None
+
+        client = _httpx.AsyncClient(timeout=None)
+        try:
+            req = client.build_request(
+                request.method, target,
+                params=request.query_params,
+                content=body,
+                headers=forward_headers,
+            )
+            resp = await client.send(req, stream=True)
+        except _httpx.ConnectError as ce:
+            try: await client.aclose()
+            except Exception: pass
+            return JSONResponse(
+                {"detail": f"MCP server not reachable on localhost:{mcp_port} ({ce})"},
+                status_code=502,
+            )
+        except Exception as e:
+            try: await client.aclose()
+            except Exception: pass
+            return JSONResponse(
+                {"detail": f"MCP proxy error: {e}"}, status_code=502,
+            )
+
+        excluded_response = {
+            "content-length", "connection", "keep-alive", "transfer-encoding",
+            "upgrade", "proxy-authenticate", "te", "trailers",
+        }
+        out_headers = {
+            k: v for k, v in resp.headers.items()
+            if k.lower() not in excluded_response
+        }
+
+        async def _stream():
+            try:
+                async for chunk in resp.aiter_raw():
+                    yield chunk
+            finally:
+                try: await resp.aclose()
+                except Exception: pass
+                try: await client.aclose()
+                except Exception: pass
+
+        return StreamingResponse(
+            _stream(),
+            status_code=resp.status_code,
+            headers=out_headers,
+            media_type=resp.headers.get("content-type"),
+        )
 
     # v7.2.36: Auto-TLS (sslip.io + Let's Encrypt) — Renewal-Scheduler
     # starten. Daemon-Thread, weckt alle 24h und ruft certbot renew wenn

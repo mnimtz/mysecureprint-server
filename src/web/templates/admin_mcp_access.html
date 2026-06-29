@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}{{ _('mcp_access_title') }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width: 920px; margin: 32px auto;">
+
+  <h1 style="color: var(--ta-navy); font-size: 1.8em; font-weight: 800; margin-bottom: 4px;">
+    {{ _('mcp_access_title') }}
+  </h1>
+  <p style="color: #64748b; margin-bottom: 24px;">
+    {{ _('mcp_access_intro') }}
+  </p>
+
+  {% if request.query_params.get('ok') == 'saved' %}
+    <div class="alert alert-success" style="margin-bottom: 16px;">✓ {{ _('mcp_access_saved') }}</div>
+  {% elif request.query_params.get('ok') == 'bearer_rotated' %}
+    <div class="alert alert-success" style="margin-bottom: 16px;">✓ {{ _('mcp_access_bearer_rotated_ok') }}</div>
+  {% elif request.query_params.get('ok') == 'oauth_rotated' %}
+    <div class="alert alert-success" style="margin-bottom: 16px;">✓ {{ _('mcp_access_oauth_rotated_ok') }}</div>
+  {% endif %}
+  {% if request.query_params.get('err') %}
+    <div class="alert alert-error" style="margin-bottom: 16px;">⚠ {{ request.query_params.get('err') }}</div>
+  {% endif %}
+
+  {# ── On/Off Toggle ─────────────────────────────────────────── #}
+  <div class="card" style="margin-bottom: 24px;">
+    <h2 class="section-title">{{ _('mcp_access_status_title') }}</h2>
+
+    <form method="post" action="/admin/mcp-access/toggle">
+      <label style="display:flex; align-items:center; gap:12px; font-weight:600; padding:8px 0;">
+        <input type="checkbox" name="enabled" value="1" {% if enabled %}checked{% endif %}
+               style="width:18px; height:18px;">
+        <span>
+          {{ _('mcp_access_enable_label') }}
+          {% if enabled %}
+            <span style="color:#16a34a; margin-left:8px;">● {{ _('mcp_access_enabled_now') }}</span>
+          {% else %}
+            <span style="color:#94a3b8; margin-left:8px;">○ {{ _('mcp_access_disabled_now') }}</span>
+          {% endif %}
+        </span>
+      </label>
+      <div style="font-size:.9em; color:#64748b; margin: 6px 0 14px 30px;">
+        {{ _('mcp_access_enable_help') }}
+      </div>
+      <button type="submit" class="action-btn primary">{{ _('btn_save') }}</button>
+    </form>
+  </div>
+
+  {% if enabled %}
+  {# ── URLs für claude.ai / ChatGPT ────────────────────────── #}
+  <div class="card" style="margin-bottom: 24px;">
+    <h2 class="section-title">{{ _('mcp_access_urls_title') }}</h2>
+    <p style="color:#64748b; margin-bottom: 14px;">{{ _('mcp_access_urls_intro') }}</p>
+
+    <table style="width:100%; border-collapse:collapse;">
+      <tr style="border-top:1px solid var(--ta-gray-200);">
+        <td style="padding:8px 10px; font-weight:600;">{{ _('mcp_access_url_claude') }}</td>
+        <td style="padding:8px 10px;"><code style="font-size:.92em;">{{ mcp_url }}</code></td>
+      </tr>
+      <tr style="border-top:1px solid var(--ta-gray-200);">
+        <td style="padding:8px 10px; font-weight:600;">{{ _('mcp_access_url_chatgpt') }}</td>
+        <td style="padding:8px 10px;"><code style="font-size:.92em;">{{ sse_url }}</code></td>
+      </tr>
+      <tr style="border-top:1px solid var(--ta-gray-200);">
+        <td style="padding:8px 10px; font-weight:600;">{{ _('mcp_access_url_oauth_authorize') }}</td>
+        <td style="padding:8px 10px;"><code style="font-size:.92em;">{{ oauth_authorize_url }}</code></td>
+      </tr>
+      <tr style="border-top:1px solid var(--ta-gray-200);">
+        <td style="padding:8px 10px; font-weight:600;">{{ _('mcp_access_url_oauth_token') }}</td>
+        <td style="padding:8px 10px;"><code style="font-size:.92em;">{{ oauth_token_url }}</code></td>
+      </tr>
+      <tr style="border-top:1px solid var(--ta-gray-200);">
+        <td style="padding:8px 10px; font-weight:600;">{{ _('mcp_access_url_wellknown') }}</td>
+        <td style="padding:8px 10px;"><code style="font-size:.92em;">{{ wellknown_url }}</code></td>
+      </tr>
+    </table>
+  </div>
+
+  {# ── Bearer Token ──────────────────────────────────────────── #}
+  <div class="card" style="margin-bottom: 24px;">
+    <h2 class="section-title">🔑 {{ _('mcp_access_bearer_title') }}</h2>
+    <p style="color:#64748b; margin-bottom: 14px;">{{ _('mcp_access_bearer_intro') }}</p>
+
+    {% if tenant.get('bearer_token') %}
+    <div style="background:#0f172a; color:#e2e8f0; border-radius:8px; padding:14px; font-family:monospace; font-size:.9em; word-break:break-all; margin-bottom: 12px;">
+      <span id="bearer-val">{{ tenant.bearer_token }}</span>
+    </div>
+    {% else %}
+    <div style="color:#94a3b8; font-style:italic; margin-bottom: 12px;">
+      {{ _('mcp_access_bearer_missing') }}
+    </div>
+    {% endif %}
+
+    <form method="post" action="/admin/mcp-access/rotate-bearer"
+          onsubmit="return confirm('{{ _('mcp_access_rotate_confirm') }}');">
+      <button type="submit" class="action-btn outline">↻ {{ _('mcp_access_rotate_bearer_btn') }}</button>
+    </form>
+  </div>
+
+  {# ── OAuth Client-ID + Secret ──────────────────────────────── #}
+  <div class="card" style="margin-bottom: 24px;">
+    <h2 class="section-title">🔐 {{ _('mcp_access_oauth_title') }}</h2>
+    <p style="color:#64748b; margin-bottom: 14px;">{{ _('mcp_access_oauth_intro') }}</p>
+
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:12px;">
+      <div>
+        <label style="font-weight:600; font-size:.85em; color:#475569;">{{ _('mcp_access_oauth_id_label') }}</label>
+        <div style="background:#0f172a; color:#e2e8f0; border-radius:8px; padding:10px; font-family:monospace; font-size:.85em; word-break:break-all; margin-top:4px;">
+          {{ tenant.get('oauth_client_id') or '—' }}
+        </div>
+      </div>
+      <div>
+        <label style="font-weight:600; font-size:.85em; color:#475569;">{{ _('mcp_access_oauth_secret_label') }}</label>
+        <div style="background:#0f172a; color:#e2e8f0; border-radius:8px; padding:10px; font-family:monospace; font-size:.85em; word-break:break-all; margin-top:4px;">
+          {{ tenant.get('oauth_client_secret') or '—' }}
+        </div>
+      </div>
+    </div>
+
+    <form method="post" action="/admin/mcp-access/rotate-oauth"
+          onsubmit="return confirm('{{ _('mcp_access_rotate_confirm') }}');">
+      <button type="submit" class="action-btn outline">↻ {{ _('mcp_access_rotate_oauth_btn') }}</button>
+    </form>
+  </div>
+
+  {# ── Anleitung ─────────────────────────────────────────────── #}
+  <div class="card">
+    <h2 class="section-title">{{ _('mcp_access_howto_title') }}</h2>
+    <div style="color:#475569; line-height: 1.6;">
+      <p><strong>claude.ai:</strong> {{ _('mcp_access_howto_claude') }}</p>
+      <p><strong>ChatGPT:</strong> {{ _('mcp_access_howto_chatgpt') }}</p>
+      <p><strong>Make.com / curl / eigene Skripte:</strong> {{ _('mcp_access_howto_curl') }}</p>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
