@@ -1,5 +1,21 @@
 # Changelog — MySecurePrint Server
 
+## 0.1.1 — 2026-06-29 — Public welcome page with QR
+
+New `/welcome` route (also default at `/` for fresh deployments) shows
+the server's URL, an iOS-setup QR code, setup-status indicators
+(Printix / Entra / Legal / Admin), and quick-action buttons. Helps
+fresh-deploy users find their footing without scrolling through Azure
+Portal outputs.
+
+- QR encodes `mysecureprint://setup?server=<url>/` — forward-compatible
+  deep-link for the planned v0.2.0 iOS auto-onboarding feature
+- Status indicators link directly to the relevant `/admin/settings`
+  sub-sections
+- Public (no login required) — safe to link from emails / IT docs
+- i18n DE+EN, other languages via EN-fallback
+- Re-uses the already-bundled `segno` QR library — no new dependency
+
 ## 0.1.0 — Initial release
 
 Slim Azure-deployable print backend for the **MySecurePrint** iOS companion app.

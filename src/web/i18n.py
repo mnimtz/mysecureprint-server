@@ -1554,6 +1554,26 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "legal_admin_field_authority_hint": "z. B. 'Landesbeauftragte für Datenschutz und Informationsfreiheit Niedersachsen'",
         "legal_admin_save":               "Rechtliche Angaben speichern",
         "legal_admin_saved":              "Rechtliche Angaben gespeichert.",
+
+        # v0.1.1 — Public Welcome Page
+        "welcome_title":              "MySecurePrint Server",
+        "welcome_subtitle":           "Ihr selbst-gehostetes Druck-Backend für die MySecurePrint iOS-App",
+        "welcome_server_url_label":   "Server-URL",
+        "welcome_qr_label":           "QR-Code — mit der iPhone-Kamera scannen",
+        "welcome_setup_step_1":       "MySecurePrint aus dem App Store installieren",
+        "welcome_setup_step_2":       "QR-Code scannen (oder URL einfügen)",
+        "welcome_setup_step_3":       "Mit Microsoft anmelden",
+        "welcome_status_printix":     "Printix-Zugangsdaten",
+        "welcome_status_entra":       "Microsoft Entra ID",
+        "welcome_status_legal":       "Rechtliche Angaben",
+        "welcome_status_admin":       "Administrator-Konto",
+        "welcome_status_ok":          "eingerichtet ✓",
+        "welcome_status_missing":     "nicht konfiguriert",
+        "welcome_action_register":    "Ersten Admin registrieren",
+        "welcome_action_login":       "Anmelden",
+        "welcome_action_admin":       "Server konfigurieren",
+        "welcome_action_health":      "Health-Check",
+        "welcome_app_link_label":     "MySecurePrint iOS-App",
     },
 
     # ──────────────────────────────────────────────────────────────────────
@@ -3069,6 +3089,26 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "legal_admin_field_authority_hint": "e.g. 'Landesbeauftragte für Datenschutz und Informationsfreiheit Niedersachsen'",
         "legal_admin_save":               "Save legal information",
         "legal_admin_saved":              "Legal information saved.",
+
+        # v0.1.1 — Public Welcome Page
+        "welcome_title":              "MySecurePrint Server",
+        "welcome_subtitle":           "Your self-hosted print backend for the MySecurePrint iOS app",
+        "welcome_server_url_label":   "Server URL",
+        "welcome_qr_label":           "QR Code — scan with iPhone camera",
+        "welcome_setup_step_1":       "Install MySecurePrint from the App Store",
+        "welcome_setup_step_2":       "Scan the QR code (or paste URL)",
+        "welcome_setup_step_3":       "Sign in with Microsoft",
+        "welcome_status_printix":     "Printix credentials",
+        "welcome_status_entra":       "Microsoft Entra ID",
+        "welcome_status_legal":       "Legal information",
+        "welcome_status_admin":       "Admin account",
+        "welcome_status_ok":          "configured ✓",
+        "welcome_status_missing":     "not configured",
+        "welcome_action_register":    "Register first admin",
+        "welcome_action_login":       "Sign in",
+        "welcome_action_admin":       "Configure server",
+        "welcome_action_health":      "Health check",
+        "welcome_app_link_label":     "MySecurePrint iOS app",
     },
 
     # ──────────────────────────────────────────────────────────────────────

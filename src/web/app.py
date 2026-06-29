@@ -441,16 +441,129 @@ def create_app(session_secret: str) -> FastAPI:
 
     @app.get("/", response_class=RedirectResponse)
     async def root(request: Request):
+        # v0.1.1: Fresh deployments (no users yet) land on the public
+        # welcome page instead of the bare register wizard — gives the
+        # admin a friendly overview with QR code + setup status before
+        # they dive into the form.
         try:
             from db import has_users
             if not has_users():
-                return RedirectResponse("/register", status_code=302)
+                return RedirectResponse("/welcome", status_code=302)
         except Exception:
-            return RedirectResponse("/register", status_code=302)
+            return RedirectResponse("/welcome", status_code=302)
         user = get_session_user(request)
         if user:
             return RedirectResponse(_user_home_target(user), status_code=302)
         return RedirectResponse("/login", status_code=302)
+
+    # ── Public Welcome Page (v0.1.1) ──────────────────────────────────────────
+
+    def _get_printix_status() -> tuple[bool, str]:
+        """True wenn mindestens ein Tenant Printix-Credentials hat."""
+        try:
+            from db import _conn
+            with _conn() as conn:
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM tenants "
+                    "WHERE (print_client_id IS NOT NULL AND print_client_id != '') "
+                    "   OR (card_client_id IS NOT NULL AND card_client_id != '') "
+                    "   OR (shared_client_id IS NOT NULL AND shared_client_id != '')"
+                ).fetchone()
+                count = int(row[0]) if row else 0
+            if count > 0:
+                return True, "configured"
+            return False, "missing"
+        except Exception as e:
+            logger.debug("printix_status check failed: %s", e)
+            return False, "missing"
+
+    def _get_entra_status() -> tuple[bool, str]:
+        """True wenn Entra-ID Client + Tenant gesetzt sind."""
+        try:
+            from db import get_setting
+            cid = (get_setting("entra_client_id", "") or "").strip()
+            tid = (get_setting("entra_tenant_id", "") or "").strip()
+            if cid and tid:
+                return True, "configured"
+            return False, "missing"
+        except Exception:
+            return False, "missing"
+
+    def _get_legal_status() -> tuple[bool, str]:
+        """True wenn legal_operator_name gepflegt ist (Pflicht fuer /imprint)."""
+        try:
+            from db import get_setting
+            op = (get_setting("legal_operator_name", "") or "").strip()
+            if op:
+                return True, "configured"
+            return False, "missing"
+        except Exception:
+            return False, "missing"
+
+    def _get_admin_status() -> tuple[bool, str]:
+        """True wenn mindestens ein approved Admin existiert."""
+        try:
+            from db import get_all_users
+            for u in get_all_users():
+                if u.get("is_admin") and u.get("status") == "approved":
+                    return True, "configured"
+            return False, "missing"
+        except Exception:
+            return False, "missing"
+
+    def _make_welcome_qr_svg(payload: str) -> str:
+        """Erzeugt ein inline SVG-QR fuer den Welcome-Screen.
+
+        Nutzt das schon vorhandene ``segno``-Paket (kein Pillow noetig).
+        Liefert bei Fehler einen leeren String — das Template zeigt dann
+        nur die URL ohne QR an, statt hart zu crashen.
+        """
+        try:
+            import segno
+            import io
+            qr = segno.make(payload, error="m")
+            buf = io.StringIO()
+            qr.save(
+                buf, kind="svg", scale=8, border=2,
+                dark="#002854", light="#ffffff", xmldecl=False, svgns=True,
+            )
+            return buf.getvalue()
+        except Exception as e:
+            logger.warning("welcome QR generation failed: %s", e)
+            return ""
+
+    @app.get("/welcome", response_class=HTMLResponse)
+    async def welcome_page(request: Request):
+        """Oeffentliche Welcome-/Landing-Seite. Kein Auth noetig — wird
+        u.a. nach frischem Azure-Deploy als Default-Target von ``/``
+        verwendet. Zeigt Server-URL, iOS-Setup-QR und Setup-Status."""
+        base_url = mcp_base_url_or(request)
+        # iOS-Deep-Link-Payload — der App-URL-Scheme ist `mysecureprint`,
+        # der Setup-Pfad ist eine v0.2.0-Planung. Der QR ist heute schon
+        # forward-kompatibel.
+        qr_payload = f"mysecureprint://setup?server={base_url}/"
+        qr_svg = _make_welcome_qr_svg(qr_payload)
+
+        printix_ok, _   = _get_printix_status()
+        entra_ok, _     = _get_entra_status()
+        legal_ok, _     = _get_legal_status()
+        admin_ok, _     = _get_admin_status()
+
+        user = get_session_user(request)
+
+        return templates.TemplateResponse("welcome.html", {
+            "request":      request,
+            "user":         user,
+            "base_url":     base_url,
+            "qr_payload":   qr_payload,
+            "qr_svg":       qr_svg,
+            "printix_ok":   printix_ok,
+            "entra_ok":     entra_ok,
+            "legal_ok":     legal_ok,
+            "admin_ok":     admin_ok,
+            "version":      current_app_version(),
+            **t_ctx(request),
+        })
 
     # ── Registrierung ─────────────────────────────────────────────────────────
 
