@@ -229,10 +229,12 @@ async def _process_desktop_send_bg(
             submit_user_email = owner_email
             target_type = "print_secure"
         elif target_id.startswith("capture:"):
+            # Capture-Targets sind in mysecureprint-server entfernt.
+            _fail("capture targets are not supported in mysecureprint-server", code="target_unsupported")
+            return
+            # ------------- unreachable legacy code below ------------------
             profile_id = target_id.split(":", 1)[1].strip()
-            from db import get_capture_profile, add_capture_log
-            from capture.base_plugin import create_plugin_instance
-            import capture.plugins  # noqa: F401
+            from db import get_capture_profile, add_capture_log  # noqa: F401
 
             profile = get_capture_profile(profile_id)
             if not profile:

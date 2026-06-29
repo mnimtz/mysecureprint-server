@@ -1,26 +1,14 @@
-# =============================================================================
-# Printix MCP — Docker multi-arch build & publish to GHCR
-# =============================================================================
-# Triggers:
-#   - Push to main       → ghcr.io/mnimtz/printix-mcp-docker:main
-#   - Tag vX.Y.Z         → ghcr.io/mnimtz/printix-mcp-docker:X.Y.Z + :X.Y
-#                                                            + :latest + :stable
-#   - Manual (workflow_dispatch) → only :main (for testing)
-#
-# Platforms: linux/amd64, linux/arm64
-# =============================================================================
-
-name: Build & Publish Docker Image
+name: Build & publish container
 
 on:
   push:
-    branches: [main]
-    tags: ['v*.*.*']
+    branches: [ main ]
+    tags: [ 'v*.*.*' ]
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/printix-mcp-docker
+  IMAGE_NAME: ${{ github.repository_owner }}/mysecureprint-server
 
 jobs:
   build-and-push:
@@ -28,38 +16,24 @@ jobs:
     permissions:
       contents: read
       packages: write
-      # For attestations (provenance / SBOM)
       id-token: write
       attestations: write
-
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up QEMU (multi-arch emulation)
-        uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags + labels)
-        id: meta
+      - id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          # Tag strategy:
-          #   - vX.Y.Z   → X.Y.Z, X.Y, latest, stable
-          #   - main     → main
-          # NOTE: {{is_default_branch}} is false on tag pushes (the ref is the
-          # tag, not a branch), so we need an explicit rule for version tags —
-          # otherwise `:latest` would only follow rolling main, never releases.
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
@@ -67,38 +41,23 @@ jobs:
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=raw,value=stable,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
           labels: |
-            org.opencontainers.image.title=Printix MCP Server
-            org.opencontainers.image.description=Self-hosted MCP server for the Printix Cloud Print API
-            org.opencontainers.image.vendor=Marcus Nimtz
+            org.opencontainers.image.title=MySecurePrint Server
+            org.opencontainers.image.description=Self-hosted Azure-deployable print backend for the MySecurePrint iOS app
+            org.opencontainers.image.source=https://github.com/mnimtz/mysecureprint-server
             org.opencontainers.image.licenses=Apache-2.0
-            org.opencontainers.image.source=https://github.com/mnimtz/printix-mcp-docker
 
-      - name: Build & push multi-arch image
-        id: build
+      - id: build
         uses: docker/build-push-action@v6
         with:
           context: .
-          # armv7 / i386 intentionally dropped: no pre-built wheels for
-          # Python 3.13 on 32-bit ARM (pymssql / Pillow / cffi) — source
-          # compilation under QEMU takes forever for a hardware base that
-          # barely matters in 2026. If anyone needs it back, also install
-          # libssl-dev libkrb5-dev libffi-dev zlib1g-dev libjpeg-dev in the
-          # builder stage.
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # NOTE (v7.0.2): GHA cache backend (type=gha) was returning sporadic
-          # 404s on FinalizeCacheEntryUpload after the v2 cache service rollout
-          # in early 2026. Disabled for now — cold builds take ~20min but are
-          # reliable. If we need the speed back, evaluate registry cache:
-          #   cache-to: type=registry,ref=ghcr.io/.../printix-mcp-docker:buildcache,mode=max
-          # SBOM + provenance attestation (default in buildx v0.13+)
           provenance: true
           sbom: true
 
-      - name: Attest image provenance
-        uses: actions/attest-build-provenance@v2
+      - uses: actions/attest-build-provenance@v2
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}

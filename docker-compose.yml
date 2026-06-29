@@ -1,110 +1,38 @@
 # =============================================================================
-# Printix MCP — Docker Compose (reference setup)
+# mysecureprint-server — local docker compose
 # =============================================================================
-# First install:
-#   1.  cp .env.example .env      # tune MCP_PUBLIC_URL etc.
-#   2.  docker compose up -d
-#   3.  Browser: http://localhost:8080   → first-time setup in the web UI
-#
-# Changing ports: edit the entries under `ports:` below (e.g. "9000:8080").
-# The left side is the host port, the right side is the container port (do not change).
-#
-# Update to a new version:
-#   docker compose pull && docker compose up -d
-#
-# Logs / health:
-#   docker compose logs -f printix-mcp
-#   docker compose ps
+# Schneller Start fuer lokales Testing oder kleine On-Prem-Setups.
+# Fuer Azure App Service nutze deploy/azure/azuredeploy.json.
 # =============================================================================
 
 services:
-  printix-mcp:
-    image: ghcr.io/mnimtz/printix-mcp-docker:${PRINTIX_TAG:-latest}
-    # Alternative for a local build (instead of the image above):
-    #   build: .
-    container_name: printix-mcp
+  mysecureprint:
+    image: ghcr.io/mnimtz/mysecureprint-server:latest
+    # Lokal bauen statt Image ziehen:
+    #   docker compose build
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mysecureprint-server
     restart: unless-stopped
-
-    environment:
-      # --- Base ---------------------------------------------------------------
-      # Public URL (e.g. via Cloudflare Tunnel / reverse proxy).
-      # When empty the web UI falls back to the request host (LAN mode).
-      # Can also be set at runtime in the admin UI (/admin/settings) —
-      # the DB setting overrides this env var.
-      MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-}
-      MCP_LOG_LEVEL: ${MCP_LOG_LEVEL:-info}
-
-      # --- CONTAINER ports (do not change; mapping is under `ports:`) --------
-      WEB_PORT: 8080
-      MCP_PORT: 8765
-      CAPTURE_PORT: 8775
-
-      # --- Capture server (optional) ------------------------------------------
-      # true  = dedicated server on CAPTURE_PORT (8775) — only needed if
-      #         webhooks should arrive from outside on a separate port.
-      # false = webhooks go through MCP_PORT (8765). [default]
-      CAPTURE_ENABLED: ${CAPTURE_ENABLED:-false}
-
-      # --- MCP role-based access control (v7.2.23+) --------------------------
-      # 1 = enforce roles configured under /admin/mcp-permissions [default
-      #     for fresh installs]. Tools outside the caller's scopes return a
-      #     permission_denied JSON payload and are recorded in the audit log.
-      # 0 = pass-through. All authenticated users can call any tool. Use
-      #     this only if you need to roll back enforcement temporarily.
-      # Roles + GDPR mapping documented in the in-app PDF accessible from
-      # /admin/mcp-permissions ("GDPR Compliance Guide").
-      MCP_RBAC_ENABLED: ${MCP_RBAC_ENABLED:-1}
-
-      # --- Container timezone -------------------------------------------------
-      # Affects `docker logs` + all subprocess timestamps (MCP, capture, IPP).
-      # The web UI's "Display Timezone" only retags rendered tables — for
-      # docker logs you need TZ here. Override in .env or stack env vars.
-      TZ: ${TZ:-Europe/Berlin}
-
-      # --- IPP/IPPS listener (cloud print) ------------------------------------
-      # 0 = disabled (IPP only runs on WEB_PORT). 631 = standard IPP port.
-      IPP_PORT: ${IPP_PORT:-0}
-      # TLS certificate for IPPS (when IPP_PORT > 0):
-      IPPS_CERTFILE: ${IPPS_CERTFILE:-}
-      IPPS_KEYFILE: ${IPPS_KEYFILE:-}
-
     ports:
-      # Format:  "HOST-PORT:CONTAINER-PORT"
-      # To move to a different host port, change ONLY the left-hand number.
-      - "8080:8080"       # web UI (admin, login, dashboard)
-      - "8765:8765"       # MCP endpoint (Claude, OAuth, SSE)
-      - "8775:8775"       # capture webhook — only relevant when CAPTURE_ENABLED=true
-      # Port 80 — only needed during Auto-TLS (sslip.io + Let's Encrypt)
-      # cert generation & renewal (~30 s every 60-90 days). Otherwise
-      # safe to remove. Required by ACME HTTP-01 challenge protocol.
-      - "80:80"
-      # IPP/IPPS only when IPP_PORT is set:
-      # - "631:631"
-
+      - "8080:8080"
+    environment:
+      WEB_PORT: 8080
+      MCP_LOG_LEVEL: info
+      TZ: Europe/Berlin
+      # Optional: oeffentliche URL fuer Pairing-Links (HTTPS-Reverse-Proxy
+      # oder Cloudflare Tunnel davor)
+      # MCP_PUBLIC_URL: https://print.example.com
     volumes:
-      # Persistent data: SQLite DB, Fernet key, session key, report templates
-      - printix-data:/data
-      # Optional: mount TLS certificates for IPPS (read-only)
-      # - ./certs:/certs:ro
-
+      - mysecureprint-data:/data
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8765/health"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 30s
 
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
 volumes:
-  printix-data:
-    # If you want a host path instead of a named volume, replace the volume
-    # mount above ("printix-data:/data") with "./data:/data" and drop this
-    # volumes: block. Important with bind mounts: set ownership 1000:1000,
-    # otherwise the container cannot write:
-    #   mkdir -p ./data && sudo chown -R 1000:1000 ./data
+  mysecureprint-data:
     driver: local
