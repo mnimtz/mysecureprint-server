@@ -541,12 +541,14 @@ def create_app(session_secret: str) -> FastAPI:
             import segno
             import io
             qr = segno.make(payload, error="m")
-            buf = io.StringIO()
+            # v0.4.1: segno schreibt Bytes — StringIO crashte silent mit
+            # TypeError → leerer Return → Template zeigte "QR unavailable".
+            buf = io.BytesIO()
             qr.save(
                 buf, kind="svg", scale=8, border=2,
                 dark="#002854", light="#ffffff", xmldecl=False, svgns=True,
             )
-            return buf.getvalue()
+            return buf.getvalue().decode("utf-8")
         except Exception as e:
             logger.warning("welcome QR generation failed: %s", e)
             return ""
@@ -2820,12 +2822,13 @@ def create_app(session_secret: str) -> FastAPI:
             import segno
             import io
             qr = segno.make(payload, error="m")
-            buf = io.StringIO()
+            # v0.4.1: segno schreibt Bytes — siehe _make_welcome_qr_svg.
+            buf = io.BytesIO()
             qr.save(
                 buf, kind="svg", scale=8, border=2,
                 dark="#002854", light="#ffffff", xmldecl=False, svgns=True,
             )
-            return buf.getvalue()
+            return buf.getvalue().decode("utf-8")
         except Exception as e:
             logger.warning("mobile-invite QR generation failed: %s", e)
             return ""

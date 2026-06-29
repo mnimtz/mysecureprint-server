@@ -1,5 +1,18 @@
 # Changelog — MySecurePrint Server
 
+## 0.4.1 — 2026-06-29 — Fix Welcome-QR-Code (silent TypeError)
+
+Welcome-Page + Mobile-Invite zeigten "QR unavailable" statt einen QR-
+Code. `segno.save(stream, kind="svg", ...)` schreibt Bytes, nicht Text
+— mit `io.StringIO()` als Stream wirft segno einen `TypeError: string
+argument expected, got 'bytes'`, der von dem try/except geschluckt wird
+→ leerer Return.
+
+Fix: beide `_make_*_qr_svg`-Helper nutzen jetzt `io.BytesIO()` und
+decodieren am Ende mit `.decode("utf-8")`. Die PNG-Variante in
+`/admin/users/{id}/mobile-invite/{invite_id}/qr.png` war schon korrekt
+(nutzte schon BytesIO).
+
 ## 0.4.0 — 2026-06-29 — MCP server zurück (opt-in)
 
 Der MCP-Server für claude.ai / ChatGPT ist zurück — als optionales Feature
