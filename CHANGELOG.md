@@ -1,5 +1,23 @@
 # Changelog — MySecurePrint Server
 
+## 0.4.4 — 2026-06-29 — Breadcrumb "← Zurück zum Dashboard"
+
+User landete auf `/admin/settings` / `/admin/mcp-access` etc. ohne
+sichtbaren Zurueck-Pfad — Sidebar war zwar da, aber auf Mobile hinter
+dem Hamburger und allgemein nicht so eindeutig wie ein expliziter
+Zurueck-Link.
+
+Eingebaut in `base.html`: Sticky Breadcrumb-Bar oben auf jeder
+Unterseite (User eingeloggt + `active_page != welcome/my_portal`).
+Verweist auf `/welcome` fuer Admins bzw. `/my` fuer Employees.
+
+Plus die `_page_map` in app.py um die fehlenden Routen ergaenzt
+(`/admin/blob-backup`, `/admin/mcp-access`, `/my/cloud-print`,
+`/my/mobile-app`) — die hatten vorher kein `active_page` gesetzt und
+wuerden ohne den Map-Eintrag keinen Breadcrumb zeigen.
+
+Neue i18n-Keys: `breadcrumb_dashboard` (DE/EN).
+
 ## 0.4.3 — 2026-06-29 — Sidebar-Großputz + MCP im Setup-Status
 
 User klickte „Benutzer aus Printix importieren" → 404 und vermisste den

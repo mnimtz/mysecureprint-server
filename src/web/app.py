@@ -294,8 +294,10 @@ def create_app(session_secret: str) -> FastAPI:
             "/admin/auto-tls": "admin_auto_tls",
             "/admin/tunnel": "admin_tunnel",
             "/admin/settings": "admin_settings",
-            "/my/connect": "connect",
-            "/help": "help",
+            "/admin/blob-backup": "admin_blob_backup",
+            "/admin/mcp-access": "admin_mcp_access",
+            "/my/cloud-print": "my_cloud_print",
+            "/my/mobile-app": "my_mobile_app",
         }
         _active = _page_map.get(_path, "")
         if not _active:
