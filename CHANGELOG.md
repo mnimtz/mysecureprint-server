@@ -1,5 +1,84 @@
 # Changelog — MySecurePrint Server
 
+## 0.6.7 — 2026-06-29 — /desktop/targets: user_can_choose Flag
+
+User-Report: iOS-App zeigt nur „SecurePrint" als fixes Ziel, obwohl im
+Admin „User darf Queue waehlen" aktiviert ist.
+
+Aenderung in `/desktop/targets`-Response: neues Feld `user_can_choose:
+bool`. Quelle: `is_user_queue_override_allowed()` aus 3-Tier-Hierarchie
+(Global → Group → User-Override).
+
+iOS-Seite (App v0.6.4) liest das Flag und zeigt einen Queue-Picker
+zusaetzlich zur Default-Queue an. `/desktop/queues` existierte bereits.
+
+Audit-Log-Coverage fuer iOS-Sends verifiziert (kein Code-Fix noetig):
+- `cloudprint_jobs` Row wird VOR Background-Task angelegt (queued/
+  forwarded/error)
+- `audit_log` enthaelt `print_job_submitted` mit `source: ios_app`
+- `/desktop/me/jobs` matched via username/email/printix_user_id —
+  iOS-Sends erscheinen im Jobs-Tab
+
+## 0.6.6 — 2026-06-29 — User-Landing, Entra→Printix Auto-Link, Perf-Index
+
+Drei kleinere UX/Performance-Fixes:
+
+### 1. Nicht-Admin-User landen einheitlich auf `/account`
+
+Bisher: `role_type=employee` → `/my` (Mitarbeiter-Portal), `role_type=user`
+→ `/account` (Info-Seite). Das war fuer User verwirrend, die nach dem
+Login die Info-Seite mit QR-Code, MCP-Credentials, OAuth-Daten und
+GDPR-Export erwarteten. Jetzt: alle Nicht-Admins (employee + user) landen
+nach dem Login auf `/account`. Das Mitarbeiter-Portal `/my` bleibt
+unveraendert ueber Sidebar/Navigation erreichbar — nur das
+Default-Landing-Target hat sich geaendert. Die Invitation-Activation-
+Guard-Middleware erlaubt Employees jetzt zusaetzlich zu `/my/*` auch
+`/account/*` (Fallback-Redirect ebenfalls auf `/account` statt `/my`).
+
+### 2. Entra-Login: Auto-Link zu printix_user_id ueber Email
+
+User-Feedback: "wenn man via Entra sich anmeldet, ist doch gleicher
+User/Email wie in Printix — wieso kein Abgleich bzw. user-id Import
+dabei?". Stimmt — der `users`-Row hatte zwar eine `printix_user_id`-
+Spalte, aber sie wurde beim ersten Entra-Login nie befuellt. Folge:
+Admins mussten haendisch den Printix-User zuordnen, bevor MCP-Anfragen
+funktionierten.
+
+Jetzt: direkt nach erfolgreichem Entra-Login (`/auth/entra/callback`)
+und Audit-Log-Eintrag laeuft ein Auto-Link-Schritt:
+- nur wenn `users.printix_user_id` noch leer ist
+- Lookup via `find_printix_user_by_identity(email)` (case-insensitive,
+  matcht username, full email, local-part)
+- bei eindeutigem Match: `update_user(id, printix_user_id=...)` +
+  Audit-Log `entra_printix_linked`
+- bei mehrdeutigem Match (mehrere Tenants): kein Linking, Warning im Log
+- Fehler werden geschluckt — Login-Flow bleibt robust
+
+### 3. Performance: fehlender `audit_log(user_id)`-Index
+
+GDPR-Export (`gdpr_export.py`) und `server.py` filtern audit_log nach
+`user_id` — bisher gab es nur Indexe auf `created_at` und `(tenant_id,
+created_at DESC)`. Bei groesseren Logs fuehrte das zu Full-Table-Scans.
+Neu: `CREATE INDEX idx_audit_log_user ON audit_log (user_id,
+created_at DESC)`.
+
+Weitere Indexe wurden geprueft — `desktop_tokens(user_id)`,
+`cloudprint_jobs(tenant_id, created_at DESC)`,
+`cloudprint_jobs(username, created_at DESC)` existieren bereits.
+
+### Performance-Hinweise fuer 0.6.7
+
+Beim Audit fielen weitere potentielle Bottlenecks auf, die mehr Aufwand
+brauchen:
+- Mehrere Admin-Handler rufen `_make_printix_client(...).list_users()`
+  o.ae. live waehrend des Requests auf (siehe app.py:4519, 4161, 5886) —
+  Umstellung auf `cached_printix_users` mit "kann veraltet sein"-Hinweis
+  wuerde ~500ms-2s pro Request sparen.
+- `get_audit_log()` (DB) macht `SELECT a.*` + JOIN ohne LIMIT-Pushdown —
+  bei grossen Logs koennte ein `created_at`-Cutoff helfen.
+- `cache.schedule_prefetch` laeuft synchron im Login-Pfad — bei kalten
+  Tenants spuerbar.
+
 ## 0.6.5 — 2026-06-29 — Mobile-Invite redeem ohne entra_oid
 
 iOS-Audit hat aufgedeckt, dass der Mobile-Invite-Flow End-to-End

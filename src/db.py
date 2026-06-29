@@ -280,6 +280,8 @@ def init_db() -> None:
             conn.execute("ALTER TABLE audit_log ADD COLUMN tenant_id TEXT NOT NULL DEFAULT ''")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log (created_at DESC)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_log_tenant ON audit_log (tenant_id, created_at DESC)")
+        # v0.6.6: Index fuer user_id-Filter (GDPR-Export, /me/audit, etc.)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log (user_id, created_at DESC)")
     # v6.7.111: Back-fill tenant_id fuer Legacy-Rows. Bis v6.7.110 haben
     # die meisten audit()-Call-Sites in web/app.py den tenant_id-Parameter
     # nicht mitgegeben → alle Zeilen hatten tenant_id=''. Dadurch liefert

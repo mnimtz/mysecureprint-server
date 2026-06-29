@@ -968,6 +968,17 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             logger.debug("resolve_user_queue failed: %s", _re)
             queue_id, queue_label, source = ("", "", "error")
 
+        # v0.6.7: Effektives "User darf andere Queue waehlen"-Flag fuer den
+        # iOS-Client. Quelle ist der globale Admin-Toggle
+        # (allow_user_queue_override). Damit kann die App entscheiden, ob
+        # sie einen Queue-Picker (via /desktop/queues) anzeigt.
+        try:
+            from cloudprint.db_extensions import is_user_queue_override_allowed
+            user_can_choose = bool(is_user_queue_override_allowed())
+        except Exception as _ucc:
+            logger.debug("is_user_queue_override_allowed failed: %s", _ucc)
+            user_can_choose = False
+
         targets: list[dict] = []
         breakdown = {"self": 0, "delegates": 0, "capture": 0}
 
@@ -1061,7 +1072,10 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             breakdown["self"], breakdown["delegates"], breakdown["capture"],
             ci["peer"],
         )
-        return JSONResponse({"targets": targets})
+        return JSONResponse({
+            "targets": targets,
+            "user_can_choose": user_can_choose,
+        })
 
     # ── Send (Datei-Upload + Dispatch) ────────────────────────────────────
     @app.post("/desktop/send")

@@ -350,12 +350,10 @@ def create_app(session_secret: str) -> FastAPI:
             return "/admin"
         if user.get("status") == "pending":
             return "/pending"
-        if user.get("role_type") == "employee":
-            return "/my"
-        # v0.5.6: Regulaere User (role_type=user, nicht admin/employee)
-        # landeten vorher auf /admin und bekamen eine Admin-Seite die
-        # sie nicht bedienen konnten. Jetzt: eigene Info-Seite mit QR
-        # + MCP-Credentials + GDPR-Daten-Export-Link.
+        # v0.6.6: ALLE Nicht-Admin-User (employee + user) landen auf /account
+        # (Info-Seite mit QR, MCP-Credentials, OAuth-Daten, GDPR).
+        # /my (Mitarbeiter-Portal) bleibt als Route erhalten und ist
+        # weiterhin ueber die Sidebar/Navigation erreichbar.
         return "/account"
 
     @app.middleware("http")
@@ -379,10 +377,12 @@ def create_app(session_secret: str) -> FastAPI:
                 if active_user and active_user.get("must_change_password"):
                     return RedirectResponse("/account/activate", status_code=302)
                 if active_user and active_user.get("role_type") == "employee":
+                    # v0.6.6: Employees duerfen jetzt auch /account (Default-Landing)
+                    # sehen — Info-Seite mit QR/MCP/GDPR.
                     employee_allowed_prefixes = (
                         "/my",
+                        "/account",
                         "/logout",
-                        "/account/activate",
                         "/lang/",
                         "/auth/entra",
                     )
@@ -392,7 +392,7 @@ def create_app(session_secret: str) -> FastAPI:
                         "/pending",
                     }
                     if path not in employee_allowed_paths and not any(path.startswith(prefix) for prefix in employee_allowed_prefixes):
-                        return RedirectResponse("/my", status_code=302)
+                        return RedirectResponse("/account", status_code=302)
         return await call_next(request)
 
     app.add_middleware(SessionMiddleware, secret_key=session_secret, max_age=3600 * 8)
@@ -1240,6 +1240,32 @@ def create_app(session_secret: str) -> FastAPI:
             audit(user["id"], "login", f"Entra-Login ({user_info.get('email', '')})")
         except Exception:
             pass
+
+        # v0.6.6: Auto-Link Entra-User zu printix_user_id ueber Email-Match
+        # in cached_printix_users. So muss der Admin den Link nicht manuell
+        # ueber Printix-User-Auswahl setzen.
+        try:
+            if not (user.get("printix_user_id") or "").strip():
+                _entra_email = (user_info.get("email") or user.get("email") or "").strip()
+                if _entra_email:
+                    from cloudprint.printix_cache_db import find_printix_user_by_identity
+                    _match = find_printix_user_by_identity(_entra_email)
+                    if _match and _match.get("printix_user_id"):
+                        from db import update_user as _upd
+                        _upd(user["id"], printix_user_id=_match["printix_user_id"])
+                        try:
+                            audit(
+                                user["id"],
+                                "entra_printix_linked",
+                                f"auto-link via email={_entra_email} "
+                                f"-> printix_user_id={_match['printix_user_id']}",
+                            )
+                        except Exception:
+                            pass
+                        # User-Dict aktualisieren fuer downstream-Verwendung
+                        user["printix_user_id"] = _match["printix_user_id"]
+        except Exception as _link_err:
+            logger.debug("Entra->Printix auto-link skip: %s", _link_err)
 
         # v6.2.0: Background-Prefetch auch beim Entra-SSO-Login
         # v7.6.0: + Periodic-Refresher-Registrierung
