@@ -249,19 +249,17 @@
       <div class="form-group">
         <label>{{ _('admin_base_url') }}</label>
         <input type="url" name="public_url" value="{{ public_url | default('') }}"
-               placeholder="https://mcp.firma.de">
+               placeholder="https://myprint.firma.de">
         <small class="hint">{{ _('admin_base_url_hint') }}</small>
       </div>
 
       {% set effective_url = public_url or base_url or '(nicht gesetzt)' %}
       <div class="alert alert-info" style="margin-bottom:20px;font-size:.88em;">
-        <strong>{{ _('admin_current_url') }}</strong><br>
-        MCP: <code>{{ effective_url }}/mcp</code><br>
-        SSE: <code>{{ effective_url }}/sse</code><br>
-        OAuth: <code>{{ effective_url }}/oauth/authorize</code><br>
+        <strong>{{ _('admin_current_url') }}</strong>
+        <code>{{ effective_url }}</code><br>
         <small style="color:#6b7280;">
           Quelle: {% if public_url %}DB-Setting{% elif base_url %}Env/Request-Host{% else %}—{% endif %}
-          (DB überschreibt <code>MCP_PUBLIC_URL</code>)
+          (DB überschreibt <code>MCP_PUBLIC_URL</code> env)
         </small>
       </div>
 

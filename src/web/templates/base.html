@@ -1002,30 +1002,10 @@
     </div>
 
     {# ── Berichte & Logs ─────────────────────────────────────────────── #}
-    <button class="sb-cat-toggle" onclick="toggleSbCat(this)">
-      <span>📊</span> {{ _('nav_cat_reports') }}
-      <span class="sb-cat-chevron">▸</span>
-    </button>
-    <div class="sb-cat-items">
-      <a href="/reports"                class="sb-sublink {% if active_page == 'reports' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_reports') }}</a>
-      {% if user.is_admin %}<a href="/admin/mcp-reports-cookbook" class="sb-sublink {% if active_page == 'reports_cookbook' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_report_templates') }}</a>{% endif %}
-      <a href="/reports/sustainability" class="sb-sublink {% if active_page == 'sustainability' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_sustainability') }}</a>
-      <a href="/logs"                   class="sb-sublink {% if active_page == 'logs' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_logs') }}</a>
-      {% if user.is_admin %}<a href="/admin/audit" class="sb-sublink {% if active_page == 'audit' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_audit') }}</a>{% endif %}
-    </div>
-
-    {# ── Pro Features (nur wenn mind. 1 Feature aktiv) ───────────────── #}
-    {% if pro_capture_enabled or pro_guestprint_enabled or pro_print_job_mgmt_enabled %}
-    <button class="sb-cat-toggle" onclick="toggleSbCat(this)">
-      <span>⭐</span> {{ _('nav_cat_pro') }}
-      <span class="sb-cat-chevron">▸</span>
-    </button>
-    <div class="sb-cat-items">
-      {% if pro_print_job_mgmt_enabled %}<a href="/my" class="sb-sublink {% if active_page == 'my_portal' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_my_portal') }}</a>{% endif %}
-      {% if pro_capture_enabled %}<a href="/capture" class="sb-sublink {% if active_page == 'capture' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_capture') }}</a>{% endif %}
-      {% if user.is_admin and pro_guestprint_enabled %}<a href="/guestprint" class="sb-sublink {% if active_page == 'guestprint' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_guestprint') }}</a>{% endif %}
-    </div>
-    {% endif %}
+    {# v0.3.2: Reports/Pro-Features Nav-Kategorien entfernt — entsprechende
+       Server-Module wurden im Slim-Down (Fork → mysecureprint-server)
+       gestrichen, die Links waren 404er. Audit-Log + /my-Portal sind
+       jetzt direkt in den Admin- bzw. Employee-Bereichen verlinkt. #}
 
     {# ── Administration (nur Admin) ──────────────────────────────────── #}
     {% if user.is_admin %}
@@ -1047,11 +1027,10 @@
       <a href="/admin/auto-tls"     class="sb-sublink {% if active_page == 'admin_auto_tls' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_auto_tls') }}</a>
       <a href="/admin/tunnel"       class="sb-sublink {% if active_page == 'admin_tunnel' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_tunnel') }}</a>
       <div class="sb-subgroup-label">{{ _('nav_system') }}</div>
-      <a href="/welcome"               class="sb-sublink {% if active_page == 'welcome' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_setup_status') }}</a>
-      <a href="/admin/settings"        class="sb-sublink {% if active_page == 'admin_settings' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_settings') }}</a>
-      <a href="/admin/blob-backup"     class="sb-sublink {% if active_page == 'admin_blob_backup' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_blob_backup') }}</a>
-      <a href="/settings"              class="sb-sublink {% if active_page == 'settings' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_api_config') }}</a>
-      <a href="/admin/mcp-permissions" class="sb-sublink {% if active_page == 'admin_rbac' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_rbac') }}</a>
+      <a href="/welcome"           class="sb-sublink {% if active_page == 'welcome' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_setup_status') }}</a>
+      <a href="/admin/settings"    class="sb-sublink {% if active_page == 'admin_settings' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_settings') }}</a>
+      <a href="/admin/blob-backup" class="sb-sublink {% if active_page == 'admin_blob_backup' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_blob_backup') }}</a>
+      <a href="/admin/audit"       class="sb-sublink {% if active_page == 'audit' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_audit') }}</a>
     </div>
     {% endif %}
     {% endif %}
@@ -1069,10 +1048,7 @@
 
     {# ── Bottom: Connect, Profil, Hilfe, Sprache, Logout ───────────── #}
     <div class="sidebar-bottom">
-      <a href="/my/connect"       class="sb-bottom-link {% if active_page == 'connect' %}active{% endif %}"><span class="sb-icon">🔌</span>{{ _('cc_nav_label') }}</a>
       <a href="/settings/password" class="sb-bottom-link {% if active_page == 'password' %}active{% endif %}"><span class="sb-icon">🔑</span>{{ _('nav_password') }}</a>
-      <a href="/feedback"         class="sb-bottom-link {% if active_page == 'feedback' %}active{% endif %}"><span class="sb-icon">💬</span>{{ _('nav_feedback') }}</a>
-      <a href="/help"             class="sb-bottom-link {% if active_page == 'help' %}active{% endif %}"><span class="sb-icon">❓</span>{{ _('nav_help') }}</a>
       <div class="sb-divider"></div>
       {# v7.9.1: Language switcher in sidebar bottom #}
       <div class="sb-lang-switcher">
@@ -1132,10 +1108,6 @@
     <a href="/imprint" style="color:#475569; text-decoration:none; font-weight:600;">{{ _('legal_nav_imprint') }}</a>
     &nbsp;·&nbsp;
     <a href="/legal" style="color:#475569; text-decoration:none; font-weight:600;">{{ _('legal_nav_legal') }}</a>
-    {% if user and user.is_admin %}
-      &nbsp;·&nbsp;
-      <a href="/admin/mcp-reports-cookbook" style="color:#475569; text-decoration:none; font-weight:600;">{{ _('legal_nav_documentation') }}</a>
-    {% endif %}
     &nbsp;·&nbsp;
     <span style="color:#9ca3af;">{{ _('legal_footer_version') }} v{{ app_version }}</span>
   </footer>

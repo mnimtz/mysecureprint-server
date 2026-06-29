@@ -1,5 +1,41 @@
 # Changelog — MySecurePrint Server
 
+## 0.3.2 — 2026-06-29 — MCP-Leftover-Bereinigung
+
+User reported that the registration-success page still showed Bearer
+Token + OAuth Client-ID/Secret + /mcp + /sse URLs — leftovers from the
+printix-mcp-docker fork. The MCP server was dropped in v0.1.0 but
+several user-visible references survived. Cleaned up:
+
+- `register_success.html`: dropped Bearer-Token + OAuth + /mcp + /sse
+  blocks. Replaced with a 5-step onboarding checklist (Printix creds →
+  Entra setup → Legal → Cloud-Backup → Invite users) plus deep-links to
+  the relevant admin sections.
+- `register_step4.html`: summary table now shows `{{ base_url }}`
+  instead of `{{ base_url }}/mcp`.
+- `admin_settings.html`: removed the MCP/SSE/OAuth URL list under
+  "Current URL" info — just shows the base URL now.
+- `base.html` sidebar:
+  - removed the Reports category entirely (reports/ submodules were
+    dropped in v0.1.0 → all 404)
+  - removed the Pro Features category (capture + guestprint were
+    dropped → 404; /my for employees still reachable via the bottom
+    section)
+  - removed `/admin/mcp-permissions` (RBAC) — MCP-only feature
+  - removed `/admin/mcp-reports-cookbook` (footer + reports nav)
+  - removed bottom-sidebar 🔌 Connect, ❓ Help, 💬 Feedback links
+    (Connect-Center was the MCP client-config page; Help was an alias
+    of Connect-Center)
+  - kept `/admin/audit` and moved it under System
+- `/my/connect` route now redirects: employees → `/my/mobile-app`,
+  admins → `/admin`. Old template file `my_connect.html` deleted.
+- `/help` route redirects the same way (alias).
+- New i18n keys for the rewritten success page:
+  `reg_success_next_steps_intro`, `reg_success_step_printix(_help)`,
+  `reg_success_step_entra(_help)`, `reg_success_step_legal(_help)`,
+  `reg_success_step_backup(_help)`, `reg_success_step_users(_help)`,
+  `reg_pending_explainer` — in DE + EN with EN-fallback for the others.
+
 ## 0.3.1 — 2026-06-29 — Restrict landing UX (no public config leakage)
 
 The `/welcome` page used to be public and showed status indicators

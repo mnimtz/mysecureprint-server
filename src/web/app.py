@@ -952,18 +952,16 @@ def create_app(session_secret: str) -> FastAPI:
                 "base_url": base, "sql_configured": False, "mail_configured": False, **tc,
             })
 
+        # v0.3.2: register_success.html no longer shows MCP/OAuth/SSE
+        # credentials — the MCP server was dropped in v0.1.0, so those
+        # URLs (and the corresponding tenant bearer/oauth secrets) are
+        # meaningless to the admin. Page now shows a clean next-steps
+        # checklist with deep-links into /admin/settings sub-sections.
         return templates.TemplateResponse("register_success.html", {
             "request": request,
-            "username":           user["username"],
-            "is_admin":           user.get("is_admin", False),
-            "bearer_token":       tenant["bearer_token"],
-            "oauth_client_id":    tenant["oauth_client_id"],
-            "oauth_client_secret":tenant["oauth_client_secret"],
-            "base_url":           base,
-            "mcp_url":            f"{base}/mcp",
-            "sse_url":            f"{base}/sse",
-            "oauth_authorize_url":f"{base}/oauth/authorize",
-            "oauth_token_url":    f"{base}/oauth/token",
+            "username":  user["username"],
+            "is_admin":  user.get("is_admin", False),
+            "base_url":  base,
             **tc,
         })
 
@@ -1443,61 +1441,19 @@ def create_app(session_secret: str) -> FastAPI:
             "request": request, "user": user, **t_ctx(request)
         })
 
-    # ── Hilfe / Verbindungsanleitung ──────────────────────────────────────────
-
+    # v0.3.2: /my/connect (MCP-Verbindungsanleitung für AI-Assistants) +
+    # /help (Alias) wurden entfernt — der MCP-Server existiert nicht mehr
+    # in mysecureprint-server. End-User finden ihre iOS-App-Setup-Infos
+    # unter /my/mobile-app.
+    @app.get("/help", response_class=HTMLResponse)
     @app.get("/my/connect", response_class=HTMLResponse)
-    async def my_connect(request: Request):
-        """Connect-Center — persönliche Zugangsdaten + Schritt-für-Schritt-
-        Anleitungen für alle unterstützten AI-Assistenten. Ersetzt die
-        bisherige /help-Seite ab v7.2.21.
-        """
-        user = require_login(request)
+    async def help_page_redirect(request: Request):
+        user = get_session_user(request)
         if not user:
             return RedirectResponse("/login", status_code=302)
-
-        base = mcp_base_url_or(request)
-        tenant = None
-        try:
-            # v7.2.22: Single-Tenant-Fallback — Employees haben in der Regel
-            # KEINE eigene tenants-Zeile (v7.0.0-Refactor entfernte Orphan-
-            # Tenants). Sie hängen via users.parent_user_id am Owner-Admin.
-            # Für die Anzeige im Connect-Center bedeutet das: zuerst eigenen
-            # Tenant probieren; sonst auf den Tenant des parent_user_id
-            # zurückfallen (= der einzige existierende Tenant in diesem
-            # Single-Tenant-Setup).
-            from db import (
-                get_tenant_full_by_user_id, get_user_by_id,
-            )
-            tenant = get_tenant_full_by_user_id(user["id"])
-            if not tenant:
-                # Fallback 1: parent_user_id (employee → admin)
-                parent_id = (user.get("parent_user_id") or "").strip()
-                if parent_id:
-                    tenant = get_tenant_full_by_user_id(parent_id)
-                # Fallback 2: irgendein Admin-Tenant (defensive)
-                if not tenant:
-                    from db import _find_tenant_owner_user_id
-                    owner_id = _find_tenant_owner_user_id()
-                    if owner_id and owner_id != user["id"]:
-                        tenant = get_tenant_full_by_user_id(owner_id)
-        except Exception as e:
-            logger.warning("connect-center: tenant load failed: %s", e)
-
-        return templates.TemplateResponse("my_connect.html", {
-            "request": request, "user": user, "tenant": tenant,
-            "base_url":           base,
-            "mcp_url":            f"{base}/mcp",
-            "sse_url":            f"{base}/sse",
-            "oauth_authorize_url":f"{base}/oauth/authorize",
-            "oauth_token_url":    f"{base}/oauth/token",
-            **t_ctx(request),
-        })
-
-    @app.get("/help", response_class=HTMLResponse)
-    async def help_page(request: Request):
-        # v7.2.21: Verschmilzt mit Connect-Center. Alte Bookmarks werden
-        # transparent dorthin weitergeleitet.
-        return RedirectResponse("/my/connect", status_code=302)
+        if user.get("role_type") == "employee":
+            return RedirectResponse("/my/mobile-app", status_code=302)
+        return RedirectResponse("/admin", status_code=302)
 
     # ─── SSL & Domain Overview (v7.2.49) ──────────────────────────────────
     # Konsolidiert die drei HTTPS-Strategien (Cloudflare Tunnel, eigenes

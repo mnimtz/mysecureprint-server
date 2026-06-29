@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block title %}{{ _('reg_title') }} — {{ _('brand_console_name') }}{% endblock %}
 {% block content %}
-<div class="container">
+<div class="container" style="max-width: 720px; margin: 32px auto;">
   <div class="card">
-    <div style="text-align:center; margin-bottom:28px;">
+
+    <div style="text-align:center; margin-bottom:24px;">
       <div style="font-size:3em; margin-bottom:8px;">🎉</div>
       <h1 style="font-size:1.5em; color:#166534; margin-bottom:8px;">
         {% if is_admin %}{{ _('reg_success_admin') }}
@@ -11,90 +12,84 @@
       </h1>
     </div>
 
-    <div class="alert alert-warning" style="margin-bottom:24px;">
-      <strong>⚠️ {{ _('reg_success_secure_title') }}</strong><br>
-      {{ _('reg_success_secure_body') | safe }}
-    </div>
-
-    <!-- Bearer Token -->
-    <div style="margin-bottom:24px;">
-      <div class="section-title" style="margin-bottom:8px;">🔑 {{ _('dash_bearer') }}</div>
-      <div class="code-block" id="bearer-block">
-        <button class="copy-btn" onclick="copyToClipboard('bearer-val', this)">⧉ {{ _('dash_copy') }}</button>
-        <span id="bearer-val">{{ bearer_token }}</span>
-      </div>
-    </div>
-
-    <!-- OAuth -->
-    <div style="margin-bottom:24px;">
-      <div class="section-title" style="margin-bottom:8px;">🔐 {{ _('reg_success_oauth') }}</div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-        <div>
-          <label style="font-size:.82em; font-weight:600; color:#6b7280; display:block; margin-bottom:4px;">
-            {{ _('dash_oauth_id') }}
-          </label>
-          <div class="code-block">
-            <button class="copy-btn" onclick="copyToClipboard('oauth-id-val', this)">⧉</button>
-            <span id="oauth-id-val">{{ oauth_client_id }}</span>
-          </div>
-        </div>
-        <div>
-          <label style="font-size:.82em; font-weight:600; color:#6b7280; display:block; margin-bottom:4px;">
-            {{ _('dash_oauth_secret') }}
-          </label>
-          <div class="code-block">
-            <button class="copy-btn" onclick="copyToClipboard('oauth-sec-val', this)">⧉</button>
-            <span id="oauth-sec-val">{{ oauth_client_secret }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Verbindungs-URLs -->
-    <div style="margin-bottom:24px;">
-      <div class="section-title" style="margin-bottom:12px;">🔗 {{ _('reg_success_urls') }}</div>
-      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-      <table>
-        <tr>
-          <th style="width:180px;">{{ _('reg_success_mcp_url') }}</th>
-          <td>
-            <div class="code-block">
-              <button class="copy-btn" onclick="copyToClipboard('mcp-url-val', this)">⧉</button>
-              <span id="mcp-url-val">{{ mcp_url }}</span>
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <th>{{ _('reg_success_sse_url') }}</th>
-          <td>
-            <div class="code-block">
-              <button class="copy-btn" onclick="copyToClipboard('sse-url-val', this)">⧉</button>
-              <span id="sse-url-val">{{ sse_url }}</span>
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <th>{{ _('reg_success_auth_url') }}</th>
-          <td><code>{{ oauth_authorize_url }}</code></td>
-        </tr>
-        <tr>
-          <th>{{ _('reg_success_token_url') }}</th>
-          <td><code>{{ oauth_token_url }}</code></td>
-        </tr>
-      </table>
-      </div>
-    </div>
-
-    <!-- Anleitung Link -->
-    <div style="margin-bottom:24px;">
-      <a href="/help" class="btn btn-secondary">📖 {{ _('help_title') }}</a>
-    </div>
-
     {% if is_admin %}
-    <a href="/admin" class="btn btn-primary">{{ _('admin_title') }} →</a>
+    {# ── Admin: Next-Steps-Checkliste ───────────────────────────────── #}
+    <div style="margin-bottom: 20px;">
+      <p style="color:#475569; margin-bottom:16px;">
+        {{ _('reg_success_next_steps_intro') }}
+      </p>
+
+      <ol class="setup-steps" style="counter-reset: step; list-style:none; padding:0;">
+        <li style="padding:10px 0 10px 36px; position:relative; counter-increment: step;">
+          <div style="position:absolute; left:0; top:8px; width:28px; height:28px; border-radius:50%; background:var(--ta-cyan); color:#fff; text-align:center; line-height:28px; font-weight:700;">1</div>
+          <a href="/admin/settings#printix" style="color:var(--ta-navy); font-weight:600;">
+            {{ _('reg_success_step_printix') }}
+          </a>
+          <div style="font-size:.9em; color:#64748b; margin-top:2px;">
+            {{ _('reg_success_step_printix_help') }}
+          </div>
+        </li>
+
+        <li style="padding:10px 0 10px 36px; position:relative; counter-increment: step;">
+          <div style="position:absolute; left:0; top:8px; width:28px; height:28px; border-radius:50%; background:var(--ta-cyan); color:#fff; text-align:center; line-height:28px; font-weight:700;">2</div>
+          <a href="/admin/settings#entra" style="color:var(--ta-navy); font-weight:600;">
+            {{ _('reg_success_step_entra') }}
+          </a>
+          <div style="font-size:.9em; color:#64748b; margin-top:2px;">
+            {{ _('reg_success_step_entra_help') }}
+          </div>
+        </li>
+
+        <li style="padding:10px 0 10px 36px; position:relative; counter-increment: step;">
+          <div style="position:absolute; left:0; top:8px; width:28px; height:28px; border-radius:50%; background:var(--ta-cyan); color:#fff; text-align:center; line-height:28px; font-weight:700;">3</div>
+          <a href="/admin/settings#legal" style="color:var(--ta-navy); font-weight:600;">
+            {{ _('reg_success_step_legal') }}
+          </a>
+          <div style="font-size:.9em; color:#64748b; margin-top:2px;">
+            {{ _('reg_success_step_legal_help') }}
+          </div>
+        </li>
+
+        <li style="padding:10px 0 10px 36px; position:relative; counter-increment: step;">
+          <div style="position:absolute; left:0; top:8px; width:28px; height:28px; border-radius:50%; background:var(--ta-cyan); color:#fff; text-align:center; line-height:28px; font-weight:700;">4</div>
+          <a href="/admin/blob-backup" style="color:var(--ta-navy); font-weight:600;">
+            {{ _('reg_success_step_backup') }}
+          </a>
+          <div style="font-size:.9em; color:#64748b; margin-top:2px;">
+            {{ _('reg_success_step_backup_help') }}
+          </div>
+        </li>
+
+        <li style="padding:10px 0 10px 36px; position:relative; counter-increment: step;">
+          <div style="position:absolute; left:0; top:8px; width:28px; height:28px; border-radius:50%; background:var(--ta-cyan); color:#fff; text-align:center; line-height:28px; font-weight:700;">5</div>
+          <a href="/admin/users" style="color:var(--ta-navy); font-weight:600;">
+            {{ _('reg_success_step_users') }}
+          </a>
+          <div style="font-size:.9em; color:#64748b; margin-top:2px;">
+            {{ _('reg_success_step_users_help') }}
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <div style="display:flex; gap:12px; margin-top:24px;">
+      <a href="/admin" class="btn btn-primary" style="background:var(--ta-navy); color:#fff; padding:12px 22px; border-radius:8px; text-decoration:none; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+        {{ _('admin_title') }} →
+      </a>
+      <a href="/welcome" class="btn btn-secondary" style="background:transparent; color:var(--ta-navy); padding:12px 22px; border-radius:8px; text-decoration:none; font-weight:700; border:1.5px solid var(--ta-navy);">
+        {{ _('nav_setup_status') }}
+      </a>
+    </div>
     {% else %}
-    <a href="/pending" class="btn btn-secondary">{{ _('admin_status_pending') }}</a>
+    {# ── Regulärer User: warten auf Freischaltung ────────────────────── #}
+    <div class="alert alert-info" style="margin-bottom: 20px;">
+      {{ _('reg_pending_explainer') }}
+    </div>
+    <a href="/pending" class="btn btn-secondary" style="background:transparent; color:var(--ta-navy); padding:12px 22px; border-radius:8px; text-decoration:none; font-weight:700; border:1.5px solid var(--ta-navy);">
+      {{ _('admin_status_pending') }}
+    </a>
     {% endif %}
+
   </div>
 </div>
 {% endblock %}
