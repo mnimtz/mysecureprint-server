@@ -355,6 +355,63 @@ async def _process_desktop_send_bg(
                 return
             submit_user_email = delegate["delegate_email"]
             target_type = "print_delegate"
+        elif target_id.startswith("print:user:"):
+            # v0.5.4: Delegation-Print an einen beliebigen Printix-User.
+            # iOS-Picker auf dem Ziele-Tab erzeugt diese IDs wenn der
+            # Toggle „Delegation-Druck erlauben" an ist. Wir loesen den
+            # User ueber die cached_printix_users-Tabelle (gleicher Tenant)
+            # und nutzen seine Email als submitUserEmail — der Job landet
+            # in SEINER SecurePrint-Queue mit ihm als Job-Owner.
+            target_printix_id = target_id.split(":", 2)[2].strip()
+            target_user_email = ""
+            target_user_full_name = ""
+            try:
+                from db import _conn as _db_conn_dgu
+                tenant_local_id = (tenant or {}).get("id", "")
+                with _db_conn_dgu() as _c:
+                    row = _c.execute(
+                        """SELECT email, full_name FROM cached_printix_users
+                           WHERE printix_user_id = ?
+                             AND (? = '' OR tenant_id = ?)
+                           LIMIT 1""",
+                        (target_printix_id, tenant_local_id, tenant_local_id),
+                    ).fetchone()
+                if row:
+                    target_user_email = (row["email"] or "").strip()
+                    target_user_full_name = (row["full_name"] or "").strip()
+            except Exception as _du:
+                logger.warning(
+                    "Desktop-Send [2/5] delegation-user-lookup err — "
+                    "user='%s' target_id=%s err=%s",
+                    user.get("username"), target_printix_id, _du,
+                )
+            if not target_user_email or "@" not in target_user_email:
+                _fail("delegation user not found or has no email",
+                      code="target_not_found")
+                return
+            # Audit: Wer-an-Wen delegiert hat (Compliance).
+            try:
+                from db import audit as _audit_dgu
+                _audit_dgu(
+                    user.get("user_id"),
+                    "print_job_delegated",
+                    details=(f"to_printix_user={target_printix_id} "
+                             f"to_email={target_user_email} "
+                             f"to_name={target_user_full_name} "
+                             f"job_id={internal_id}"),
+                    object_type="print_job",
+                    object_id=internal_id,
+                )
+            except Exception:
+                pass
+            submit_user_email = target_user_email
+            target_type = "print_user_delegation"
+            logger.info(
+                "Desktop-Send [2/5] delegation-user — sender='%s' → "
+                "target='%s' (%s) target_id=%s job_id=%s",
+                user.get("username"), target_user_email,
+                target_user_full_name, target_id, internal_id,
+            )
         else:
             _fail(f"unsupported target: {target_id}", code="target_unsupported")
             return

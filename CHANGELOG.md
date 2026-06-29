@@ -1,5 +1,27 @@
 # Changelog — MySecurePrint Server
 
+## 0.5.4 — 2026-06-29 — Server-Handler für iOS-Delegation-Druck + iOS-Queue-Label-Fix
+
+iOS-Picker erstellt seit v0.5.2 Targets mit ID `print:user:<printix_id>`
+fuer Delegation-Druck an beliebige Printix-User. Server hat das Format
+bisher nicht verstanden → Job wurde mit `target_unsupported` abgelehnt.
+
+### Server: print:user:<id>-Handler in /desktop/send
+- Neue Verzweigung in `_process_desktop_send_bg`: bei target_id
+  beginnend mit `print:user:` lookuped die `cached_printix_users`-Tabelle
+  nach printix_user_id, holt Email + full_name.
+- Setzt `submit_user_email` = Email des Ziel-Users → Job landet in
+  dessen SecurePrint-Queue (Printix attribuiert via `submitUserEmail`).
+- Audit-Event `print_job_delegated` mit Sender/Empfaenger/Job-ID.
+- Returnt `target_not_found` wenn User nicht im Cache (sollte nie
+  passieren wenn iOS-Picker erfolgreich lookups, aber defensive).
+
+### iOS: Queue-Label-Fix
+- TargetsView ueberschrieb das vom Server gelieferte Queue-Label
+  (z.B. „Anywhere - Marketing") mit hardcodiertem „Mein Secure Print".
+- Jetzt: Server-Label wird 1:1 verwendet wenn vorhanden; Fallback nur
+  fuer alte Server-Versionen.
+
 ## 0.5.3 — 2026-06-29 — Mobile-Invite Bulk + Email-Template + Auto-User-Sync von Printix
 
 User wollte: Email beim Printix-Import vorausfüllen, Bulk-Einladungen,
