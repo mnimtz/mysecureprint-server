@@ -530,6 +530,14 @@ def create_app(session_secret: str) -> FastAPI:
         except Exception:
             return False, "missing"
 
+    def _get_mcp_status() -> tuple[bool, str]:
+        """True wenn der MCP-Server admin-seitig aktiviert wurde."""
+        try:
+            from db import get_setting
+            return (get_setting("mcp_enabled", "0") == "1"), "configured"
+        except Exception:
+            return False, "missing"
+
     def _make_welcome_qr_svg(payload: str) -> str:
         """Erzeugt ein inline SVG-QR fuer den Welcome-Screen.
 
@@ -577,6 +585,7 @@ def create_app(session_secret: str) -> FastAPI:
         entra_ok, _     = _get_entra_status()
         legal_ok, _     = _get_legal_status()
         admin_ok, _     = _get_admin_status()
+        mcp_ok, _       = _get_mcp_status()
 
         user = get_session_user(request)
 
@@ -590,6 +599,8 @@ def create_app(session_secret: str) -> FastAPI:
             "entra_ok":     entra_ok,
             "legal_ok":     legal_ok,
             "admin_ok":     admin_ok,
+            "mcp_ok":       mcp_ok,
+            "active_page":  "welcome",
             "version":      current_app_version(),
             **t_ctx(request),
         })

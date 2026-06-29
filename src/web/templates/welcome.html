@@ -195,6 +195,12 @@
         <span class="status-state">{{ _('welcome_status_ok') if admin_ok else _('welcome_status_missing') }}</span>
         <a class="status-link" href="{{ '/admin/users' if admin_ok else '/register' }}">{{ _('welcome_configure') }} →</a>
       </li>
+      <li class="status-row">
+        <span class="status-dot {{ 'ok' if mcp_ok else 'warn' }}"></span>
+        <span class="status-label">{{ _('welcome_status_mcp') }}</span>
+        <span class="status-state">{{ _('welcome_status_mcp_on') if mcp_ok else _('welcome_status_mcp_off') }}</span>
+        <a class="status-link" href="/admin/mcp-access">{{ _('welcome_configure') }} →</a>
+      </li>
     </ul>
   </div>
 

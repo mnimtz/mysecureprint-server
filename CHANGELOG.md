@@ -1,5 +1,37 @@
 # Changelog — MySecurePrint Server
 
+## 0.4.3 — 2026-06-29 — Sidebar-Großputz + MCP im Setup-Status
+
+User klickte „Benutzer aus Printix importieren" → 404 und vermisste den
+MCP-Eintrag im Setup-Status-Dashboard. Auf der Sidebar gab's noch eine
+ganze Reihe 404-Links aus dem Slim-Down die niemand entfernt hatte.
+
+### 404-Links aus Sidebar entfernt
+- 🏠 Dashboard (`/dashboard`) — gab keine Dashboard-Route mehr; ersetzt
+  durch `/welcome` für Admins und `/my` für Employees (gleiches Icon,
+  funktioniert jetzt).
+- **„Printix Management"** komplette Kategorie (9 Links: `/tenant`,
+  `/tenant/users`, `/tenant/printers`, `/tenant/queues`,
+  `/tenant/workstations`, `/tenant/sites`, `/tenant/networks`,
+  `/tenant/snmp`, `/tenant/demo`) — alle 404 seit Slim-Down. Equivalent
+  jetzt via MCP-Tools erreichbar.
+- **„Karten & Codes"** Kategorie (`/cards`) — 404.
+- **„Fleet Management"** Kategorie (`/fleet`, `/fleet/package-builder`)
+  — 404.
+- Im Admin-Abschnitt: „Aus Printix importieren"
+  (`/admin/users/import-printix`) — 404.
+- Bottom-Sidebar: 🔑 Passwort ändern (`/settings/password`) — 404.
+
+### Neue Status-Zeile im /welcome (Setup-Status)
+- **MCP-Zugang (Claude/ChatGPT)** — zeigt grün/gelb je nach Aktivierung,
+  Link „Configure →" geht direkt nach `/admin/mcp-access`.
+- Default-Indikator: gelb (warn) + Text „deaktiviert (optional)" — damit
+  klar ist dass MCP ein optionales Feature ist, nicht ein Pflicht-Setup.
+
+### Neue i18n-Keys
+- `welcome_status_mcp`, `welcome_status_mcp_on`, `welcome_status_mcp_off`
+  in DE + EN.
+
 ## 0.4.2 — 2026-06-29 — Admin-Settings: tote Module-Sektionen weg
 
 User entdeckte dass `/admin/settings` immer noch Eingabefelder für

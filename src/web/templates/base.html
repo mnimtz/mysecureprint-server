@@ -958,54 +958,27 @@
       <span class="sidebar-brand-text">{{ _('brand_console_name') }}</span>
     </div>
     <div class="sidebar-section">
-      {# Dashboard — immer sichtbar #}
-      <a href="/dashboard" class="sidebar-top-link {% if active_page == 'dashboard' %}active{% endif %}">
+      {# v0.4.3: /dashboard war ein 404 — admins landen auf /welcome
+         (Setup-Status), Employees auf /my (User-Portal). #}
+      {% if user.is_admin %}
+      <a href="/welcome" class="sidebar-top-link {% if active_page == 'welcome' %}active{% endif %}">
         <span class="sb-icon">🏠</span> {{ _('nav_dashboard') }}
       </a>
+      {% else %}
+      <a href="/my" class="sidebar-top-link {% if active_page == 'my_portal' %}active{% endif %}">
+        <span class="sb-icon">🏠</span> {{ _('nav_dashboard') }}
+      </a>
+      {% endif %}
     </div>
+
+    {# v0.4.3: Nav-Kategorien „Printix Management" (/tenant/*),
+       „Karten & Codes" (/cards), „Fleet Management" (/fleet, /fleet/
+       package-builder) entfernt — alle Routen sind 404er seit dem
+       Slim-Down. Die entsprechenden Aktionen passieren jetzt via MCP-
+       Tools (claude.ai / ChatGPT) — User mgmt direkt via /admin/users,
+       Karten + Drucker + Queues + Workstations sind read-only via MCP. #}
 
     {% if user.role_type != 'employee' %}
-    {# ── Printix Management ─────────────────────────────────────────── #}
-    <button class="sb-cat-toggle open" onclick="toggleSbCat(this)">
-      <span>🖨️</span> {{ _('nav_cat_printix_mgmt') }}
-      <span class="sb-cat-chevron">▸</span>
-    </button>
-    <div class="sb-cat-items open">
-      <a href="/tenant"             class="sb-sublink {% if active_page == 'tenant_overview' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_overview') }}</a>
-      <a href="/tenant/users"       class="sb-sublink {% if active_page == 'tenant_users' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_users') }}</a>
-      <a href="/tenant/printers"    class="sb-sublink {% if active_page == 'tenant_printers' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_printers') }}</a>
-      <a href="/tenant/queues"      class="sb-sublink {% if active_page == 'tenant_queues' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_queues') }}</a>
-      <a href="/tenant/workstations" class="sb-sublink {% if active_page == 'tenant_workstations' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_workstations') }}</a>
-      <a href="/tenant/sites"       class="sb-sublink {% if active_page == 'tenant_sites' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_sites') }}</a>
-      <a href="/tenant/networks"    class="sb-sublink {% if active_page == 'tenant_networks' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_networks') }}</a>
-      <a href="/tenant/snmp"        class="sb-sublink {% if active_page == 'tenant_snmp' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_snmp') }}</a>
-      <a href="/tenant/demo"        class="sb-sublink {% if active_page == 'tenant_demo' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_demo') }}</a>
-    </div>
-
-    {# ── Karten & Codes ─────────────────────────────────────────────── #}
-    <button class="sb-cat-toggle" onclick="toggleSbCat(this)">
-      <span>💳</span> {{ _('nav_cat_cards') }}
-      <span class="sb-cat-chevron">▸</span>
-    </button>
-    <div class="sb-cat-items">
-      <a href="/cards" class="sb-sublink {% if active_page == 'cards' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_cards_mapping') }}</a>
-    </div>
-
-    {# ── Fleet Management ────────────────────────────────────────────── #}
-    <button class="sb-cat-toggle" onclick="toggleSbCat(this)">
-      <span>📦</span> {{ _('nav_cat_fleet') }}
-      <span class="sb-cat-chevron">▸</span>
-    </button>
-    <div class="sb-cat-items">
-      <a href="/fleet"                 class="sb-sublink {% if active_page == 'fleet' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_fleet') }}</a>
-      <a href="/fleet/package-builder" class="sb-sublink {% if active_page == 'fleet_packages' %}active{% endif %}"><span class="sb-dot"></span>Package Builder</a>
-    </div>
-
-    {# ── Berichte & Logs ─────────────────────────────────────────────── #}
-    {# v0.3.2: Reports/Pro-Features Nav-Kategorien entfernt — entsprechende
-       Server-Module wurden im Slim-Down (Fork → mysecureprint-server)
-       gestrichen, die Links waren 404er. Audit-Log + /my-Portal sind
-       jetzt direkt in den Admin- bzw. Employee-Bereichen verlinkt. #}
 
     {# ── Administration (nur Admin) ──────────────────────────────────── #}
     {% if user.is_admin %}
@@ -1018,7 +991,6 @@
       <a href="/admin/users"               class="sb-sublink {% if active_page == 'admin_users' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_overview') }}</a>
       <a href="/admin/users/invite"        class="sb-sublink {% if active_page == 'admin_invite' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_invite') }}</a>
       <a href="/admin/users/bulk-import"   class="sb-sublink {% if active_page == 'admin_bulk' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_bulk_import') }}</a>
-      <a href="/admin/users/import-printix" class="sb-sublink {% if active_page == 'admin_import_printix' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_printix_import') }}</a>
       <a href="/admin/users/create"        class="sb-sublink {% if active_page == 'admin_create_user' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_create_user') }}</a>
       <div class="sb-subgroup-label">{{ _('nav_security') }}</div>
       <a href="/admin/ssl"          class="sb-sublink {% if active_page == 'admin_ssl' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_ssl') }}</a>
@@ -1047,7 +1019,9 @@
 
     {# ── Bottom: Connect, Profil, Hilfe, Sprache, Logout ───────────── #}
     <div class="sidebar-bottom">
-      <a href="/settings/password" class="sb-bottom-link {% if active_page == 'password' %}active{% endif %}"><span class="sb-icon">🔑</span>{{ _('nav_password') }}</a>
+{# v0.4.3: /settings/password war ein 404 — eigene Passwort-Aenderung
+   gibt's seit dem Slim-Down nicht mehr im Web-UI. Wer Passwoerter aendern
+   muss, geht ueber Admin → User-Edit (oder MS-SSO benutzen). #}
       <div class="sb-divider"></div>
       {# v7.9.1: Language switcher in sidebar bottom #}
       <div class="sb-lang-switcher">
