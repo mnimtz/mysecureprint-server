@@ -1,5 +1,62 @@
 # Changelog — MySecurePrint Server
 
+## 0.3.0 — 2026-06-29 — Blob auto-backup + i18n hardening
+
+### Cloud-Backup nach Azure Blob Storage (new)
+- New module `src/blob_backup.py` — wraps `backup_manager.create_backup()`
+  with an upload to Azure Blob Storage. Survives loss of the `/data`
+  Azure-Files mount. Double-encrypted: Fernet at app layer + Azure
+  encryption at rest.
+- New admin page `/admin/blob-backup` with status panel, configuration
+  form, blob list, manual "Run now" button, and one-click restore-from-blob.
+- New DB settings: `blob_backup_enabled`, `blob_backup_connection_string`
+  (Fernet-encrypted), `blob_backup_container` (default
+  `mysecureprint-backups`), `blob_backup_passphrase` (Fernet-encrypted),
+  `blob_backup_retention_days` (default 30), `blob_backup_last_run_at`,
+  `blob_backup_last_result`.
+- New audit-log events: `blob_backup_settings_saved`,
+  `blob_backup_run_manual`, `blob_backup_restored`.
+- Daily background scheduler in `web/app.py` startup-event — fires once
+  per 24h when `blob_backup_enabled=1`, calls `run_once()` on a worker
+  thread (offloaded with `asyncio.to_thread`) so it doesn't block the
+  event loop.
+- Auto-prune of old blobs based on `retention_days`. 0 = keep forever.
+- ARM/Bicep templates updated: auto-create blob container
+  `mysecureprint-backups` in the same Storage Account, plus
+  `AZURE_STORAGE_CONNECTION_STRING` env variable pre-populated so the
+  feature works out of the box (admin only has to set the encryption
+  passphrase + toggle on).
+- New dependency `azure-storage-blob>=12.19.0`.
+
+### i18n hardening
+- 6 hardcoded strings extracted from `welcome.html` (Copy / QR / QR
+  unavailable / Setup / Server Status / Configure → 4×) and now use
+  `{{ _(...) }}`.
+- 10 hardcoded German strings in `web/app.py` extracted to translator
+  calls — covers user-registration form validation, OAuth callback
+  errors, and CSV bulk-import error details that previously showed
+  German text even for English/French users.
+- Translation gap from prior audit closed: ~10,777 missing entries
+  filled across fr/it/es/nl/no/sv plus four DE dialects
+  (bar/hessisch/oesterreichisch/schwiizerdütsch) and two EN dialects
+  (cockney/us_south). The longer admin help-text strings fall back to
+  English in non-DE/EN languages — explicit human translation
+  recommended before going public in those locales.
+- New `_V030_KEYS` block at the bottom of `i18n.py` defines the new
+  v0.3.0 keys (welcome + blob backup) in DE + EN with EN-fallback
+  for all other supported languages.
+- Defensive stub `src/license.py` so leftover legacy `from license
+  import is_feature_enabled` calls in admin routes don't crash —
+  `is_feature_enabled()` always returns True (matches the v0.1.0
+  "everything always-on" design).
+
+### Removed orphan import
+- `from package_builder import PackageBuilderCore` in `create_app()`
+  was a Workstation-Agent leftover and crashed every container start
+  on Azure App Service. Removed in v0.2.2 (during the deploy
+  troubleshooting that motivated the diagnostic logging in
+  `entrypoint.sh`); explicitly noted here for the v0.3.0 release notes.
+
 ## 0.2.0 — 2026-06-29 — iOS Onboarding: Email-Deeplink + Admin-QR
 
 Admins can now invite users to the MySecurePrint iOS app with a single

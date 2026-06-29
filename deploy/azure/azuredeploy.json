@@ -21,6 +21,7 @@
     "planName": "[concat(parameters('appName'), '-plan')]",
     "storageAccountName": "[concat('mysprt', uniqueString(resourceGroup().id))]",
     "fileShareName": "printix-data",
+    "blobBackupContainer": "mysecureprint-backups",
     "effectivePublicUrl": "[if(empty(parameters('publicUrl')), concat('https://', parameters('appName'), '.azurewebsites.net'), parameters('publicUrl'))]"
   },
   "resources": [
@@ -39,6 +40,13 @@
       "name": "[concat(variables('storageAccountName'), '/default/', variables('fileShareName'))]",
       "dependsOn": [ "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]" ],
       "properties": { "shareQuota": 5 }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2023-05-01",
+      "name": "[concat(variables('storageAccountName'), '/default/', variables('blobBackupContainer'))]",
+      "dependsOn": [ "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]" ],
+      "properties": { "publicAccess": "None" }
     },
     {
       "type": "Microsoft.Web/serverfarms",
@@ -74,7 +82,9 @@
             { "name": "MCP_PUBLIC_URL", "value": "[variables('effectivePublicUrl')]" },
             { "name": "MCP_LOG_LEVEL", "value": "[parameters('logLevel')]" },
             { "name": "WEB_PORT", "value": "8080" },
-            { "name": "TZ", "value": "[parameters('tz')]" }
+            { "name": "TZ", "value": "[parameters('tz')]" },
+            { "name": "AZURE_STORAGE_CONNECTION_STRING", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-05-01').keys[0].value, ';EndpointSuffix=core.windows.net')]" },
+            { "name": "BLOB_BACKUP_CONTAINER_DEFAULT", "value": "[variables('blobBackupContainer')]" }
           ],
           "azureStorageAccounts": {
             "data": {

@@ -131,8 +131,8 @@
           <span id="serverUrl" style="flex:1;">{{ base_url or '—' }}</span>
           {% if base_url %}
           <button class="copy-btn" type="button"
-                  onclick="(function(b){navigator.clipboard.writeText('{{ base_url }}').then(()=>{b.textContent='✓';setTimeout(()=>b.textContent='Copy',1500);});})(this)">
-            Copy
+                  onclick="(function(b){navigator.clipboard.writeText('{{ base_url }}').then(()=>{b.textContent='✓';setTimeout(()=>b.textContent='{{ _('welcome_copy') }}',1500);});})(this)">
+            {{ _('welcome_copy') }}
           </button>
           {% endif %}
         </div>
@@ -143,13 +143,13 @@
       </div>
 
       <div class="info-col">
-        <h3 style="text-align:center;">QR</h3>
+        <h3 style="text-align:center;">{{ _('welcome_qr_heading') }}</h3>
         <div class="qr-box">
           {% if qr_svg %}
             {{ qr_svg | safe }}
           {% else %}
             <div style="padding:60px 10px; color:#94a3b8; font-size:.85em;">
-              QR unavailable
+              {{ _('welcome_qr_unavailable') }}
             </div>
           {% endif %}
         </div>
@@ -157,7 +157,7 @@
       </div>
 
       <div class="info-col">
-        <h3>Setup</h3>
+        <h3>{{ _('welcome_setup_heading') }}</h3>
         <ol class="setup-steps">
           <li>{{ _('welcome_setup_step_1') }}</li>
           <li>{{ _('welcome_setup_step_2') }}</li>
@@ -169,31 +169,31 @@
 
   {# ── Status-Indikatoren ─────────────────────────────────────────── #}
   <div class="welcome-card">
-    <div class="section-title">Server Status</div>
+    <div class="section-title">{{ _('welcome_server_status_heading') }}</div>
     <ul class="status-list">
       <li class="status-row">
         <span class="status-dot {{ 'ok' if printix_ok else 'miss' }}"></span>
         <span class="status-label">{{ _('welcome_status_printix') }}</span>
         <span class="status-state">{{ _('welcome_status_ok') if printix_ok else _('welcome_status_missing') }}</span>
-        <a class="status-link" href="/admin/settings">Configure →</a>
+        <a class="status-link" href="/admin/settings">{{ _('welcome_configure') }} →</a>
       </li>
       <li class="status-row">
         <span class="status-dot {{ 'ok' if entra_ok else 'miss' }}"></span>
         <span class="status-label">{{ _('welcome_status_entra') }}</span>
         <span class="status-state">{{ _('welcome_status_ok') if entra_ok else _('welcome_status_missing') }}</span>
-        <a class="status-link" href="/admin/settings">Configure →</a>
+        <a class="status-link" href="/admin/settings">{{ _('welcome_configure') }} →</a>
       </li>
       <li class="status-row">
         <span class="status-dot {{ 'ok' if legal_ok else 'warn' }}"></span>
         <span class="status-label">{{ _('welcome_status_legal') }}</span>
         <span class="status-state">{{ _('welcome_status_ok') if legal_ok else _('welcome_status_missing') }}</span>
-        <a class="status-link" href="/admin/settings#legal">Configure →</a>
+        <a class="status-link" href="/admin/settings#legal">{{ _('welcome_configure') }} →</a>
       </li>
       <li class="status-row">
         <span class="status-dot {{ 'ok' if admin_ok else 'miss' }}"></span>
         <span class="status-label">{{ _('welcome_status_admin') }}</span>
         <span class="status-state">{{ _('welcome_status_ok') if admin_ok else _('welcome_status_missing') }}</span>
-        <a class="status-link" href="{{ '/admin/users' if admin_ok else '/register' }}">Configure →</a>
+        <a class="status-link" href="{{ '/admin/users' if admin_ok else '/register' }}">{{ _('welcome_configure') }} →</a>
       </li>
     </ul>
   </div>

@@ -36,3 +36,7 @@ openpyxl>=3.1.0
 # wir für einen popeligen QR-Code ~10 MB Image-Lib in den Container
 # schleppen.
 segno>=1.6.0
+
+# v0.3.0: Azure Blob Storage — täglicher Auto-Backup-Upload damit die
+# Backups einen Verlust des Azure-Files-Mounts überleben.
+azure-storage-blob>=12.19.0

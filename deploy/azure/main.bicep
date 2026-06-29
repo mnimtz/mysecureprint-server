@@ -26,6 +26,7 @@ param logLevel string = 'info'
 var planName = '${appName}-plan'
 var storageName = 'mysprt${uniqueString(resourceGroup().id)}'
 var fileShareName = 'printix-data'
+var blobBackupContainer = 'mysecureprint-backups'
 var effectivePublicUrl = empty(publicUrl) ? 'https://${appName}.azurewebsites.net' : publicUrl
 
 resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
@@ -42,6 +43,11 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
 resource share 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-05-01' = {
   name: '${storage.name}/default/${fileShareName}'
   properties: { shareQuota: 5 }
+}
+
+resource blobContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  name: '${storage.name}/default/${blobBackupContainer}'
+  properties: { publicAccess: 'None' }
 }
 
 resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
@@ -73,6 +79,8 @@ resource site 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'MCP_LOG_LEVEL', value: logLevel }
         { name: 'WEB_PORT', value: '8080' }
         { name: 'TZ', value: tz }
+        { name: 'AZURE_STORAGE_CONNECTION_STRING', value: 'DefaultEndpointsProtocol=https;AccountName=${storageName};AccountKey=${listKeys(storage.id, '2023-05-01').keys[0].value};EndpointSuffix=core.windows.net' }
+        { name: 'BLOB_BACKUP_CONTAINER_DEFAULT', value: blobBackupContainer }
       ]
       azureStorageAccounts: {
         data: {

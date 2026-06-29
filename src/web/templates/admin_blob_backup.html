@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}{{ _('blob_backup_title') }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width: 920px; margin: 32px auto;">
+
+  <h1 style="color: var(--ta-navy); font-size: 1.8em; font-weight: 800; margin-bottom: 4px;">
+    {{ _('blob_backup_title') }}
+  </h1>
+  <p style="color: #64748b; margin-bottom: 24px;">
+    {{ _('blob_backup_intro') }}
+  </p>
+
+  {% if request.query_params.get('ok') == 'saved' %}
+    <div class="alert alert-success" style="margin-bottom: 16px;">
+      ✓ {{ _('blob_backup_saved') }}
+    </div>
+  {% elif request.query_params.get('ok') == 'ran' %}
+    <div class="alert alert-success" style="margin-bottom: 16px;">
+      ✓ {{ _('blob_backup_run_ok') }}
+    </div>
+  {% elif request.query_params.get('ok') == 'restored' %}
+    <div class="alert alert-success" style="margin-bottom: 16px;">
+      ✓ {{ _('blob_backup_restored') }}
+    </div>
+  {% endif %}
+  {% if request.query_params.get('err') %}
+    <div class="alert alert-error" style="margin-bottom: 16px;">
+      ⚠ {{ request.query_params.get('err') }}
+    </div>
+  {% endif %}
+
+  {# ── Status ────────────────────────────────────────────────── #}
+  <div class="card" style="margin-bottom: 24px;">
+    <h2 class="section-title">{{ _('blob_backup_status_title') }}</h2>
+    <table style="width:100%; border-collapse:collapse;">
+      <tr>
+        <td style="padding:8px 0; color:#64748b;">{{ _('blob_backup_enabled_label') }}</td>
+        <td>
+          {% if enabled %}<span style="color:#16a34a; font-weight:700;">{{ _('on_label') }}</span>
+          {% else %}<span style="color:#94a3b8;">{{ _('off_label') }}</span>{% endif %}
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0; color:#64748b;">{{ _('blob_backup_configured_label') }}</td>
+        <td>
+          {% if configured %}✓ {{ _('blob_backup_configured_yes') }}
+          {% else %}<span style="color:#ef4444;">✗ {{ _('blob_backup_configured_no') }}</span>{% endif %}
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0; color:#64748b;">{{ _('blob_backup_last_run_label') }}</td>
+        <td>{{ last_run_at or '—' }}</td>
+      </tr>
+      {% if last_result %}
+      <tr>
+        <td style="padding:8px 0; color:#64748b;">{{ _('blob_backup_last_status_label') }}</td>
+        <td>
+          {% if last_result.ok %}
+            ✓ {{ last_result.blob_name }} ({{ (last_result.size or 0) // 1024 }} KB)
+          {% else %}
+            <span style="color:#ef4444;">✗ {{ last_result.error or '—' }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endif %}
+    </table>
+
+    <form method="post" action="/admin/blob-backup/run" style="margin-top: 16px;">
+      <button type="submit" class="action-btn primary"
+              {% if not configured %}disabled style="opacity:.5; cursor:not-allowed;"{% endif %}>
+        ▶ {{ _('blob_backup_run_now') }}
+      </button>
+    </form>
+  </div>
+
+  {# ── Configuration ─────────────────────────────────────────── #}
+  <div class="card" style="margin-bottom: 24px;">
+    <h2 class="section-title">{{ _('blob_backup_config_title') }}</h2>
+    <form method="post" action="/admin/blob-backup/save">
+      <div class="form-row" style="margin-bottom: 14px;">
+        <label style="display:flex; align-items:center; gap:8px; font-weight:600;">
+          <input type="checkbox" name="enabled" value="1"
+                 {% if enabled %}checked{% endif %}>
+          {{ _('blob_backup_enable_daily') }}
+        </label>
+        <div style="font-size:.85em; color:#64748b; margin-top:4px; margin-left:24px;">
+          {{ _('blob_backup_enable_help') }}
+        </div>
+      </div>
+
+      <div class="form-row" style="margin-bottom: 14px;">
+        <label for="bb_conn" style="font-weight: 600;">
+          {{ _('blob_backup_connection_string_label') }}
+        </label>
+        <input type="password" id="bb_conn" name="connection_string"
+               style="width: 100%;"
+               placeholder="{% if has_conn_setting %}{{ _('blob_backup_secret_set_placeholder') }}{% elif env_conn_present %}{{ _('blob_backup_using_env_placeholder') }}{% else %}DefaultEndpointsProtocol=https;AccountName=...{% endif %}">
+        <div style="font-size:.85em; color:#64748b; margin-top:4px;">
+          {{ _('blob_backup_connection_string_help') }}
+        </div>
+      </div>
+
+      <div class="form-row" style="margin-bottom: 14px;">
+        <label for="bb_container" style="font-weight: 600;">
+          {{ _('blob_backup_container_label') }}
+        </label>
+        <input type="text" id="bb_container" name="container"
+               value="{{ container }}"
+               style="width: 100%;"
+               placeholder="mysecureprint-backups">
+      </div>
+
+      <div class="form-row" style="margin-bottom: 14px;">
+        <label for="bb_pp" style="font-weight: 600;">
+          {{ _('blob_backup_passphrase_label') }}
+        </label>
+        <input type="password" id="bb_pp" name="passphrase"
+               style="width: 100%;"
+               placeholder="{% if has_pp_setting %}{{ _('blob_backup_secret_set_placeholder') }}{% else %}{{ _('blob_backup_passphrase_placeholder') }}{% endif %}">
+        <div style="font-size:.85em; color:#64748b; margin-top:4px;">
+          {{ _('blob_backup_passphrase_help') }}
+        </div>
+      </div>
+
+      <div class="form-row" style="margin-bottom: 14px;">
+        <label for="bb_ret" style="font-weight: 600;">
+          {{ _('blob_backup_retention_label') }}
+        </label>
+        <input type="number" id="bb_ret" name="retention_days"
+               value="{{ retention_days }}" min="0" max="365"
+               style="width: 120px;">
+        <div style="font-size:.85em; color:#64748b; margin-top:4px;">
+          {{ _('blob_backup_retention_help') }}
+        </div>
+      </div>
+
+      <button type="submit" class="action-btn primary">
+        {{ _('btn_save') }}
+      </button>
+    </form>
+  </div>
+
+  {# ── Blob list / Restore ───────────────────────────────────── #}
+  <div class="card">
+    <h2 class="section-title">{{ _('blob_backup_list_title') }}</h2>
+    {% if not configured %}
+      <p style="color:#64748b;">{{ _('blob_backup_not_configured_hint') }}</p>
+    {% elif not blobs %}
+      <p style="color:#64748b;">{{ _('blob_backup_empty_list') }}</p>
+    {% else %}
+      <table style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr style="background:var(--ta-gray-100);">
+            <th style="padding:10px; text-align:left;">{{ _('blob_backup_col_name') }}</th>
+            <th style="padding:10px; text-align:right;">{{ _('blob_backup_col_size') }}</th>
+            <th style="padding:10px; text-align:left;">{{ _('blob_backup_col_modified') }}</th>
+            <th style="padding:10px;">{{ _('blob_backup_col_actions') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in blobs %}
+          <tr style="border-top:1px solid var(--ta-gray-200);">
+            <td style="padding:10px; font-family:monospace; font-size:.9em;">{{ b.name }}</td>
+            <td style="padding:10px; text-align:right;">{{ (b.size or 0) // 1024 }} KB</td>
+            <td style="padding:10px; color:#64748b; font-size:.9em;">{{ b.modified }}</td>
+            <td style="padding:10px; text-align:center;">
+              <form method="post" action="/admin/blob-backup/restore"
+                    style="display:inline;"
+                    onsubmit="return confirm('{{ _('blob_backup_restore_confirm') }}');">
+                <input type="hidden" name="blob_name" value="{{ b.name }}">
+                <input type="password" name="passphrase"
+                       placeholder="{{ _('blob_backup_passphrase_short') }}"
+                       style="width: 140px; font-size:.85em;">
+                <button type="submit" class="action-btn outline" style="font-size:.85em;">
+                  ↺ {{ _('blob_backup_restore_btn') }}
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

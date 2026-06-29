@@ -5,6 +5,7 @@ import json
 import logging
 import secrets
 import tempfile
+from pathlib import Path
 from typing import Optional
 from urllib.parse import quote_plus
 
@@ -729,9 +730,9 @@ def create_app(session_secret: str) -> FastAPI:
         _  = tc["_"]
         error = None
         if len(username) < 3:
-            error = "Benutzername muss mindestens 3 Zeichen lang sein."
+            error = _("reg_username_too_short")
         elif len(password) < 8:
-            error = "Passwort muss mindestens 8 Zeichen lang sein."
+            error = _("reg_password_too_short")
         elif password != password2:
             error = _("reg_pw_mismatch")
         else:
@@ -740,7 +741,7 @@ def create_app(session_secret: str) -> FastAPI:
                 if username_exists(username):
                     error = _("reg_user_exists")
             except Exception as e:
-                error = f"Datenbankfehler: {e}"
+                error = _("err_database") + f": {e}"
 
         if error:
             return templates.TemplateResponse("register_step1.html", {
@@ -990,7 +991,7 @@ def create_app(session_secret: str) -> FastAPI:
             user = authenticate_user(username, password)
         except Exception as e:
             return templates.TemplateResponse("login.html", {
-                "request": request, "error": f"Datenbankfehler: {e}",
+                "request": request, "error": _("err_database") + f": {e}",
                 "username": username, "entra_enabled": entra_on, **tc,
             })
 
@@ -1119,7 +1120,7 @@ def create_app(session_secret: str) -> FastAPI:
             logger.warning("Entra callback error: %s — %s", error, error_desc)
             return templates.TemplateResponse("login.html", {
                 "request": request,
-                "error": f"Microsoft-Anmeldung fehlgeschlagen: {error_desc or error}",
+                "error": _("entra_err_signin_failed") + f": {error_desc or error}",
                 **_e, **tc,
             })
 
@@ -1128,14 +1129,14 @@ def create_app(session_secret: str) -> FastAPI:
         if not state or state != expected_state:
             return templates.TemplateResponse("login.html", {
                 "request": request,
-                "error": "Ungültiger State-Parameter — bitte erneut versuchen.",
+                "error": _("entra_err_invalid_state"),
                 **_e, **tc,
             })
 
         if not code:
             return templates.TemplateResponse("login.html", {
                 "request": request,
-                "error": "Kein Authorization Code erhalten.",
+                "error": _("entra_err_no_code"),
                 **_e, **tc,
             })
 
@@ -1144,7 +1145,7 @@ def create_app(session_secret: str) -> FastAPI:
             from entra import exchange_code_for_user
         except ImportError:
             return templates.TemplateResponse("login.html", {
-                "request": request, "error": "Entra-Modul nicht verfügbar.",
+                "request": request, "error": _("entra_err_module_unavailable"),
                 **_e, **tc,
             })
 
@@ -1163,7 +1164,7 @@ def create_app(session_secret: str) -> FastAPI:
         if not user_info or not user_info.get("oid"):
             return templates.TemplateResponse("login.html", {
                 "request": request,
-                "error": "Microsoft-Anmeldung fehlgeschlagen — kein Benutzerprofil erhalten.",
+                "error": _("entra_err_no_profile"),
                 **_e, **tc,
             })
 
@@ -1179,14 +1180,14 @@ def create_app(session_secret: str) -> FastAPI:
             logger.error("Entra user lookup/create Fehler: %s", e)
             return templates.TemplateResponse("login.html", {
                 "request": request,
-                "error": f"Datenbankfehler: {e}",
+                "error": _("err_database") + f": {e}",
                 **_e, **tc,
             })
 
         if not user:
             return templates.TemplateResponse("login.html", {
                 "request": request,
-                "error": "Benutzer konnte nicht angelegt werden.",
+                "error": _("entra_err_user_not_created"),
                 **_e, **tc,
             })
 
@@ -3505,7 +3506,7 @@ def create_app(session_secret: str) -> FastAPI:
             email = row.get("email", "")
             if not email or "@" not in email:
                 results.append({"row": idx, "email": email, "username": "",
-                                "status": "failed", "detail": "Ungültige E-Mail"})
+                                "status": "failed", "detail": tc["_"]("err_invalid_email")})
                 summary["failed"] += 1
                 continue
 
@@ -3698,9 +3699,9 @@ def create_app(session_secret: str) -> FastAPI:
         error = None
 
         if len(username) < 3:
-            error = "Benutzername muss mindestens 3 Zeichen lang sein."
+            error = _("reg_username_too_short")
         elif len(password) < 8:
-            error = "Passwort muss mindestens 8 Zeichen lang sein."
+            error = _("reg_password_too_short")
         elif password != password2:
             error = _("reg_pw_mismatch")
         else:
@@ -4433,6 +4434,148 @@ def create_app(session_secret: str) -> FastAPI:
                 pass
 
 
+    # ─── Blob Auto-Backup (v0.3.0) ───────────────────────────────────────────
+    # Daily background task that creates an encrypted backup via
+    # backup_manager.create_backup() and uploads it to Azure Blob Storage.
+    # The container survives even if the App Service's mounted Azure Files
+    # share gets wiped (storage-account-level disaster). Configured under
+    # /admin/blob-backup; off by default.
+
+    def _blob_backup_ctx(request: Request, user: dict, **extra) -> dict:
+        tc = t_ctx(request)
+        from db import get_setting
+        from crypto import encrypt as _enc, decrypt as _dec  # noqa: F401
+        try:
+            from blob_backup import (
+                list_blobs as _lb, is_configured as _ic, is_enabled as _ie,
+                DEFAULT_CONTAINER, DEFAULT_RETENTION_DAYS,
+            )
+        except Exception:
+            _lb = lambda: []  # noqa: E731
+            _ic = lambda: False  # noqa: E731
+            _ie = lambda: False  # noqa: E731
+            DEFAULT_CONTAINER = "mysecureprint-backups"
+            DEFAULT_RETENTION_DAYS = 30
+        last_run_at = get_setting("blob_backup_last_run_at", "")
+        last_raw    = get_setting("blob_backup_last_result", "")
+        try:
+            import json as _j
+            last_result = _j.loads(last_raw) if last_raw else None
+        except Exception:
+            last_result = None
+        has_conn_setting = bool(get_setting("blob_backup_connection_string", ""))
+        has_pp_setting   = bool(get_setting("blob_backup_passphrase", ""))
+        env_conn_present = bool(os.environ.get("AZURE_STORAGE_CONNECTION_STRING", ""))
+        ctx = {
+            "request": request,
+            "user": user,
+            "enabled":          _ie(),
+            "configured":       _ic(),
+            "container":        get_setting("blob_backup_container", "") or DEFAULT_CONTAINER,
+            "retention_days":   get_setting("blob_backup_retention_days", str(DEFAULT_RETENTION_DAYS)),
+            "has_conn_setting": has_conn_setting,
+            "has_pp_setting":   has_pp_setting,
+            "env_conn_present": env_conn_present,
+            "last_run_at":      last_run_at,
+            "last_result":      last_result,
+            "blobs":            _lb(),
+            **tc, **extra,
+        }
+        return ctx
+
+    @app.get("/admin/blob-backup", response_class=HTMLResponse)
+    async def admin_blob_backup_page(request: Request):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        return templates.TemplateResponse(
+            "admin_blob_backup.html",
+            _blob_backup_ctx(request, user),
+        )
+
+    @app.post("/admin/blob-backup/save", response_class=HTMLResponse)
+    async def admin_blob_backup_save(
+        request: Request,
+        enabled:           str = Form(""),
+        connection_string: str = Form(""),
+        container:         str = Form(""),
+        passphrase:        str = Form(""),
+        retention_days:    str = Form(""),
+    ):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        from db import set_setting, audit
+        from crypto import encrypt as _enc
+
+        set_setting("blob_backup_enabled", "1" if enabled in ("1", "on", "true") else "0")
+        # Only overwrite the encrypted secret-fields if the admin actually typed
+        # something — empty form means "keep the existing value".
+        if connection_string.strip():
+            set_setting("blob_backup_connection_string", _enc(connection_string.strip()))
+        if passphrase.strip():
+            set_setting("blob_backup_passphrase", _enc(passphrase.strip()))
+        if container.strip():
+            set_setting("blob_backup_container", container.strip())
+        rd = retention_days.strip()
+        if rd:
+            try:
+                set_setting("blob_backup_retention_days", str(max(0, int(rd))))
+            except ValueError:
+                pass
+        audit(user["id"], "blob_backup_settings_saved",
+              f"enabled={enabled in ('1','on','true')} container={container or '-'}")
+        return RedirectResponse("/admin/blob-backup?ok=saved", status_code=302)
+
+    @app.post("/admin/blob-backup/run", response_class=HTMLResponse)
+    async def admin_blob_backup_run_now(request: Request):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        try:
+            from blob_backup import run_once
+            from db import audit
+            r = run_once()
+            audit(user["id"], "blob_backup_run_manual",
+                  f"ok={r.get('ok')} blob={r.get('blob_name','-')} "
+                  f"size={r.get('size',0)} error={r.get('error','-')}")
+        except Exception as e:
+            logger.error("blob backup manual run failed: %s", e, exc_info=True)
+        return RedirectResponse("/admin/blob-backup?ok=ran", status_code=302)
+
+    @app.post("/admin/blob-backup/restore", response_class=HTMLResponse)
+    async def admin_blob_backup_restore(
+        request: Request,
+        blob_name:  str = Form(...),
+        passphrase: str = Form(""),
+    ):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        tmp_path = None
+        try:
+            from blob_backup import download_blob
+            from backup_manager import restore_backup
+            from db import audit
+            with tempfile.NamedTemporaryFile(prefix="printix-blob-restore-",
+                                              suffix=".zip", delete=False) as tmp:
+                tmp_path = tmp.name
+            download_blob(blob_name, Path(tmp_path))
+            pp = (passphrase or "").strip() or None
+            restore_backup(tmp_path, passphrase=pp)
+            audit(user["id"], "blob_backup_restored",
+                  f"blob={blob_name}")
+            return RedirectResponse("/admin/blob-backup?ok=restored", status_code=302)
+        except Exception as e:
+            logger.error("blob backup restore failed: %s", e, exc_info=True)
+            return RedirectResponse(f"/admin/blob-backup?err={quote_plus(str(e))}",
+                                    status_code=302)
+        finally:
+            try:
+                if tmp_path and os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+            except Exception:
+                pass
 
     # ─── Tenant: Printers / Queues / Users+Cards ─────────────────────────────────
 
@@ -4572,6 +4715,54 @@ def create_app(session_secret: str) -> FastAPI:
         except Exception as e:
             logger.warning("Entra continuous-eval startup failed: %s", e)
 
+
+    # v0.3.0: Blob auto-backup — daily scheduler. Opt-in via
+    # blob_backup_enabled=1. First tick fires 60s after startup so the DB
+    # is initialised; subsequent ticks are 24h apart. Errors are logged
+    # but don't crash the loop.
+    @app.on_event("startup")
+    async def _start_blob_backup_scheduler():
+        import asyncio as _asyncio
+
+        async def _loop():
+            while True:
+                await _asyncio.sleep(60)
+                try:
+                    from db import get_setting, set_setting
+                    if get_setting("blob_backup_enabled", "0") != "1":
+                        await _asyncio.sleep(86400 - 60)
+                        continue
+                    last = get_setting("blob_backup_last_run_at", "")
+                    if last:
+                        from datetime import datetime as _dt, timezone as _tz
+                        try:
+                            last_dt = _dt.fromisoformat(last)
+                            if last_dt.tzinfo is None:
+                                last_dt = last_dt.replace(tzinfo=_tz.utc)
+                            age = (_dt.now(_tz.utc) - last_dt).total_seconds()
+                            if age < 86000:  # already ran in the last ~24h
+                                await _asyncio.sleep(86400 - 60)
+                                continue
+                        except Exception:
+                            pass
+                    from blob_backup import run_once
+                    # run_once does its own DB+upload work; offload to a
+                    # thread so we don't block the event loop.
+                    r = await _asyncio.to_thread(run_once)
+                    logger.info(
+                        "blob backup daily run: ok=%s blob=%s size=%d err=%s",
+                        r.get("ok"), r.get("blob_name", "-"),
+                        r.get("size", 0), r.get("error", "-"),
+                    )
+                except Exception as exc:
+                    logger.warning("blob backup tick failed: %s", exc)
+                await _asyncio.sleep(86400 - 60)
+
+        try:
+            _asyncio.create_task(_loop())
+            logger.info("Blob-Backup-Scheduler bereit (täglich, opt-in)")
+        except Exception as e:
+            logger.warning("blob backup scheduler startup failed: %s", e)
 
     # v7.2.36: Auto-TLS (sslip.io + Let's Encrypt) — Renewal-Scheduler
     # starten. Daemon-Thread, weckt alle 24h und ruft certbot renew wenn
