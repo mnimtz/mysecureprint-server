@@ -253,7 +253,14 @@ class OAuthMiddleware:
                 await self._json(send, 405, {"error": "method_not_allowed"})
         elif path == "/oauth/token" and method == "POST":
             await self._token(scope, receive, send)
-        elif path == "/register" and method == "POST":
+        elif path in ("/register", "/oauth/register") and method == "POST":
+            # v0.5.2: /register kollidiert mit dem Web-UI-Endpunkt fuer
+            # Admin-Registrierung (FastAPI fing den ChatGPT-DCR-POST ab
+            # → 422 statt JSON-Response). MCP-Clients sollten /oauth/register
+            # nutzen — der Pfad wird in /.well-known/oauth-authorization-server
+            # entsprechend angekuendigt. /register bleibt fuer
+            # Rueckwaertskompatibilitaet drin (wird vom Web-UI-POST-Handler
+            # aber nie erreicht — der hat in FastAPI Vorrang).
             await self._register(scope, receive, send)
         else:
             await self.app(scope, receive, send)
@@ -345,7 +352,7 @@ class OAuthMiddleware:
                 "issuer": base,
                 "authorization_endpoint":   f"{base}/oauth/authorize",
                 "token_endpoint":           f"{base}/oauth/token",
-                "registration_endpoint":    f"{base}/register",
+                "registration_endpoint":    f"{base}/oauth/register",
                 "token_endpoint_auth_methods_supported": ["client_secret_post", "none"],
                 "response_types_supported": ["code"],
                 "grant_types_supported":    ["authorization_code"],

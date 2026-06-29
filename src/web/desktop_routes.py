@@ -129,6 +129,27 @@ async def _process_desktop_send_bg(
                 "code=%s msg=%s",
                 user.get("username"), target_id, internal_id, code, msg,
             )
+            # v6.7.115: Audit-Trail für fehlgeschlagene iOS-Print-Jobs.
+            try:
+                import json as _json
+                from db import audit as _audit
+                _details = _json.dumps({
+                    "target_id": target_id,
+                    "job_filename": filename,
+                    "job_size_bytes": len(data) if isinstance(data, (bytes, bytearray)) else None,
+                    "source": "ios_app",
+                    "error_code": code,
+                    "error": (msg or "")[:300],
+                }, ensure_ascii=False)
+                _audit(
+                    user.get("user_id"),
+                    "print_job_failed",
+                    details=_details,
+                    object_type="print_job",
+                    object_id=internal_id,
+                )
+            except Exception as _ae:
+                logger.debug("audit(print_job_failed) failed: %s", _ae)
 
         # === Stage 1: Format-Erkennung + Konvertierung =====================
         t_convert_start = _t.monotonic()
@@ -533,6 +554,31 @@ async def _process_desktop_send_bg(
                 detected_identity=submit_user_email,
                 identity_source="desktop-send",
             )
+
+            # v6.7.115: Audit-Trail für erfolgreich weitergeleitete iOS-Print-Jobs.
+            try:
+                import json as _json
+                from db import audit as _audit
+                _details = _json.dumps({
+                    "target_id": target_id,
+                    "target_type": target_type,
+                    "queue_name": target_queue,
+                    "job_filename": display_filename,
+                    "job_size_bytes": len(data),
+                    "printix_job_id": px_job_id,
+                    "owner": submit_user_email,
+                    "identity_source": "desktop-send",
+                    "source": "ios_app",
+                }, ensure_ascii=False)
+                _audit(
+                    user.get("user_id"),
+                    "print_job_submitted",
+                    details=_details,
+                    object_type="print_job",
+                    object_id=internal_id,
+                )
+            except Exception as _ae:
+                logger.debug("audit(print_job_submitted) failed: %s", _ae)
 
             dt_total = _t.monotonic() - t_start
             logger.info(

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ _('email_templates_title') }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="card" style="max-width:780px;margin:0 auto;">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+      <div style="font-size:1.4em;">✏️</div>
+      <div>
+        <div class="section-title" style="margin:0;">{{ _('email_templates_title') }}</div>
+        <div style="font-size:.85em; color:#666;">{{ _('email_templates_sub') }}</div>
+      </div>
+    </div>
+
+    {% if saved %}
+    <div class="alert alert-success" style="margin:12px 0;">✓ {{ _('email_templates_saved') }}</div>
+    {% endif %}
+
+    <div style="background:#f1f5f9;border-radius:8px;padding:10px 14px;margin:8px 0 14px;font-size:.88em;">
+      <strong>{{ _('email_templates_placeholders') }}:</strong>
+      <code>{full_name}</code>, <code>{server_url}</code>,
+      <code>{invite_url}</code>, <code>{expires_at}</code>,
+      <code>{admin_name}</code>
+    </div>
+
+    <form method="post" action="/admin/email-templates">
+      <div class="form-group">
+        <label>{{ _('email_templates_subject') }}</label>
+        <input type="text" name="subject"
+               value="{{ subject_val }}" style="width:100%;"
+               placeholder="{{ default_subject }}">
+      </div>
+
+      <div class="form-group">
+        <label>{{ _('email_templates_body') }}</label>
+        <textarea name="body" rows="10" style="width:100%;font-family:monospace;"
+                  placeholder="{{ default_body }}">{{ body_val }}</textarea>
+        <small class="hint">{{ _('email_templates_body_help') }}</small>
+      </div>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:14px;">
+        <button type="submit" class="btn btn-primary">💾 {{ _('common_save') }}</button>
+        <button type="submit" name="preview" value="1" class="btn btn-secondary">
+          👁 {{ _('email_templates_preview') }}
+        </button>
+      </div>
+    </form>
+
+    {% if preview_html %}
+    <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;">
+    <div style="font-weight:600;margin-bottom:6px;">{{ _('email_templates_preview') }}:</div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px;">
+      <div style="font-size:.85em;color:#6b7280;margin-bottom:6px;">
+        <strong>{{ _('email_templates_subject') }}:</strong> {{ preview_subject }}
+      </div>
+      <div>{{ preview_html | safe }}</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,5 +1,66 @@
 # Changelog — MySecurePrint Server
 
+## 0.5.2 — 2026-06-29 — Section-Filter Entra-Split + MCP-DCR /oauth/register + Audit-iOS-Jobs + iOS Multi-Target
+
+User-Feedback:
+- „MS Entra Konfiguration in der Navi-Leiste, öffnet immer noch alle Optionen" → Entra-Sektion ist immer noch im großen General-Card gemixt
+- „MCP für ChatGPT gibt 422 zurück: Dynamic client registration failed" → /register-Pfad-Konflikt
+- „Im Audit-log sollten die Druck-Jobs via iOS ersichtlich sein. Filter Möglichkeiten" → fehlt
+- iOS: Delegate-Toggle bewirkt nichts, Multi-User-Select fehlt, Share-Extension geht nicht
+- „Normale Mitarbeiter sehen Benutzer + Workstations" → Role-Gate fehlt
+
+### Section-Filter Entra-Split
+Die große /admin/settings-Sektion „Erweiterte Einstellungen" enthielt
+Server-URL + Mail + Entra in einem einzigen Card. `?section=entra`
+zeigte das ganze Card → User sah Server-URL + Mail trotzdem.
+
+Fix: jede Sub-Sektion bekommt eigenen `{% if section == ... %}` Gate.
+`?section=entra` → nur Entra-Block. `?section=general` → Server-URL +
+Mail + Backups. Ohne Section-Param → alles (Voll-Modus).
+
+### MCP Dynamic Client Registration → /oauth/register
+ChatGPT-Connector schickte den DCR-POST auf `/register`. Das ist in
+FastAPI mit dem Admin-Registrierungs-Endpoint (Form-Body) kollidiert
+→ 422 Unprocessable Entity wegen fehlender Form-Fields.
+
+Fix: `/.well-known/oauth-authorization-server` veröffentlicht jetzt
+`registration_endpoint = base/oauth/register`. Der OAuth-Middleware-
+Pfad-Matcher in `oauth.py` akzeptiert beides (Rückwärts-Kompat).
+ChatGPT sollte beim nächsten Connect funktionieren.
+
+### Audit-Log iOS-Druckjobs + Filter (parallel-Agent)
+- `_process_desktop_send_bg` schreibt jetzt `print_job_submitted` und
+  `print_job_failed` ins Audit-Log inkl. target_id, source=ios_app,
+  job_filename, error_code.
+- Neuer Filter-Bar in `/admin/audit`: User-Suchfeld, Action-Dropdown
+  (dynamisch aus DISTINCT), from/to Datum + Uhrzeit, Reset-Link.
+- Query-Param-validated mit `?`-placeholders.
+
+### iOS-Fixes (parallel-Agent)
+- **Share-Extension entfernt** (Target + Sources + pbxproj-Eintraege).
+- **Role-Gate ManagementView**: Benutzer + Workstations-Sektionen jetzt
+  nur fuer Admin/User sichtbar, nicht fuer Employees.
+- **Delegate-Toggle** umbenannt: „Delegation-Druck erlauben" / „Allow
+  Delegation Print". Bug-fix: Multi-User-Picker auf Ziele-Tab.
+- **Delegation-User-Picker**: wenn Toggle on, Suchfeld + Tap-to-add
+  fuer beliebige Printix-User (id `print:user:<printix_user_id>`).
+  Multi-Select, Job geht an alle gewaehlten gleichzeitig.
+- **Build SUCCEEDED**.
+
+### Entra Device-Code Diagnostik
+User berichtet „kurz Code, dann no device". Polling-Endpoint verliert
+das device_code aus der Session. Logging hinzugefuegt — bei naechstem
+Auto-Setup-Versuch landet die Cookie/Session-Spur im Container-Log.
+
+### /admin/groups Defensive 500-Schutz
+`list_group_queue_defaults`-Call gewrappt in try/except, falls die
+Migration aus irgend einem Grund nicht durchgelaufen ist.
+
+### Server-side TODO
+iOS-Picker setzt `print:user:<id>` als target_id, aber `/desktop/send`
+versteht das noch nicht — Server-Implementation fuer „Job an anderen
+Printix-User senden" (mit Auth-Policy + Audit) folgt in v0.5.3.
+
 ## 0.5.1 — 2026-06-29 — Sektion-Filter + Sidebar-Cleanup + Brand-Refresh + GDPR voll + Entra-LoginView-Fix
 
 User-Feedback adressiert:

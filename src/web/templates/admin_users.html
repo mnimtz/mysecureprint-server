@@ -12,6 +12,8 @@
         <a href="/admin/users/invite" class="btn btn-success btn-sm">✉️ {{ _('admin_invite_user') }}</a>
         <a href="/admin/users/create" class="btn btn-secondary btn-sm">+ {{ _('admin_create_user') }}</a>
         <a href="/admin/users/bulk-import" class="btn btn-secondary btn-sm" title="CSV-Bulk-Import für User die nicht in Printix existieren">📋 CSV-Import</a>
+        <a href="/admin/printix-sync" class="btn btn-secondary btn-sm" title="{{ _('printix_sync_title') }}">🔄 {{ _('printix_sync_action') }}</a>
+        <a href="/admin/email-templates" class="btn btn-secondary btn-sm" title="{{ _('email_templates_title') }}">✏️ {{ _('email_templates_action') }}</a>
         <a href="/admin" class="btn btn-secondary btn-sm">← {{ _('admin_title') }}</a>
       </div>
     </div>
@@ -20,11 +22,31 @@
     <div class="alert alert-error" style="margin-bottom:16px;">⚠ {{ error }}</div>
     {% endif %}
 
+    {% set bulk_ok = request.query_params.get('bulk_ok') %}
+    {% set bulk_failed = request.query_params.get('bulk_failed') %}
+    {% if bulk_ok or bulk_failed %}
+    <div class="alert {% if bulk_failed and bulk_failed != '0' %}alert-error{% else %}alert-success{% endif %}" style="margin-bottom:16px;">
+      {{ _('bulk_mobile_invite_summary') }}: ✓ {{ bulk_ok or 0 }} · ✗ {{ bulk_failed or 0 }}
+    </div>
+    {% endif %}
+
     {% if users %}
+    <form method="post" action="/admin/users/bulk-mobile-invite" id="bulkInviteForm">
+    <div style="margin:0 0 12px 0; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <button type="submit" class="btn btn-success btn-sm"
+              onclick="return confirm('{{ _('bulk_mobile_invite_confirm') }}')">
+        📨 {{ _('bulk_mobile_invite_btn') }}
+      </button>
+      <span style="color:#6b7280;font-size:.85em;">
+        <span id="bulkSelectedCount">0</span> {{ _('bulk_selected_suffix') }}
+      </span>
+    </div>
     <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
     <table>
       <thead>
         <tr>
+          <th style="width:28px;"><input type="checkbox" id="bulkSelectAll"
+              onclick="document.querySelectorAll('.bulk-user-cb').forEach(cb=>cb.checked=this.checked);_updBulkCount()"></th>
           <th>{{ _('reg_username') }}</th>
           <th>{{ _('admin_email') }}</th>
           <th>{{ _('admin_role') }}</th>
@@ -38,6 +60,7 @@
       <tbody>
         {% for u in users %}
         <tr>
+          <td><input type="checkbox" class="bulk-user-cb" name="user_ids" value="{{ u.id }}" onclick="_updBulkCount()"></td>
           <td><strong>{{ u.username }}</strong></td>
           <td>{{ u.email or '—' }}</td>
           <td>
@@ -128,6 +151,20 @@
       </tbody>
     </table>
     </div>
+    </form>
+    <script>
+      function _updBulkCount() {
+        var n = document.querySelectorAll('.bulk-user-cb:checked').length;
+        var el = document.getElementById('bulkSelectedCount');
+        if (el) el.textContent = n;
+      }
+      document.getElementById('bulkInviteForm') && document.getElementById('bulkInviteForm').addEventListener('submit', function(e){
+        if (document.querySelectorAll('.bulk-user-cb:checked').length === 0) {
+          e.preventDefault();
+          alert('{{ _("bulk_mobile_invite_none_selected") }}');
+        }
+      });
+    </script>
     {% else %}
     <div class="alert alert-info">{{ _('admin_no_users') }}</div>
     {% endif %}

@@ -6,10 +6,47 @@
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
       <div>
         <div class="section-title">Audit-Log</div>
-        <div class="section-sub">Letzte 200 Aktionen im System.</div>
+        <div class="section-sub">{{ _('audit_filter_title') }}</div>
       </div>
       <a href="/admin" class="btn btn-secondary btn-sm">← Übersicht</a>
     </div>
+
+    <form method="get" action="/admin/audit"
+          style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:18px; padding:14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">
+      <div>
+        <label style="display:block; font-size:.78em; color:#6b7280; margin-bottom:4px;">{{ _('audit_filter_user') }}</label>
+        <input type="text" name="user" value="{{ filter_user or '' }}" class="input" style="width:100%;" />
+      </div>
+      <div>
+        <label style="display:block; font-size:.78em; color:#6b7280; margin-bottom:4px;">{{ _('audit_filter_action') }}</label>
+        <select name="action" class="input" style="width:100%;">
+          <option value="">—</option>
+          {% for a in (distinct_actions or []) %}
+            <option value="{{ a }}" {% if a == filter_action %}selected{% endif %}>{{ a }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label style="display:block; font-size:.78em; color:#6b7280; margin-bottom:4px;">{{ _('audit_filter_from_date') }}</label>
+        <input type="date" name="from_date" value="{{ filter_from_date or '' }}" class="input" style="width:100%;" />
+      </div>
+      <div>
+        <label style="display:block; font-size:.78em; color:#6b7280; margin-bottom:4px;">{{ _('audit_filter_from_time') }}</label>
+        <input type="time" name="from_time" value="{{ filter_from_time or '' }}" class="input" style="width:100%;" />
+      </div>
+      <div>
+        <label style="display:block; font-size:.78em; color:#6b7280; margin-bottom:4px;">{{ _('audit_filter_to_date') }}</label>
+        <input type="date" name="to_date" value="{{ filter_to_date or '' }}" class="input" style="width:100%;" />
+      </div>
+      <div>
+        <label style="display:block; font-size:.78em; color:#6b7280; margin-bottom:4px;">{{ _('audit_filter_to_time') }}</label>
+        <input type="time" name="to_time" value="{{ filter_to_time or '' }}" class="input" style="width:100%;" />
+      </div>
+      <div style="display:flex; align-items:flex-end; gap:8px;">
+        <button type="submit" class="btn btn-primary btn-sm">{{ _('audit_filter_apply') }}</button>
+        <a href="/admin/audit" class="btn btn-secondary btn-sm">{{ _('audit_filter_reset') }}</a>
+      </div>
+    </form>
 
     {% if entries %}
     <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
@@ -18,7 +55,7 @@
         <tr>
           <th style="width:160px;">Zeitpunkt</th>
           <th style="width:140px;">Benutzer</th>
-          <th style="width:140px;">Aktion</th>
+          <th style="width:160px;">Aktion</th>
           <th>Details</th>
         </tr>
       </thead>
@@ -28,10 +65,10 @@
           <td style="font-size:.82em; color:#6b7280; font-family:monospace;">
             {{ e.created_at[:19] if e.created_at else '—' }}
           </td>
-          <td style="font-size:.87em;">{{ e.username or e.user_id[:8] ~ '...' }}</td>
+          <td style="font-size:.87em;">{{ e.username or (e.user_id[:8] ~ '...' if e.user_id else '—') }}</td>
           <td>
-            <span class="badge {% if e.action in ('register','login') %}badge-blue{% elif e.action in ('approve_user') %}badge-green{% elif e.action in ('disable_user') %}badge-red{% else %}badge-yellow{% endif %}">
-              {{ e.action }}
+            <span class="badge {% if e.action in ('register','login') %}badge-blue{% elif e.action in ('approve_user') %}badge-green{% elif e.action in ('disable_user','print_job_failed') %}badge-red{% elif e.action == 'print_job_submitted' %}badge-blue{% else %}badge-yellow{% endif %}">
+              {% if e.action == 'print_job_submitted' %}{{ _('audit_action_print_job') }}{% else %}{{ e.action }}{% endif %}
             </span>
           </td>
           <td style="font-size:.87em; color:#374151;">{{ e.details or '—' }}</td>
@@ -40,8 +77,20 @@
       </tbody>
     </table>
     </div>
+
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-top:14px; font-size:.85em; color:#6b7280;">
+      <div>{{ total_count }} — Seite {{ page }}</div>
+      <div style="display:flex; gap:8px;">
+        {% if has_prev %}
+          <a href="/admin/audit?{{ prev_qs }}" class="btn btn-secondary btn-sm">← {{ page - 1 }}</a>
+        {% endif %}
+        {% if has_next %}
+          <a href="/admin/audit?{{ next_qs }}" class="btn btn-secondary btn-sm">{{ page + 1 }} →</a>
+        {% endif %}
+      </div>
+    </div>
     {% else %}
-    <div class="alert alert-info">Noch keine Einträge im Audit-Log.</div>
+    <div class="alert alert-info">{{ _('audit_no_results') }}</div>
     {% endif %}
   </div>
 </div>

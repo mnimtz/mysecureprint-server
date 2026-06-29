@@ -33142,3 +33142,39 @@ for _lang, _keys in _V051_MISC.items():
 for _lang in list(TRANSLATIONS.keys()):
     if _lang not in _V051_MISC:
         TRANSLATIONS[_lang].update(_V051_MISC["en"])
+
+
+# v6.7.115 — Audit-Log Filter UI
+_V052_AUDIT_KEYS: dict[str, dict[str, str]] = {
+    "de": {
+        "audit_filter_title": "Letzte Aktionen im System — Filter unten anwenden.",
+        "audit_filter_user": "Benutzer (Name/E-Mail)",
+        "audit_filter_action": "Aktion",
+        "audit_filter_from_date": "Von Datum",
+        "audit_filter_to_date": "Bis Datum",
+        "audit_filter_from_time": "Von Uhrzeit",
+        "audit_filter_to_time": "Bis Uhrzeit",
+        "audit_filter_apply": "Filter anwenden",
+        "audit_filter_reset": "Filter zurücksetzen",
+        "audit_action_print_job": "Druckjob (iOS)",
+        "audit_no_results": "Keine Einträge gefunden.",
+    },
+    "en": {
+        "audit_filter_title": "Recent system actions — apply filters below.",
+        "audit_filter_user": "User (name/email)",
+        "audit_filter_action": "Action",
+        "audit_filter_from_date": "From date",
+        "audit_filter_to_date": "To date",
+        "audit_filter_from_time": "From time",
+        "audit_filter_to_time": "To time",
+        "audit_filter_apply": "Apply filter",
+        "audit_filter_reset": "Reset filter",
+        "audit_action_print_job": "Print job (iOS)",
+        "audit_no_results": "No entries found.",
+    },
+}
+for _lang, _keys in _V052_AUDIT_KEYS.items():
+    TRANSLATIONS.setdefault(_lang, {}).update(_keys)
+for _lang in list(TRANSLATIONS.keys()):
+    if _lang not in _V052_AUDIT_KEYS:
+        TRANSLATIONS[_lang].update(_V052_AUDIT_KEYS["en"])

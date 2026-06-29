@@ -323,6 +323,11 @@
 
     <form method="post" action="/admin/settings">
 
+      {# v0.5.2: Server-URL + Mail unter section=general/general-only;
+         Entra unter section=entra. Wenn beide gefiltert sind, zeigen
+         wir keinen "general"-Block. #}
+      {% if not section or section == 'general' %}
+
       <!-- ── Server-URL ──────────────────────────────────────────────────── -->
       <div class="form-group">
         <label>{{ _('admin_base_url') }}</label>
@@ -344,7 +349,10 @@
       <!-- v0.4.2: Capture-Webhook + IPPS-Cloud-Print-Sections entfernt.
            Beide Module wurden im v0.1.0 Slim-Down gestrichen — die
            Eingabefelder hatten keine Backend-Verarbeitung mehr. -->
+      {% endif %}
 
+      {# v0.5.2: Global Mail Fallback nur unter ?section=general oder unfiltered. #}
+      {% if not section or section == 'general' %}
       <!-- ── Global Mail Fallback (v6.7.25) ─────────────────────────────────
            Tenant-User können ihre eigene Resend-API hinterlegen (/settings).
            Wenn nicht, fällt das System auf diese globalen Credentials zurück.
@@ -387,7 +395,11 @@
       </div>
 
       <div class="divider"></div>
+      {% endif %}
 
+      {# v0.5.2: Entra-Sektion isoliert — nur unter ?section=entra
+         oder unfiltered sichtbar. #}
+      {% if not section or section == 'entra' %}
       <!-- ── Entra ID (Azure AD) SSO ─────────────────────────────────────── -->
       <div id="entra"></div>
       <div style="margin-bottom:24px;">
@@ -708,6 +720,7 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
           {% endif %}
         </div>
       </div>
+      {% endif %}{# end of Entra section gate #}
 
       <div class="divider"></div>
 
@@ -717,6 +730,8 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
       </div>
     </form>
 
+    {# v0.5.2: Backups nur im Voll-/General-Modus zeigen. #}
+    {% if not section or section == 'general' %}
     <div class="divider"></div>
 
     <div style="margin-top:28px;">
@@ -837,8 +852,9 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
         {% endif %}
       </div>
     </div>
+    {% endif %}{# end of backups section gate #}
   </div>
-  {% endif %}
+  {% endif %}{# end of outer general/entra wrapper #}
 </div>
 
 <!-- i18n strings for JavaScript -->

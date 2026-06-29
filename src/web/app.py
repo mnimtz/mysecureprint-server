@@ -1344,6 +1344,17 @@ def create_app(session_secret: str) -> FastAPI:
         # Device code in Session speichern (fuer Polling)
         request.session["entra_device_code"] = result["device_code"]
         request.session["entra_device_interval"] = result.get("interval", 5)
+        # v0.5.2: Diagnostik — User berichtet dass die Polling-Phase mit
+        # „no_device_code" fehlschlaegt obwohl der user_code kurz angezeigt
+        # wird. Loggen wir die Session-Schluessel + tail des device_code
+        # damit wir Cookie- vs Session-Probleme unterscheiden koennen.
+        logger.info(
+            "Entra device-code START OK: user=%s dc_tail=...%s user_code=%s "
+            "session_keys=%s",
+            user.get("username"), result["device_code"][-8:],
+            result.get("user_code", ""),
+            list(request.session.keys()),
+        )
 
         return JSONResponse({
             "user_code":        result["user_code"],
@@ -1362,7 +1373,19 @@ def create_app(session_secret: str) -> FastAPI:
 
         device_code = request.session.get("entra_device_code", "")
         if not device_code:
-            return JSONResponse({"status": "error", "error": "no_device_code"})
+            # v0.5.2: Diagnostik — Session hat den device_code verloren.
+            # Auf Azure App Service kann das passieren wenn der
+            # Session-Cookie ueber CDN / Cloudflare verloren geht oder
+            # SameSite=lax bei der zweiten Anfrage greift. Logging hilft
+            # die Wurzel zu identifizieren.
+            logger.warning(
+                "Entra device-code POLL: kein device_code in Session — "
+                "user=%s session_keys=%s cookie_present=%s",
+                user.get("username"), list(request.session.keys()),
+                bool(request.cookies.get("session")),
+            )
+            return JSONResponse({"status": "error", "error": "no_device_code",
+                                  "hint": "Session-Cookie verloren — bitte „Auto-Setup starten“ erneut klicken."})
 
         try:
             from entra import poll_device_code_token, auto_register_app
@@ -2771,31 +2794,82 @@ def create_app(session_secret: str) -> FastAPI:
         except Exception:
             return False
 
-    def _send_mobile_invite_email(
-        admin: dict,
+    def _build_mobile_invite_email_html(
+        *,
         recipient: str,
         full_name: str,
         invite_url: str,
         expires_at: str,
         lang: str,
-    ) -> bool:
-        """Versendet die Mobile-Invite-Mail über die existierende SMTP-Helper.
+        server_url: str = "",
+        admin_name: str = "",
+    ) -> tuple[str, str]:
+        """Liefert (subject, html_body) für die Mobile-Invite-Mail.
 
-        Returns True bei Erfolg, False bei jeder Form von Fehler. Der Caller
-        zeigt dann die Copy-Link-Fallback-UI.
+        v0.5.2: Wenn `mobile_invite_email_subject` / `_body` in den Settings
+        gesetzt sind, werden diese mit str.format_map (defaultdict) und den
+        unten dokumentierten Platzhaltern substituiert:
+        `{full_name}`, `{server_url}`, `{invite_url}`, `{expires_at}`,
+        `{admin_name}`. Fehlt ein Platzhalter, bleibt er als Literal
+        stehen — kein KeyError. Wenn die Settings leer sind, fällt der
+        Helper auf die i18n-basierten Default-Bausteine zurück.
         """
+        from collections import defaultdict
         try:
-            from db import get_tenant_full_by_user_id
-            from reporting.mail_client import send_report
-            tenant = get_tenant_full_by_user_id(admin["id"]) or {}
-            if not tenant.get("mail_api_key") or not tenant.get("mail_from"):
-                return False
-            from web.i18n import TRANSLATIONS
-            tr = TRANSLATIONS.get(lang or "en") or TRANSLATIONS.get("en", {})
-            subject = tr.get(
+            from db import get_setting
+        except Exception:
+            get_setting = None  # type: ignore
+        from web.i18n import TRANSLATIONS
+        tr = TRANSLATIONS.get(lang or "en") or TRANSLATIONS.get("en", {})
+
+        display_name = (full_name or "").strip() or recipient
+        ctx = defaultdict(str, {
+            "full_name": display_name,
+            "server_url": server_url or "",
+            "invite_url": invite_url,
+            "expires_at": (expires_at or "")[:19],
+            "admin_name": admin_name or "",
+        })
+
+        # Configurable subject/body (optional)
+        subject_tpl = ""
+        body_tpl = ""
+        if get_setting is not None:
+            try:
+                subject_tpl = get_setting("mobile_invite_email_subject", "")
+                body_tpl = get_setting("mobile_invite_email_body", "")
+            except Exception:
+                subject_tpl = ""
+                body_tpl = ""
+
+        # Fallback subject (i18n)
+        if not subject_tpl.strip():
+            subject_tpl = tr.get(
                 "mobile_invite_email_subject",
                 "MySecurePrint — set up the app on your iPhone",
             )
+
+        try:
+            subject = subject_tpl.format_map(ctx)
+        except Exception:
+            subject = subject_tpl
+
+        if body_tpl.strip():
+            try:
+                body_text = body_tpl.format_map(ctx)
+            except Exception:
+                body_text = body_tpl
+            # Configured body is treated as HTML (admin owns it). If it
+            # looks plain (no <), wrap in <p> with line breaks preserved.
+            if "<" not in body_text:
+                body_text = "<p>" + body_text.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+            html_body = (
+                "<div style=\"font-family:Helvetica,Arial,sans-serif;"
+                "color:#1a1a1a;line-height:1.55;max-width:560px;\">"
+                + body_text
+                + "</div>"
+            )
+        else:
             greeting = tr.get("mobile_invite_email_greeting", "Hi")
             intro = tr.get("mobile_invite_email_intro", "")
             open_link = tr.get("mobile_invite_email_open_link", "Open app setup")
@@ -2805,8 +2879,7 @@ def create_app(session_secret: str) -> FastAPI:
                 "mobile_invite_email_footer",
                 "This invite expires on {expires_at}.",
             )
-            footer = footer_tpl.replace("{expires_at}", expires_at[:19])
-            display_name = full_name.strip() or recipient
+            footer = footer_tpl.replace("{expires_at}", ctx["expires_at"])
             html_body = (
                 "<div style=\"font-family:Helvetica,Arial,sans-serif;"
                 "color:#1a1a1a;line-height:1.55;max-width:560px;\">"
@@ -2826,6 +2899,37 @@ def create_app(session_secret: str) -> FastAPI:
                 "margin:24px 0;\">"
                 f"<p style=\"font-size:.78em;color:#888;\">{footer}</p>"
                 "</div>"
+            )
+        return subject, html_body
+
+    def _send_mobile_invite_email(
+        admin: dict,
+        recipient: str,
+        full_name: str,
+        invite_url: str,
+        expires_at: str,
+        lang: str,
+    ) -> bool:
+        """Versendet die Mobile-Invite-Mail über die existierende SMTP-Helper.
+
+        Returns True bei Erfolg, False bei jeder Form von Fehler. Der Caller
+        zeigt dann die Copy-Link-Fallback-UI.
+        """
+        try:
+            from db import get_tenant_full_by_user_id
+            from reporting.mail_client import send_report
+            tenant = get_tenant_full_by_user_id(admin["id"]) or {}
+            if not tenant.get("mail_api_key") or not tenant.get("mail_from"):
+                return False
+            subject, html_body = _build_mobile_invite_email_html(
+                recipient=recipient,
+                full_name=full_name,
+                invite_url=invite_url,
+                expires_at=expires_at,
+                lang=lang,
+                server_url=tenant.get("tenant_url", "") or "",
+                admin_name=(admin or {}).get("full_name", "")
+                    or (admin or {}).get("username", ""),
             )
             send_report(
                 recipients=[recipient],
@@ -3948,13 +4052,107 @@ def create_app(session_secret: str) -> FastAPI:
         user = get_session_user(request)
         if not user or not user.get("is_admin"):
             return RedirectResponse("/login", status_code=302)
+
+        # v6.7.115: Filter-Controls + Pagination.
+        qp = request.query_params
+        f_user = (qp.get("user") or "").strip()
+        f_action = (qp.get("action") or "").strip()
+        f_from_date = (qp.get("from_date") or "").strip()
+        f_to_date = (qp.get("to_date") or "").strip()
+        f_from_time = (qp.get("from_time") or "").strip()
+        f_to_time = (qp.get("to_time") or "").strip()
         try:
-            from db import get_audit_log
-            entries = get_audit_log(limit=200)
+            page = max(1, int(qp.get("page") or "1"))
         except Exception:
+            page = 1
+        PAGE_SIZE = 200
+
+        # Datum/Zeit-Fenster bauen (ISO-Strings, UTC-agnostisch — created_at
+        # ist als ISO-String gespeichert, lexikographisch sortierbar).
+        def _combine(date_s: str, time_s: str, default_time: str) -> str:
+            if not date_s:
+                return ""
+            t = time_s if time_s else default_time
+            # Sicherheits-Trim auf erwartetes Format
+            return f"{date_s}T{t}:00"
+
+        start_iso = _combine(f_from_date, f_from_time, "00:00")
+        end_iso = _combine(f_to_date, f_to_time, "23:59")
+
+        entries = []
+        distinct_actions = []
+        total_count = 0
+        try:
+            from db import _conn
+            where = []
+            params: list = []
+            if f_user:
+                where.append("(LOWER(IFNULL(u.username,'')) LIKE ? OR LOWER(IFNULL(u.email,'')) LIKE ?)")
+                like = f"%{f_user.lower()}%"
+                params.extend([like, like])
+            if f_action:
+                where.append("a.action = ?")
+                params.append(f_action)
+            if start_iso:
+                where.append("a.created_at >= ?")
+                params.append(start_iso)
+            if end_iso:
+                where.append("a.created_at <= ?")
+                params.append(end_iso + ":59")
+            where_sql = (" WHERE " + " AND ".join(where)) if where else ""
+            offset = (page - 1) * PAGE_SIZE
+            with _conn() as conn:
+                try:
+                    distinct_actions = [
+                        r["action"] for r in conn.execute(
+                            "SELECT DISTINCT action FROM audit_log "
+                            "WHERE action <> '' ORDER BY action ASC"
+                        ).fetchall()
+                    ]
+                except Exception:
+                    distinct_actions = []
+                try:
+                    total_count = conn.execute(
+                        f"SELECT COUNT(*) AS c FROM audit_log a "
+                        f"LEFT JOIN users u ON u.id = a.user_id{where_sql}",
+                        tuple(params),
+                    ).fetchone()["c"]
+                except Exception:
+                    total_count = 0
+                rows = conn.execute(
+                    f"SELECT a.*, u.username, u.email FROM audit_log a "
+                    f"LEFT JOIN users u ON u.id = a.user_id{where_sql} "
+                    f"ORDER BY a.created_at DESC LIMIT ? OFFSET ?",
+                    tuple(params) + (PAGE_SIZE, offset),
+                ).fetchall()
+                entries = [dict(r) for r in rows]
+        except Exception as e:
+            logger.warning("admin_audit query failed: %s", e)
             entries = []
+
+        has_prev = page > 1
+        has_next = (page * PAGE_SIZE) < total_count
+
+        # Query-String für Pagination-Links rekonstruieren (ohne page).
+        from urllib.parse import urlencode
+        base_qs = {
+            "user": f_user, "action": f_action,
+            "from_date": f_from_date, "to_date": f_to_date,
+            "from_time": f_from_time, "to_time": f_to_time,
+        }
+        base_qs = {k: v for k, v in base_qs.items() if v}
+
         return templates.TemplateResponse("admin_audit.html", {
-            "request": request, "user": user, "entries": entries, **t_ctx(request)
+            "request": request, "user": user, "entries": entries,
+            "distinct_actions": distinct_actions,
+            "filter_user": f_user, "filter_action": f_action,
+            "filter_from_date": f_from_date, "filter_to_date": f_to_date,
+            "filter_from_time": f_from_time, "filter_to_time": f_to_time,
+            "page": page, "page_size": PAGE_SIZE, "total_count": total_count,
+            "has_prev": has_prev, "has_next": has_next,
+            "prev_qs": urlencode({**base_qs, "page": page - 1}) if has_prev else "",
+            "next_qs": urlencode({**base_qs, "page": page + 1}) if has_next else "",
+            **t_ctx(request)
         })
 
 
@@ -4731,13 +4929,26 @@ def create_app(session_secret: str) -> FastAPI:
             except Exception as e:
                 logger.warning("Printix-Groups-Abruf fehlgeschlagen: %s", e)
 
-        # Bestehende Group-Defaults laden
+        # Bestehende Group-Defaults laden — defensive: wenn die
+        # Migration aus irgend einem Grund nicht durchgelaufen ist
+        # (group_queue_defaults-Tabelle fehlt), liefern wir eine leere
+        # Liste statt zu 500-en.
         tid = (tenant or {}).get("id", "")
-        existing_defaults = list_group_queue_defaults(tid) if tid else []
+        try:
+            existing_defaults = list_group_queue_defaults(tid) if tid else []
+        except Exception as _e:
+            logger.warning("list_group_queue_defaults(%s) failed: %s", tid, _e)
+            existing_defaults = []
         existing_map = {d["printix_group_id"]: d for d in existing_defaults}
 
-        # Queues fürs Dropdown
-        queues = _load_printix_queues_for_admin(tenant) if tenant else []
+        # Queues fürs Dropdown — Helper hat eigenes try/except, kann
+        # aber bei kaputtem Printix-Client trotzdem aus dem Aufrufer hier
+        # eine Exception werfen, also defensiv.
+        try:
+            queues = _load_printix_queues_for_admin(tenant) if tenant else []
+        except Exception as _qe:
+            logger.warning("_load_printix_queues_for_admin failed: %s", _qe)
+            queues = []
 
         return templates.TemplateResponse("admin_groups.html", {
             "request": request, "user": user,
