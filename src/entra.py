@@ -380,13 +380,16 @@ def exchange_code_pkce(code: str,
         logger.error("Entra PKCE: Graph /me Abruf fehlgeschlagen: %s", e)
         return None
 
+    # v0.1.3: refresh_token mitliefern (oder leer wenn MS keinen gegeben hat).
+    # Aufrufer entscheidet, ob er ihn (Fernet-verschluesselt) persistiert.
     return {
-        "oid":   me_data.get("id", ""),
-        "email": (me_data.get("mail") or
-                  me_data.get("userPrincipalName") or ""),
-        "name":  (me_data.get("displayName") or
-                  me_data.get("givenName") or ""),
-        "tid":   token_tid,
+        "oid":           me_data.get("id", ""),
+        "email":         (me_data.get("mail") or
+                          me_data.get("userPrincipalName") or ""),
+        "name":          (me_data.get("displayName") or
+                          me_data.get("givenName") or ""),
+        "tid":           token_tid,
+        "refresh_token": data.get("refresh_token", ""),
     }
 
 
@@ -522,6 +525,7 @@ def auto_register_app(
     access_token: str,
     sso_redirect_uri: str,
     app_name: str = "Printix Management Console",
+    audience: str | None = None,
 ) -> dict | None:
     """
     Erstellt eine neue SSO-App-Registration im Entra-Tenant des Admins
@@ -555,10 +559,27 @@ def auto_register_app(
     except Exception as e:
         logger.warning("Konnte Tenant-ID nicht ermitteln: %s", e)
 
-    # 1. App erstellen
+    # 1. App erstellen.
+    # v0.1.3: Default ist Single-Tenant (AzureADMyOrg). Frueher
+    # "AzureADMultipleOrgs" — das hat in Kombination mit fehlender
+    # tid-Verifikation jedem Microsoft-Tenant Login erlaubt
+    # (CVE-Profil aus ENTRA_REVIEW.md). Multi-Tenant ist weiter
+    # moeglich via `audience="AzureADMultipleOrgs"` oder dem
+    # Setting `entra_app_audience`.
+    if not audience:
+        try:
+            from db import get_setting
+            audience = (get_setting("entra_app_audience", "")
+                        or "AzureADMyOrg").strip()
+        except Exception:
+            audience = "AzureADMyOrg"
+    if audience not in ("AzureADMyOrg", "AzureADMultipleOrgs",
+                          "AzureADandPersonalMicrosoftAccount",
+                          "PersonalMicrosoftAccount"):
+        audience = "AzureADMyOrg"
     app_body = {
         "displayName": app_name,
-        "signInAudience": "AzureADMultipleOrgs",
+        "signInAudience": audience,
         "web": {
             "redirectUris": [sso_redirect_uri],
             "implicitGrantSettings": {
@@ -593,11 +614,15 @@ def auto_register_app(
         app_id = app_data["appId"]       # = client_id
         obj_id = app_data["id"]          # = object_id (für weitere API-Calls)
 
-        # 2. Client Secret erstellen
+        # 2. Client Secret erstellen.
+        # v0.1.3: wir uebergeben Microsoft KEIN endDateTime mehr — der
+        # bisherige Wert 2099-12-31 wurde von MS sowieso auf 24 Monate
+        # gecappt. Stattdessen lesen wir das echte `endDateTime` aus der
+        # Antwort und speichern es im DB-Feld `tenants.entra_secret_expires_at`,
+        # damit das Admin-UI ein Warn-Banner anzeigen kann.
         secret_body = {
             "passwordCredential": {
                 "displayName": "Printix MCP Auto-Generated",
-                "endDateTime": "2099-12-31T23:59:59Z",
             }
         }
         resp2 = _requests.post(
@@ -609,17 +634,26 @@ def auto_register_app(
         if resp2.status_code not in (200, 201):
             logger.error("Graph: Secret-Erstellung fehlgeschlagen: %s %s",
                           resp2.status_code, resp2.text[:500])
-            return {"tenant_id": tenant_id, "client_id": app_id, "client_secret": ""}
+            return {"tenant_id": tenant_id, "client_id": app_id,
+                    "client_secret": "", "secret_expires_at": ""}
 
         secret_data = resp2.json()
         client_secret = secret_data.get("secretText", "")
+        secret_expires_at = secret_data.get("endDateTime", "")
 
-        logger.info("Entra SSO-App automatisch erstellt: %s (client_id=%s, tenant=%s)",
-                     app_name, app_id, tenant_id)
+        logger.info(
+            "Entra SSO-App automatisch erstellt: %s (client_id=%s, tenant=%s, "
+            "audience=%s, secret_expires=%s)",
+            app_name, app_id, tenant_id, audience,
+            secret_expires_at or "?",
+        )
         return {
-            "tenant_id":     tenant_id,
-            "client_id":     app_id,
-            "client_secret": client_secret,
+            "tenant_id":         tenant_id,
+            "client_id":         app_id,
+            "client_secret":     client_secret,
+            "secret_expires_at": secret_expires_at,
+            "object_id":         obj_id,
+            "audience":          audience,
         }
 
     except Exception as e:
@@ -868,3 +902,194 @@ def _decode_jwt_payload(token: str) -> dict | None:
     except Exception as e:
         logger.error("JWT Decode-Fehler: %s", e)
         return None
+
+
+# ─── Continuous Evaluation (v0.1.3) ──────────────────────────────────────────
+#
+# Optionaler Hintergrund-Task: nutzt den gespeicherten MS-refresh_token, um
+# alle 24 h zu pruefen, ob die User in ihrem Entra-Tenant noch aktiv sind.
+# Wenn Microsoft `invalid_grant` oder `interaction_required` liefert (User
+# disabled, Admin hat ihn ausgeloggt, MFA neu erforderlich), revoken wir
+# unseren eigenen Server-Bearer-Token — der User muss sich neu anmelden.
+#
+# Standardmaessig AUS — opt-in via Setting `entra_continuous_eval_enabled=1`.
+
+
+def refresh_access_token(refresh_token: str) -> dict | None:
+    """Fordert mit einem vorhandenen MS-refresh_token einen neuen
+    access_token an (PKCE-Flow, KEIN client_secret).
+
+    Returns:
+        dict mit Keys `access_token`, `refresh_token` (rotiert oder
+        unveraendert), `expires_in` — oder None bei Netzwerkfehler.
+        Bei `invalid_grant` / `interaction_required` etc. wird ein
+        dict {"error": "<code>"} zurueckgegeben (NICHT None), damit der
+        Aufrufer den User-Zustand sauber interpretieren kann.
+    """
+    if not refresh_token:
+        return None
+    tenant = _require_tenant()
+    if not tenant:
+        return None
+    cfg = get_config()
+    try:
+        resp = _requests.post(
+            _TOKEN_URL.format(tenant=tenant),
+            data={
+                "client_id":     cfg["client_id"],
+                "grant_type":    "refresh_token",
+                "refresh_token": refresh_token,
+                "scope":         _SCOPES_GRAPH_USER_READ,
+            },
+            timeout=15,
+        )
+    except Exception as e:
+        logger.warning("Entra refresh_token Netzwerkfehler: %s", e)
+        return None
+
+    try:
+        data = resp.json()
+    except Exception:
+        return {"error": "invalid_response"}
+
+    if resp.status_code != 200:
+        err = data.get("error", "unknown")
+        logger.info("Entra refresh_token rejected: %s", err)
+        return {"error": err}
+
+    return {
+        "access_token":  data.get("access_token", ""),
+        "refresh_token": data.get("refresh_token", refresh_token),
+        "expires_in":    int(data.get("expires_in", 3600)),
+    }
+
+
+def run_continuous_evaluation_sweep() -> dict:
+    """Geht alle User mit gespeichertem refresh_token durch und versucht
+    einen Refresh. Bei `invalid_grant` / `interaction_required` werden
+    alle Desktop-Tokens des Users revoked.
+
+    Returns: Statistik-Dict {checked, rotated, revoked, errors}.
+    """
+    from db import _conn, _enc, _dec
+    from datetime import datetime, timezone
+
+    stats = {"checked": 0, "rotated": 0, "revoked": 0, "errors": 0}
+    try:
+        with _conn() as conn:
+            rows = conn.execute(
+                "SELECT id, username, entra_refresh_token FROM users "
+                "WHERE entra_refresh_token IS NOT NULL AND entra_refresh_token != ''"
+            ).fetchall()
+    except Exception as e:
+        logger.debug("continuous_eval: kein DB-Zugriff: %s", e)
+        return stats
+
+    for row in rows:
+        stats["checked"] += 1
+        try:
+            stored = _dec(row["entra_refresh_token"])
+        except Exception:
+            stored = row["entra_refresh_token"]
+        result = refresh_access_token(stored)
+        if not result:
+            stats["errors"] += 1
+            continue
+
+        err = result.get("error", "") if isinstance(result, dict) else ""
+        if err in ("invalid_grant", "interaction_required",
+                   "consent_required", "unauthorized_client",
+                   "access_denied"):
+            # User ist in MS deaktiviert / abgemeldet — Server-Tokens revoken
+            try:
+                from desktop_auth import revoke_all_tokens_for_user
+                revoke_all_tokens_for_user(row["id"])
+            except Exception:
+                # Fallback: direkt in DB markieren
+                try:
+                    with _conn() as conn:
+                        conn.execute(
+                            "DELETE FROM desktop_tokens WHERE user_id = ?",
+                            (row["id"],),
+                        )
+                except Exception as e:
+                    logger.debug("continuous_eval revoke fallback: %s", e)
+            # refresh_token aus User-Record entfernen
+            try:
+                with _conn() as conn:
+                    conn.execute(
+                        "UPDATE users SET entra_refresh_token = '' WHERE id = ?",
+                        (row["id"],),
+                    )
+            except Exception:
+                pass
+            stats["revoked"] += 1
+            logger.info(
+                "continuous_eval: User '%s' in MS revoked (%s) — Server-Tokens entzogen",
+                row["username"], err,
+            )
+            continue
+
+        # Erfolgreich — rotated refresh_token speichern
+        new_rt = result.get("refresh_token", "")
+        if new_rt and new_rt != stored:
+            try:
+                with _conn() as conn:
+                    conn.execute(
+                        "UPDATE users SET entra_refresh_token = ?, "
+                        "entra_last_refresh_at = ? WHERE id = ?",
+                        (_enc(new_rt),
+                         datetime.now(timezone.utc).isoformat(),
+                         row["id"]),
+                    )
+                stats["rotated"] += 1
+            except Exception as e:
+                logger.debug("continuous_eval rotate update failed: %s", e)
+                stats["errors"] += 1
+        else:
+            try:
+                with _conn() as conn:
+                    conn.execute(
+                        "UPDATE users SET entra_last_refresh_at = ? WHERE id = ?",
+                        (datetime.now(timezone.utc).isoformat(), row["id"]),
+                    )
+            except Exception:
+                pass
+    return stats
+
+
+def rotate_client_secret(app_object_id: str,
+                          access_token: str,
+                          display_name: str = "Rotated") -> dict | None:
+    """Erzeugt via Graph API ein frisches Client-Secret fuer die bestehende
+    App-Registration und liefert (secret, expires) zurueck.
+
+    Returns: dict {client_secret, secret_expires_at} oder None bei Fehler.
+    Der Aufrufer ist verantwortlich, den alten Secret-Eintrag via
+    /applications/{id}/removePassword zu invalidieren (optional).
+    """
+    if not app_object_id or not access_token:
+        return None
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type":  "application/json",
+    }
+    try:
+        resp = _requests.post(
+            f"{_GRAPH_URL}/applications/{app_object_id}/addPassword",
+            headers=headers,
+            json={"passwordCredential": {"displayName": display_name}},
+            timeout=15,
+        )
+    except Exception as e:
+        logger.error("rotate_client_secret Netzwerkfehler: %s", e)
+        return None
+    if resp.status_code not in (200, 201):
+        logger.error("rotate_client_secret fehlgeschlagen: %s %s",
+                      resp.status_code, resp.text[:300])
+        return None
+    data = resp.json()
+    return {
+        "client_secret":     data.get("secretText", ""),
+        "secret_expires_at": data.get("endDateTime", ""),
+    }

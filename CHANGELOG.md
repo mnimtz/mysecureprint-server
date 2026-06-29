@@ -1,5 +1,40 @@
 # Changelog — MySecurePrint Server
 
+## 0.1.3 — 2026-06-29 — Entra hardening (continuous evaluation + GC + secret expiry warnings)
+
+Five 🟠 items from ENTRA_REVIEW.md.
+
+### Pending-tables GC sweep (5 min interval)
+Both `desktop_entra_pending` and `desktop_entra_authcode_pending`
+now have an automatic background cleanup task that runs every 5
+minutes. Stops these tables from growing unbounded over time.
+
+### Single-tenant App Registration default
+Auto-setup wizard now creates the Entra App Registration with
+signInAudience=AzureADMyOrg (single-tenant) by default. Existing
+deployments are unaffected — only newly auto-created apps get the
+new default. The setting `entra_app_audience` allows opting back into
+multi-tenant for advanced cases.
+
+### Continuous evaluation (24h background task, opt-in)
+New setting `entra_continuous_eval_enabled` (default off). When on, a
+daily background task uses the stored MS refresh_token to verify that
+each Entra-signed-in user is still active in their tenant. If MS
+returns `invalid_grant` or `interaction_required`, the user's server
+Bearer token is revoked, effectively logging them out within 24h.
+
+### Secret-expiry warnings
+Auto-setup wizard now records the secret's expiry date. When the
+secret has <60 days left, a yellow banner appears on /admin/settings
+and the /welcome status indicator for Entra turns yellow. Admin can
+trigger "Rotate Entra client secret" to create a fresh one via MS
+Graph without redoing the entire Entra setup.
+
+### refresh_token storage (Fernet-encrypted)
+The `users.entra_refresh_token` column was added (idempotent
+migration). Stored Fernet-encrypted. Used only for continuous-eval
+(see above) — not exposed to clients.
+
 ## 0.1.2 — 2026-06-29 — Entra ID security hygiene fixes
 
 Three critical fixes identified in `ENTRA_REVIEW.md`.

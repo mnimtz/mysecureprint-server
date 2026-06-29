@@ -4,6 +4,13 @@
 > below (#1 tid verification, #2 email-link removal, #3 single-use
 > state) have all been fixed. See `CHANGELOG.md` and
 > `ENTRA_FIXES_REPORT.md` for the implementation details.
+>
+> **Resolved in v0.1.3 (2026-06-29)** — 🟠 Important items #4
+> (pending-tables GC sweep), #6 (single-tenant audience default),
+> #7 (refresh_token now used — continuous eval), #8 (secret expiry
+> tracked + warning), #10 (token revocation on Entra disable —
+> implemented via continuous eval sweep). See
+> `ENTRA_HARDENING_REPORT.md` and `CHANGELOG.md` for details.
 > Remaining 🟠/🟡 items are still open.
 
 
@@ -91,7 +98,7 @@ the **`tid` issuer-trust gap** (any Microsoft tenant can sign in unless
 
 ### 🟠 Important
 
-4. **No garbage collection of pending tables.**
+4. **[✅ RESOLVED v0.1.3]** **No garbage collection of pending tables.**
    `desktop_entra_pending` (Device Code) and
    `desktop_entra_authcode_pending` (PKCE) accumulate rows on aborts,
    expired flows, or network failures. There is **no cron / startup
@@ -108,7 +115,7 @@ the **`tid` issuer-trust gap** (any Microsoft tenant can sign in unless
    switches. Document this; consider making it a Settings toggle
    ("Force account chooser") for shared iPads.
 
-6. **`auto_register_app` creates Multi-Tenant apps**
+6. **[✅ RESOLVED v0.1.3]** **`auto_register_app` creates Multi-Tenant apps**
    (`entra.py:478, signInAudience: "AzureADMultipleOrgs"`). Combined
    with Critical #1, this **silently widens** the trust scope: even
    admins who think they bound the app to their own tenant get a
@@ -120,7 +127,7 @@ the **`tid` issuer-trust gap** (any Microsoft tenant can sign in unless
      "multi-tenant" only as an explicit checkbox in the Auto-Setup
      wizard.
 
-7. **Web SSO flow uses `_SCOPES = "openid profile email"`**
+7. **[✅ RESOLVED v0.1.3]** **Web SSO flow uses `_SCOPES = "openid profile email"`**
    (`entra.py:31`), no `User.Read`, but then `exchange_code_for_user`
    relies on the **id_token** instead of Graph `/me` — that's correct.
    However the PKCE flow (`_SCOPES_GRAPH_USER_READ`) asks for
@@ -131,7 +138,7 @@ the **`tid` issuer-trust gap** (any Microsoft tenant can sign in unless
      to persist + use the refresh_token (you don't today). Smaller
      consent prompt + less attack surface.
 
-8. **`auto_register_app` hardcodes a year-2099 secret expiry**
+8. **[✅ RESOLVED v0.1.3]** **`auto_register_app` hardcodes a year-2099 secret expiry**
    (`entra.py:516`). Entra silently caps `passwordCredential` lifetime
    at 24 months for newly created secrets — the server logs success,
    but the secret will silently expire after 2 years and Web SSO will
@@ -148,7 +155,7 @@ the **`tid` issuer-trust gap** (any Microsoft tenant can sign in unless
    - Fix: prefer `oid` short-hash or the full UPN as the username for
      Entra-created users; never collide silently.
 
-10. **Token-revocation gap on Entra disable**. Disabling Entra in the
+10. **[✅ RESOLVED v0.1.3]** **Token-revocation gap on Entra disable**. Disabling Entra in the
     admin settings (`entra_enabled=0`) does not revoke existing
     desktop tokens that were issued via Entra. A compromised Entra
     account stays signed in to the iOS app indefinitely.

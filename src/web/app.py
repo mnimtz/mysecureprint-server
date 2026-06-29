@@ -478,14 +478,34 @@ def create_app(session_secret: str) -> FastAPI:
             return False, "missing"
 
     def _get_entra_status() -> tuple[bool, str]:
-        """True wenn Entra-ID Client + Tenant gesetzt sind."""
+        """True wenn Entra-ID Client + Tenant gesetzt sind.
+
+        v0.1.3: liefert zusaetzlich `"warning"` als zweiter Wert, wenn das
+        gespeicherte Client-Secret in weniger als 60 Tagen ablaeuft. Das
+        Welcome-Template kann den Indikator dann gelb statt gruen rendern.
+        """
         try:
             from db import get_setting
             cid = (get_setting("entra_client_id", "") or "").strip()
             tid = (get_setting("entra_tenant_id", "") or "").strip()
-            if cid and tid:
-                return True, "configured"
-            return False, "missing"
+            if not (cid and tid):
+                return False, "missing"
+            # Secret-Ablauf pruefen — leerer Wert = unbekannt, kein Warn.
+            exp = (get_setting("entra_secret_expires_at", "") or "").strip()
+            if exp:
+                try:
+                    from datetime import datetime, timezone
+                    # MS liefert ISO-8601 mit Z; sicherheitshalber tolerant parsen
+                    norm = exp.replace("Z", "+00:00")
+                    when = datetime.fromisoformat(norm)
+                    if when.tzinfo is None:
+                        when = when.replace(tzinfo=timezone.utc)
+                    days = (when - datetime.now(timezone.utc)).days
+                    if days < 60:
+                        return True, "warning"
+                except Exception:
+                    pass
+            return True, "configured"
         except Exception:
             return False, "missing"
 
@@ -1355,11 +1375,23 @@ def create_app(session_secret: str) -> FastAPI:
             set_setting("entra_auto_approve", "0")
 
             set_setting("entra_redirect_uri", sso_redirect_uri)
+            # v0.1.3: Audience + Secret-Ablauf + Object-Id speichern, damit
+            # das Admin-UI ein Warn-Banner anzeigen und das Secret rotieren
+            # kann, ohne erneut durch den Device-Code-Flow zu laufen.
+            if result.get("audience"):
+                set_setting("entra_app_audience", result["audience"])
+            if result.get("secret_expires_at"):
+                set_setting("entra_secret_expires_at",
+                            result["secret_expires_at"])
+            if result.get("object_id"):
+                set_setting("entra_app_object_id", result["object_id"])
 
             audit(user["id"], "entra_auto_setup",
-                  f"SSO-App via Device Code Flow erstellt (client_id={result['client_id']}, redirect_uri={sso_redirect_uri})")
-            logger.info("Entra Auto-Setup erfolgreich: client_id=%s, redirect_uri=%s",
-                        result["client_id"], sso_redirect_uri)
+                  f"SSO-App via Device Code Flow erstellt (client_id={result['client_id']}, redirect_uri={sso_redirect_uri}, audience={result.get('audience','?')}, secret_expires={result.get('secret_expires_at','?')})")
+            logger.info("Entra Auto-Setup erfolgreich: client_id=%s, redirect_uri=%s, audience=%s, secret_expires=%s",
+                        result["client_id"], sso_redirect_uri,
+                        result.get("audience", "?"),
+                        result.get("secret_expires_at", "?"))
         except Exception as e:
             logger.error("Entra Auto-Setup DB-Fehler: %s", e)
             return JSONResponse({
@@ -3863,6 +3895,69 @@ def create_app(session_secret: str) -> FastAPI:
             start_background_refresher()
         except Exception as e:
             logger.warning("Periodic refresher startup failed: %s", e)
+
+    # v0.1.3: Entra Pending-Tables GC — alle 5 Minuten abgelaufene
+    # Eintraege aus desktop_entra_pending + desktop_entra_authcode_pending
+    # entfernen. Fail-soft: jede Iteration in try/except, ein DB-Fehler
+    # killt den Task nicht.
+    @app.on_event("startup")
+    async def _start_entra_pending_gc():
+        import asyncio as _asyncio
+
+        async def _loop():
+            from db import cleanup_expired_pending
+            while True:
+                try:
+                    n = cleanup_expired_pending()
+                    if n:
+                        logger.debug("Entra pending GC: %d row(s) removed", n)
+                except Exception as exc:
+                    logger.debug("Entra pending GC tick failed: %s", exc)
+                await _asyncio.sleep(300)
+
+        try:
+            _asyncio.create_task(_loop())
+            logger.info("Entra pending-tables GC sweep gestartet (5min interval)")
+        except Exception as e:
+            logger.warning("Entra pending GC startup failed: %s", e)
+
+    # v0.1.3: Entra Continuous-Evaluation Sweep — opt-in. Wenn
+    # `entra_continuous_eval_enabled=1`, geht alle 24h durch die
+    # gespeicherten refresh_tokens und revoked Server-Bearer-Tokens
+    # falls Microsoft den User als deaktiviert meldet.
+    @app.on_event("startup")
+    async def _start_entra_continuous_eval():
+        import asyncio as _asyncio
+
+        async def _loop():
+            while True:
+                # 24h Pause — der erste Lauf erfolgt mit kurzer Verzoegerung
+                # nach dem Start, damit DB sicher initialisiert ist.
+                await _asyncio.sleep(60)
+                try:
+                    from db import get_setting
+                    if (get_setting("entra_continuous_eval_enabled", "0")
+                            != "1"):
+                        # Nicht aktiv — naechsten Tag erneut pruefen
+                        await _asyncio.sleep(86400 - 60)
+                        continue
+                    from entra import run_continuous_evaluation_sweep
+                    stats = run_continuous_evaluation_sweep()
+                    logger.info(
+                        "Entra continuous-eval sweep: checked=%d revoked=%d "
+                        "rotated=%d errors=%d",
+                        stats.get("checked", 0), stats.get("revoked", 0),
+                        stats.get("rotated", 0), stats.get("errors", 0),
+                    )
+                except Exception as exc:
+                    logger.debug("continuous-eval sweep failed: %s", exc)
+                await _asyncio.sleep(86400 - 60)
+
+        try:
+            _asyncio.create_task(_loop())
+            logger.info("Entra continuous-eval scheduler bereit (opt-in)")
+        except Exception as e:
+            logger.warning("Entra continuous-eval startup failed: %s", e)
 
 
     # v7.2.36: Auto-TLS (sslip.io + Let's Encrypt) — Renewal-Scheduler

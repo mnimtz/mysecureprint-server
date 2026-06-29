@@ -99,6 +99,21 @@ def revoke_token(token: str) -> bool:
     return cur.rowcount > 0
 
 
+def revoke_all_tokens_for_user(user_id: str) -> int:
+    """Widerruft ALLE Desktop-Tokens eines Users — v0.1.3 fuer Continuous
+    Evaluation: wenn Microsoft den User als deaktiviert meldet, wird er
+    serverseitig komplett ausgeloggt.
+    Returns: Anzahl geloeschter Tokens."""
+    from db import _conn
+    if not user_id:
+        return 0
+    with _conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM desktop_tokens WHERE user_id = ?", (user_id,)
+        )
+    return cur.rowcount or 0
+
+
 def list_tokens_for_user(user_id: str) -> list[dict]:
     """Alle aktiven Tokens eines Users (für `/settings` → Desktop-Clients-Liste)."""
     from db import _conn

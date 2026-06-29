@@ -180,6 +180,12 @@ def init_db() -> None:
         if "entra_oid" not in existing_cols:
             conn.execute("ALTER TABLE users ADD COLUMN entra_oid TEXT NOT NULL DEFAULT ''")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_users_entra_oid ON users (entra_oid)")
+        # v0.1.3: refresh_token fuer Continuous Evaluation (Fernet-verschluesselt)
+        if "entra_refresh_token" not in existing_cols:
+            conn.execute("ALTER TABLE users ADD COLUMN entra_refresh_token TEXT NOT NULL DEFAULT ''")
+        # v0.1.3: Zeitpunkt des letzten erfolgreichen MS-refresh-Checks
+        if "entra_last_refresh_at" not in existing_cols:
+            conn.execute("ALTER TABLE users ADD COLUMN entra_last_refresh_at TEXT NOT NULL DEFAULT ''")
     # Sichere Migration für tenants-Tabelle: Alert-Spalten hinzufügen
     with _conn() as conn:
         existing_t = {r[1] for r in conn.execute("PRAGMA table_info(tenants)").fetchall()}
@@ -205,6 +211,10 @@ def init_db() -> None:
         # Leer = kein Default gesetzt → Client zeigt Picker "Ohne Profil".
         if "default_card_profile_id" not in existing_t:
             conn.execute("ALTER TABLE tenants ADD COLUMN default_card_profile_id TEXT NOT NULL DEFAULT ''")
+        # v0.1.3: Ablaufdatum des Entra-Client-Secrets (ISO-8601). Wird beim
+        # Auto-Setup gefuellt; Banner-Warnung in /admin/settings ab <60 Tage.
+        if "entra_secret_expires_at" not in existing_t:
+            conn.execute("ALTER TABLE tenants ADD COLUMN entra_secret_expires_at TEXT NOT NULL DEFAULT ''")
         # v7.2.15: notify_events — JSON-Array der aktivierten Notification-
         # Event-Typen (z.B. ["log_error","user_registered"]). Wird vom
         # /settings POST-Handler aus den 6 Toggle-Checkboxen gebaut. Default
@@ -2636,6 +2646,40 @@ def _job_row(row) -> dict:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+# ─── Entra Pending-Tables GC (v0.1.3) ────────────────────────────────────────
+
+def cleanup_expired_pending() -> int:
+    """Loescht abgelaufene Eintraege aus beiden Entra-Pending-Tabellen.
+
+    Wird von einem Background-Task in `web/app.py` alle 5 Minuten
+    aufgerufen. Idempotent — wenn die Tabellen noch nicht existieren
+    (frischer DB-State), wird nichts gemacht und 0 zurueckgegeben.
+
+    Returns: Anzahl geloeschter Zeilen (Summe beider Tabellen).
+    """
+    deleted = 0
+    now_iso = datetime.now(timezone.utc).isoformat()
+    for table in ("desktop_entra_pending", "desktop_entra_authcode_pending"):
+        try:
+            with _conn() as conn:
+                # Tabelle koennte noch nicht existieren — fail-soft via try.
+                exists = conn.execute(
+                    "SELECT name FROM sqlite_master "
+                    "WHERE type='table' AND name=?",
+                    (table,),
+                ).fetchone()
+                if not exists:
+                    continue
+                cur = conn.execute(
+                    f"DELETE FROM {table} WHERE expires_at < ?",
+                    (now_iso,),
+                )
+                deleted += cur.rowcount or 0
+        except Exception as e:
+            logger.debug("cleanup_expired_pending: %s skipped: %s", table, e)
+    return deleted
 
 
 # ─── DB beim Import initialisieren ────────────────────────────────────────────

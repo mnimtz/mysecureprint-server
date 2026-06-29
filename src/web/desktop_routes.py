@@ -1354,6 +1354,24 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             return JSONResponse({"status": "no_match",
                                  "error": "user not approved"})
 
+        # v0.1.3: refresh_token Fernet-verschluesselt speichern, wenn
+        # Continuous Evaluation aktiviert ist. Andernfalls verwerfen.
+        try:
+            from db import get_setting, _enc, _conn as _db_conn
+            ce_enabled = (get_setting("entra_continuous_eval_enabled", "0")
+                          == "1")
+            rt_plain = (profile or {}).get("refresh_token", "") or ""
+            if ce_enabled and rt_plain:
+                with _db_conn() as conn:
+                    conn.execute(
+                        "UPDATE users SET entra_refresh_token = ? "
+                        "WHERE id = ?",
+                        (_enc(rt_plain), user["id"]),
+                    )
+        except Exception as _ce_err:
+            logger.debug("continuous-eval refresh_token store failed: %s",
+                         _ce_err)
+
         # Desktop-Token anlegen. Pending-Row wurde bereits ganz am
         # Anfang dieser Funktion geloescht (v0.1.2 single-use state).
         token = create_token(user["id"],
