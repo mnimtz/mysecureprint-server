@@ -461,9 +461,19 @@ def start_device_code_flow(tenant: str = "common",
         return None
 
     if resp.status_code != 200:
+        # v0.4.8: Microsoft-Fehlerbeschreibung weiterreichen statt nur None.
+        # Vorher: User sah „device_code_failed" ohne Hinweis warum
+        # (Tenant blockt Device-Flow? Network? falsche client_id?).
+        try:
+            err_payload = resp.json()
+            ms_err = (err_payload.get("error_description")
+                      or err_payload.get("error")
+                      or f"HTTP {resp.status_code}")
+        except Exception:
+            ms_err = f"HTTP {resp.status_code}: {resp.text[:200]}"
         logger.error("Device Code Flow fehlgeschlagen: %s %s",
                       resp.status_code, resp.text[:500])
-        return None
+        return {"error": ms_err}
 
     data = resp.json()
     return {

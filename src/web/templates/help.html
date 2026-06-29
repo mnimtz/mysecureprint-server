@@ -13,7 +13,7 @@
       <strong>{{ _('help_your_oauth_id') }}:</strong>
       <code>{{ tenant.oauth_client_id }}</code><br>
       <strong>{{ _('help_your_oauth_sec') }}:</strong>
-      <small><a href="/settings">{{ _('settings_title') }}</a> → {{ _('dash_oauth_secret') }}</small>
+      <small><a href="/admin/settings">{{ _('settings_title') }}</a> → {{ _('dash_oauth_secret') }}</small>
     </div>
     {% endif %}
 
@@ -69,8 +69,8 @@
 
     <div class="divider"></div>
     <div style="display:flex;gap:12px;">
-      <a href="/dashboard" class="btn btn-secondary">← {{ _('nav_dashboard') }}</a>
-      <a href="/settings" class="btn btn-secondary">{{ _('nav_settings') }}</a>
+      <a href="/welcome" class="btn btn-secondary">← {{ _('nav_dashboard') }}</a>
+      <a href="/admin/settings" class="btn btn-secondary">{{ _('nav_settings') }}</a>
     </div>
   </div>
 </div>

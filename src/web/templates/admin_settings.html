@@ -7,6 +7,68 @@
        v0.2.2 ein Stub (everything always-on); die Aktivierungs-Box
        hatte keine Funktion mehr. -->
 
+  {# ── Queue-Defaults (v0.5.0) ─────────────────────────────────────── #}
+  <div id="queue" class="card" style="max-width:680px;margin:0 auto 20px auto; border-left:4px solid #3FA9F5;">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+      <div style="font-size:1.4em;">🖨️</div>
+      <div>
+        <div class="section-title" style="margin:0;">{{ _('queue_defaults_title') }}</div>
+        <div style="font-size:.85em; color:#666;">{{ _('queue_defaults_sub') }}</div>
+      </div>
+    </div>
+
+    {% if request.query_params.get('ok') == 'queue_saved' %}
+      <div class="alert alert-success" style="margin:12px 0;">✓ {{ _('queue_defaults_saved') }}</div>
+    {% endif %}
+
+    <form method="post" action="/admin/settings/queue-defaults/save">
+      <div class="form-group">
+        <label>{{ _('queue_global_default_label') }}</label>
+        {% if queues_for_picker %}
+        <select name="default_queue_id" onchange="this.form.default_queue_label.value=this.options[this.selectedIndex].text" style="width:100%;">
+          <option value="">— {{ _('queue_global_default_none') }} —</option>
+          {% for q in queues_for_picker %}
+          <option value="{{ q.queue_id }}"
+                  {% if q.queue_id == current_global_default_queue_id %}selected{% endif %}>
+            {% if q.is_anywhere %}🌐 {% endif %}{{ q.queue_name }}{% if q.printer_name and q.printer_name != q.queue_name %} ({{ q.printer_name }}){% endif %}
+          </option>
+          {% endfor %}
+        </select>
+        <input type="hidden" name="default_queue_label" value="{{ current_global_default_queue_label }}">
+        {% else %}
+        <input type="text" name="default_queue_id" value="{{ current_global_default_queue_id }}"
+               placeholder="{{ _('queue_global_no_printix') }}">
+        <input type="hidden" name="default_queue_label" value="{{ current_global_default_queue_label }}">
+        <small class="hint">{{ _('queue_global_no_printix_hint') }}</small>
+        {% endif %}
+        <small class="hint">{{ _('queue_global_default_help') }}</small>
+      </div>
+
+      <div class="form-group">
+        <label style="display:flex; align-items:center; gap:8px; font-weight:600;">
+          <input type="checkbox" name="allow_user_queue_override" value="1"
+                 {% if current_allow_user_override %}checked{% endif %}>
+          {{ _('queue_user_override_label') }}
+        </label>
+        <small class="hint" style="margin-left:24px;">{{ _('queue_user_override_help') }}</small>
+      </div>
+
+      <button type="submit" class="btn btn-primary">{{ _('btn_save') }}</button>
+      <a href="/admin/groups" style="margin-left:12px; color:var(--ta-cyan-dark); font-weight:600;">
+        {{ _('queue_manage_groups') }} →
+      </a>
+    </form>
+
+    <div style="font-size:.85em; color:#64748b; background:#f8fafc; padding:10px 14px; border-radius:8px; margin-top:14px;">
+      <strong>{{ _('queue_hierarchy_title') }}</strong>
+      <ol style="margin:6px 0 0 20px; padding:0;">
+        <li>{{ _('queue_hierarchy_1') }}</li>
+        <li>{{ _('queue_hierarchy_2') }}</li>
+        <li>{{ _('queue_hierarchy_3') }}</li>
+      </ol>
+    </div>
+  </div>
+
   <!-- ── Anzeige-Zeitzone (v7.2.48) ──────────────────────────────────────── -->
   <div id="timezone" class="card" style="max-width:680px; margin:0 auto 20px auto;">
     <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">

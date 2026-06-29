@@ -1,0 +1,95 @@
+{# v0.4.8 stub — scaffold for slim server, expand in v0.5.0+ #}
+{% extends "base.html" %}
+{% block title %}{{ _('emp_delegation') }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container">
+
+  {% if flash == 'delegation_added' %}
+    <div class="alert alert-success">✓ {{ _('emp_delegation_added') }}</div>
+  {% elif flash == 'delegation_removed' %}
+    <div class="alert alert-success">✓ {{ _('emp_delegation_removed') }}</div>
+  {% elif flash == 'user_not_found' %}
+    <div class="alert alert-error">⚠ {{ _('emp_delegation_user_not_found') }}</div>
+  {% elif flash == 'no_tenant' %}
+    <div class="alert alert-warning">⚠ {{ _('emp_delegation_no_tenant') }}</div>
+  {% endif %}
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="section-title">🤝 {{ _('emp_delegation') }}</div>
+    <div class="section-sub">{{ _('emp_delegation_intro') }}</div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="section-title">➕ {{ _('emp_delegation_add_title') }}</div>
+    <div class="section-sub">{{ _('emp_delegation_add_intro') }}</div>
+    {% if available_delegates %}
+    <form method="post" action="/my/delegation/add" style="margin-top:12px;">
+      <div class="form-group">
+        <label for="printix_user_id">{{ _('emp_delegation_pick_user') }}</label>
+        <select id="printix_user_id" name="printix_user_id" required>
+          <option value="">— {{ _('emp_delegation_pick_placeholder') }} —</option>
+          {% for a in available_delegates %}
+            <option value="{{ a.printix_user_id }}">
+              {{ a.full_name or a.email or a.printix_user_id }}{% if a.email %} ({{ a.email }}){% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">{{ _('emp_delegation_add_btn') }}</button>
+    </form>
+    {% else %}
+    <p style="margin-top:10px;color:#64748b;">{{ _('emp_delegation_no_candidates') }}</p>
+    {% endif %}
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="section-title">📤 {{ _('emp_delegation_out_title') }}</div>
+    <div class="section-sub">{{ _('emp_delegation_out_intro') }}</div>
+    {% if delegations_out %}
+    <div class="table-scroll" style="margin-top:10px;">
+      <table>
+        <thead>
+          <tr>
+            <th>{{ _('emp_delegation_col_user') }}</th>
+            <th>{{ _('emp_delegation_col_email') }}</th>
+            <th>{{ _('emp_delegation_col_status') }}</th>
+            <th>{{ _('emp_delegation_col_actions') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in delegations_out %}
+          <tr>
+            <td>{{ d.delegate_full_name or '—' }}</td>
+            <td>{{ d.delegate_email or '—' }}</td>
+            <td>{{ d.status or 'active' }}</td>
+            <td>
+              <form method="post" action="/my/delegation/{{ d.id }}/remove" style="display:inline;"
+                    onsubmit="return confirm('{{ _('emp_delegation_remove_confirm') }}');">
+                <button type="submit" class="btn btn-danger btn-sm">{{ _('emp_delegation_remove') }}</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p style="margin-top:10px;color:#64748b;">{{ _('emp_delegation_no_out') }}</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="section-title">📥 {{ _('emp_delegation_in_title') }}</div>
+    <div class="section-sub">{{ _('emp_delegation_in_intro') }}</div>
+    {% if delegations_in %}
+    <ul style="margin-top:10px;">
+      {% for d in delegations_in %}
+        <li>{{ d.owner_full_name or d.owner_email or d.owner_user_id }} <span class="badge badge-blue">{{ d.status or 'active' }}</span></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p style="margin-top:10px;color:#64748b;">{{ _('emp_delegation_no_in') }}</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

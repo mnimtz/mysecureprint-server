@@ -1,0 +1,40 @@
+{# v0.4.8 stub — scaffold for slim server, expand in v0.5.0+ #}
+{% extends "base.html" %}
+{% block title %}{{ _('emp_new_title') }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width:640px;">
+  <div class="card">
+    <div class="section-title">➕ {{ _('emp_new_title') }}</div>
+    <div class="section-sub">{{ _('emp_new_intro') }}</div>
+
+    {% if error == 'username_exists' %}
+      <div class="alert alert-error" style="margin-top:12px;">⚠ {{ _('emp_new_err_username_exists') }}</div>
+    {% endif %}
+
+    <form method="post" action="/my/employees/new" style="margin-top:16px;">
+      <div class="form-group">
+        <label for="username">{{ _('emp_col_username') }} *</label>
+        <input type="text" id="username" name="username" required minlength="3" autofocus>
+        <small class="hint">{{ _('emp_new_username_hint') }}</small>
+      </div>
+      <div class="form-group">
+        <label for="full_name">{{ _('emp_col_full_name') }}</label>
+        <input type="text" id="full_name" name="full_name">
+      </div>
+      <div class="form-group">
+        <label for="email">{{ _('emp_col_email') }}</label>
+        <input type="email" id="email" name="email">
+      </div>
+      <div class="form-group">
+        <label for="password">{{ _('emp_col_password') }}</label>
+        <input type="password" id="password" name="password" minlength="8">
+        <small class="hint">{{ _('emp_new_password_hint') }}</small>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:18px;">
+        <button type="submit" class="btn btn-primary">{{ _('emp_new_submit') }}</button>
+        <a href="/my/employees" class="btn btn-secondary">{{ _('btn_cancel') }}</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,64 @@
+{# v0.4.8 stub — scaffold for slim server, expand in v0.5.0+ #}
+{% extends "base.html" %}
+{% block title %}{{ _('emp_my_dashboard') }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container">
+
+  <div class="card" style="margin-bottom:18px;">
+    <div class="section-title">📄 {{ _('emp_my_dashboard') }}</div>
+    <div class="section-sub">
+      {{ _('emp_dashboard_intro') | replace('{name}', user.full_name or user.username) }}
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;">
+    <a href="/my/jobs" class="card" style="text-decoration:none;color:inherit;">
+      <div class="section-title">🖨 {{ _('emp_my_jobs') }}</div>
+      <div class="section-sub">{{ _('emp_my_jobs_card_sub') }}</div>
+    </a>
+    <a href="/my/upload" class="card" style="text-decoration:none;color:inherit;">
+      <div class="section-title">📤 {{ _('emp_upload_title') }}</div>
+      <div class="section-sub">{{ _('emp_upload_desc') }}</div>
+    </a>
+    <a href="/my/delegation" class="card" style="text-decoration:none;color:inherit;">
+      <div class="section-title">🤝 {{ _('emp_delegation') }}</div>
+      <div class="section-sub">
+        {{ _('emp_delegation_card_sub') }}
+        {% if delegations_out %}
+          <span class="badge badge-blue" style="margin-left:6px;">{{ delegations_out|length }}</span>
+        {% endif %}
+      </div>
+    </a>
+    {% if user.role_type != 'employee' %}
+    <a href="/my/cloud-print" class="card" style="text-decoration:none;color:inherit;">
+      <div class="section-title">☁️ {{ _('emp_cloud_print') }}</div>
+      <div class="section-sub">{{ _('emp_cloud_print_card_sub') }}</div>
+    </a>
+    <a href="/my/send-to" class="card" style="text-decoration:none;color:inherit;">
+      <div class="section-title">💻 {{ _('emp_send_to') }}</div>
+      <div class="section-sub">{{ _('emp_send_to_card_sub') }}</div>
+    </a>
+    <a href="/my/employees" class="card" style="text-decoration:none;color:inherit;">
+      <div class="section-title">👥 {{ _('nav_employees') }}</div>
+      <div class="section-sub">{{ _('emp_employees_card_sub') }}</div>
+    </a>
+    {% endif %}
+    <a href="/my/mobile-app" class="card" style="text-decoration:none;color:inherit;">
+      <div class="section-title">📱 {{ _('emp_mobile_app') }}</div>
+      <div class="section-sub">{{ _('emp_mobile_app_card_sub') }}</div>
+    </a>
+  </div>
+
+  {% if delegations_in %}
+  <div class="card" style="margin-top:18px;">
+    <div class="section-title">🔑 {{ _('emp_delegations_in_title') }}</div>
+    <div class="section-sub">{{ _('emp_delegations_in_sub') }}</div>
+    <ul style="margin-top:10px;">
+      {% for d in delegations_in %}
+        <li>{{ d.owner_full_name or d.owner_email or d.owner_user_id }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

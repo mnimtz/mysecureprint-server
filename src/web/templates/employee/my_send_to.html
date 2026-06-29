@@ -1,0 +1,28 @@
+{# v0.4.8 stub — scaffold for slim server, expand in v0.5.0+ #}
+{% extends "base.html" %}
+{% block title %}{{ _('emp_send_to') }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="card">
+    <div class="section-title">💻 {{ _('emp_send_to') }}</div>
+    <div class="section-sub">{{ _('emp_send_to_intro') }}</div>
+
+    <div class="alert alert-info" style="margin-top:14px;">
+      {{ _('emp_send_to_mcp_hint') }}
+      <a href="/admin/mcp-access" style="margin-left:6px;">/admin/mcp-access →</a>
+    </div>
+
+    <hr class="divider">
+
+    <div class="section-sub">{{ _('emp_send_to_client_hint') }}</div>
+    <p style="margin-top:8px;">
+      {{ _('emp_send_to_recommended_version') }}: <code>{{ client_version }}</code>
+    </p>
+    <p style="margin-top:6px;">
+      <a class="btn btn-secondary" href="https://printix.net/download" target="_blank" rel="noopener">
+        🔗 {{ _('emp_send_to_download_btn') }}
+      </a>
+    </p>
+  </div>
+</div>
+{% endblock %}

@@ -1,5 +1,73 @@
 # Changelog — MySecurePrint Server
 
+## 0.5.0 — 2026-06-29 — Queue-Hierarchie + 11 fehlende Employee-Templates + Audit-Fixes
+
+Combined release: drei zusammenhängende Themen aus User-Feedback.
+
+### 🔴 Audit-Fund: 11 Employee-Templates fehlten komplett
+Jeder `/my/*` Click eines Employees führte zu `TemplateNotFound` → 500
+Internal Server Error. Bedeutet: der gesamte Employee-Portal-Pfad war
+unbenutzbar.
+
+Neu geschrieben unter `src/web/templates/employee/`:
+- `my_dashboard.html`, `my_jobs.html`, `my_delegation.html`,
+  `my_cloud_print.html`, `my_send_to.html`, `my_mobile_app.html`,
+  `my_reports.html`, `employees_list.html`, `employees_new.html`,
+  `employees_detail.html`, `feature_locked.html` (663 LoC)
+- Alle slim-konform: keine Capture/Reports/Guest-Print-Refs.
+- `my_reports.html`: redirect-Stub auf `/admin/mcp-access` (Reports
+  laufen jetzt via MCP-Tools).
+
+### 🔴 Entra Device-Code zeigt nur „device_code_failed"
+Microsoft's `error_description` wurde im `entra.py:start_device_code_flow`
+verworfen → Admin sah keinen Hinweis warum Auto-Setup nicht ging.
+
+Jetzt: `start_device_code_flow` propagiert die MS-Fehlermeldung als
+`{"error": "..."}` Dict, der Web-Handler reicht das + ein Hinweis-Text
+zu den 3 häufigsten Ursachen (Tenant-Policy / Netzwerk / MS down) ans
+UI weiter.
+
+### 🟡 6 dead Nav-Links repariert
+`/admin/users/import-printix`, `/admin/mcp-reports-cookbook`,
+`/settings`, `/dashboard` — alle entfernt oder auf existierende Routen
+umgeleitet.
+
+### 🆕 v0.5.0 Feature: 3-Tier Queue-Hierarchie
+**Globale Default-Queue** + **Gruppen-Default** + **User-Override**.
+
+Backend (`src/cloudprint/db_extensions.py`):
+- Neue Tabelle `group_queue_defaults` (per-Sync-Gruppe Default-Queue)
+- Migration: `cached_printix_users.groups_json` Spalte
+- Helper-Funktionen: `get_global_default_queue`, `set_global_default_queue`,
+  `is_user_queue_override_allowed`, `set_user_queue_override_allowed`,
+  `list_group_queue_defaults`, `get_group_queue_default`,
+  `set_group_queue_default`, `delete_group_queue_default`,
+  `get_user_printix_group_ids`, `resolve_user_queue`
+- Settings: `default_lpr_target_queue`, `default_lpr_target_queue_label`,
+  `allow_user_queue_override`
+
+`/desktop/targets` (`web/desktop_routes.py`):
+- Ersetzt die alte Fallback-Kette durch `resolve_user_queue()` —
+  Auflösungs-Reihenfolge User-Override → Group → Global → leer
+- Response-Description zeigt jetzt die Quelle („Vom Admin festgelegt"
+  / „Über Sync-Gruppe XYZ" / „Eigene Queue-Auswahl") damit iOS-User
+  weiß wieso er DIESES Ziel sieht.
+
+Admin-UI:
+- Neue Sektion in `/admin/settings#queue` — globale Default-Queue
+  Picker (Anywhere-Queues 🌐 oben sortiert) + Override-Toggle
+- Neue Seite `/admin/groups` — pro Printix-Sync-Gruppe Default-Queue
+  setzen, mit Live-Liste der Tenant-Gruppen
+- Sidebar: zwei neue Einträge unter „Konfiguration" — „Standard-Druck-
+  Queue" + „Gruppen-Defaults"
+
+Audit-Events: `queue_defaults_saved`, `group_queue_set`,
+`group_queue_cleared`
+
+### i18n
+~50 neue Keys (queue_*, groups_*, nav_cfg_queue, nav_cfg_groups)
+in DE+EN mit Fallback.
+
 ## 0.4.7 — 2026-06-29 — Top-Bar mit User-Menü + Logout
 
 User: „es gibt kein logout-button auf dem server". Der Logout war zwar

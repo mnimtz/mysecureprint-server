@@ -1,0 +1,25 @@
+{# v0.4.8 stub — scaffold for slim server; reports module dropped, replaced by MCP tools #}
+{% extends "base.html" %}
+{% block title %}{{ _('emp_reports_title') }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="card">
+    <div class="section-title">📊 {{ _('emp_reports_title') }}</div>
+    <div class="section-sub">{{ _('emp_reports_dropped_sub') }}</div>
+
+    <div class="alert alert-info" style="margin-top:14px;">
+      ℹ {{ _('emp_reports_via_mcp') }}
+      <a href="/admin/mcp-access" style="margin-left:6px;">/admin/mcp-access →</a>
+    </div>
+
+    <hr class="divider">
+
+    <p style="color:#64748b;">{{ _('emp_reports_examples') }}</p>
+    <ul style="margin-top:8px;color:#475569;">
+      <li><code>printix_my_print_history</code> — {{ _('emp_reports_ex_history') }}</li>
+      <li><code>printix_my_costs</code> — {{ _('emp_reports_ex_costs') }}</li>
+      <li><code>printix_my_environment_impact</code> — {{ _('emp_reports_ex_impact') }}</li>
+    </ul>
+  </div>
+</div>
+{% endblock %}

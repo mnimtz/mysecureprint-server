@@ -1,0 +1,90 @@
+{# v0.4.8 stub — scaffold for slim server, expand in v0.5.0+ #}
+{% extends "base.html" %}
+{% block title %}{{ _('emp_my_jobs') }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="card">
+    <div class="section-title">🖨 {{ _('emp_my_jobs') }}</div>
+    <div class="section-sub">{{ _('emp_my_jobs_sub') }}</div>
+
+    <h3 style="margin-top:18px;font-size:1em;">{{ _('emp_jobs_printix_section') }}</h3>
+    {% if jobs %}
+    <div class="table-scroll" style="margin-top:8px;">
+      <table>
+        <thead>
+          <tr>
+            <th>{{ _('emp_jobs_col_title') }}</th>
+            <th>{{ _('emp_jobs_col_status') }}</th>
+            <th>{{ _('emp_jobs_col_pages') }}</th>
+            <th>{{ _('emp_jobs_col_actions') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for j in jobs %}
+          <tr>
+            <td>{{ j.title or j.documentName or '—' }}</td>
+            <td>{{ j.state or j.status or '—' }}</td>
+            <td>{{ j.pages or j.pageCount or '—' }}</td>
+            <td>
+              <form method="post" action="/my/jobs/{{ j.id }}/delete" style="display:inline;"
+                    onsubmit="return confirm('{{ _('emp_jobs_delete_confirm') }}');">
+                <button type="submit" class="btn btn-danger btn-sm">{{ _('emp_jobs_delete') }}</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p style="margin-top:8px;color:#64748b;">{{ _('emp_jobs_empty_printix') }}</p>
+    {% endif %}
+
+    <hr class="divider">
+
+    <h3 style="font-size:1em;">{{ _('emp_jobs_cloud_section') }}</h3>
+    <div class="section-sub">
+      {{ _('emp_jobs_cloud_stats')
+         | replace('{total}', cloud_stats.total|string)
+         | replace('{forwarded}', cloud_stats.forwarded|string)
+         | replace('{error}', cloud_stats.error|string) }}
+    </div>
+    {% if cloud_jobs %}
+    <div class="table-scroll" style="margin-top:8px;">
+      <table>
+        <thead>
+          <tr>
+            <th>{{ _('emp_jobs_col_title') }}</th>
+            <th>{{ _('emp_jobs_col_status') }}</th>
+            <th>{{ _('emp_jobs_col_identity') }}</th>
+            <th>{{ _('emp_jobs_col_created') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cj in cloud_jobs %}
+          <tr>
+            <td>{{ cj.job_name or '—' }}</td>
+            <td>{{ cj.status or '—' }}</td>
+            <td>{{ cj.detected_identity or '—' }}</td>
+            <td>{{ cj.created_at or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p style="margin-top:8px;color:#64748b;">{{ _('emp_jobs_empty_cloud') }}</p>
+    {% if unmatched_recent %}
+    <details style="margin-top:10px;">
+      <summary style="cursor:pointer;color:#475569;">{{ _('emp_jobs_unmatched_debug') }}</summary>
+      <ul style="margin-top:8px;font-size:.88em;color:#64748b;">
+        {% for u in unmatched_recent %}
+          <li><code>{{ u.detected_identity or '?' }}</code> — {{ u.job_name or '—' }} ({{ u.status or '—' }})</li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}{{ _('groups_title') }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width: 1040px; margin: 32px auto;">
+
+  <h1 style="color: var(--ta-navy); font-size: 1.8em; font-weight: 800; margin-bottom: 4px;">
+    👥 {{ _('groups_title') }}
+  </h1>
+  <p style="color: #64748b; margin-bottom: 24px;">{{ _('groups_intro') }}</p>
+
+  {% if request.query_params.get('ok') == 'saved' %}
+    <div class="alert alert-success" style="margin-bottom: 16px;">✓ {{ _('groups_saved') }}</div>
+  {% endif %}
+  {% if request.query_params.get('err') %}
+    <div class="alert alert-error" style="margin-bottom: 16px;">⚠ {{ request.query_params.get('err') }}</div>
+  {% endif %}
+
+  {% if not tenant.printix_tenant_id %}
+  <div class="alert alert-warning">
+    {{ _('groups_no_printix') }} <a href="/admin/settings#printix">/admin/settings</a>.
+  </div>
+  {% elif not printix_groups %}
+  <div class="alert alert-info">
+    {{ _('groups_empty_list') }}
+  </div>
+  {% else %}
+
+  <div class="card">
+    <h2 class="section-title">{{ _('groups_table_title') }}</h2>
+    <p style="color:#64748b; margin-bottom: 16px;">{{ _('groups_table_intro') }}</p>
+
+    <table style="width:100%; border-collapse:collapse;">
+      <thead>
+        <tr style="background:var(--ta-gray-100); text-align:left;">
+          <th style="padding:10px;">{{ _('groups_col_name') }}</th>
+          <th style="padding:10px;">{{ _('groups_col_default') }}</th>
+          <th style="padding:10px; text-align:center;">{{ _('groups_col_actions') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for g in printix_groups %}
+        {% set current = existing_defaults_map.get(g.id) %}
+        <tr style="border-top:1px solid var(--ta-gray-200);">
+          <td style="padding:12px 10px;">
+            <strong>{{ g.name }}</strong>
+            {% if g.description %}<br><small style="color:#64748b;">{{ g.description }}</small>{% endif %}
+          </td>
+          <td style="padding:12px 10px; font-family:monospace; font-size:.88em;">
+            {% if current %}
+              <span style="color:#16a34a;">●</span> {{ current.queue_label or current.queue_id }}
+            {% else %}
+              <span style="color:#94a3b8;">{{ _('groups_no_override') }}</span>
+            {% endif %}
+          </td>
+          <td style="padding:12px 10px; text-align:center;">
+            <form method="post" action="/admin/groups/set-queue" style="display:flex; gap:8px; align-items:center; justify-content:flex-end;">
+              <input type="hidden" name="printix_group_id" value="{{ g.id }}">
+              <input type="hidden" name="printix_group_name" value="{{ g.name }}">
+              <select name="queue_id" onchange="this.form.queue_label.value=this.options[this.selectedIndex].text; this.form.printer_id.value=this.options[this.selectedIndex].dataset.printer || ''" style="min-width:240px;">
+                <option value="">— {{ _('groups_select_none') }} —</option>
+                {% for q in queues %}
+                <option value="{{ q.queue_id }}" data-printer="{{ q.printer_id }}"
+                        {% if current and current.queue_id == q.queue_id %}selected{% endif %}>
+                  {% if q.is_anywhere %}🌐 {% endif %}{{ q.queue_name }}{% if q.printer_name and q.printer_name != q.queue_name %} ({{ q.printer_name }}){% endif %}
+                </option>
+                {% endfor %}
+              </select>
+              <input type="hidden" name="queue_label" value="{{ current.queue_label if current else '' }}">
+              <input type="hidden" name="printer_id"  value="{{ current.printer_id  if current else '' }}">
+              <button type="submit" class="action-btn primary" style="font-size:.85em;">
+                {{ _('btn_save') }}
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <div class="card" style="margin-top: 24px;">
+    <h2 class="section-title">{{ _('groups_hierarchy_title') }}</h2>
+    <p style="color:#64748b; margin-bottom: 12px;">{{ _('groups_hierarchy_intro') }}</p>
+    <ol style="color:#475569; line-height:1.7; padding-left:20px;">
+      <li><strong>{{ _('groups_tier_user') }}</strong> — {{ _('groups_tier_user_desc') }}</li>
+      <li><strong>{{ _('groups_tier_group') }}</strong> — {{ _('groups_tier_group_desc') }}</li>
+      <li><strong>{{ _('groups_tier_global') }}</strong> — {{ _('groups_tier_global_desc') }} <a href="/admin/settings#queue">/admin/settings#queue</a>.</li>
+    </ol>
+  </div>
+
+</div>
+{% endblock %}

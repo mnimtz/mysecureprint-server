@@ -265,6 +265,29 @@ def init_cloudprint_schema() -> None:
         """)
         logger.info("Migration: cached_sync_status-Tabelle geprüft/erstellt")
 
+    # 7) v0.5.0: group_queue_defaults — pro Printix-Sync-Gruppe eine
+    #    Default-Queue die den tenant-globalen Default ueberschreibt.
+    #    Resolution-Reihenfolge in resolve_user_queue():
+    #      User-Override → Gruppen-Default(s) → Global-Default → leer
+    with _conn() as conn:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS group_queue_defaults (
+                id                 TEXT PRIMARY KEY,
+                tenant_id          TEXT NOT NULL,
+                printix_group_id   TEXT NOT NULL,
+                printix_group_name TEXT NOT NULL DEFAULT '',
+                queue_id           TEXT NOT NULL,
+                queue_label        TEXT NOT NULL DEFAULT '',
+                printer_id         TEXT NOT NULL DEFAULT '',
+                created_at         TEXT NOT NULL DEFAULT '',
+                created_by         TEXT NOT NULL DEFAULT '',
+                UNIQUE (tenant_id, printix_group_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_group_queue_tenant
+                ON group_queue_defaults (tenant_id);
+        """)
+        logger.info("Migration: group_queue_defaults-Tabelle geprüft/erstellt")
+
 
 # ─── Cloud Print Job Tracking ────────────────────────────────────────────────
 
@@ -1087,3 +1110,176 @@ def search_available_delegates(parent_user_id: str, query: str,
             params,
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# v0.5.0: 3-Tier Queue-Resolution (Global → Group → User-Override)
+# ───────────────────────────────────────────────────────────────────────────
+# Hierarchy (höchste Priorität zuerst):
+#   1. User-Override     — wenn `allow_user_queue_override`=1 + User hat eigene
+#                           tenants.lpr_target_queue (legacy Spalte, existiert)
+#   2. Group-Default     — wenn der User in einer Printix-Sync-Gruppe ist die
+#                           einen Eintrag in `group_queue_defaults` hat
+#   3. Global-Default    — Setting `default_lpr_target_queue`
+#   4. Leer              — /desktop/targets liefert keinen print:self-Eintrag
+
+def get_global_default_queue() -> tuple[str, str]:
+    """Returns (queue_id, queue_label) — ('', '') if not configured."""
+    from db import get_setting
+    qid = get_setting("default_lpr_target_queue", "")
+    lbl = get_setting("default_lpr_target_queue_label", "")
+    return qid, lbl
+
+
+def set_global_default_queue(queue_id: str, queue_label: str = "") -> None:
+    from db import set_setting
+    set_setting("default_lpr_target_queue", (queue_id or "").strip())
+    set_setting("default_lpr_target_queue_label", (queue_label or "").strip())
+
+
+def is_user_queue_override_allowed() -> bool:
+    from db import get_setting
+    return get_setting("allow_user_queue_override", "0") == "1"
+
+
+def set_user_queue_override_allowed(allowed: bool) -> None:
+    from db import set_setting
+    set_setting("allow_user_queue_override", "1" if allowed else "0")
+
+
+def list_group_queue_defaults(tenant_id: str) -> list[dict]:
+    from db import _conn
+    with _conn() as conn:
+        rows = conn.execute(
+            """SELECT * FROM group_queue_defaults
+               WHERE tenant_id = ?
+               ORDER BY printix_group_name, printix_group_id""",
+            (tenant_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_group_queue_default(tenant_id: str, printix_group_id: str) -> Optional[dict]:
+    from db import _conn
+    with _conn() as conn:
+        row = conn.execute(
+            """SELECT * FROM group_queue_defaults
+               WHERE tenant_id = ? AND printix_group_id = ?""",
+            (tenant_id, printix_group_id),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def set_group_queue_default(tenant_id: str, printix_group_id: str,
+                              printix_group_name: str,
+                              queue_id: str, queue_label: str = "",
+                              printer_id: str = "",
+                              created_by: str = "") -> None:
+    from db import _conn
+    import secrets as _secrets
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    rec_id = _secrets.token_hex(8)
+    with _conn() as conn:
+        # UPSERT-Pattern (sqlite >= 3.24)
+        conn.execute(
+            """INSERT INTO group_queue_defaults
+                 (id, tenant_id, printix_group_id, printix_group_name,
+                  queue_id, queue_label, printer_id, created_at, created_by)
+               VALUES (?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(tenant_id, printix_group_id) DO UPDATE SET
+                 printix_group_name = excluded.printix_group_name,
+                 queue_id           = excluded.queue_id,
+                 queue_label        = excluded.queue_label,
+                 printer_id         = excluded.printer_id""",
+            (rec_id, tenant_id, printix_group_id, printix_group_name,
+             queue_id, queue_label, printer_id, now, created_by),
+        )
+        conn.commit()
+
+
+def delete_group_queue_default(tenant_id: str, printix_group_id: str) -> bool:
+    from db import _conn
+    with _conn() as conn:
+        cur = conn.execute(
+            """DELETE FROM group_queue_defaults
+               WHERE tenant_id = ? AND printix_group_id = ?""",
+            (tenant_id, printix_group_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def get_user_printix_group_ids(user_id: str) -> list[str]:
+    """Best-effort: liest die Printix-Gruppen-IDs des Users aus dem Cache.
+
+    v0.5.0: liest aus `cached_printix_users.groups_json`, falls die Spalte
+    schon befüllt ist. Bei leerem Cache → leere Liste (Resolver fällt dann
+    auf Global-Default zurück). Eine periodische Sync-Routine kann die
+    Spalte später automatisch füllen — der Resolver wird damit besser
+    ohne dass Code-Änderungen nötig sind.
+    """
+    from db import _conn
+    try:
+        with _conn() as conn:
+            # Idempotente Migration: groups_json-Spalte anlegen falls noch
+            # nicht vorhanden. Wird nur einmal pro Prozess-Lifetime gemacht.
+            cols = [r[1] for r in conn.execute(
+                "PRAGMA table_info(cached_printix_users)").fetchall()]
+            if "groups_json" not in cols:
+                conn.execute(
+                    "ALTER TABLE cached_printix_users "
+                    "ADD COLUMN groups_json TEXT NOT NULL DEFAULT '[]'"
+                )
+                conn.commit()
+                logger.info("Migration: cached_printix_users.groups_json hinzugefügt")
+            row = conn.execute(
+                """SELECT cpu.groups_json FROM cached_printix_users cpu
+                   JOIN users u ON LOWER(u.email) = LOWER(cpu.email)
+                   WHERE u.id = ? LIMIT 1""",
+                (user_id,),
+            ).fetchone()
+        if not row:
+            return []
+        import json as _json
+        try:
+            ids = _json.loads(row["groups_json"] or "[]")
+            return [str(g) for g in ids if g]
+        except Exception:
+            return []
+    except Exception as e:
+        logger.debug("get_user_printix_group_ids(%s) failed: %s", user_id, e)
+        return []
+
+
+def resolve_user_queue(user_id: str) -> tuple[str, str, str]:
+    """3-Tier Queue-Resolution.
+
+    Returns (queue_id, queue_label, source) where source is one of:
+      - "user_override"   → User hat eigene Queue gewählt + admin erlaubt das
+      - "group:<name>"    → Sync-Gruppe hat einen Default
+      - "global"          → tenant-globaler Default
+      - "none"            → nichts konfiguriert
+    """
+    # 1) User-Override
+    if is_user_queue_override_allowed():
+        cfg = get_cloudprint_config(user_id)
+        if cfg and cfg.get("lpr_target_queue"):
+            return (cfg["lpr_target_queue"],
+                    cfg.get("lpr_target_queue_label", "") or cfg["lpr_target_queue"],
+                    "user_override")
+    # 2) Group-Default
+    tenant = get_tenant_for_user(user_id)
+    if tenant:
+        tid = tenant.get("id") or tenant.get("tenant_id")
+        for grp_id in get_user_printix_group_ids(user_id):
+            gd = get_group_queue_default(tid, grp_id)
+            if gd:
+                return (gd["queue_id"], gd.get("queue_label", "") or gd["queue_id"],
+                        f"group:{gd.get('printix_group_name') or grp_id}")
+    # 3) Global-Default
+    g_id, g_label = get_global_default_queue()
+    if g_id:
+        return (g_id, g_label or g_id, "global")
+    # 4) Nothing
+    return ("", "", "none")

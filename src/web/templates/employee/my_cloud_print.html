@@ -1,0 +1,57 @@
+{# v0.4.8 stub — scaffold for slim server, expand in v0.5.0+ (3-tier queue hierarchy) #}
+{% extends "base.html" %}
+{% block title %}{{ _('emp_cloud_print') }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container">
+
+  {% if flash == 'config_saved' %}
+    <div class="alert alert-success">✓ {{ _('emp_cloud_print_saved') }}</div>
+  {% endif %}
+
+  <div class="card">
+    <div class="section-title">☁️ {{ _('emp_cloud_print') }}</div>
+    <div class="section-sub">{{ _('emp_cloud_print_intro') }}</div>
+
+    {% if not queues and user.role_type != 'employee' %}
+      <div class="alert alert-warning" style="margin-top:14px;">
+        ⚠ {{ _('emp_cloud_print_no_printix') }}
+        <a href="/admin/settings#printix" style="margin-left:6px;">{{ _('emp_cloud_print_configure_printix') }} →</a>
+      </div>
+    {% endif %}
+
+    {% if config and config.lpr_target_queue %}
+      <div class="alert alert-info" style="margin-top:14px;">
+        🎯 {{ _('emp_cloud_print_current_target') }}:
+        <strong>{{ target_queue_name or config.lpr_target_queue }}</strong>
+      </div>
+    {% else %}
+      <p style="margin-top:10px;color:#64748b;">{{ _('emp_cloud_print_no_target') }}</p>
+    {% endif %}
+
+    {% if user.role_type != 'employee' and queues %}
+    <form method="post" action="/my/cloud-print/save" style="margin-top:16px;">
+      <div class="form-group">
+        <label for="target_queue">{{ _('emp_cloud_print_pick_queue') }}</label>
+        <select id="target_queue" name="target_queue">
+          <option value="">— {{ _('emp_cloud_print_pick_placeholder') }} —</option>
+          {% for q in queues %}
+            <option value="{{ q.queue_id }}" {% if config and config.lpr_target_queue == q.queue_id %}selected{% endif %}>
+              {{ q.queue_name }} ({{ q.printer_name }})
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">{{ _('btn_save') }}</button>
+    </form>
+    {% elif user.role_type == 'employee' %}
+      <p style="margin-top:12px;color:#64748b;">{{ _('emp_cloud_print_readonly_employee') }}</p>
+    {% endif %}
+
+    {% if ipps_public_url %}
+    <hr class="divider">
+    <div class="section-sub">{{ _('emp_cloud_print_ipps_endpoint') }}:</div>
+    <div class="code-block" style="margin-top:6px;">{{ ipps_public_url }}</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -298,6 +298,7 @@ def create_app(session_secret: str) -> FastAPI:
             "/admin/blob-backup": "admin_blob_backup",
             "/admin/mcp-access": "admin_mcp_access",
             "/admin/gdpr": "admin_gdpr",
+            "/admin/groups": "admin_groups",
             "/my/cloud-print": "my_cloud_print",
             "/my/mobile-app": "my_mobile_app",
         }
@@ -1327,8 +1328,18 @@ def create_app(session_secret: str) -> FastAPI:
             return JSONResponse({"error": "entra module not available"}, status_code=500)
 
         result = start_device_code_flow()
+        # v0.4.8: Microsoft-Fehler weiterreichen falls vorhanden, damit der
+        # Admin im UI was Verwertbares sieht statt nur „device_code_failed".
         if not result or not result.get("device_code"):
-            return JSONResponse({"error": "device_code_failed"}, status_code=502)
+            ms_error = (result or {}).get("error", "device_code_failed")
+            return JSONResponse(
+                {"error": ms_error,
+                 "hint": "Mögliche Ursachen: Tenant-Policy blockt Device-Code-Flow "
+                         "(Azure → Authentication Methods Policy), Netzwerk "
+                         "blockt login.microsoftonline.com, oder Microsoft "
+                         "ist gerade nicht erreichbar."},
+                status_code=502,
+            )
 
         # Device code in Session speichern (fuer Polling)
         request.session["entra_device_code"] = result["device_code"]
@@ -3972,6 +3983,23 @@ def create_app(session_secret: str) -> FastAPI:
             public_url = ""
         if not public_url:
             public_url = os.environ.get("MCP_PUBLIC_URL", "")
+        # v0.5.0: Queue-Defaults laden (Global-Default + Override-Toggle +
+        # Queue-Picker-Optionen). Queue-Picker zeigt nur an wenn Printix
+        # konfiguriert ist (sonst leeres Text-Input als Fallback).
+        try:
+            from cloudprint.db_extensions import (
+                get_global_default_queue, is_user_queue_override_allowed,
+            )
+            _gq_id, _gq_label = get_global_default_queue()
+            current_global_default_queue_id    = _gq_id
+            current_global_default_queue_label = _gq_label
+            current_allow_user_override        = is_user_queue_override_allowed()
+        except Exception:
+            current_global_default_queue_id    = ""
+            current_global_default_queue_label = ""
+            current_allow_user_override        = False
+        queues_for_picker: list = []
+
         # v0.4.5: Tenant-Record laden fuer Printix-Credentials-Editor.
         # Wir zeigen die Tenant-ID + Client-IDs im Klartext (sind keine
         # Secrets — die Tenant-ID hat eh jeder im Printix-Admin der die
@@ -4040,6 +4068,10 @@ def create_app(session_secret: str) -> FastAPI:
             "public_url": public_url,
             "base_url": _get_base_url(request),
             "tenant_full": tenant_full or {},
+            "current_global_default_queue_id":    current_global_default_queue_id,
+            "current_global_default_queue_label": current_global_default_queue_label,
+            "current_allow_user_override":        current_allow_user_override,
+            "queues_for_picker":                  _load_printix_queues_for_admin(tenant_full) if tenant_full else [],
             "capture_public_url": capture_public_url,
             "ipps_public_url": ipps_public_url,
             "ipps_public_host": ipps_public_host,
@@ -4586,6 +4618,176 @@ def create_app(session_secret: str) -> FastAPI:
                     os.unlink(tmp_path)
             except Exception:
                 pass
+
+    # ─── Queue-Defaults Admin (v0.5.0) ────────────────────────────────────
+    # 3-Tier-Hierarchie: Global → Sync-Gruppe → User-Override.
+    # Globaler Default + Override-Toggle leben in /admin/settings#queue;
+    # per-Gruppe-Defaults haben ihre eigene Seite /admin/groups.
+
+    def _load_printix_queues_for_admin(tenant) -> list[dict]:
+        """Lädt alle Queues des Printix-Tenants für Dropdowns."""
+        if not tenant or not (tenant.get("print_client_id")
+                              or tenant.get("shared_client_id")):
+            return []
+        try:
+            import sys as _s, os as _o, re as _re
+            _s.path.insert(0, _o.path.dirname(_o.path.dirname(__file__)))
+            from printix_client import PrintixClient
+            client = PrintixClient(
+                tenant_id=tenant["printix_tenant_id"],
+                print_client_id=tenant.get("print_client_id", ""),
+                print_client_secret=tenant.get("print_client_secret", ""),
+                shared_client_id=tenant.get("shared_client_id", ""),
+                shared_client_secret=tenant.get("shared_client_secret", ""),
+            )
+            data = client.list_printers(size=200)
+            raw = data.get("printers", []) if isinstance(data, dict) else []
+            if not raw:
+                raw = (data.get("_embedded") or {}).get("printers", []) if isinstance(data, dict) else []
+            queues = []
+            for item in raw:
+                href = (item.get("_links") or {}).get("self", {}).get("href", "")
+                m = _re.search(r"/printers/([^/]+)/queues/([^/?]+)", href)
+                if m:
+                    name = item.get("name", "") or m.group(2)
+                    is_any = "anywhere" in name.lower()
+                    queues.append({
+                        "queue_id":      m.group(2),
+                        "queue_name":    name,
+                        "printer_id":    m.group(1),
+                        "printer_name":  item.get("name", ""),
+                        "is_anywhere":   is_any,
+                    })
+            # Anywhere-Queues nach oben sortieren
+            queues.sort(key=lambda q: (not q["is_anywhere"], q["queue_name"].lower()))
+            return queues
+        except Exception as e:
+            logger.warning("Printix-Queues-Abruf fehlgeschlagen: %s", e)
+            return []
+
+    @app.post("/admin/settings/queue-defaults/save", response_class=HTMLResponse)
+    async def admin_queue_defaults_save(
+        request: Request,
+        default_queue_id:           str = Form(default=""),
+        default_queue_label:        str = Form(default=""),
+        allow_user_queue_override:  str = Form(default=""),
+    ):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        from cloudprint.db_extensions import (
+            set_global_default_queue, set_user_queue_override_allowed,
+        )
+        from db import audit
+        set_global_default_queue(default_queue_id.strip(), default_queue_label.strip())
+        set_user_queue_override_allowed(
+            allow_user_queue_override in ("1", "on", "true")
+        )
+        audit(user["id"], "queue_defaults_saved",
+              f"global={default_queue_id} override={allow_user_queue_override or 'off'}")
+        return RedirectResponse(
+            "/admin/settings?ok=queue_saved#queue", status_code=302,
+        )
+
+    @app.get("/admin/groups", response_class=HTMLResponse)
+    async def admin_groups_page(request: Request):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        from db import (
+            get_tenant_full_by_user_id, _find_tenant_owner_user_id,
+        )
+        from cloudprint.db_extensions import list_group_queue_defaults
+        tenant = get_tenant_full_by_user_id(user["id"])
+        if not tenant:
+            oid = _find_tenant_owner_user_id()
+            tenant = get_tenant_full_by_user_id(oid) if oid else None
+
+        printix_groups: list[dict] = []
+        if tenant and (tenant.get("print_client_id") or tenant.get("shared_client_id")):
+            try:
+                import sys as _s, os as _o
+                _s.path.insert(0, _o.path.dirname(_o.path.dirname(__file__)))
+                from printix_client import PrintixClient
+                client = PrintixClient(
+                    tenant_id=tenant["printix_tenant_id"],
+                    print_client_id=tenant.get("print_client_id", ""),
+                    print_client_secret=tenant.get("print_client_secret", ""),
+                    shared_client_id=tenant.get("shared_client_id", ""),
+                    shared_client_secret=tenant.get("shared_client_secret", ""),
+                )
+                data = client.list_groups(size=200)
+                raw = (data.get("_embedded") or {}).get("groups", []) if isinstance(data, dict) else []
+                if not raw:
+                    raw = data.get("groups", []) if isinstance(data, dict) else []
+                for g in raw:
+                    href = (g.get("_links") or {}).get("self", {}).get("href", "")
+                    gid = href.rstrip("/").split("/")[-1] if href else g.get("id", "")
+                    printix_groups.append({
+                        "id":   gid,
+                        "name": g.get("name", ""),
+                        "description": g.get("description", ""),
+                    })
+            except Exception as e:
+                logger.warning("Printix-Groups-Abruf fehlgeschlagen: %s", e)
+
+        # Bestehende Group-Defaults laden
+        tid = (tenant or {}).get("id", "")
+        existing_defaults = list_group_queue_defaults(tid) if tid else []
+        existing_map = {d["printix_group_id"]: d for d in existing_defaults}
+
+        # Queues fürs Dropdown
+        queues = _load_printix_queues_for_admin(tenant) if tenant else []
+
+        return templates.TemplateResponse("admin_groups.html", {
+            "request": request, "user": user,
+            "tenant": tenant or {},
+            "printix_groups": printix_groups,
+            "existing_defaults_map": existing_map,
+            "queues": queues,
+            "active_page": "admin_groups",
+            **t_ctx(request),
+        })
+
+    @app.post("/admin/groups/set-queue", response_class=HTMLResponse)
+    async def admin_groups_set_queue(
+        request: Request,
+        printix_group_id:   str = Form(...),
+        printix_group_name: str = Form(default=""),
+        queue_id:           str = Form(default=""),
+        queue_label:        str = Form(default=""),
+        printer_id:         str = Form(default=""),
+    ):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        from db import (
+            get_tenant_full_by_user_id, _find_tenant_owner_user_id, audit,
+        )
+        from cloudprint.db_extensions import (
+            set_group_queue_default, delete_group_queue_default,
+        )
+        tenant = get_tenant_full_by_user_id(user["id"])
+        if not tenant:
+            oid = _find_tenant_owner_user_id()
+            tenant = get_tenant_full_by_user_id(oid) if oid else None
+        if not tenant:
+            return RedirectResponse("/admin/groups?err=no_tenant", status_code=302)
+        tid = tenant["id"]
+        if not queue_id.strip():
+            # Löschen
+            delete_group_queue_default(tid, printix_group_id)
+            audit(user["id"], "group_queue_cleared",
+                  f"group={printix_group_id}")
+        else:
+            set_group_queue_default(
+                tid, printix_group_id, printix_group_name,
+                queue_id.strip(), queue_label.strip(),
+                printer_id.strip(), created_by=user.get("username", ""),
+            )
+            audit(user["id"], "group_queue_set",
+                  f"group={printix_group_id} → queue={queue_id}")
+        return RedirectResponse("/admin/groups?ok=saved", status_code=302)
 
     # ─── GDPR / Datenschutz Admin Page (v0.4.6) ──────────────────────────
     # Zentralisiert die DSGVO-relevanten Settings: Daten-Retention (wie

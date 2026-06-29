@@ -1,0 +1,49 @@
+{# v0.4.8 stub — scaffold for slim server, expand in v0.5.0+ #}
+{% extends "base.html" %}
+{% block title %}{{ _('emp_mobile_app') }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="card" style="margin-bottom:16px;">
+    <div class="section-title">📱 {{ _('emp_mobile_app') }}</div>
+    <div class="section-sub">{{ _('emp_mobile_app_intro') }}</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;">
+
+    <div class="card">
+      <div class="section-title">1. {{ _('emp_mobile_step1_title') }}</div>
+      <div class="section-sub">{{ _('emp_mobile_step1_sub') }}</div>
+      <p style="margin-top:12px;text-align:center;">
+        <img src="/my/mobile-app/testflight-qr.png" alt="TestFlight QR"
+             style="max-width:220px;border-radius:12px;border:1px solid var(--ta-gray-300);">
+      </p>
+      <p style="text-align:center;margin-top:8px;">
+        <a class="btn btn-secondary btn-sm" href="{{ testflight_url }}" target="_blank" rel="noopener">
+          🔗 {{ _('emp_mobile_open_testflight') }}
+        </a>
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="section-title">2. {{ _('emp_mobile_step2_title') }}</div>
+      <div class="section-sub">{{ _('emp_mobile_step2_sub') }}</div>
+      <p style="margin-top:12px;text-align:center;">
+        <img src="/my/mobile-app/qr.png" alt="Server QR"
+             style="max-width:240px;border-radius:12px;border:1px solid var(--ta-gray-300);">
+      </p>
+      <div class="section-sub" style="margin-top:8px;">{{ _('emp_mobile_server_url') }}:</div>
+      <div class="code-block" style="margin-top:4px;">{{ mobile_base_url }}</div>
+      <details style="margin-top:8px;">
+        <summary style="cursor:pointer;color:#475569;font-size:.85em;">{{ _('emp_mobile_qr_payload') }}</summary>
+        <div class="code-block" style="margin-top:4px;">{{ mobile_qr_payload_hint }}</div>
+      </details>
+    </div>
+
+    <div class="card">
+      <div class="section-title">3. {{ _('emp_mobile_step3_title') }}</div>
+      <div class="section-sub">{{ _('emp_mobile_step3_sub') }}</div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

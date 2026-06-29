@@ -695,49 +695,43 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
 
         parent_id = get_parent_user_id(user["user_id"])
         tenant = get_tenant_full_by_user_id(parent_id)
-        config = get_cloudprint_config(user["user_id"])
 
-        # v6.7.35/36: Symmetrische Fallback-Kette zu /desktop/send
-        # — Single-Tenant → Admin-Tenant.
-        if not (config and config.get("lpr_target_queue")):
-            try:
-                from cloudprint.db_extensions import (
-                    get_default_single_tenant, get_admin_tenant_with_queue,
-                )
-                fallback = get_default_single_tenant()
-                if not (fallback and fallback.get("lpr_target_queue")):
-                    fallback = get_admin_tenant_with_queue()
-                if fallback and fallback.get("lpr_target_queue"):
-                    config = fallback
-                    if not tenant:
-                        tenant = get_tenant_full_by_user_id(fallback["user_id"])
-                    logger.debug(
-                        "Desktop-Targets: Fallback-Tenant aktiv für user='%s' "
-                        "→ queue=%s",
-                        user.get("username"), fallback.get("lpr_target_queue"),
-                    )
-            except Exception as _fb:
-                logger.debug("Desktop-Targets Fallback failed: %s", _fb)
+        # v0.5.0: 3-Tier Queue-Resolution.
+        # User-Override → Group-Default → Global-Default → leer.
+        # Ersetzt die alte fallback-Kette die nur den Admin-Tenant ueberprueft hat.
+        try:
+            from cloudprint.db_extensions import resolve_user_queue
+            queue_id, queue_label, source = resolve_user_queue(user["user_id"])
+        except Exception as _re:
+            logger.debug("resolve_user_queue failed: %s", _re)
+            queue_id, queue_label, source = ("", "", "error")
 
         targets: list[dict] = []
         breakdown = {"self": 0, "delegates": 0, "capture": 0}
 
-        # 1) Eigene Secure-Print-Queue
-        if tenant and config and config.get("lpr_target_queue"):
+        # 1) Eigene Secure-Print-Queue (Quelle entsprechend dem Resolver)
+        if queue_id:
+            description = {
+                "user_override": "Eigene Queue-Auswahl",
+                "global":        "Vom Admin festgelegte Standard-Queue",
+            }.get(source, source if source.startswith("group:") else "Default-Queue")
+            if source.startswith("group:"):
+                description = f"Über Sync-Gruppe „{source[6:]}“"
             targets.append({
                 "id": "print:self",
                 "type": "print_secure",
-                "label": "Mein Secure Print",
-                "description": "Direkt in deine persönliche Release-Queue",
+                "label": queue_label or "Mein Secure Print",
+                "description": description,
                 "icon": "printer",
                 "is_default": True,
+                "_source": source,
+                "_queue_id": queue_id,
             })
             breakdown["self"] = 1
         else:
             logger.debug(
-                "Desktop-Targets: kein Secure-Print — tenant=%s queue=%s user='%s'",
-                bool(tenant), (config or {}).get("lpr_target_queue"),
-                user.get("username"),
+                "Desktop-Targets: kein Secure-Print — tenant=%s user='%s' source=%s",
+                bool(tenant), user.get("username"), source,
             )
 
         # 2) Delegates (jede aktive Delegation = 1 Ziel)

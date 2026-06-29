@@ -1,0 +1,22 @@
+{# v0.4.8 stub — license module is a stub returning True; this page should rarely render #}
+{% extends "base.html" %}
+{% block title %}{{ _('feature_locked_title') }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width:640px;">
+  <div class="card" style="text-align:center;">
+    <div style="font-size:3em;line-height:1;">{{ feature_icon | default('🔓') }}</div>
+    <div class="section-title" style="justify-content:center;margin-top:8px;">
+      {{ feature_label | default(_('feature_locked_title')) }}
+    </div>
+    <div class="section-sub" style="margin-top:6px;">
+      {{ feature_desc | default('') }}
+    </div>
+    <div class="alert alert-info" style="margin-top:18px;text-align:left;">
+      ℹ {{ _('feature_locked_always_on') }}
+    </div>
+    <p style="margin-top:16px;">
+      <a href="/my" class="btn btn-primary">← {{ _('breadcrumb_dashboard') }}</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,70 @@
+{# v0.4.8 stub — scaffold for slim server, expand in v0.5.0+ #}
+{% extends "base.html" %}
+{% block title %}{{ employee.username }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="card" style="margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div>
+        <div class="section-title">👤 {{ employee.full_name or employee.username }}</div>
+        <div class="section-sub">{{ employee.email or '—' }}</div>
+      </div>
+      <form method="post" action="/my/employees/{{ employee.id }}/delete"
+            onsubmit="return confirm('{{ _('emp_delete_confirm') }}');">
+        <button type="submit" class="btn btn-danger">{{ _('emp_delete') }}</button>
+      </form>
+    </div>
+
+    <hr class="divider">
+
+    <table style="width:auto;">
+      <tr><td><strong>{{ _('emp_col_username') }}</strong></td><td><code>{{ employee.username }}</code></td></tr>
+      <tr><td><strong>{{ _('emp_col_full_name') }}</strong></td><td>{{ employee.full_name or '—' }}</td></tr>
+      <tr><td><strong>{{ _('emp_col_email') }}</strong></td><td>{{ employee.email or '—' }}</td></tr>
+      <tr><td><strong>{{ _('emp_col_printix_id') }}</strong></td><td><code style="font-size:.85em;">{{ employee.printix_user_id or '—' }}</code></td></tr>
+      <tr><td><strong>{{ _('emp_col_created') }}</strong></td><td>{{ employee.created_at or '—' }}</td></tr>
+    </table>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="section-title">📤 {{ _('emp_delegation_out_title') }}</div>
+    {% if delegations_out %}
+    <ul style="margin-top:8px;">
+      {% for d in delegations_out %}
+        <li>
+          {{ d.delegate_full_name or d.delegate_email or d.delegate_user_id }}
+          <span class="badge badge-blue">{{ d.status or 'active' }}</span>
+          {% if d.status == 'pending' %}
+            <form method="post" action="/my/employees/delegation/{{ d.id }}/approve" style="display:inline;">
+              <button type="submit" class="btn btn-success btn-sm">{{ _('emp_approve') }}</button>
+            </form>
+            <form method="post" action="/my/employees/delegation/{{ d.id }}/reject" style="display:inline;">
+              <button type="submit" class="btn btn-danger btn-sm">{{ _('emp_reject') }}</button>
+            </form>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p style="margin-top:8px;color:#64748b;">{{ _('emp_delegation_no_out') }}</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="section-title">📥 {{ _('emp_delegation_in_title') }}</div>
+    {% if delegations_in %}
+    <ul style="margin-top:8px;">
+      {% for d in delegations_in %}
+        <li>{{ d.owner_full_name or d.owner_email or d.owner_user_id }} <span class="badge badge-blue">{{ d.status or 'active' }}</span></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p style="margin-top:8px;color:#64748b;">{{ _('emp_delegation_no_in') }}</p>
+    {% endif %}
+  </div>
+
+  <p style="margin-top:14px;">
+    <a href="/my/employees" class="btn btn-secondary">← {{ _('emp_back_to_list') }}</a>
+  </p>
+</div>
+{% endblock %}
