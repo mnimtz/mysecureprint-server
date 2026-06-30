@@ -590,24 +590,57 @@ async def _process_desktop_send_bg(
             except Exception:
                 pass
 
-            # v0.7.18: Args 1:1 wie in printix-mcp-linux/employee_routes.py:752
-            # (das nachweislich funktionierte). release_immediately=False,
-            # user=email als Query-Param. Mein v0.7.15-Wechsel auf True war
-            # falsch (basierte auf der Default-Annahme statt produktivem Code).
-            result = client.submit_print_job(
-                printer_id=printer_id,
-                queue_id=target_queue,
-                title=display_filename,
-                user=submit_user_email,
-                pdl="PDF",
-                release_immediately=False,
+            # v0.7.18: Args 1:1 wie printix-mcp-linux/employee_routes.py:752.
+            # v0.7.20: Wenn der Submit mit allen Body-Feldern 500 zurueckgibt,
+            # retry mit MINIMALEM Body (kein color/duplex/copies). Manche
+            # Printix-Tenant-Konfigs reagieren auf bestimmte Body-Felder
+            # mit UNKNOWN_ERROR — z.B. wenn duplex=NONE serverseitig
+            # disallowed ist. Mit reduziertem Body sehen wir ob ein Feld
+            # der Schuldige war.
+            from printix_client import PrintixAPIError as _PxErr
+            def _do_submit(**extra):
+                return client.submit_print_job(
+                    printer_id=printer_id,
+                    queue_id=target_queue,
+                    title=display_filename,
+                    user=submit_user_email,
+                    pdl="PDF",
+                    release_immediately=False,
+                    **extra,
+                )
+            _full_kwargs = dict(
                 color=bool(color),
                 duplex=("LONG_EDGE" if duplex else "NONE"),
                 copies=max(1, min(99, int(copies or 1))),
             )
-            logger.info(
-                "Desktop-Send [4/5] submit OK — user='%s'", submit_user_email,
-            )
+            try:
+                result = _do_submit(**_full_kwargs)
+                logger.info(
+                    "Desktop-Send [4/5] submit OK — user='%s' (full body)",
+                    submit_user_email,
+                )
+            except _PxErr as _px_e:
+                if _px_e.status_code == 500:
+                    logger.warning(
+                        "Desktop-Send [4/5] submit 500 mit full body "
+                        "(ErrorID=%s) — Retry mit minimal body…",
+                        getattr(_px_e, 'error_id', ''),
+                    )
+                    try:
+                        result = _do_submit()
+                        logger.info(
+                            "Desktop-Send [4/5] submit OK — user='%s' (minimal body)",
+                            submit_user_email,
+                        )
+                    except _PxErr as _px_e2:
+                        # Auch minimal failed -> Bug ist nicht im Body
+                        logger.error(
+                            "Desktop-Send [4/5] submit 500 auch mit minimal body "
+                            "(ErrorID=%s)", getattr(_px_e2, 'error_id', ''),
+                        )
+                        raise
+                else:
+                    raise
             result_job = result.get("job", result) if isinstance(result, dict) else {}
             px_job_id = result_job.get("id", "") if isinstance(result_job, dict) else ""
             upload_url = ""

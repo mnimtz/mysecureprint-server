@@ -1,5 +1,20 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.20 — 2026-06-30 — Submit-Retry mit minimalem Body bei 500
+
+Wenn der Submit mit vollem Body ({color, duplex, copies}) 500 zurueckgibt,
+wird automatisch ein zweiter Submit mit MINIMALEM Body ({}) versucht.
+Damit testen wir empirisch ob ein Body-Feld die UNKNOWN_ERROR-Ursache ist.
+
+Log-Verhalten:
+- 'submit OK (full body)' -> alles gut
+- 'submit 500 mit full body … Retry mit minimal body' -> erstes Submit
+  failed, Retry laeuft
+- 'submit OK (minimal body)' -> Body-Feld war der Schuldige; muss
+  identifiziert werden
+- 'submit 500 auch mit minimal body' -> Bug ist nicht im Body, sondern
+  in Auth/Tenant-Config/Premium-Lizenz
+
 ## 0.7.19 — 2026-06-30 — /health/perf Diagnose-Endpoint + Slow-Log immer aktiv
 
 User-Report: jede Admin-Seite + iOS-Send braucht ~2 Min, trotz v0.7.15
