@@ -1,5 +1,30 @@
 # Changelog — MySecurePrint Server
 
+## 0.6.9 — 2026-06-30 — Entra-Auto-Register: Mobile-Redirect-URI fuer iOS
+
+User-Report: iOS-App-Anmeldung via Microsoft scheitert mit
+AADSTS50011 'redirect URI mysecureprint://oauth/callback does not
+match the redirect URIs configured for the application'. Web-Login am
+Server geht — die per Entra-Auto-Setup registrierte App hatte aber
+nur den Server-Callback (web.redirectUris), nicht den iOS-Custom-URL-
+Scheme-Redirect (publicClient.redirectUris). Folge: jede Erst-
+Einrichtung muss manuell im Azure-Portal nachgepatched werden.
+
+Fix: `auto_register_app()` legt jetzt zusaetzlich die Mobile-Platform
+mit `mysecureprint://oauth/callback` an und markiert die App via
+`isFallbackPublicClient: true` als Public-Client (Voraussetzung fuer
+PKCE ohne Client-Secret).
+
+**Workaround fuer bestehende Tenants** (deren App vor v0.6.9 registriert
+wurde): einmalig im Azure-Portal nachpatchen:
+
+  Azure-Portal → App-Registrierung → Authentifizierung →
+  Plattform hinzufuegen → Mobile and desktop applications →
+  Custom redirect URI: `mysecureprint://oauth/callback`
+
+(Ein „Repair"-Button im Admin-UI, der das via Graph-API selbst macht,
+ist fuer v0.7 vorgesehen.)
+
 ## 0.6.8 — 2026-06-30 — CRITICAL: Root-Cause /desktop/* 404 gefunden + gefixt
 
 Aus den Azure-StartupLogs der v0.6.7-Instanz:

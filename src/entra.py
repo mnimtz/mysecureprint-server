@@ -587,6 +587,14 @@ def auto_register_app(
                           "AzureADandPersonalMicrosoftAccount",
                           "PersonalMicrosoftAccount"):
         audience = "AzureADMyOrg"
+    # v0.6.9: zusaetzlich zum Server-Callback (Web-Platform) auch die
+    # Mobile-/Desktop-Custom-URL-Scheme-Redirects registrieren, damit
+    # die iOS-App via PKCE (ohne Client-Secret) anmelden kann. Vorher
+    # bekam jeder iOS-Login AADSTS50011 'redirect URI does not match'.
+    # publicClient.redirectUris ist die Microsoft-„Mobile and Desktop
+    # Applications" Platform; isFallbackPublicClient erlaubt PKCE
+    # ohne Client-Secret-Pflicht.
+    mobile_redirects = ["mysecureprint://oauth/callback"]
     app_body = {
         "displayName": app_name,
         "signInAudience": audience,
@@ -596,6 +604,10 @@ def auto_register_app(
                 "enableIdTokenIssuance": True,
             },
         },
+        "publicClient": {
+            "redirectUris": mobile_redirects,
+        },
+        "isFallbackPublicClient": True,
         "requiredResourceAccess": [
             {
                 "resourceAppId": "00000003-0000-0000-c000-000000000000",
