@@ -5038,9 +5038,20 @@ def create_app(session_secret: str) -> FastAPI:
         except Exception:
             page = 1
         PAGE_SIZE = 100
+        # v0.7.13: trace_active separat berechnen — vorher hat ein
+        # Exception in list_trace_entries (z.B. leere Tabelle / fehlender
+        # Spalten-Mismatch) trace_active auf False gesetzt, OBWOHL das
+        # Setting in der DB sauber auf '1' stand. Das war der Grund warum
+        # der Toggle scheinbar nichts tat.
+        try:
+            from api_trace import is_enabled
+            trace_active = is_enabled()
+        except Exception as e:
+            logger.warning("api_trace.is_enabled() failed: %s", e)
+            trace_active = False
         try:
             from api_trace import (
-                list_trace_entries, list_distinct_components, is_enabled,
+                list_trace_entries, list_distinct_components,
             )
             entries, total_count = list_trace_entries(
                 component=f_component, method=f_method,
@@ -5048,11 +5059,10 @@ def create_app(session_secret: str) -> FastAPI:
                 page=page, page_size=PAGE_SIZE,
             )
             distinct_components = list_distinct_components()
-            trace_active = is_enabled()
         except Exception as e:
             logger.warning("admin_api_trace query failed: %s", e)
             entries, total_count = [], 0
-            distinct_components, trace_active = [], False
+            distinct_components = []
 
         # Severity-Klasse aus Status ableiten (fuer Tabellenfarbe).
         for e in entries:

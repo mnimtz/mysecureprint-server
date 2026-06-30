@@ -1,5 +1,19 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.13 — 2026-06-30 — API-Trace 'Aktiv'-Status auch ohne Listing-Daten
+
+User-Report: Setting im Audit-Log korrekt gespeichert (`api_trace_toggle
+enabled=1`), aber das Dashboard zeigt weiter „Inaktiv".
+
+Root-Cause: `is_enabled()` lag im selben try/except-Block wie
+`list_trace_entries` / `list_distinct_components`. Wenn EINE der
+beiden Listing-Calls eine Exception warf (z.B. leere Tabelle nach
+Schema-Init-Race), wurde `trace_active = False` im except-Block
+gesetzt — obwohl das Setting in der DB sauber auf "1" stand.
+
+Fix: `is_enabled()` separat berechnen. Wenn der Listing-Code crasht,
+bleibt der Aktiv-Status trotzdem korrekt sichtbar.
+
 ## 0.7.12 — 2026-06-30 — API-Trace-Toggle: visuelles Feedback + GET-Fallback
 
 User-Report: 'Einschalten'-Button im /admin/api-trace bewirkte nichts
