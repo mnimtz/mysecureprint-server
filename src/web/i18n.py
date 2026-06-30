@@ -33180,6 +33180,70 @@ for _lang in list(TRANSLATIONS.keys()):
         TRANSLATIONS[_lang].update(_V052_AUDIT_KEYS["en"])
 
 
+# v0.7.4 — Audit-Log UI Redesign: Severity, Source, klickbare Filter, bessere Pagination
+_V074_AUDIT_UI: dict[str, dict[str, str]] = {
+    "de": {
+        "audit_page_title": "Audit-Log",
+        "audit_back_overview": "Übersicht",
+        "audit_all": "Alle",
+        "audit_filter_severity": "Severity",
+        "audit_filter_source": "Quelle",
+        "audit_sev_info": "Info",
+        "audit_sev_warning": "Warnung",
+        "audit_sev_error": "Fehler",
+        "audit_col_timestamp": "Zeitstempel",
+        "audit_col_severity": "Severity",
+        "audit_col_user": "Benutzer",
+        "audit_col_action": "Aktion",
+        "audit_col_source": "Quelle",
+        "audit_col_details": "Details",
+        "audit_click_to_filter": "Klicken zum Filtern",
+        "audit_page_indicator": "Seite {page} von {total_pages} ({total} Einträge gesamt)",
+        "audit_prev": "Zurück",
+        "audit_next": "Weiter",
+        "audit_empty_title": "Keine Einträge gefunden",
+        "audit_empty_hint": "Keine Audit-Einträge passend zu den aktuellen Filtern.",
+        "audit_source_ios_app": "iOS-App",
+        "audit_source_web": "Web-UI",
+        "audit_source_email": "E-Mail",
+        "audit_source_desktop": "Desktop",
+        "audit_source_mcp": "MCP",
+    },
+    "en": {
+        "audit_page_title": "Audit Log",
+        "audit_back_overview": "Overview",
+        "audit_all": "All",
+        "audit_filter_severity": "Severity",
+        "audit_filter_source": "Source",
+        "audit_sev_info": "Info",
+        "audit_sev_warning": "Warning",
+        "audit_sev_error": "Error",
+        "audit_col_timestamp": "Timestamp",
+        "audit_col_severity": "Severity",
+        "audit_col_user": "User",
+        "audit_col_action": "Action",
+        "audit_col_source": "Source",
+        "audit_col_details": "Details",
+        "audit_click_to_filter": "Click to filter",
+        "audit_page_indicator": "Page {page} of {total_pages} ({total} entries total)",
+        "audit_prev": "Previous",
+        "audit_next": "Next",
+        "audit_empty_title": "No entries found",
+        "audit_empty_hint": "No audit entries match the current filters.",
+        "audit_source_ios_app": "iOS App",
+        "audit_source_web": "Web UI",
+        "audit_source_email": "Email",
+        "audit_source_desktop": "Desktop",
+        "audit_source_mcp": "MCP",
+    },
+}
+for _lang, _keys in _V074_AUDIT_UI.items():
+    TRANSLATIONS.setdefault(_lang, {}).update(_keys)
+for _lang in list(TRANSLATIONS.keys()):
+    if _lang not in _V074_AUDIT_UI:
+        TRANSLATIONS[_lang].update(_V074_AUDIT_UI["en"])
+
+
 # v0.5.2 — Bulk Mobile-Invite, configurable Email-Template, Printix Auto-Sync
 _V052_INVITE_SYNC_KEYS: dict[str, dict[str, str]] = {
     "de": {

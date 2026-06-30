@@ -4763,6 +4763,10 @@ def create_app(session_secret: str) -> FastAPI:
         f_to_date = (qp.get("to_date") or "").strip()
         f_from_time = (qp.get("from_time") or "").strip()
         f_to_time = (qp.get("to_time") or "").strip()
+        f_severity = (qp.get("severity") or "").strip().lower()
+        if f_severity not in ("info", "warning", "error"):
+            f_severity = ""
+        f_source = (qp.get("source") or "").strip()
         try:
             page = max(1, int(qp.get("page") or "1"))
         except Exception:
@@ -4783,6 +4787,7 @@ def create_app(session_secret: str) -> FastAPI:
 
         entries = []
         distinct_actions = []
+        distinct_sources: list = []
         total_count = 0
         try:
             from db import _conn
@@ -4801,6 +4806,14 @@ def create_app(session_secret: str) -> FastAPI:
             if end_iso:
                 where.append("a.created_at <= ?")
                 params.append(end_iso + ":59")
+            if f_source:
+                # v0.7.4: Source-Filter — bevorzugt json_extract (SQLite ≥3.38),
+                # Fallback LIKE auf das details-Feld.
+                where.append(
+                    "(json_extract(a.details, '$.source') = ? "
+                    "OR a.details LIKE ?)"
+                )
+                params.extend([f_source, f'%"source": "{f_source}"%'])
             where_sql = (" WHERE " + " AND ".join(where)) if where else ""
             offset = (page - 1) * PAGE_SIZE
             with _conn() as conn:
@@ -4814,6 +4827,18 @@ def create_app(session_secret: str) -> FastAPI:
                 except Exception:
                     distinct_actions = []
                 try:
+                    distinct_sources = [
+                        r["src"] for r in conn.execute(
+                            "SELECT DISTINCT json_extract(details, '$.source') AS src "
+                            "FROM audit_log "
+                            "WHERE src IS NOT NULL AND src <> '' "
+                            "ORDER BY src ASC"
+                        ).fetchall()
+                        if r["src"]
+                    ]
+                except Exception:
+                    distinct_sources = ["ios_app", "web", "email", "desktop", "mcp"]
+                try:
                     total_count = conn.execute(
                         f"SELECT COUNT(*) AS c FROM audit_log a "
                         f"LEFT JOIN users u ON u.id = a.user_id{where_sql}",
@@ -4822,7 +4847,7 @@ def create_app(session_secret: str) -> FastAPI:
                 except Exception:
                     total_count = 0
                 rows = conn.execute(
-                    f"SELECT a.*, u.username, u.email FROM audit_log a "
+                    f"SELECT a.*, u.username, u.email, u.full_name FROM audit_log a "
                     f"LEFT JOIN users u ON u.id = a.user_id{where_sql} "
                     f"ORDER BY a.created_at DESC LIMIT ? OFFSET ?",
                     tuple(params) + (PAGE_SIZE, offset),
@@ -4831,6 +4856,43 @@ def create_app(session_secret: str) -> FastAPI:
         except Exception as e:
             logger.warning("admin_audit query failed: %s", e)
             entries = []
+
+        # v0.7.4: Severity-Derivation + Display-User-Aufbereitung pro Entry.
+        _ERROR_TOKENS = ("_failed", "_error", "denied", "revoked",
+                         "oid_mismatch", "unauthorized")
+        _WARN_TOKENS  = ("_warning", "_expired", "disabled", "removed")
+        for e in entries:
+            act = (e.get("action") or "").lower()
+            if any(tok in act for tok in _ERROR_TOKENS):
+                e["severity"] = "error"
+            elif any(tok in act for tok in _WARN_TOKENS):
+                e["severity"] = "warning"
+            else:
+                e["severity"] = "info"
+            fn    = (e.get("full_name") or "").strip()
+            uname = (e.get("username") or "").strip()
+            email = (e.get("email") or "").strip()
+            uid   = (e.get("user_id") or "")
+            e["display_user"] = fn or uname or email or (uid[:8] + "…" if uid else "—")
+            e["filter_user"]  = uname or email or fn  # Klick-Filter-Wert
+            # Source aus JSON-Details extrahieren (best-effort).
+            src = ""
+            det = e.get("details") or ""
+            if det and '"source"' in det:
+                try:
+                    import json as _json
+                    parsed = _json.loads(det)
+                    if isinstance(parsed, dict):
+                        src = str(parsed.get("source") or "").strip()
+                except Exception:
+                    # Regex-Fallback fuer nicht-JSON-Details
+                    import re as _re
+                    m = _re.search(r'"source"\s*:\s*"([^"]+)"', det)
+                    if m:
+                        src = m.group(1).strip()
+            e["source"] = src
+        if f_severity:
+            entries = [e for e in entries if e.get("severity") == f_severity]
 
         has_prev = page > 1
         has_next = (page * PAGE_SIZE) < total_count
@@ -4841,15 +4903,24 @@ def create_app(session_secret: str) -> FastAPI:
             "user": f_user, "action": f_action,
             "from_date": f_from_date, "to_date": f_to_date,
             "from_time": f_from_time, "to_time": f_to_time,
+            "severity": f_severity,
+            "source": f_source,
         }
         base_qs = {k: v for k, v in base_qs.items() if v}
+
+        import math as _math
+        total_pages = max(1, _math.ceil(total_count / PAGE_SIZE)) if total_count else 1
 
         return templates.TemplateResponse("admin_audit.html", {
             "request": request, "user": user, "entries": entries,
             "distinct_actions": distinct_actions,
+            "distinct_sources": distinct_sources,
             "filter_user": f_user, "filter_action": f_action,
             "filter_from_date": f_from_date, "filter_to_date": f_to_date,
             "filter_from_time": f_from_time, "filter_to_time": f_to_time,
+            "filter_severity": f_severity,
+            "filter_source": f_source,
+            "total_pages": total_pages,
             "page": page, "page_size": PAGE_SIZE, "total_count": total_count,
             "has_prev": has_prev, "has_next": has_next,
             "prev_qs": urlencode({**base_qs, "page": page - 1}) if has_prev else "",

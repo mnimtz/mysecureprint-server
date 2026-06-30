@@ -1,50 +1,214 @@
 {% extends "base.html" %}
 {% block title %}Audit-Log — {{ _('brand_console_name') }}{% endblock %}
 {% block content %}
+<style>
+  /* v0.7.4 — Audit-Log UI Redesign */
+  .audit-filter-bar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 18px;
+    padding: 16px;
+    background: var(--surface, #f9fafb);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 10px;
+  }
+  .audit-filter-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  @media (min-width: 768px) {
+    .audit-filter-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1100px) {
+    .audit-filter-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+  .audit-filter-field label {
+    display: block;
+    font-size: .78em;
+    color: var(--text-muted, #6b7280);
+    margin-bottom: 4px;
+    font-weight: 500;
+  }
+  .audit-filter-field .input,
+  .audit-filter-field input,
+  .audit-filter-field select {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .audit-filter-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+    align-items: center;
+    padding-top: 4px;
+    border-top: 1px dashed var(--border, #e5e7eb);
+    margin-top: 4px;
+  }
+  .audit-filter-actions .spacer { flex: 1 1 auto; }
+
+  /* Severity-Badges */
+  .sev-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: .72em;
+    font-weight: 600;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    line-height: 1.6;
+    white-space: nowrap;
+  }
+  .sev-info {
+    background: rgba(59, 130, 246, .12);
+    color: #1d4ed8;
+    border: 1px solid rgba(59, 130, 246, .35);
+  }
+  .sev-warning {
+    background: rgba(245, 158, 11, .14);
+    color: #b45309;
+    border: 1px solid rgba(245, 158, 11, .45);
+  }
+  .sev-error {
+    background: rgba(220, 38, 38, .14);
+    color: #b91c1c;
+    border: 1px solid rgba(220, 38, 38, .5);
+    font-weight: 700;
+  }
+  tr.row-sev-error  td { background: rgba(220, 38, 38, .04); }
+  tr.row-sev-warning td { background: rgba(245, 158, 11, .04); }
+
+  .audit-action-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: var(--bg, #f3f4f6);
+    border: 1px solid var(--border, #e5e7eb);
+    color: var(--text, #111827);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .78em;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background .12s ease, border-color .12s ease;
+  }
+  .audit-action-badge:hover {
+    background: var(--primary-bg, #eef2ff);
+    border-color: var(--primary, #6366f1);
+  }
+  .audit-user-link {
+    color: var(--text, #111827);
+    text-decoration: none;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .audit-user-link:hover { text-decoration: underline; color: var(--primary, #6366f1); }
+  .audit-user-sub {
+    display: block;
+    font-size: .72em;
+    color: var(--text-muted, #6b7280);
+    margin-top: 1px;
+  }
+  .audit-ts {
+    font-size: .8em;
+    color: var(--text-muted, #6b7280);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: nowrap;
+  }
+  .audit-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border, #e5e7eb);
+    font-size: .88em;
+    color: var(--text-muted, #6b7280);
+  }
+  .audit-pagination .pager-buttons { display: flex; gap: 8px; }
+  .audit-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted, #6b7280);
+  }
+  .audit-empty .empty-icon { font-size: 2.4em; margin-bottom: 8px; opacity: .5; }
+</style>
+
 <div class="container">
   <div class="card">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px; flex-wrap:wrap;">
       <div>
-        <div class="section-title">Audit-Log</div>
+        <div class="section-title">{{ _('audit_page_title') }}</div>
         <div class="section-sub">{{ _('audit_filter_title') }}</div>
       </div>
-      <a href="/admin" class="btn btn-secondary btn-sm">← Übersicht</a>
+      <a href="/admin" class="btn btn-secondary btn-sm">← {{ _('audit_back_overview') }}</a>
     </div>
 
-    <form method="get" action="/admin/audit"
-          style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:18px; padding:14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">
-      <div>
-        <label style="display:block; font-size:.78em; color:#6b7280; margin-bottom:4px;">{{ _('audit_filter_user') }}</label>
-        <input type="text" name="user" value="{{ filter_user or '' }}" class="input" style="width:100%;" />
+    <form method="get" action="/admin/audit" class="audit-filter-bar">
+      <div class="audit-filter-grid">
+        <div class="audit-filter-field">
+          <label for="f-user">{{ _('audit_filter_user') }}</label>
+          <input id="f-user" type="text" name="user" value="{{ filter_user or '' }}" class="input" />
+        </div>
+        <div class="audit-filter-field">
+          <label for="f-action">{{ _('audit_filter_action') }}</label>
+          <select id="f-action" name="action" class="input">
+            <option value="">— {{ _('audit_all') }} —</option>
+            {% for a in (distinct_actions or []) %}
+              <option value="{{ a }}" {% if a == filter_action %}selected{% endif %}>{{ a }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="audit-filter-field">
+          <label for="f-source">{{ _('audit_filter_source') }}</label>
+          <select id="f-source" name="source" class="input">
+            <option value="">— {{ _('audit_all') }} —</option>
+            {% for s in (distinct_sources or []) %}
+              {% set label_key = 'audit_source_' ~ s %}
+              {% set label = _(label_key) %}
+              <option value="{{ s }}" {% if s == filter_source %}selected{% endif %}>
+                {% if label == label_key %}{{ s }}{% else %}{{ label }}{% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="audit-filter-field">
+          <label for="f-sev">{{ _('audit_filter_severity') }}</label>
+          <select id="f-sev" name="severity" class="input">
+            <option value="" {% if not filter_severity %}selected{% endif %}>— {{ _('audit_all') }} —</option>
+            <option value="info"    {% if filter_severity == 'info' %}selected{% endif %}>{{ _('audit_sev_info') }}</option>
+            <option value="warning" {% if filter_severity == 'warning' %}selected{% endif %}>{{ _('audit_sev_warning') }}</option>
+            <option value="error"   {% if filter_severity == 'error' %}selected{% endif %}>{{ _('audit_sev_error') }}</option>
+          </select>
+        </div>
+        <div class="audit-filter-field">
+          <label for="f-from-date">{{ _('audit_filter_from_date') }}</label>
+          <input id="f-from-date" type="date" name="from_date" value="{{ filter_from_date or '' }}" class="input" />
+        </div>
+        <div class="audit-filter-field">
+          <label for="f-from-time">{{ _('audit_filter_from_time') }}</label>
+          <input id="f-from-time" type="time" name="from_time" value="{{ filter_from_time or '' }}" class="input" />
+        </div>
+        <div class="audit-filter-field">
+          <label for="f-to-date">{{ _('audit_filter_to_date') }}</label>
+          <input id="f-to-date" type="date" name="to_date" value="{{ filter_to_date or '' }}" class="input" />
+        </div>
+        <div class="audit-filter-field">
+          <label for="f-to-time">{{ _('audit_filter_to_time') }}</label>
+          <input id="f-to-time" type="time" name="to_time" value="{{ filter_to_time or '' }}" class="input" />
+        </div>
       </div>
-      <div>
-        <label style="display:block; font-size:.78em; color:#6b7280; margin-bottom:4px;">{{ _('audit_filter_action') }}</label>
-        <select name="action" class="input" style="width:100%;">
-          <option value="">—</option>
-          {% for a in (distinct_actions or []) %}
-            <option value="{{ a }}" {% if a == filter_action %}selected{% endif %}>{{ a }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label style="display:block; font-size:.78em; color:#6b7280; margin-bottom:4px;">{{ _('audit_filter_from_date') }}</label>
-        <input type="date" name="from_date" value="{{ filter_from_date or '' }}" class="input" style="width:100%;" />
-      </div>
-      <div>
-        <label style="display:block; font-size:.78em; color:#6b7280; margin-bottom:4px;">{{ _('audit_filter_from_time') }}</label>
-        <input type="time" name="from_time" value="{{ filter_from_time or '' }}" class="input" style="width:100%;" />
-      </div>
-      <div>
-        <label style="display:block; font-size:.78em; color:#6b7280; margin-bottom:4px;">{{ _('audit_filter_to_date') }}</label>
-        <input type="date" name="to_date" value="{{ filter_to_date or '' }}" class="input" style="width:100%;" />
-      </div>
-      <div>
-        <label style="display:block; font-size:.78em; color:#6b7280; margin-bottom:4px;">{{ _('audit_filter_to_time') }}</label>
-        <input type="time" name="to_time" value="{{ filter_to_time or '' }}" class="input" style="width:100%;" />
-      </div>
-      <div style="display:flex; align-items:flex-end; gap:8px;">
-        <button type="submit" class="btn btn-primary btn-sm">{{ _('audit_filter_apply') }}</button>
+      <div class="audit-filter-actions">
+        <div class="spacer"></div>
         <a href="/admin/audit" class="btn btn-secondary btn-sm">{{ _('audit_filter_reset') }}</a>
+        <button type="submit" class="btn btn-primary btn-sm">{{ _('audit_filter_apply') }}</button>
       </div>
     </form>
 
@@ -53,44 +217,80 @@
     <table>
       <thead>
         <tr>
-          <th style="width:160px;">Zeitpunkt</th>
-          <th style="width:140px;">Benutzer</th>
-          <th style="width:160px;">Aktion</th>
-          <th>Details</th>
+          <th style="width:160px;">{{ _('audit_col_timestamp') }}</th>
+          <th style="width:100px;">{{ _('audit_col_severity') }}</th>
+          <th style="width:200px;">{{ _('audit_col_user') }}</th>
+          <th style="width:200px;">{{ _('audit_col_action') }}</th>
+          <th style="width:110px;">{{ _('audit_col_source') }}</th>
+          <th>{{ _('audit_col_details') }}</th>
         </tr>
       </thead>
       <tbody>
         {% for e in entries %}
-        <tr>
-          <td style="font-size:.82em; color:#6b7280; font-family:monospace;">
-            {{ e.created_at[:19] if e.created_at else '—' }}
-          </td>
-          <td style="font-size:.87em;">{{ e.username or (e.user_id[:8] ~ '...' if e.user_id else '—') }}</td>
+        <tr class="row-sev-{{ e.severity }}">
+          <td class="audit-ts">{{ e.created_at[:19] if e.created_at else '—' }}</td>
           <td>
-            <span class="badge {% if e.action in ('register','login') %}badge-blue{% elif e.action in ('approve_user') %}badge-green{% elif e.action in ('disable_user','print_job_failed') %}badge-red{% elif e.action == 'print_job_submitted' %}badge-blue{% else %}badge-yellow{% endif %}">
-              {% if e.action == 'print_job_submitted' %}{{ _('audit_action_print_job') }}{% else %}{{ e.action }}{% endif %}
+            <span class="sev-badge sev-{{ e.severity }}">
+              {% if e.severity == 'error' %}{{ _('audit_sev_error') }}
+              {% elif e.severity == 'warning' %}{{ _('audit_sev_warning') }}
+              {% else %}{{ _('audit_sev_info') }}{% endif %}
             </span>
           </td>
-          <td style="font-size:.87em; color:#374151;">{{ e.details or '—' }}</td>
+          <td style="font-size:.87em;">
+            {% if e.filter_user %}
+              <a class="audit-user-link" href="/admin/audit?user={{ e.filter_user|urlencode }}">{{ e.display_user }}</a>
+            {% else %}
+              <span>{{ e.display_user }}</span>
+            {% endif %}
+            {% if e.email and e.email != e.display_user %}
+              <span class="audit-user-sub">{{ e.email }}</span>
+            {% endif %}
+          </td>
+          <td>
+            <a class="audit-action-badge" href="/admin/audit?action={{ e.action|urlencode }}" title="{{ _('audit_click_to_filter') }}">
+              {{ e.action }}
+            </a>
+          </td>
+          <td>
+            {% if e.source %}
+              {% set src_label_key = 'audit_source_' ~ e.source %}
+              {% set src_label = _(src_label_key) %}
+              <a class="audit-action-badge" href="/admin/audit?source={{ e.source|urlencode }}" title="{{ _('audit_click_to_filter') }}">
+                {% if src_label == src_label_key %}{{ e.source }}{% else %}{{ src_label }}{% endif %}
+              </a>
+            {% else %}
+              <span style="color:var(--text-muted, #9ca3af);">—</span>
+            {% endif %}
+          </td>
+          <td style="font-size:.87em; color:var(--text, #374151);">{{ e.details or '—' }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
     </div>
 
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-top:14px; font-size:.85em; color:#6b7280;">
-      <div>{{ total_count }} — Seite {{ page }}</div>
-      <div style="display:flex; gap:8px;">
+    <div class="audit-pagination">
+      <div>
+        {{ _('audit_page_indicator') | replace('{page}', page|string) | replace('{total_pages}', total_pages|string) | replace('{total}', total_count|string) }}
+      </div>
+      <div class="pager-buttons">
         {% if has_prev %}
-          <a href="/admin/audit?{{ prev_qs }}" class="btn btn-secondary btn-sm">← {{ page - 1 }}</a>
+          <a href="/admin/audit?{{ prev_qs }}" class="btn btn-secondary btn-sm">← {{ _('audit_prev') }}</a>
         {% endif %}
         {% if has_next %}
-          <a href="/admin/audit?{{ next_qs }}" class="btn btn-secondary btn-sm">{{ page + 1 }} →</a>
+          <a href="/admin/audit?{{ next_qs }}" class="btn btn-secondary btn-sm">{{ _('audit_next') }} →</a>
         {% endif %}
       </div>
     </div>
     {% else %}
-    <div class="alert alert-info">{{ _('audit_no_results') }}</div>
+    <div class="audit-empty">
+      <div class="empty-icon">📋</div>
+      <div style="font-weight:600; color:var(--text, #111827); margin-bottom:4px;">
+        {{ _('audit_empty_title') }}
+      </div>
+      <div style="margin-bottom:14px;">{{ _('audit_empty_hint') }}</div>
+      <a href="/admin/audit" class="btn btn-secondary btn-sm">{{ _('audit_filter_reset') }}</a>
+    </div>
     {% endif %}
   </div>
 </div>

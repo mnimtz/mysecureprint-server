@@ -1,5 +1,41 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.4 — 2026-06-30 — Audit-Log UI: Severity, Source-Filter, klickbare Spalten, voller Benutzername
+
+User-Beschwerden zur `/admin/audit`-Seite:
+1. Nur Vorname „Marcus" sichtbar statt vollem Namen.
+2. „Filter zuruecksetzen"-Button lief rechts aus dem Rahmen.
+3. Filter-Form sah unsauber/unprofessionell aus.
+4. Keine Klick-zum-Filtern-Interaktion auf Action-/User-Zellen.
+5. Severity nicht erkennbar — `*_failed` sah aus wie normaler Eintrag.
+
+Fixes (alle in 0.7.4):
+1. **Voller Name**: SELECT zieht jetzt `u.full_name`; Anzeige bevorzugt
+   `full_name` → `username` → `email` → `user_id[:8]`. E-Mail erscheint
+   als grauer Untertitel wenn unterschiedlich.
+2. **Severity-Spalte + Badge** (info/warning/error). Ableitung aus Action-
+   Name (`_failed`, `denied`, `revoked`, `oid_mismatch` → error;
+   `_warning`, `_expired`, `disabled`, `removed` → warning; sonst info).
+   Zusaetzlicher Severity-Filter im Header.
+3. **Source-Filter & -Spalte**: neuer `source`-Query-Param, extrahiert
+   `details.source` aus JSON (z.B. `ios_app`, `web`, `email`, `desktop`,
+   `mcp`). SQL nutzt `json_extract` mit LIKE-Fallback. Distinct-Quellen
+   aus DB. Lokalisierte Labels: „iOS-App", „Web-UI", „E-Mail", …
+4. **Klickbare Zellen**: Klick auf User-Zelle filtert nach Username,
+   Klick auf Action-Badge filtert nach Action, Klick auf Source-Badge
+   filtert nach Quelle.
+5. **Filter-Bar Redesign**: responsives Grid (1 Spalte mobil → 2 Tablet
+   → 4 Desktop), Buttons in eigener Action-Zeile rechts-aligned ueber
+   gestrichelten Trenner, nichts laeuft mehr aus dem Rahmen.
+6. **Pagination**: zeigt jetzt „Seite X von Y (Z Eintraege gesamt)",
+   Buttons mit „Zurueck/Weiter"-Beschriftung.
+7. **Empty-State**: zentriertes Icon + Hint + Reset-Link statt leere
+   Tabelle.
+8. CSS nutzt `var(--primary/--surface/--border/...)` aus base.html.
+9. i18n: neue DE+EN-Keys unter `_V074_AUDIT_UI` (audit_sev_*,
+   audit_col_*, audit_source_*, audit_page_indicator, etc.). Andere
+   Locales fallen via Standard-Pattern auf EN zurueck.
+
 ## 0.7.3 — 2026-06-30 — Fix: iOS Jobs-Tab war IMMER leer (tenant_id-Mismatch)
 
 User-Report: „Jobs in der iOS-App ging noch nie".
