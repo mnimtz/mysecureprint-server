@@ -1,5 +1,28 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.17 — 2026-06-30 — Diagnose-Marker fuer /desktop/send Upload-Latenz
+
+User-Report: 300 KB JPG braucht Minuten beim Senden aus iOS. Zwei
+Diagnose-Marker (immer aktiv, nicht gated):
+
+  Desktop-Send INGRESS — target=… peer=…
+  Desktop-Send BODY-RECEIVED — target=… size=… dt_read=Xms
+
+INGRESS = der HTTP-Request erreicht den Handler. BODY-RECEIVED = der
+Multipart-Body ist vollstaendig gelesen. Differenz INGRESS→BODY-
+RECEIVED ist die Upload-Wartezeit (vom Server-Standpunkt).
+
+Damit unterscheidbar: ist der Upload netzwerkseitig langsam
+(Body kommt langsam an) oder hat Azure App Service Probleme
+(Body schnell da, aber Handler wartet).
+
+iOS-Seite: URLSession-Timeouts gesenkt
+- timeoutIntervalForRequest: 900 → 60 s (= 60s zwischen Datenpaketen)
+- timeoutIntervalForResource: 1800 → 180 s (= 3 min Total-Upload)
+
+Beim Fail-Fall sieht der User nun innerhalb 1-3 Minuten einen klaren
+Fehler statt ewiges Spinner-Hängen.
+
 ## 0.7.16 — 2026-06-30 — 1-Klick-Toggle fuer perf_logs_enabled
 
 Neue Admin-Route `/admin/perf-logs/toggle` (GET + POST), analog zur

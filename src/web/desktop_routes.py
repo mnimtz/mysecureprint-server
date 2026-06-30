@@ -1210,6 +1210,13 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
     ):
         import time as _t
         t_start = _t.monotonic()
+        # v0.7.17: Wir loggen IMMER (ungated) wenn der Request den Handler
+        # erreicht. So sehen wir bei „Upload haengt seit Minuten" ob das
+        # Problem netzwerk-seitig (Body kommt noch nicht an) oder
+        # server-seitig (Body angekommen, processing langsam) ist.
+        logger.info("Desktop-Send INGRESS — target=%s peer=%s",
+                    target_id,
+                    (request.client.host if request.client else '?'))
         ci = _log_req(request, "POST /send",
                       f"target_id='{target_id}' filename='{file.filename if file else '-'}'")
         user = _require_token(authorization)
@@ -1224,7 +1231,13 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             return _json_error("no file", code="no_file", status=400)
 
         MAX = 50 * 1024 * 1024
+        _t_before_read = _t.monotonic()
         data = await file.read()
+        _dt_read_ms = (_t.monotonic() - _t_before_read) * 1000.0
+        logger.info(
+            "Desktop-Send BODY-RECEIVED — target=%s size=%d dt_read=%.0fms",
+            target_id, len(data) if data else 0, _dt_read_ms,
+        )
         if not data:
             logger.warning("Desktop-Send FAIL (empty file) — user='%s' peer=%s",
                            _user_descr(user), ci["peer"])
