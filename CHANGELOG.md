@@ -1,5 +1,26 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.6 — 2026-06-30 — Username/full_name aus Printix beim Entra-Login
+
+User-Report: 'Marcus' als users.username ist verwirrend in Logs/UI,
+sollte mit dem Printix-Username konsistent sein.
+
+Zwei Schritte beim Entra-Login:
+
+1. **Neu-Linking (erweitert v0.6.6)**: wenn der Entra-User per Email
+   in cached_printix_users matched, werden nicht nur printix_user_id,
+   sondern auch users.username + users.full_name auf die Printix-
+   Werte angeglichen (mit Kollisionscheck via username_exists).
+2. **Backfill bei bereits gelinkten Usern**: bei jedem Login wird
+   geprueft ob users.username/full_name mit cached_printix_users
+   uebereinstimmt. Falls nicht: einmaliges Update + Audit-Log-Eintrag
+   entra_printix_backfill. Idempotent — laeuft jeden Login, macht
+   aber nur was wenn nötig.
+
+Ergebnis: dein User wird beim naechsten Login von 'Marcus' auf
+deinen Printix-Username umgestellt (z.B. 'marcus.nimtz'). Logs +
+UI zeigen dann ueberall den selben Identifier wie das Printix-Portal.
+
 ## 0.7.5 — 2026-06-30 — Diagnose + Watchdog + lesbare User-Logs
 
 iOS-Druck blieb in 'queued' haengen, kein klarer Fehler zu sehen.

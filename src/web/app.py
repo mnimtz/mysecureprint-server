@@ -1247,6 +1247,46 @@ def create_app(session_secret: str) -> FastAPI:
         except Exception:
             pass
 
+        # v0.7.6: Wenn der User bereits gelinkt ist (printix_user_id gesetzt),
+        # aber username/full_name nicht mit Printix matched — einmaliger
+        # Backfill bei diesem Login. Behebt z.B. Bootstrap-Admins die mit
+        # username='Marcus' angelegt wurden bevor printix_user_id verknuepft
+        # war. Idempotent: laeuft jeden Login, macht aber nur was wenn was
+        # zu tun ist.
+        try:
+            _pxid_existing = (user.get("printix_user_id") or "").strip()
+            if _pxid_existing:
+                from db import _conn as _bconn, username_exists, update_user as _bupd
+                with _bconn() as _bc:
+                    _px_row = _bc.execute(
+                        "SELECT username, full_name FROM cached_printix_users "
+                        "WHERE printix_user_id = ?", (_pxid_existing,),
+                    ).fetchone()
+                if _px_row:
+                    _px_uname = (_px_row["username"] or "").strip()
+                    _px_full = (_px_row["full_name"] or "").strip()
+                    _cu = (user.get("username") or "").strip()
+                    _cf = (user.get("full_name") or "").strip()
+                    _bkw = {}
+                    if (_px_uname and _px_uname != _cu
+                            and not username_exists(_px_uname)):
+                        _bkw["username"] = _px_uname
+                    if _px_full and _px_full != _cf:
+                        _bkw["full_name"] = _px_full
+                    if _bkw:
+                        _bupd(user["id"], **_bkw)
+                        try:
+                            audit(user["id"], "entra_printix_backfill",
+                                  f"px_id={_pxid_existing} updates={_bkw}")
+                        except Exception:
+                            pass
+                        if "username" in _bkw:
+                            user["username"] = _px_uname
+                        if "full_name" in _bkw:
+                            user["full_name"] = _px_full
+        except Exception as _bf:
+            logger.debug("Entra->Printix backfill skip: %s", _bf)
+
         # v0.6.6: Auto-Link Entra-User zu printix_user_id ueber Email-Match
         # in cached_printix_users. So muss der Admin den Link nicht manuell
         # ueber Printix-User-Auswahl setzen.
@@ -1257,19 +1297,62 @@ def create_app(session_secret: str) -> FastAPI:
                     from cloudprint.printix_cache_db import find_printix_user_by_identity
                     _match = find_printix_user_by_identity(_entra_email)
                     if _match and _match.get("printix_user_id"):
+                        # v0.7.6: zusaetzlich zum printix_user_id-Link auch
+                        # users.username + users.full_name an die Printix-
+                        # Werte angleichen, FALLS der lokale Wert ein
+                        # Display-Name-Fragment war (z.B. 'Marcus' statt
+                        # 'marcus.nimtz'). Damit zeigen Logs + UI ueberall
+                        # konsistent den selben Identifier wie Printix.
+                        _new_username = (_match.get("username") or "").strip()
+                        _new_full = (_match.get("full_name") or "").strip()
+                        _current_username = (user.get("username") or "").strip()
+                        _current_full = (user.get("full_name") or "").strip()
+                        _update_kwargs = {
+                            "printix_user_id": _match["printix_user_id"],
+                        }
+                        # Nur ueberschreiben wenn (a) Printix einen Wert
+                        # hat UND (b) der lokale Wert sich davon unter-
+                        # scheidet. Username-Kollision: wenn schon vergeben,
+                        # nicht setzen — sonst fliegt der UNIQUE-constraint.
+                        if _new_username and _new_username != _current_username:
+                            try:
+                                from db import username_exists
+                                if not username_exists(_new_username):
+                                    _update_kwargs["username"] = _new_username
+                            except Exception:
+                                pass
+                        if _new_full and _new_full != _current_full:
+                            _update_kwargs["full_name"] = _new_full
                         from db import update_user as _upd
-                        _upd(user["id"], printix_user_id=_match["printix_user_id"])
+                        _upd(user["id"], **_update_kwargs)
                         try:
+                            _details = (
+                                f"auto-link via email={_entra_email} "
+                                f"-> printix_user_id={_match['printix_user_id']}"
+                            )
+                            if "username" in _update_kwargs:
+                                _details += (
+                                    f"; username '{_current_username}' "
+                                    f"-> '{_new_username}'"
+                                )
+                            if "full_name" in _update_kwargs:
+                                _details += (
+                                    f"; full_name '{_current_full}' "
+                                    f"-> '{_new_full}'"
+                                )
                             audit(
                                 user["id"],
                                 "entra_printix_linked",
-                                f"auto-link via email={_entra_email} "
-                                f"-> printix_user_id={_match['printix_user_id']}",
+                                _details,
                             )
                         except Exception:
                             pass
                         # User-Dict aktualisieren fuer downstream-Verwendung
                         user["printix_user_id"] = _match["printix_user_id"]
+                        if "username" in _update_kwargs:
+                            user["username"] = _new_username
+                        if "full_name" in _update_kwargs:
+                            user["full_name"] = _new_full
         except Exception as _link_err:
             logger.debug("Entra->Printix auto-link skip: %s", _link_err)
 
