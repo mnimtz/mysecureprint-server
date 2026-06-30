@@ -5311,6 +5311,147 @@ def create_app(session_secret: str) -> FastAPI:
                 f"FEHLER beim Speichern: {e}\n", status_code=500,
             )
 
+    @app.get("/admin/printix-submit-selftest", response_class=JSONResponse)
+    async def admin_printix_submit_selftest(request: Request):
+        """v0.7.21: Self-Test fuer Printix-Submit. Probiert mehrere Body-
+        Varianten gegen den echten Printix-Endpoint und gibt die Antworten
+        side-by-side zurueck.
+
+        Nutzt die Server-Credentials (kein Bearer-Token im URL noetig).
+        Antwort ist JSON mit fuer jede Variante: HTTP-Status, ErrorID,
+        Response-Body (gekuerzt) und URL.
+        """
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return JSONResponse({"error": "admin_required"}, status_code=403)
+
+        # Optional: Queue-ID per Query-Param override; sonst Default-Queue.
+        target_queue = (request.query_params.get("queue") or "").strip()
+        owner_email_override = (request.query_params.get("email") or "").strip()
+
+        from db import get_tenant_full_by_user_id, _find_tenant_owner_user_id
+        from cloudprint.db_extensions import get_global_default_queue
+        owner_uid = _find_tenant_owner_user_id()
+        tenant = (get_tenant_full_by_user_id(user["id"])
+                  or (get_tenant_full_by_user_id(owner_uid) if owner_uid else None))
+        if not tenant:
+            return JSONResponse(
+                {"error": "no_tenant_configured"}, status_code=400,
+            )
+
+        if not target_queue:
+            qid, _ = get_global_default_queue()
+            target_queue = qid
+        if not target_queue:
+            return JSONResponse({
+                "error": "no_target_queue",
+                "hint": "Setze ?queue=<uuid> oder konfiguriere Default-Queue",
+            }, status_code=400)
+
+        owner_email = owner_email_override or (user.get("email") or "")
+        if not owner_email:
+            owner_email = "selftest@example.com"
+
+        # Printix-Client aus Tenant-Config
+        try:
+            from printix_client import PrintixClient, PrintixAPIError
+            client = PrintixClient(
+                tenant_id=tenant["printix_tenant_id"],
+                print_client_id=tenant.get("print_client_id", ""),
+                print_client_secret=tenant.get("print_client_secret", ""),
+                shared_client_id=tenant.get("shared_client_id", ""),
+                shared_client_secret=tenant.get("shared_client_secret", ""),
+            )
+        except Exception as e:
+            return JSONResponse(
+                {"error": f"client_init_failed: {e}"}, status_code=500,
+            )
+
+        # Printer-ID resolver
+        try:
+            import re as _re
+            printers_data = client.list_printers(size=200)
+            raw_list = printers_data.get("printers", []) if isinstance(printers_data, dict) else []
+            if not raw_list and isinstance(printers_data, dict):
+                raw_list = (printers_data.get("_embedded") or {}).get("printers", [])
+            printer_id = ""
+            for p in raw_list:
+                href = (p.get("_links") or {}).get("self", {}).get("href", "")
+                m = _re.search(r"/printers/([^/]+)/queues/([^/?]+)", href)
+                if m and m.group(2) == target_queue:
+                    printer_id = m.group(1)
+                    break
+            if not printer_id:
+                return JSONResponse({
+                    "error": "queue_not_found_in_printix",
+                    "queue": target_queue,
+                    "scanned_printers": len(raw_list),
+                }, status_code=400)
+        except Exception as e:
+            return JSONResponse(
+                {"error": f"list_printers_failed: {e}"}, status_code=500,
+            )
+
+        # 6 Submit-Varianten testen
+        variants = [
+            ("v1_full_body_release_false", dict(
+                user=owner_email, pdl="PDF", release_immediately=False,
+                color=False, duplex="NONE", copies=1,
+            )),
+            ("v2_full_body_release_true", dict(
+                user=owner_email, pdl="PDF", release_immediately=True,
+                color=False, duplex="NONE", copies=1,
+            )),
+            ("v3_minimal_release_false", dict(
+                user=owner_email, pdl="PDF", release_immediately=False,
+            )),
+            ("v4_minimal_release_true", dict(
+                user=owner_email, pdl="PDF", release_immediately=True,
+            )),
+            ("v5_no_user_no_pdl", dict(
+                release_immediately=False,
+            )),
+            ("v6_no_user_full_body", dict(
+                pdl="PDF", release_immediately=False,
+                color=False, duplex="NONE", copies=1,
+            )),
+        ]
+
+        results = []
+        from printix_client import PrintixAPIError as _PxErr
+        for name, kwargs in variants:
+            entry = {"variant": name, "kwargs": kwargs}
+            try:
+                r = client.submit_print_job(
+                    printer_id=printer_id,
+                    queue_id=target_queue,
+                    title=f"selftest-{name}.pdf",
+                    **kwargs,
+                )
+                entry["status"] = "ok"
+                entry["job_id"] = (r.get("job", r) if isinstance(r, dict) else {}).get("id", "")
+                entry["has_upload_url"] = bool(r.get("uploadUrl") if isinstance(r, dict) else False)
+            except _PxErr as pe:
+                entry["status"] = "error"
+                entry["http"] = pe.status_code
+                entry["error_id"] = getattr(pe, "error_id", "")
+                entry["message"] = str(pe.message)[:300]
+            except Exception as e:
+                entry["status"] = "exception"
+                entry["error"] = f"{type(e).__name__}: {e}"[:300]
+            results.append(entry)
+
+        return JSONResponse({
+            "tenant_printix_id": tenant["printix_tenant_id"],
+            "printer_id": printer_id,
+            "queue_id": target_queue,
+            "owner_email": owner_email,
+            "variants_tested": len(results),
+            "results": results,
+            "hint": "Variante mit status=ok ist die richtige Combo. "
+                    "Wenn ALLE failen -> Auth/Tenant/Lizenz-Problem.",
+        })
+
 
     def _admin_settings_ctx(
         request,

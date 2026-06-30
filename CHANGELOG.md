@@ -1,5 +1,26 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.21 — 2026-06-30 — Self-Test-Endpoint /admin/printix-submit-selftest
+
+Neuer Admin-Endpoint der auf dem Server selbst 6 verschiedene Submit-
+Varianten gegen den echten Printix-Endpoint testet und die Antworten
+side-by-side als JSON zurueckgibt.
+
+  GET /admin/printix-submit-selftest
+  GET /admin/printix-submit-selftest?queue=<uuid>&email=<your-email>
+
+Varianten:
+  v1 full_body + release_false (= unser aktueller Default)
+  v2 full_body + release_true
+  v3 minimal + release_false (kein color/duplex/copies)
+  v4 minimal + release_true
+  v5 no user, no pdl, release_false
+  v6 no user, full body, release_false
+
+Pro Variante: HTTP-Status + Printix-ErrorID + Response-Body. Damit
+sehen wir empirisch welche Kombi durchgeht. Wenn ALLE 6 failen, ist
+das Bug ausserhalb des Bodies (Auth/Tenant/Lizenz).
+
 ## 0.7.20 — 2026-06-30 — Submit-Retry mit minimalem Body bei 500
 
 Wenn der Submit mit vollem Body ({color, duplex, copies}) 500 zurueckgibt,
