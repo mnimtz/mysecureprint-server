@@ -1,5 +1,26 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.26 — 2026-06-30 — Delegation-Druck als Admin-Toggle (Server-Side)
+
+User-Wunsch: Statt dass jeder iOS-User selber den Delegate-Toggle in
+den App-Settings aktivieren kann, soll der Admin das vom Server aus
+zentral steuern.
+
+Neuer Setting `delegation_print_allowed` (default OFF):
+- `/admin/settings?section=queue` — neuer Checkbox „Delegation-Druck
+  erlauben" unterhalb des Queue-Override-Toggle.
+- Persistierung via existierender queue-defaults/save Route.
+
+Server-Enforcement:
+- `/desktop/targets` liefert nur Delegate-Targets wenn aktiv +
+  Response-Feld `delegation_allowed: bool` fuer den iOS-Client.
+- `/desktop/send` blockt `print:delegate:*` und `print:user:*`
+  Direct-API-Calls wenn deaktiviert (defense-in-depth — auch wenn
+  iOS-Targets nicht gerendert werden, gehen sonst Curl-Calls durch).
+
+iOS-Seite (follow-up Patch): Local-Toggle nur sichtbar wenn
+delegation_allowed=true; sonst Hinweis „Vom Admin deaktiviert".
+
 ## 0.7.25 — 2026-06-30 — Live-Lookup Response unwrappen ({"user": {...}})
 
 v0.7.24 Live-Fallback failed weil Printix's get_user() den User in

@@ -430,6 +430,18 @@ async def _process_desktop_send_bg(
                 _fail(msg or "capture plugin returned failure", code="capture_failed")
             return
         elif target_id.startswith("print:delegate:"):
+            # v0.7.26: Admin-Flag-Check (defense-in-depth — iOS rendert
+            # die Targets ohnehin nicht, aber Direct-API-Calls gehen sonst durch)
+            try:
+                from db import get_setting as _gs_d
+                _del_ok = ((_gs_d("delegation_print_allowed", "0") or "0").strip()
+                           in ("1","true","yes","on"))
+            except Exception:
+                _del_ok = False
+            if not _del_ok:
+                _fail("delegation print disabled by admin",
+                      code="delegation_disabled")
+                return
             deleg_id = target_id.split(":", 2)[2]
             try:
                 delegs = get_delegations_for_owner(user["user_id"])
@@ -448,6 +460,18 @@ async def _process_desktop_send_bg(
             submit_user_email = (delegate["delegate_email"] or "").strip().lower()
             target_type = "print_delegate"
         elif target_id.startswith("print:user:"):
+            # v0.7.26: Admin-Flag-Check fuer print:user:* (gleiche Logik
+            # wie print:delegate:* — sonst Workaround moeglich).
+            try:
+                from db import get_setting as _gs_pu
+                _del_ok_pu = ((_gs_pu("delegation_print_allowed", "0") or "0").strip()
+                              in ("1","true","yes","on"))
+            except Exception:
+                _del_ok_pu = False
+            if not _del_ok_pu:
+                _fail("delegation print disabled by admin",
+                      code="delegation_disabled")
+                return
             # v0.5.4: Delegation-Print an einen beliebigen Printix-User.
             # iOS-Picker auf dem Ziele-Tab erzeugt diese IDs wenn der
             # Toggle „Delegation-Druck erlauben" an ist. Wir loesen den
@@ -1165,6 +1189,19 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             logger.debug("is_user_queue_override_allowed failed: %s", _ucc)
             user_can_choose = False
 
+        # v0.7.26: Admin-Flag „Delegation-Druck erlauben". Wenn aus,
+        # liefert /desktop/targets keine Delegate/User-Targets aus,
+        # auch wenn der User local enabled hat. iOS rendert dann den
+        # Delegate-Toggle ausgegraut mit Hinweis "Admin hat deaktiviert".
+        try:
+            from db import get_setting as _gs
+            delegation_allowed = (
+                (_gs("delegation_print_allowed", "0") or "0").strip()
+                in ("1", "true", "yes", "on")
+            )
+        except Exception:
+            delegation_allowed = False
+
         targets: list[dict] = []
         breakdown = {"self": 0, "delegates": 0, "capture": 0}
 
@@ -1194,8 +1231,10 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             )
 
         # 2) Delegates (jede aktive Delegation = 1 Ziel)
+        # v0.7.26: nur wenn Admin Delegation-Druck global erlaubt hat.
         try:
-            delegations = get_delegations_for_owner(user["user_id"])
+            delegations = (get_delegations_for_owner(user["user_id"])
+                           if delegation_allowed else [])
             for d in delegations:
                 if d.get("status") != "active":
                     continue
@@ -1261,6 +1300,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         return JSONResponse({
             "targets": targets,
             "user_can_choose": user_can_choose,
+            "delegation_allowed": delegation_allowed,
         })
 
     # ── Send (Datei-Upload + Dispatch) ────────────────────────────────────

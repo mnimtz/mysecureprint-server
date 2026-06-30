@@ -95,6 +95,21 @@
         <small class="hint" style="margin-left:24px;">{{ _('queue_user_override_help') }}</small>
       </div>
 
+      {# v0.7.26: Delegation-Druck-Toggle. Wenn aus, sieht iOS keine
+         Delegate-Ziele, Send-Endpoint blockt print:delegate:* + print:user:*. #}
+      <div class="form-group">
+        <label style="display:flex; align-items:center; gap:8px; font-weight:600;">
+          <input type="checkbox" name="delegation_print_allowed" value="1"
+                 {% if current_delegation_allowed %}checked{% endif %}>
+          Delegation-Druck erlauben
+        </label>
+        <small class="hint" style="margin-left:24px;">
+          Erlaubt es Usern in der iOS-App, Druckjobs an andere Benutzer
+          zu delegieren. Standardm&auml;ssig aus &mdash; aus Datenschutz-/
+          Compliance-Gr&uuml;nden im Default deaktiviert.
+        </small>
+      </div>
+
       <button type="submit" class="btn btn-primary">{{ _('btn_save') }}</button>
       <a href="/admin/groups" style="margin-left:12px; color:var(--ta-cyan-dark); font-weight:600;">
         {{ _('queue_manage_groups') }} →

@@ -5493,6 +5493,15 @@ def create_app(session_secret: str) -> FastAPI:
             current_global_default_queue_id    = ""
             current_global_default_queue_label = ""
             current_allow_user_override        = False
+        # v0.7.26: Delegation-Druck-Toggle aus Settings.
+        try:
+            from db import get_setting as _gs_del
+            current_delegation_allowed = (
+                (_gs_del("delegation_print_allowed", "0") or "0").strip()
+                in ("1", "true", "yes", "on")
+            )
+        except Exception:
+            current_delegation_allowed = False
         queues_for_picker: list = []
 
         # v0.4.5: Tenant-Record laden fuer Printix-Credentials-Editor.
@@ -5578,6 +5587,7 @@ def create_app(session_secret: str) -> FastAPI:
             "current_global_default_queue_id":    current_global_default_queue_id,
             "current_global_default_queue_label": current_global_default_queue_label,
             "current_allow_user_override":        current_allow_user_override,
+            "current_delegation_allowed":         current_delegation_allowed,
             "queues_for_picker":                  _load_printix_queues_for_admin(tenant_full) if tenant_full else [],
             "capture_public_url": capture_public_url,
             "ipps_public_url": ipps_public_url,
@@ -6247,6 +6257,7 @@ def create_app(session_secret: str) -> FastAPI:
         default_queue_id:           str = Form(default=""),
         default_queue_label:        str = Form(default=""),
         allow_user_queue_override:  str = Form(default=""),
+        delegation_print_allowed:   str = Form(default=""),
     ):
         user = get_session_user(request)
         if not user or not user.get("is_admin"):
@@ -6254,13 +6265,17 @@ def create_app(session_secret: str) -> FastAPI:
         from cloudprint.db_extensions import (
             set_global_default_queue, set_user_queue_override_allowed,
         )
-        from db import audit
+        from db import audit, set_setting
         set_global_default_queue(default_queue_id.strip(), default_queue_label.strip())
         set_user_queue_override_allowed(
             allow_user_queue_override in ("1", "on", "true")
         )
+        # v0.7.26: Delegation-Druck-Toggle persistieren
+        _del_new = "1" if delegation_print_allowed in ("1","on","true") else "0"
+        set_setting("delegation_print_allowed", _del_new)
         audit(user["id"], "queue_defaults_saved",
-              f"global={default_queue_id} override={allow_user_queue_override or 'off'}")
+              f"global={default_queue_id} override={allow_user_queue_override or 'off'} "
+              f"delegation={_del_new}")
         return RedirectResponse(
             "/admin/settings?ok=queue_saved#queue", status_code=302,
         )
