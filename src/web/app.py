@@ -4842,6 +4842,16 @@ def create_app(session_secret: str) -> FastAPI:
 
     @app.get("/admin/audit", response_class=HTMLResponse)
     async def admin_audit(request: Request):
+        # v0.7.14: Perf-Instrumentierung — Setting `perf_logs_enabled=1` schaltet
+        # `dt_total=Xms dt_db=Xms` Logs scharf. Default off.
+        import time as _t
+        _t0 = _t.monotonic()
+        _dt_db_ms = 0.0
+        try:
+            from db import perf_logs_enabled as _perf_on
+            _perf = _perf_on()
+        except Exception:
+            _perf = False
         user = get_session_user(request)
         if not user or not user.get("is_admin"):
             return RedirectResponse("/login", status_code=302)
@@ -4880,6 +4890,7 @@ def create_app(session_secret: str) -> FastAPI:
         distinct_actions = []
         distinct_sources: list = []
         total_count = 0
+        total_is_approx = False
         try:
             from db import _conn
             where = []
@@ -4907,6 +4918,18 @@ def create_app(session_secret: str) -> FastAPI:
                 params.extend([f_source, f'%"source": "{f_source}"%'])
             where_sql = (" WHERE " + " AND ".join(where)) if where else ""
             offset = (page - 1) * PAGE_SIZE
+            # v0.7.14: COUNT(*) auf grossem audit_log (mit LEFT JOIN users +
+            # ggf. LIKE und json_extract) war auf Azure-Files-SMB der
+            # /admin/audit-Bottleneck (~2 min). Strategie:
+            #   1) Den JOIN nur bauen, wenn der User-Filter ihn braucht
+            #      (alle anderen Filter laufen auf audit_log alleine).
+            #   2) COUNT auf 1001 begrenzen via Subquery — der Template
+            #      zeigt "1000+" statt einer harten Zahl. Bei Filter mit
+            #      wenigen Treffern bleibt die Zahl exakt.
+            need_join = bool(f_user)
+            join_sql = " LEFT JOIN users u ON u.id = a.user_id" if need_join else ""
+            COUNT_CAP = 1000
+            _t_db0 = _t.monotonic()
             with _conn() as conn:
                 try:
                     distinct_actions = [
@@ -4917,36 +4940,36 @@ def create_app(session_secret: str) -> FastAPI:
                     ]
                 except Exception:
                     distinct_actions = []
+                # v0.7.14: distinct_sources via json_extract scannt die ganze
+                # Tabelle. Auf einer grossen audit_log dauert das viele
+                # Sekunden — und das Drop-Down hat in der Praxis nur eine
+                # Handvoll Werte. Hartkodierter Fallback ist sauber genug.
+                distinct_sources = ["ios_app", "web", "email", "desktop", "mcp"]
                 try:
-                    distinct_sources = [
-                        r["src"] for r in conn.execute(
-                            "SELECT DISTINCT json_extract(details, '$.source') AS src "
-                            "FROM audit_log "
-                            "WHERE src IS NOT NULL AND src <> '' "
-                            "ORDER BY src ASC"
-                        ).fetchall()
-                        if r["src"]
-                    ]
-                except Exception:
-                    distinct_sources = ["ios_app", "web", "email", "desktop", "mcp"]
-                try:
-                    total_count = conn.execute(
-                        f"SELECT COUNT(*) AS c FROM audit_log a "
-                        f"LEFT JOIN users u ON u.id = a.user_id{where_sql}",
-                        tuple(params),
-                    ).fetchone()["c"]
+                    cap_row = conn.execute(
+                        f"SELECT COUNT(*) AS c FROM ("
+                        f"  SELECT 1 FROM audit_log a{join_sql}{where_sql} "
+                        f"  LIMIT ?"
+                        f")",
+                        tuple(params) + (COUNT_CAP + 1,),
+                    ).fetchone()
+                    total_count = int(cap_row["c"]) if cap_row else 0
                 except Exception:
                     total_count = 0
+                total_is_approx = total_count > COUNT_CAP
                 rows = conn.execute(
-                    f"SELECT a.*, u.username, u.email, u.full_name FROM audit_log a "
+                    f"SELECT a.*, u.username, u.email, u.full_name "
+                    f"FROM audit_log a "
                     f"LEFT JOIN users u ON u.id = a.user_id{where_sql} "
                     f"ORDER BY a.created_at DESC LIMIT ? OFFSET ?",
                     tuple(params) + (PAGE_SIZE, offset),
                 ).fetchall()
                 entries = [dict(r) for r in rows]
+            _dt_db_ms = (_t.monotonic() - _t_db0) * 1000.0
         except Exception as e:
             logger.warning("admin_audit query failed: %s", e)
             entries = []
+            total_is_approx = False
 
         # v0.7.4: Severity-Derivation + Display-User-Aufbereitung pro Entry.
         _ERROR_TOKENS = ("_failed", "_error", "denied", "revoked",
@@ -5002,10 +5025,19 @@ def create_app(session_secret: str) -> FastAPI:
         import math as _math
         total_pages = max(1, _math.ceil(total_count / PAGE_SIZE)) if total_count else 1
 
+        if _perf:
+            logger.info(
+                "perf admin_audit dt_total=%.0fms dt_db=%.0fms rows=%d "
+                "total=%s%d filters=user=%s action=%s severity=%s source=%s",
+                (_t.monotonic() - _t0) * 1000.0, _dt_db_ms, len(entries),
+                ">=" if total_is_approx else "", total_count,
+                bool(f_user), bool(f_action), bool(f_severity), bool(f_source),
+            )
         return templates.TemplateResponse("admin_audit.html", {
             "request": request, "user": user, "entries": entries,
             "distinct_actions": distinct_actions,
             "distinct_sources": distinct_sources,
+            "total_is_approx": total_is_approx,
             "filter_user": f_user, "filter_action": f_action,
             "filter_from_date": f_from_date, "filter_to_date": f_to_date,
             "filter_from_time": f_from_time, "filter_to_time": f_to_time,
@@ -6009,33 +6041,54 @@ def create_app(session_secret: str) -> FastAPI:
             oid = _find_tenant_owner_user_id()
             tenant = get_tenant_full_by_user_id(oid) if oid else None
 
-        printix_groups: list[dict] = []
-        if tenant and (tenant.get("print_client_id") or tenant.get("shared_client_id")):
+        # v0.7.14: Printix-Groups + Queues parallel im Thread holen, statt
+        # synchron hintereinander den Event-Loop zu blockieren. Beide Calls
+        # zusammen waren der Haupt-Bottleneck auf /admin/groups (bis zu
+        # 30+ Sekunden bei lahmer Printix-API-Latenz).
+        import time as _t_g
+        _t_g0 = _t_g.monotonic()
+        try:
+            from db import perf_logs_enabled as _perf_on_g
+            _perf_g = _perf_on_g()
+        except Exception:
+            _perf_g = False
+
+        def _fetch_printix_groups(_tenant):
+            if not _tenant or not (_tenant.get("print_client_id")
+                                   or _tenant.get("shared_client_id")):
+                return []
             try:
-                import sys as _s, os as _o
-                _s.path.insert(0, _o.path.dirname(_o.path.dirname(__file__)))
                 from printix_client import PrintixClient
                 client = PrintixClient(
-                    tenant_id=tenant["printix_tenant_id"],
-                    print_client_id=tenant.get("print_client_id", ""),
-                    print_client_secret=tenant.get("print_client_secret", ""),
-                    shared_client_id=tenant.get("shared_client_id", ""),
-                    shared_client_secret=tenant.get("shared_client_secret", ""),
+                    tenant_id=_tenant["printix_tenant_id"],
+                    print_client_id=_tenant.get("print_client_id", ""),
+                    print_client_secret=_tenant.get("print_client_secret", ""),
+                    shared_client_id=_tenant.get("shared_client_id", ""),
+                    shared_client_secret=_tenant.get("shared_client_secret", ""),
                 )
                 data = client.list_groups(size=200)
                 raw = (data.get("_embedded") or {}).get("groups", []) if isinstance(data, dict) else []
                 if not raw:
                     raw = data.get("groups", []) if isinstance(data, dict) else []
+                out = []
                 for g in raw:
                     href = (g.get("_links") or {}).get("self", {}).get("href", "")
                     gid = href.rstrip("/").split("/")[-1] if href else g.get("id", "")
-                    printix_groups.append({
+                    out.append({
                         "id":   gid,
                         "name": g.get("name", ""),
                         "description": g.get("description", ""),
                     })
+                return out
             except Exception as e:
                 logger.warning("Printix-Groups-Abruf fehlgeschlagen: %s", e)
+                return []
+
+        import asyncio as _aio_g
+        printix_groups, queues_pre = await _aio_g.gather(
+            _aio_g.to_thread(_fetch_printix_groups, tenant),
+            _aio_g.to_thread(_load_printix_queues_for_admin, tenant) if tenant else _aio_g.to_thread(lambda: []),
+        )
 
         # Bestehende Group-Defaults laden — defensive: wenn die
         # Migration aus irgend einem Grund nicht durchgelaufen ist
@@ -6049,14 +6102,14 @@ def create_app(session_secret: str) -> FastAPI:
             existing_defaults = []
         existing_map = {d["printix_group_id"]: d for d in existing_defaults}
 
-        # Queues fürs Dropdown — Helper hat eigenes try/except, kann
-        # aber bei kaputtem Printix-Client trotzdem aus dem Aufrufer hier
-        # eine Exception werfen, also defensiv.
-        try:
-            queues = _load_printix_queues_for_admin(tenant) if tenant else []
-        except Exception as _qe:
-            logger.warning("_load_printix_queues_for_admin failed: %s", _qe)
-            queues = []
+        # v0.7.14: queues bereits oben parallel mit groups geholt.
+        queues = queues_pre or []
+        if _perf_g:
+            logger.info(
+                "perf admin_groups dt_total=%.0fms groups=%d queues=%d",
+                (_t_g.monotonic() - _t_g0) * 1000.0,
+                len(printix_groups), len(queues),
+            )
 
         return templates.TemplateResponse("admin_groups.html", {
             "request": request, "user": user,

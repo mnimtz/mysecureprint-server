@@ -46,13 +46,49 @@ def _normalize_role_type(role_type: str | None, is_admin: bool = False) -> str:
 
 # ─── Datenbankverbindung ──────────────────────────────────────────────────────
 
+# v0.7.14: SQLite tuning fuer Azure-Files-SMB-Mount.
+# Auf /data (SMB) ist jeder fsync extrem teuer und WAL ist unzuverlaessig
+# (mmap der -wal/-shm-Datei verhaelt sich unter SMB undefiniert -> kann zu
+# DB-Korruption oder "database is locked" fuehren).
+# Strategie:
+#   - journal_mode=MEMORY: Journal im RAM, keine SMB-Roundtrips pro Write.
+#     Trade-off: bei OS-Crash mitten in einer Transaktion ist die DB
+#     im Worst-Case korrupt -> tagliche blob_backup-Snapshots decken das ab.
+#   - synchronous=NORMAL: spart fsyncs (auf SMB ohnehin best-effort).
+#   - cache_size=-64000: 64 MB Page-Cache pro Connection.
+#   - temp_store=MEMORY: temp tables/Sortier-Spills nicht auf /data.
+# Override via Env DB_JOURNAL_MODE / DB_SYNCHRONOUS moeglich (lokale Devs).
+_DB_JOURNAL_MODE = os.environ.get("DB_JOURNAL_MODE", "MEMORY").upper()
+_DB_SYNCHRONOUS  = os.environ.get("DB_SYNCHRONOUS",  "NORMAL").upper()
+_DB_CACHE_KB     = os.environ.get("DB_CACHE_KB",     "-64000")
+_PRAGMAS_LOGGED  = False
+
+
 @contextmanager
 def _conn():
+    global _PRAGMAS_LOGGED
     os.makedirs(os.path.dirname(DB_PATH) if os.path.dirname(DB_PATH) else ".", exist_ok=True)
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
+    try:
+        conn.execute(f"PRAGMA journal_mode={_DB_JOURNAL_MODE}")
+        conn.execute(f"PRAGMA synchronous={_DB_SYNCHRONOUS}")
+        conn.execute(f"PRAGMA cache_size={_DB_CACHE_KB}")
+        conn.execute("PRAGMA temp_store=MEMORY")
+    except Exception as _pe:
+        logger.warning("PRAGMA tuning fehlgeschlagen: %s", _pe)
     conn.execute("PRAGMA foreign_keys=ON")
+    if not _PRAGMAS_LOGGED:
+        try:
+            jm = conn.execute("PRAGMA journal_mode").fetchone()[0]
+            sy = conn.execute("PRAGMA synchronous").fetchone()[0]
+            logger.info(
+                "SQLite tuning aktiv: journal=%s synchronous=%s cache=%s",
+                jm, sy, _DB_CACHE_KB,
+            )
+            _PRAGMAS_LOGGED = True
+        except Exception:
+            _PRAGMAS_LOGGED = True
     try:
         yield conn
         conn.commit()
@@ -61,6 +97,15 @@ def _conn():
         raise
     finally:
         conn.close()
+
+
+# v0.7.14: Perf-Logging-Schalter. Wenn Setting `perf_logs_enabled` = "1",
+# loggen Admin-Routes pro Request `dt_total=Xms dt_db=Xms ...`. Default: off.
+def perf_logs_enabled() -> bool:
+    try:
+        return get_setting("perf_logs_enabled", "0").strip() == "1"
+    except Exception:
+        return False
 
 
 # ─── Schema ───────────────────────────────────────────────────────────────────
@@ -282,6 +327,9 @@ def init_db() -> None:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_log_tenant ON audit_log (tenant_id, created_at DESC)")
         # v0.6.6: Index fuer user_id-Filter (GDPR-Export, /me/audit, etc.)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log (user_id, created_at DESC)")
+        # v0.7.14: Compound-Index fuer Action-Filter im /admin/audit Drop-Down
+        # (vorher: Full-Table-Scan beim Filter "action = ?")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log (action, created_at DESC)")
     # v6.7.111: Back-fill tenant_id fuer Legacy-Rows. Bis v6.7.110 haben
     # die meisten audit()-Call-Sites in web/app.py den tenant_id-Parameter
     # nicht mitgegeben → alle Zeilen hatten tenant_id=''. Dadurch liefert

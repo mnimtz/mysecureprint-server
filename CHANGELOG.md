@@ -1,5 +1,54 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.15 — 2026-06-30 — CRITICAL Print-Fix (release_immediately=True) + Perf-Pass
+
+### Print-Fix — der echte Bug
+
+User-Insight: im alten printix-mcp werden Secure-Print-Jobs IMMER mit
+`release_immediately=True` gesubmittet. Unser Code hatte das auf False
+umgestellt — DAS war der Grund fuer die Printix-500-Errors (TS70RB,
+PwuzH9, 3OM337, SQFSJK), nicht der user/userMapping-Parameter.
+
+Korrekter Flow (aus altem printix-mcp uebernommen):
+  1. submit_print_job(user=email, release_immediately=True)
+     → Job ist sofort im Cloud-Pool, bereit fuer Karten-Pull
+  2. upload_file_to_url(...)
+  3. complete_upload(job_id)
+  4. **change_job_owner(job_id, real_user_email)** — setzt Owner
+     fuer Secure-Print-Berechtigung am Drucker
+
+release_immediately=False triggerte einen anderen Code-Pfad in Printix
+('Print Later') der mit unseren Anfragen 500 wirft. Mein v0.7.14
+userMapping-Fix war auf falscher Faehrte.
+
+Fuer Delegate (print:delegate:<id>): gleicher Pattern — submit mit
+absender-email, dann change_job_owner zum delegate.
+
+### Perf-Pass (Agent-Arbeit parallel)
+
+- `db.py` `_conn()`: journal_mode=MEMORY, synchronous=NORMAL,
+  cache_size=-64000 (64 MB), temp_store=MEMORY. Azure-Files SMB hat
+  sehr langsame fsync — diese Pragmas reduzieren das massiv.
+  Override via Env DB_JOURNAL_MODE / DB_SYNCHRONOUS.
+- Neuer Index `idx_audit_log_action(action, created_at DESC)`.
+- `admin_audit`: COUNT(*) auf 1001 gecappt, LEFT JOIN bei COUNT
+  ohne User-Filter geskippt, distinct_sources hardcoded statt
+  json_extract Full-Scan.
+- `admin_groups_page`: list_groups + list_printers parallel via
+  asyncio.gather(asyncio.to_thread(...)) statt sequentiell.
+- `/desktop/send`: Tenant-Lookup + create_cloudprint_job aus der
+  sync Pre-202-Phase in BG-Task verschoben. iOS sieht 202 nach <50ms.
+
+### Was zu tun nach Deploy
+
+1. `INSERT INTO settings (key, value, updated_at) VALUES
+   ('perf_logs_enabled','1',datetime('now'))` fuer 5-10 Min an —
+   dann zeigen die `dt_*`-Marker wo's noch klemmt.
+2. Boot-Log sollte
+   `SQLite tuning aktiv: journal=memory synchronous=normal …` zeigen.
+3. Wenn Memory-Journal Sorgen macht (Crash → letzte sec weg):
+   `DB_JOURNAL_MODE=TRUNCATE` setzen.
+
 ## 0.7.14 — 2026-06-30 — CRITICAL: userMapping statt user-Query-Param fuer Secure Print
 
 User-Report: Wiederholte Printix-500-Errors (ErrorIDs TS70RB, PwuzH9,
@@ -30,6 +79,53 @@ Fix:
 
 Damit sollte der Submit fuer `releaseImmediately=false` (= Secure
 Print) endlich durchlaufen.
+
+### 0.7.14 — Performance-Pass: SQLite-Tuning fuer Azure-Files, /admin/audit Fix, iOS-Upload schneller
+
+User-Report: `/admin/audit` lud ~2 Minuten, andere Admin-Seiten ebenfalls
+sehr langsam, iOS-Upload eines 300-KB-JPGs zeigte 2-3 Minuten Spinner.
+
+Haupt-Bottleneck: Das `/data`-Volume liegt auf einem Azure-Files-SMB-Mount.
+Auf SMB ist jeder fsync teuer, WAL-Journal unzuverlaessig, und SQLite-
+Roundtrips sind ein Vielfaches langsamer als auf lokaler Disk.
+
+Fixes:
+
+- **`src/db.py`** — `_conn()` setzt jetzt `journal_mode=MEMORY`,
+  `synchronous=NORMAL`, `cache_size=-64000` (64 MB), `temp_store=MEMORY`.
+  Trade-off: bei OS-Crash mitten in einer Transaktion ist die DB im
+  Worst-Case korrupt — taegliche `blob_backup`-Snapshots decken das ab.
+  Override via `DB_JOURNAL_MODE` / `DB_SYNCHRONOUS` Env-Vars.
+  Neuer Index `idx_audit_log_action (action, created_at DESC)`.
+  Helper `perf_logs_enabled()` liest Setting `perf_logs_enabled`.
+
+- **`src/web/app.py` `admin_audit`** — COUNT(\*) ist auf 1000 capped
+  (Subquery `SELECT 1 ... LIMIT 1001`); Template kann `≥1000` zeigen.
+  LEFT JOIN users wird beim COUNT nur noch gebaut wenn User-Filter
+  aktiv. Das teure `SELECT DISTINCT json_extract(details,'$.source')`
+  ist durch eine hartkodierte Liste (`ios_app`, `web`, `email`,
+  `desktop`, `mcp`) ersetzt. `dt_total/dt_db` Log hinter
+  `perf_logs_enabled`.
+
+- **`src/web/app.py` `admin_groups`** — `list_groups` + `list_printers`
+  laufen jetzt parallel via `asyncio.gather(asyncio.to_thread(...))`
+  statt sequenziell zu blockieren.
+
+- **`src/web/desktop_routes.py` `/desktop/send`** — `create_cloudprint_job`
+  + tenant-Lookup waren synchron vor dem 202 (auf SMB jeweils 200-600 ms).
+  Bei einem 300-KB-JPG ergab das den 2-3-s-Spinner. Jetzt: 202 sofort,
+  Tracking-Insert via `asyncio.create_task(asyncio.to_thread(...))`.
+  Stage-Log gated.
+
+Was NICHT geaendert:
+- Azure-Files-Mount selbst — Infra-Arbeit ausserhalb dieses Releases.
+- Persistenter Printix-Printers/Groups-Cache (nur `cached_printix_users`
+  existiert heute) — naechste Stufe.
+- Heavy-Imports auf Modulebene — defensive `try`-Imports in Handlern
+  bleiben; Importzeit nach erstem Hit sub-ms.
+
+Empfehlung: `perf_logs_enabled=1` einmalig setzen, Logs ein paar Minuten
+beobachten um restliche Hotspots zu sehen (`dt_db`).
 
 ## 0.7.13 — 2026-06-30 — API-Trace 'Aktiv'-Status auch ohne Listing-Daten
 

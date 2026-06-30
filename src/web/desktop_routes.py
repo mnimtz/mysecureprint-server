@@ -590,56 +590,31 @@ async def _process_desktop_send_bg(
             except Exception:
                 pass
 
-            # v0.7.14: userMapping statt user-Query-Param fuer Secure Print.
-            # Printix-Docs sagen explizit: bei `releaseImmediately=false`
-            # MUSS userMapping benutzt werden (JSON-Body mit
-            # {key: "Email", value: "..."}), nicht der user-Query-Param.
-            # Beide gleichzeitig → 400 Error. Frueherer Code mit `user=`
-            # war der Grund fuer die TS70RB / SQFSJK Printix-500-Fehler.
-            #
-            # Fallback-Kette:
-            #   1. userMapping mit key=Email (Standard)
-            #   2. wenn 500: ohne user/userMapping (legt in tenant-globaler
-            #      Queue ab — User kann via Karte holen)
-            from printix_client import PrintixAPIError as _PxErr
-            def _do_submit(*, mapping_key=None, mapping_value=None,
-                              user_param=None):
-                return client.submit_print_job(
-                    printer_id=printer_id,
-                    queue_id=target_queue,
-                    title=display_filename,
-                    user=user_param,
-                    user_mapping_key=mapping_key,
-                    user_mapping_value=mapping_value,
-                    pdl="PDF",
-                    release_immediately=False,
-                    color=bool(color),
-                    duplex=("LONG_EDGE" if duplex else "NONE"),
-                    copies=max(1, min(99, int(copies or 1))),
-                )
-            try:
-                result = _do_submit(mapping_key="Email",
-                                       mapping_value=submit_user_email)
-                logger.info(
-                    "Desktop-Send [4/5] submit OK mit userMapping(Email=%s)",
-                    submit_user_email,
-                )
-            except _PxErr as _px_e:
-                if _px_e.status_code in (400, 422, 500) and submit_user_email:
-                    logger.warning(
-                        "Desktop-Send [4/5] Printix %s mit userMapping(Email=%s) "
-                        "(ErrorID=%s) — Retry ohne userMapping…",
-                        _px_e.status_code, submit_user_email,
-                        getattr(_px_e, 'error_id', ''),
-                    )
-                    result = _do_submit()
-                    logger.info(
-                        "Desktop-Send [4/5] Retry ohne userMapping OK — "
-                        "Job wird in tenant-globaler Queue abgelegt, "
-                        "User kann via Karte am Drucker abholen.",
-                    )
-                else:
-                    raise
+            # v0.7.15: Zurueck zum bewaehrten Muster aus printix-mcp:
+            #   - user=email als Query-Param (legacy v1.0, funktioniert sicher)
+            #   - release_immediately=True (Job ist sofort im Cloud-Pool;
+            #     Secure-Print-Release per Karte am Drucker passiert ueber
+            #     die Queue-Konfiguration, NICHT ueber release_immediately)
+            #   - change_job_owner(...) NACH dem Upload setzt den echten
+            #     Owner fuer Secure-Print-Berechtigung
+            # release_immediately=False hat einen anderen Code-Pfad in
+            # Printix getriggert ("Print Later"), der unsere Anfragen mit
+            # 500 zurueckwies (TS70RB, SQFSJK, etc.).
+            result = client.submit_print_job(
+                printer_id=printer_id,
+                queue_id=target_queue,
+                title=display_filename,
+                user=submit_user_email,
+                pdl="PDF",
+                release_immediately=True,
+                color=bool(color),
+                duplex=("LONG_EDGE" if duplex else "NONE"),
+                copies=max(1, min(99, int(copies or 1))),
+            )
+            logger.info(
+                "Desktop-Send [4/5] submit OK — user='%s' release_immediately=True",
+                submit_user_email,
+            )
             result_job = result.get("job", result) if isinstance(result, dict) else {}
             px_job_id = result_job.get("id", "") if isinstance(result_job, dict) else ""
             upload_url = ""
@@ -1282,49 +1257,62 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         import uuid as _uuid
         internal_id = _uuid.uuid4().hex[:10]
 
-        # Tracking-Eintrag früh anlegen, damit ein sofortiger Fehler in der
-        # Background-Task immer ein update_cloudprint_job_status() treffen
-        # kann. tenant_id ist hier noch leer — die BG-Task trägt später das
-        # echte Ziel (target_queue, identity) nach.
+        # v0.7.14: Tracking-Insert in die BG-Task verschoben. Auf Azure-Files
+        # (SMB) braucht jeder INSERT auf cloudprint_jobs 200-600 ms — bisher
+        # haben iOS-Uploads das VOR dem 202 gemacht, plus tenant-Lookup
+        # (weitere ~200 ms). Bei einem 300-KB-JPG ergab das 2-3 s Spinner
+        # vor dem ersten Byte Response. Jetzt: 202 sofort, BG-Task schreibt
+        # den ersten Tracking-Eintrag. update_cloudprint_job_status() ist
+        # robust gegen "Row gibt's noch nicht" (UPDATE ohne Treffer ist No-op),
+        # daher ist die Reihenfolge BG-INSERT vor BG-Pipeline-Stages OK.
+        import time as _ptime
+        _t_after_read = _ptime.monotonic()
         try:
-            import sys as _sys, os as _os
-            src_dir = _os.path.dirname(_os.path.dirname(__file__))
-            if src_dir not in _sys.path:
-                _sys.path.insert(0, src_dir)
-            from cloudprint.db_extensions import (
-                create_cloudprint_job, get_parent_user_id,
-            )
-            # v0.7.3: tenant_id beim INSERT mitgeben — sonst findet
-            # /desktop/me/jobs die Rows nie (WHERE tenant_id = ? matched
-            # leeren String nicht). Vorher: alle iOS-Print-Jobs hatten
-            # tenant_id="" -> Jobs-Tab in iOS war immer leer.
-            _tid_for_insert = ""
+            from db import perf_logs_enabled as _perf_on
+            _perf_send = _perf_on()
+        except Exception:
+            _perf_send = False
+
+        async def _bg_create_tracking():
+            def _do():
+                try:
+                    import sys as _sys, os as _os
+                    src_dir = _os.path.dirname(_os.path.dirname(__file__))
+                    if src_dir not in _sys.path:
+                        _sys.path.insert(0, src_dir)
+                    from cloudprint.db_extensions import (
+                        create_cloudprint_job, get_parent_user_id,
+                    )
+                    _tid = ""
+                    try:
+                        from db import get_tenant_full_by_user_id
+                        _pid = get_parent_user_id(user["user_id"]) or user["user_id"]
+                        _tnt = (get_tenant_full_by_user_id(_pid)
+                                or get_tenant_full_by_user_id(user["user_id"]))
+                        if _tnt:
+                            _tid = _tnt.get("id", "") or ""
+                    except Exception:
+                        pass
+                    create_cloudprint_job(
+                        job_id=internal_id,
+                        tenant_id=_tid,
+                        queue_name="",
+                        username=(user.get("email") or _user_descr(user) or "")[:120],
+                        hostname=f"desktop:{user.get('device_name', '')}"[:80],
+                        job_name=file.filename,
+                        data_size=len(data),
+                        data_format="application/octet-stream",
+                        detected_identity=(user.get("email") or ""),
+                        identity_source="desktop-send",
+                        status="queued",
+                    )
+                except Exception as _cj:
+                    logger.debug("initial cloudprint_job insert failed: %s", _cj)
             try:
-                from db import get_tenant_full_by_user_id
-                _pid = get_parent_user_id(user["user_id"]) or user["user_id"]
-                _tnt = (get_tenant_full_by_user_id(_pid)
-                        or get_tenant_full_by_user_id(user["user_id"]))
-                if _tnt:
-                    _tid_for_insert = _tnt.get("id", "") or ""
+                await asyncio.to_thread(_do)
             except Exception:
                 pass
-            create_cloudprint_job(
-                job_id=internal_id,
-                tenant_id=_tid_for_insert,
-                queue_name="",
-                username=(user.get("email") or _user_descr(user) or "")[:120],
-                hostname=f"desktop:{user.get('device_name', '')}"[:80],
-                job_name=file.filename,
-                data_size=len(data),
-                data_format="application/octet-stream",
-                detected_identity=(user.get("email") or ""),
-                identity_source="desktop-send",
-                status="queued",
-            )
-        except Exception as _cj:
-            # Wenn das Tracking-Insert fehlschlägt, trotzdem weiter —
-            # der eigentliche Druckflow ist wichtiger als die UI-Anzeige.
-            logger.debug("initial cloudprint_job insert failed: %s", _cj)
+        asyncio.create_task(_bg_create_tracking())
 
         # v0.7.5: Wrapper mit 5-Min-Watchdog. Wenn die BG-Task laenger als
         # 300s laeuft (z.B. Printix-Submit haengt im Network-Wait), wird
@@ -1363,6 +1351,16 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             "— 202 Accepted, Verarbeitung läuft asynchron",
             _user_descr(user), target_id, internal_id, len(data),
         )
+        if _perf_send:
+            _t_resp = _ptime.monotonic()
+            logger.info(
+                "perf desktop_send dt_total=%.0fms dt_read=%.0fms dt_post_read=%.0fms "
+                "size=%d job=%s",
+                (_t_resp - t_start) * 1000.0,
+                (_t_after_read - t_start) * 1000.0,
+                (_t_resp - _t_after_read) * 1000.0,
+                len(data), internal_id,
+            )
         return JSONResponse({
             "ok": True,
             "status": "queued",
