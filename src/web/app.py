@@ -1361,6 +1361,22 @@ def create_app(session_secret: str) -> FastAPI:
         except ImportError:
             return JSONResponse({"error": "entra module not available"}, status_code=500)
 
+        # v0.7.0: Optional Mail.Send / Mail.Read App-Permissions in der
+        # zu erstellenden App mitregistrieren. Wir merken uns die Wahl
+        # in der Session bis der Poll-Endpoint die App tatsaechlich
+        # anlegt — die Form-Felder kommen als Query-Parameter mit dem
+        # Start-Klick.
+        try:
+            qp = dict(request.query_params)
+        except Exception:
+            qp = {}
+        request.session["entra_setup_include_mail_send"] = (
+            qp.get("include_mail_send", "") in ("1", "true", "on", "yes")
+        )
+        request.session["entra_setup_include_mail_read"] = (
+            qp.get("include_mail_read", "") in ("1", "true", "on", "yes")
+        )
+
         result = start_device_code_flow()
         # v0.4.8: Microsoft-Fehler weiterreichen falls vorhanden, damit der
         # Admin im UI was Verwertbares sieht statt nur „device_code_failed".
@@ -1470,7 +1486,17 @@ def create_app(session_secret: str) -> FastAPI:
 
         base = _get_base_url(request)
         sso_redirect_uri = f"{base}/auth/entra/callback"
-        result = auto_register_app(access_token, sso_redirect_uri)
+        # v0.7.0: Optional Mail.Send / Mail.Read App-Permissions in der
+        # neuen App registrieren (vom Setup-Toggle im UI gesteuert).
+        _inc_send = bool(request.session.pop(
+            "entra_setup_include_mail_send", False))
+        _inc_read = bool(request.session.pop(
+            "entra_setup_include_mail_read", False))
+        result = auto_register_app(
+            access_token, sso_redirect_uri,
+            include_mail_send=_inc_send,
+            include_mail_read=_inc_read,
+        )
 
         if not result or not result.get("client_id"):
             return JSONResponse({
@@ -1480,7 +1506,7 @@ def create_app(session_secret: str) -> FastAPI:
 
         # Credentials in Settings speichern
         try:
-            from db import set_setting, _enc, audit
+            from db import set_setting, _enc, audit, get_setting
             set_setting("entra_enabled", "1")
             set_setting("entra_client_id", result["client_id"])
             if result.get("client_secret"):
@@ -1500,6 +1526,16 @@ def create_app(session_secret: str) -> FastAPI:
                             result["secret_expires_at"])
             if result.get("object_id"):
                 set_setting("entra_app_object_id", result["object_id"])
+            # v0.7.0: Mail-Permissions-Flags persistieren, damit das
+            # Admin-UI weiss ob die App ueberhaupt Graph-Mail darf.
+            set_setting("entra_mail_send_enabled",
+                        "1" if _inc_send else "0")
+            set_setting("entra_mail_read_enabled",
+                        "1" if _inc_read else "0")
+            # E-Mail-to-Print bleibt v0.7.0 noch deaktiviert — Feature
+            # kommt erst in v0.8.0; wir registrieren nur die Permission.
+            if _inc_read and not get_setting("email_to_print_enabled", ""):
+                set_setting("email_to_print_enabled", "0")
 
             audit(user["id"], "entra_auto_setup",
                   f"SSO-App via Device Code Flow erstellt (client_id={result['client_id']}, redirect_uri={sso_redirect_uri}, audience={result.get('audience','?')}, secret_expires={result.get('secret_expires_at','?')})")
@@ -3015,7 +3051,7 @@ def create_app(session_secret: str) -> FastAPI:
             #   1. tenant.mail_api_key + tenant.mail_from (per-Tenant)
             #   2. global_mail_api_key + global_mail_from (DB-Settings)
             #   3. ENV-Variablen RESEND_API_KEY + RESEND_FROM (deployment)
-            from mail_client import send_report, MailSendError
+            from mail_client import send_mail, MailSendError
             tenant = get_tenant_full_by_user_id(admin["id"]) or {}
             api_key = (tenant.get("mail_api_key") or "").strip()
             mail_from = (tenant.get("mail_from") or "").strip()
@@ -3033,12 +3069,37 @@ def create_app(session_secret: str) -> FastAPI:
             if not api_key:
                 api_key = os.environ.get("RESEND_API_KEY", "")
                 mail_from = mail_from or os.environ.get("RESEND_FROM", "")
-            if not api_key or not mail_from:
+
+            # v0.7.0: Provider-Auswahl. Bei "graph" laden wir Entra-
+            # Credentials + Service-Mailbox aus den Settings. Resend
+            # bleibt Fallback (siehe send_mail).
+            provider = (get_setting("mail_provider", "") or "resend").strip().lower()
+            graph_tid = graph_cid = graph_csec = graph_sender = ""
+            if provider == "graph":
+                graph_tid = (get_setting("entra_tenant_id", "") or "").strip()
+                graph_cid = (get_setting("entra_client_id", "") or "").strip()
+                _g_csec_enc = get_setting("entra_client_secret", "")
+                try:
+                    graph_csec = _dec(_g_csec_enc) if _g_csec_enc else ""
+                except Exception:
+                    graph_csec = ""
+                graph_sender = (get_setting("mail_graph_sender", "") or "").strip()
+                if not (graph_tid and graph_cid and graph_csec and graph_sender):
+                    logger.warning(
+                        "mobile-invite: provider=graph aber Setup unvollstaendig "
+                        "(tid=%s cid=%s sec=%s sender=%s) — fallback auf Resend",
+                        bool(graph_tid), bool(graph_cid), bool(graph_csec),
+                        bool(graph_sender),
+                    )
+                    provider = "resend"
+
+            if provider == "resend" and (not api_key or not mail_from):
                 logger.warning(
-                    "mobile-invite email skipped — no Resend API key + from "
-                    "configured (tenant/global/env all empty)."
+                    "mobile-invite email skipped — no mail provider configured "
+                    "(Resend tenant/global/env all empty, Graph not selected)."
                 )
                 return False
+
             subject, html_body = _build_mobile_invite_email_html(
                 recipient=recipient,
                 full_name=full_name,
@@ -3049,13 +3110,18 @@ def create_app(session_secret: str) -> FastAPI:
                 admin_name=(admin or {}).get("full_name", "")
                     or (admin or {}).get("username", ""),
             )
-            send_report(
+            send_mail(
                 recipients=[recipient],
                 subject=subject,
                 html_body=html_body,
+                provider=provider,
                 api_key=api_key,
                 mail_from=mail_from,
                 mail_from_name=mail_from_name,
+                graph_tenant_id=graph_tid,
+                graph_client_id=graph_cid,
+                graph_client_secret=graph_csec,
+                graph_sender_mailbox=graph_sender,
             )
             return True
         except MailSendError as me:
@@ -4870,6 +4936,18 @@ def create_app(session_secret: str) -> FastAPI:
         except Exception:
             has_global_mail_key = False
             global_mail_from = global_mail_from_name = ""
+        # v0.7.0: Mail-Provider-Auswahl + Graph-Sender + Permission-Flags
+        try:
+            mail_provider           = _gs2("mail_provider", "") or "resend"
+            mail_graph_sender       = _gs2("mail_graph_sender", "")
+            entra_mail_send_enabled = _gs2("entra_mail_send_enabled", "0") == "1"
+            entra_mail_read_enabled = _gs2("entra_mail_read_enabled", "0") == "1"
+            email_to_print_enabled  = _gs2("email_to_print_enabled", "0") == "1"
+        except Exception:
+            mail_provider = "resend"
+            mail_graph_sender = ""
+            entra_mail_send_enabled = entra_mail_read_enabled = False
+            email_to_print_enabled = False
         # Entra-Konfiguration
         try:
             from db import get_setting as gs
@@ -4907,6 +4985,12 @@ def create_app(session_secret: str) -> FastAPI:
             "has_global_mail_key": has_global_mail_key,
             "global_mail_from": global_mail_from,
             "global_mail_from_name": global_mail_from_name,
+            # v0.7.0: Microsoft-Graph Mail-Provider
+            "mail_provider":           mail_provider,
+            "mail_graph_sender":       mail_graph_sender,
+            "entra_mail_send_enabled": entra_mail_send_enabled,
+            "entra_mail_read_enabled": entra_mail_read_enabled,
+            "email_to_print_enabled":  email_to_print_enabled,
             "entra": entra_cfg,
             "entra_redirect_uri": saved_redirect,
             "auto_setup_success": auto_setup_success,
@@ -5025,6 +5109,8 @@ def create_app(session_secret: str) -> FastAPI:
         global_mail_api_key:   str = Form(default=""),
         global_mail_from:      str = Form(default=""),
         global_mail_from_name: str = Form(default=""),
+        mail_provider:         str = Form(default=""),
+        mail_graph_sender:     str = Form(default=""),
     ):
         user = get_session_user(request)
         if not user or not user.get("is_admin"):
@@ -5047,6 +5133,12 @@ def create_app(session_secret: str) -> FastAPI:
                 set_setting("global_mail_api_key", _enc(global_mail_api_key.strip()))
             set_setting("global_mail_from",      global_mail_from.strip())
             set_setting("global_mail_from_name", global_mail_from_name.strip())
+
+            # v0.7.0: Mail-Provider-Auswahl (resend/graph) + Graph-Sender
+            _mp = (mail_provider or "").strip().lower()
+            if _mp in ("resend", "graph"):
+                set_setting("mail_provider", _mp)
+            set_setting("mail_graph_sender", mail_graph_sender.strip())
 
             # Entra-Settings speichern
             set_setting("entra_enabled", "1" if entra_enabled else "0")

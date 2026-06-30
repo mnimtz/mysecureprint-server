@@ -424,6 +424,57 @@
                  placeholder="Printix MCP">
           <small class="hint">{{ _('admin_global_mail_from_name_hint') }}</small>
         </div>
+
+        <!-- v0.7.0: Provider-Auswahl Resend vs. Microsoft Graph -->
+        <div class="form-group" style="margin-top:14px;padding-top:14px;border-top:1px dashed #e5e7eb;">
+          <label>Mail-Provider</label>
+          <select name="mail_provider"
+                  onchange="document.getElementById('graph-mail-fields').style.display = this.value === 'graph' ? '' : 'none';">
+            <option value="resend" {% if (mail_provider or 'resend') == 'resend' %}selected{% endif %}>Resend (HTTPS, externer Dienst)</option>
+            <option value="graph" {% if mail_provider == 'graph' %}selected{% endif %}
+                    {% if not entra_mail_send_enabled %}disabled title="Erst im Entra-Auto-Setup die Mail.Send-Permission aktivieren."{% endif %}>
+              Microsoft Graph (eigener O365-Tenant) {% if not entra_mail_send_enabled %}— Mail.Send-Permission fehlt{% endif %}
+            </option>
+          </select>
+          <small class="hint">
+            Default = Resend (kompatibel mit bisherigen Tenants). „Microsoft Graph" nutzt
+            die im Entra-Auto-Setup registrierte App + eine Service-Mailbox in deinem Tenant.
+            Bei Graph-Fehler faellt der Versand automatisch auf Resend zurueck, wenn dort
+            Credentials konfiguriert sind.
+          </small>
+        </div>
+
+        <div id="graph-mail-fields" class="form-group"
+             style="{% if mail_provider != 'graph' %}display:none;{% endif %}background:#f9fafb;border-radius:8px;padding:12px;">
+          <label>Graph Service-Mailbox</label>
+          <input type="email" name="mail_graph_sender"
+                 value="{{ mail_graph_sender | default('') }}"
+                 placeholder="noreply@deinedomain.de">
+          <small class="hint">
+            UPN/Adresse der Mailbox, von der aus gesendet werden soll
+            (muss eine echte Exchange-Online-Mailbox sein). Erscheint als
+            Absender. Engste Konfiguration: <code>New-ApplicationAccessPolicy
+            -AppId &lt;client_id&gt; -PolicyScopeGroupId &lt;diese-mailbox&gt;
+            -AccessRight RestrictAccess</code> in Exchange Online — sonst
+            kann die App-Identitaet von <em>jeder</em> Mailbox aus senden.
+          </small>
+        </div>
+
+        <!-- v0.7.0: Email-to-Print (Permission vorhanden, Feature folgt v0.8.0) -->
+        {% if entra_mail_read_enabled %}
+        <div class="form-group" style="margin-top:14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px;">
+          <label>
+            <input type="checkbox" name="email_to_print_enabled" value="1"
+                   {% if email_to_print_enabled %}checked{% endif %} disabled>
+            Email-to-Print Gateway aktiv
+          </label>
+          <small class="hint">
+            <code>Mail.Read</code>-Permission ist registriert.
+            Die eigentliche Implementierung folgt in v0.8.0 — bis dahin
+            bleibt der Toggle deaktiviert. Kein Polling, kein Druck.
+          </small>
+        </div>
+        {% endif %}
       </div>
 
       <div class="divider"></div>
@@ -488,6 +539,50 @@
             <p style="font-size:.85em;color:#374151;margin-bottom:14px;line-height:1.6;">
               {{ _('entra_auto_setup_desc') }}
             </p>
+
+            <!-- v0.7.0: Optionale Mail-Permissions in der neuen App
+                 mitregistrieren. So muss der Admin den (idR aufwendigen)
+                 Admin-Consent-Schritt nur EINMAL durchklicken. -->
+            <div id="entra-dc-extra-perms"
+                 style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;
+                        padding:12px 14px;margin-bottom:14px;">
+              <div style="font-size:.85em;font-weight:600;color:#002854;margin-bottom:8px;">
+                Optionale Microsoft-Graph-Berechtigungen
+              </div>
+              <label style="display:flex;align-items:flex-start;gap:8px;font-size:.85em;color:#374151;margin-bottom:8px;cursor:pointer;">
+                <input type="checkbox" id="entra-perm-mailsend" style="margin-top:3px;">
+                <span>
+                  <strong>Mail-Versand ueber dieses O365-Konto erlauben</strong>
+                  (<code>Mail.Send</code> Application-Permission)
+                  <br><span style="color:#6b7280;font-size:.92em;">
+                    MySecurePrint kann dann Systemmails (Welcome, GDPR-Export, Mobile-Invite, …)
+                    von einer Service-Mailbox in deinem Tenant verschicken — keine
+                    Resend-Subscription noetig. Empfehlung: per
+                    <code>New-ApplicationAccessPolicy</code> in Exchange Online
+                    auf eine einzelne Mailbox einschraenken.
+                  </span>
+                </span>
+              </label>
+              <label style="display:flex;align-items:flex-start;gap:8px;font-size:.85em;color:#374151;cursor:pointer;">
+                <input type="checkbox" id="entra-perm-mailread" style="margin-top:3px;">
+                <span>
+                  <strong>Email-to-Print Gateway vorbereiten</strong>
+                  (<code>Mail.Read</code> Application-Permission)
+                  <br><span style="color:#6b7280;font-size:.92em;">
+                    Vorbereitung fuer v0.8.0 — Anhaenge eines ueberwachten
+                    Postfachs werden im Namen des authentifizierten Absenders
+                    gedruckt. Wir registrieren die Permission jetzt schon mit,
+                    damit du den Admin-Consent nicht ein zweites Mal
+                    durchklicken musst. Das Feature selbst bleibt bis v0.8.0
+                    deaktiviert.
+                  </span>
+                </span>
+              </label>
+              <div style="font-size:.78em;color:#92400e;background:#fef3c7;border-radius:6px;padding:6px 10px;margin-top:8px;">
+                Achtung: Beide Permissions erfordern <strong>Admin-Consent</strong>
+                (im Azure-Portal &rarr; API-Berechtigungen &rarr; „Grant admin consent").
+              </div>
+            </div>
 
             <!-- Start-Button -->
             <div id="entra-dc-start">
@@ -969,7 +1064,14 @@ function entraStartDeviceCode() {
   btn.style.opacity = '0.6';
   btn.textContent = i18n.dcStarting || '...';
 
-  fetch('/admin/entra/device-code', {method:'POST'})
+  var _qs = '';
+  try {
+    var _ms = document.getElementById('entra-perm-mailsend');
+    var _mr = document.getElementById('entra-perm-mailread');
+    _qs = '?include_mail_send=' + ((_ms && _ms.checked) ? '1' : '0')
+        + '&include_mail_read=' + ((_mr && _mr.checked) ? '1' : '0');
+  } catch (e) { _qs = ''; }
+  fetch('/admin/entra/device-code' + _qs, {method:'POST'})
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.error) {

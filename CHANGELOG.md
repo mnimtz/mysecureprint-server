@@ -1,5 +1,54 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.0 — 2026-06-30 — Microsoft Graph als Mail-Provider (Resend optional)
+
+Wer EntraID via Auto-Setup eingerichtet hat, kann jetzt System-Mails
+(Mobile-Invite, Welcome, GDPR-Export, Reports, …) ueber den eigenen
+O365-Tenant per **Microsoft Graph** `Mail.Send` verschicken — keine
+Resend-Subscription mehr noetig, eigene Domain als Absender, Audit-
+Trail in Exchange Online. Resend bleibt Default und Fallback.
+
+Bausteine:
+1. `mail_client.send_via_graph()` — App-Only-Token via Client-
+   Credentials, POST `/users/{from}/sendMail`. Cached Token bis 10min
+   vor Ablauf. Klare Fehler-Hints fuer 401/403/404.
+2. `mail_client.send_mail()` — Provider-agnostischer Wrapper. Bei
+   Provider=`graph` + Fehler + konfigurierten Resend-Credentials wird
+   automatisch auf Resend zurueckgefallen (mit Warn-Log).
+3. `entra.auto_register_app()` — neue Parameter
+   `include_mail_send: bool` (Mail.Send Application-Role) und
+   `include_mail_read: bool` (Mail.Read — Vorbereitung fuer den
+   Email-to-Print-Gateway in v0.8.0; Permission wird jetzt schon
+   registriert, damit der Admin den Consent nur einmal durchklickt).
+4. Entra-Auto-Setup-UI: zwei optionale Checkboxen vor „Auto-Setup
+   starten" — Admin entscheidet pro Tenant welche Mail-Permissions
+   die neue App bekommen soll. Wahl wird in der Session gemerkt und
+   im Poll-Endpoint an `auto_register_app` durchgereicht; danach
+   in DB-Settings `entra_mail_send_enabled` / `entra_mail_read_enabled`
+   persistiert.
+5. Admin-Settings → „Globales Mail-Fallback": Provider-Dropdown
+   (Resend / Microsoft Graph) + Mailbox-Feld fuer den Graph-Sender.
+   Graph-Option ist disabled bis Mail.Send-Permission registriert ist.
+   `_send_mobile_invite_email()` dispatcht jetzt via Provider.
+6. **Email-to-Print** (v0.8.0): nur Permission-Vorbereitung. Toggle im
+   Admin-UI ist disabled, Setting `email_to_print_enabled` default `0`.
+
+**Wichtig fuer den Admin nach Auto-Setup** (steht auch im UI):
+- Im Azure-Portal &rarr; API-Berechtigungen &rarr; **Grant admin consent**.
+- Eine **Application Access Policy** in Exchange Online setzen, damit
+  die App-Identitaet nur die eine Service-Mailbox bedienen kann:
+  ```powershell
+  New-ApplicationAccessPolicy -AppId <client_id> `
+      -PolicyScopeGroupId noreply@firma.de `
+      -AccessRight RestrictAccess `
+      -Description "MySecurePrint Mail.Send only on noreply mailbox"
+  ```
+
+Bestehende Resend-Pfade aendern sich nicht — Default-Provider bleibt
+Resend, alle alten Tenants funktionieren ohne Aktion weiter.
+
+Doku: `docs/mail-via-graph.md`.
+
 ## 0.6.9 — 2026-06-30 — Entra-Auto-Register: Mobile-Redirect-URI fuer iOS
 
 User-Report: iOS-App-Anmeldung via Microsoft scheitert mit

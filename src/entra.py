@@ -430,6 +430,16 @@ _GRAPH_SCOPES_GUESTPRINT = (
 #   MAIL_READWRITE_APP_ROLE = Role-ID der Application-Permission "Mail.ReadWrite"
 _GRAPH_APP_ID = "00000003-0000-0000-c000-000000000000"
 _GRAPH_MAIL_READWRITE_APP_ROLE = "e2a3a72e-5f79-4c64-b1b1-878b674786c9"
+# v0.7.0: Application-Permission „Mail.Send" — App-Only-Mailversand
+# via /users/{from}/sendMail. Braucht Admin-Consent + idealerweise eine
+# Exchange-ApplicationAccessPolicy, die die App auf eine einzelne
+# Service-Mailbox einschraenkt.
+_GRAPH_MAIL_SEND_APP_ROLE = "b633e1c5-b582-4048-a93e-9f11b44c7e96"
+# v0.7.0: App-Only `Mail.Read` — Vorbereitung fuer den geplanten
+# Email-to-Print-Gateway (v0.8.0). Wir registrieren die Permission jetzt
+# schon, damit der Admin den (idR aufwendigen) Consent-Schritt nur
+# einmal machen muss.
+_GRAPH_MAIL_READ_APP_ROLE = "810c84a8-4a9e-49e6-bf7d-12d183f40d01"
 
 
 def start_device_code_flow(tenant: str = "common",
@@ -536,6 +546,8 @@ def auto_register_app(
     sso_redirect_uri: str,
     app_name: str = "Printix Management Console",
     audience: str | None = None,
+    include_mail_send: bool = False,
+    include_mail_read: bool = False,
 ) -> dict | None:
     """
     Erstellt eine neue SSO-App-Registration im Entra-Tenant des Admins
@@ -545,6 +557,18 @@ def auto_register_app(
         access_token:     Graph API Access Token (aus Device Code Flow)
         sso_redirect_uri: Redirect URI für die neue SSO-App (z.B. .../auth/entra/callback)
         app_name:         Anzeigename der App in Azure
+        include_mail_send: Wenn True wird zusaetzlich die Application-
+                          Permission `Mail.Send` (App-Only) angefordert,
+                          damit MySecurePrint System-Mails via
+                          Microsoft Graph (statt Resend) verschicken
+                          kann. **Erfordert Admin-Consent** — der Admin
+                          muss nach dem Auto-Setup im Azure-Portal auf
+                          „Grant admin consent" klicken, oder die App
+                          via PowerShell `New-MgServicePrincipalAppRole
+                          Assignment` zustimmen.  Zusaetzlich dringend
+                          empfohlen: `New-ApplicationAccessPolicy` mit
+                          `Scope=RestrictAccess` auf genau eine
+                          Service-Mailbox.
 
     Returns:
         dict mit tenant_id, client_id, client_secret — oder None bei Fehler.
@@ -619,6 +643,22 @@ def auto_register_app(
             }
         ],
     }
+    # v0.7.0: optional Mail.Send Application-Permission mit reinpacken,
+    # damit die App spaeter Systemmails ueber Microsoft Graph schicken
+    # darf (Alternative zu Resend). Wir adden eine Permission in den
+    # bereits vorhandenen Graph-Resource-Block — Microsoft akzeptiert
+    # gemischte Scope+Role-Eintraege in `resourceAccess`.
+    if include_mail_send:
+        app_body["requiredResourceAccess"][0]["resourceAccess"].append(
+            {"id": _GRAPH_MAIL_SEND_APP_ROLE, "type": "Role"},
+        )
+    # v0.7.0: Mail.Read fuer den geplanten Email-to-Print-Gateway
+    # (v0.8.0) jetzt schon mit registrieren, damit der Admin den
+    # Consent nicht zweimal durchklicken muss.
+    if include_mail_read:
+        app_body["requiredResourceAccess"][0]["resourceAccess"].append(
+            {"id": _GRAPH_MAIL_READ_APP_ROLE, "type": "Role"},
+        )
 
     try:
         resp = _requests.post(
