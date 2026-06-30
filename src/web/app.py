@@ -5020,6 +5020,129 @@ def create_app(session_secret: str) -> FastAPI:
         })
 
 
+    # ── v0.7.11: API-Trace (Outbound-API-Call-Debugger) ───────────────────
+    @app.get("/admin/api-trace", response_class=HTMLResponse)
+    async def admin_api_trace(request: Request):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        qp = request.query_params
+        f_component = (qp.get("component") or "").strip()
+        f_method = (qp.get("method") or "").strip().upper()
+        f_status = (qp.get("status") or "").strip().lower()
+        if f_status not in ("", "2xx", "3xx", "4xx", "5xx", "err"):
+            f_status = ""
+        f_search = (qp.get("q") or "").strip()
+        try:
+            page = max(1, int(qp.get("page") or "1"))
+        except Exception:
+            page = 1
+        PAGE_SIZE = 100
+        try:
+            from api_trace import (
+                list_trace_entries, list_distinct_components, is_enabled,
+            )
+            entries, total_count = list_trace_entries(
+                component=f_component, method=f_method,
+                status_class=f_status, search=f_search,
+                page=page, page_size=PAGE_SIZE,
+            )
+            distinct_components = list_distinct_components()
+            trace_active = is_enabled()
+        except Exception as e:
+            logger.warning("admin_api_trace query failed: %s", e)
+            entries, total_count = [], 0
+            distinct_components, trace_active = [], False
+
+        # Severity-Klasse aus Status ableiten (fuer Tabellenfarbe).
+        for e in entries:
+            sc = int(e.get("status_code") or 0)
+            if sc == 0:
+                e["sev"] = "err"
+            elif 200 <= sc < 300:
+                e["sev"] = "ok"
+            elif 300 <= sc < 400:
+                e["sev"] = "info"
+            elif 400 <= sc < 500:
+                e["sev"] = "warn"
+            else:
+                e["sev"] = "err"
+
+        import math as _math
+        total_pages = max(1, _math.ceil(total_count / PAGE_SIZE)) if total_count else 1
+        has_prev = page > 1
+        has_next = (page * PAGE_SIZE) < total_count
+        from urllib.parse import urlencode
+        base_qs = {
+            "component": f_component, "method": f_method,
+            "status": f_status, "q": f_search,
+        }
+        base_qs = {k: v for k, v in base_qs.items() if v}
+        return templates.TemplateResponse("admin_api_trace.html", {
+            "request": request, "user": user,
+            "entries": entries,
+            "distinct_components": distinct_components,
+            "trace_active": trace_active,
+            "filter_component": f_component, "filter_method": f_method,
+            "filter_status": f_status, "filter_search": f_search,
+            "page": page, "page_size": PAGE_SIZE,
+            "total_count": total_count, "total_pages": total_pages,
+            "has_prev": has_prev, "has_next": has_next,
+            "prev_qs": urlencode({**base_qs, "page": page - 1}) if has_prev else "",
+            "next_qs": urlencode({**base_qs, "page": page + 1}) if has_next else "",
+            "active_page": "admin_api_trace",
+            **t_ctx(request),
+        })
+
+    @app.get("/admin/api-trace/{entry_id}.json")
+    async def admin_api_trace_detail(entry_id: int, request: Request):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        try:
+            from api_trace import get_trace_entry
+            row = get_trace_entry(entry_id)
+            if not row:
+                return JSONResponse({"error": "not_found"}, status_code=404)
+            return JSONResponse(row)
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
+
+    @app.post("/admin/api-trace/clear")
+    async def admin_api_trace_clear(request: Request):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        try:
+            from api_trace import clear_all
+            n = clear_all()
+            try:
+                from db import audit
+                audit(user["id"], "admin_api_trace_clear", f"deleted={n}")
+            except Exception:
+                pass
+        except Exception as e:
+            logger.warning("admin_api_trace_clear failed: %s", e)
+        return RedirectResponse("/admin/api-trace", status_code=302)
+
+    @app.post("/admin/api-trace/toggle")
+    async def admin_api_trace_toggle(
+        request: Request,
+        enabled: str = Form(default=""),
+    ):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        try:
+            from db import set_setting, audit
+            new_val = "1" if enabled else "0"
+            set_setting("api_trace_enabled", new_val)
+            audit(user["id"], "admin_api_trace_toggle", f"enabled={new_val}")
+        except Exception as e:
+            logger.warning("admin_api_trace_toggle failed: %s", e)
+        return RedirectResponse("/admin/api-trace", status_code=302)
+
+
     def _admin_settings_ctx(
         request,
         user,

@@ -20,6 +20,15 @@ from typing import Optional, Any
 
 logger = logging.getLogger("printix_client")
 
+# v0.7.11: Outbound-API-Tracing fuer Admin-Debugging. trace_request faellt
+# auf session.request() zurueck wenn das Feature im Admin-Settings AUS ist.
+try:
+    from api_trace import trace_request as _trace_request
+except Exception:
+    def _trace_request(session, method, url, *, component="printix",
+                       user_id="", job_id="", **kwargs):
+        return session.request(method, url, **kwargs)
+
 
 class PrintixAPIError(Exception):
     """Raised when the Printix API returns an error."""
@@ -86,8 +95,9 @@ class _TokenManager:
         if self._token and time.time() < self._expires_at - 60:
             return self._token
         logger.debug("OAuth token request: %s", self.label)
-        resp = self._session.post(
-            self.AUTH_URL,
+        resp = _trace_request(
+            self._session, "POST", self.AUTH_URL,
+            component=f"printix-oauth ({self.label})",
             data={
                 "grant_type": "client_credentials",
                 "client_id": self.client_id,
@@ -226,31 +236,51 @@ class PrintixClient:
         logger.debug("API %s %s → %s", resp.request.method if resp.request else '?', resp.url, resp.status_code)
         return resp.json()
 
+    # v0.7.11: alle Printix-API-Calls gehen durch diesen Wrapper, damit
+    # API-Trace (wenn aktiv) Request + Response in DB schreiben kann.
+    def _session_request(self, method: str, url: str, *,
+                          component: str = "printix",
+                          **kwargs) -> requests.Response:
+        return _trace_request(self._session, method, url,
+                              component=component, **kwargs)
+
     def _get(self, tm: _TokenManager, path: str, params: Optional[dict] = None) -> Any:
-        resp = self._session.get(self._url(path), headers=self._headers(tm),
-                                 params=params, timeout=30)
+        resp = self._session_request(
+            "GET", self._url(path),
+            headers=self._headers(tm), params=params, timeout=30,
+        )
         return self._handle_response(resp)
 
     def _post(self, tm: _TokenManager, path: str, json: Optional[dict] = None,
               data: Optional[dict] = None, content_type: Optional[str] = None,
               params: Optional[dict] = None) -> Any:
         extra = {"Content-Type": content_type} if content_type else None
-        resp = self._session.post(self._url(path), headers=self._headers(tm, extra),
-                                  json=json, data=data, params=params, timeout=60)
+        resp = self._session_request(
+            "POST", self._url(path),
+            headers=self._headers(tm, extra),
+            json=json, data=data, params=params, timeout=60,
+        )
         return self._handle_response(resp)
 
     def _put(self, tm: _TokenManager, path: str, json: Optional[dict] = None) -> Any:
-        resp = self._session.put(self._url(path), headers=self._headers(tm),
-                                 json=json, timeout=30)
+        resp = self._session_request(
+            "PUT", self._url(path),
+            headers=self._headers(tm), json=json, timeout=30,
+        )
         return self._handle_response(resp)
 
     def _patch(self, tm: _TokenManager, path: str, json: Optional[dict] = None) -> Any:
-        resp = self._session.patch(self._url(path), headers=self._headers(tm),
-                                   json=json, timeout=30)
+        resp = self._session_request(
+            "PATCH", self._url(path),
+            headers=self._headers(tm), json=json, timeout=30,
+        )
         return self._handle_response(resp)
 
     def _delete(self, tm: _TokenManager, path: str) -> Any:
-        resp = self._session.delete(self._url(path), headers=self._headers(tm), timeout=30)
+        resp = self._session_request(
+            "DELETE", self._url(path),
+            headers=self._headers(tm), timeout=30,
+        )
         return self._handle_response(resp)
 
     # ─── Token Status ──────────────────────────────────────────────────────────
@@ -342,7 +372,8 @@ class PrintixClient:
         if scaling:
             body["scaling"] = scaling
         extra_headers = {"version": "1.1", "Content-Type": "application/json"}
-        resp = self._session.post(
+        resp = self._session_request(
+            "POST",
             self._url(f"/printers/{printer_id}/queues/{queue_id}/submit"),
             headers=self._headers(tm, extra_headers),
             params=params,
@@ -359,8 +390,16 @@ class PrintixClient:
         headers = {"Content-Type": content_type}
         if extra_headers:
             headers.update({k: str(v) for k, v in extra_headers.items() if v is not None})
-        resp = requests.put(upload_url, data=file_bytes,
-                            headers=headers, timeout=120)
+        # v0.7.11: ueber den Trace-Wrapper, damit Cloud-Upload-Fehler im
+        # Admin-API-Trace sichtbar sind. Der binaere Body wird im Logger
+        # automatisch auf 4 KB gekuerzt.
+        _s = requests.Session()
+        resp = _trace_request(
+            _s, "PUT", upload_url,
+            component="printix-upload",
+            data=file_bytes,
+            headers=headers, timeout=120,
+        )
         if not resp.ok:
             raise PrintixAPIError(resp.status_code, f"File upload failed: {resp.text}")
         return {"success": True}
@@ -392,12 +431,14 @@ class PrintixClient:
         """
         tm = self._require_tm(self._print_tm, "Print API")
         extra_headers = {"version": "1.1", "Content-Type": "application/json"}
-        resp = self._session.post(
+        resp = self._session_request(
+            "POST",
             self._url(f"/jobs/{job_id}/changeOwner"),
             headers=self._headers(tm, extra_headers),
             params={"userEmail": user_email},
             json={},
             timeout=30,
+            job_id=job_id,
         )
         return self._handle_response(resp)
 

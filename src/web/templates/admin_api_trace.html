@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+{% block title %}API-Trace — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<style>
+  .trace-toolbar {
+    display:flex; flex-wrap:wrap; gap:12px; align-items:center;
+    padding:14px 16px; background: var(--surface, #f9fafb);
+    border:1px solid var(--border, #e5e7eb); border-radius:10px;
+    margin-bottom:16px;
+  }
+  .trace-status-pill {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:4px 10px; border-radius:999px; font-size:.78em; font-weight:600;
+  }
+  .trace-on  { background: rgba(16,185,129,.14); color:#047857;
+               border:1px solid rgba(16,185,129,.45); }
+  .trace-off { background: rgba(107,114,128,.14); color:#374151;
+               border:1px solid rgba(107,114,128,.45); }
+  .trace-filter-bar {
+    display:grid; grid-template-columns:1fr; gap:12px;
+    margin-bottom:14px; padding:14px;
+    background: var(--surface, #f9fafb);
+    border:1px solid var(--border, #e5e7eb); border-radius:10px;
+  }
+  @media (min-width: 900px) {
+    .trace-filter-bar { grid-template-columns: 1.4fr 1fr 1fr 2fr auto; }
+  }
+  .trace-filter-bar label {
+    display:block; font-size:.75em; color: var(--text-muted, #6b7280);
+    margin-bottom:4px; font-weight:500;
+  }
+  .trace-filter-bar input, .trace-filter-bar select {
+    width:100%; box-sizing:border-box;
+  }
+  .status-badge {
+    display:inline-block; min-width:36px; text-align:center;
+    padding:2px 8px; border-radius:6px; font-family: ui-monospace,Menlo,monospace;
+    font-size:.78em; font-weight:600;
+  }
+  .status-ok    { background: rgba(16,185,129,.14); color:#047857; }
+  .status-info  { background: rgba(59,130,246,.14); color:#1d4ed8; }
+  .status-warn  { background: rgba(245,158,11,.16); color:#b45309; }
+  .status-err   { background: rgba(220,38,38,.16); color:#b91c1c; font-weight:700; }
+  .trace-url {
+    font-family: ui-monospace,Menlo,monospace; font-size:.82em;
+    color: var(--text, #111827);
+    max-width:520px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    cursor:help;
+  }
+  .trace-ts {
+    font-family: ui-monospace,Menlo,monospace; font-size:.78em;
+    color: var(--text-muted, #6b7280); white-space:nowrap;
+  }
+  .trace-method {
+    display:inline-block; padding:1px 6px; border-radius:4px;
+    background: var(--bg, #f3f4f6); border:1px solid var(--border, #e5e7eb);
+    font-family: ui-monospace,Menlo,monospace; font-size:.74em; font-weight:600;
+  }
+  .trace-row { cursor:pointer; }
+  .trace-row:hover td { background: rgba(99,102,241,.05); }
+  tr.row-err   td { background: rgba(220,38,38,.04); }
+  tr.row-warn  td { background: rgba(245,158,11,.04); }
+  .trace-detail {
+    position:fixed; top:0; right:0; bottom:0; width:min(720px, 92vw);
+    background: var(--bg, #fff); border-left:1px solid var(--border, #e5e7eb);
+    box-shadow: -4px 0 24px rgba(0,0,0,.12);
+    overflow-y:auto; z-index: 9999;
+    transform: translateX(100%); transition: transform .18s ease;
+  }
+  .trace-detail.open { transform: translateX(0); }
+  .trace-detail-head {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:14px 18px; border-bottom:1px solid var(--border, #e5e7eb);
+    background: var(--surface, #f9fafb);
+  }
+  .trace-detail-body { padding:16px 18px; }
+  .trace-detail-body h4 {
+    margin: 18px 0 6px; font-size:.86em; color: var(--text-muted, #6b7280);
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .trace-detail-body pre {
+    background: #0f172a; color:#e2e8f0;
+    padding:12px 14px; border-radius:8px;
+    font-size:.78em; max-height:340px; overflow:auto;
+    white-space:pre-wrap; word-break: break-word;
+  }
+  .trace-detail-meta {
+    display:grid; grid-template-columns: 1fr 1fr; gap:8px 16px;
+    font-size:.86em;
+  }
+  .trace-detail-meta .k { color: var(--text-muted, #6b7280); }
+  .trace-overlay {
+    position:fixed; inset:0; background: rgba(0,0,0,.32); z-index:9998;
+    display:none;
+  }
+  .trace-overlay.open { display:block; }
+  .auto-refresh {
+    display:inline-flex; align-items:center; gap:6px; font-size:.85em;
+  }
+  .pagination {
+    display:flex; justify-content:space-between; align-items:center;
+    margin-top:14px; padding-top:12px; border-top:1px solid var(--border, #e5e7eb);
+    color: var(--text-muted, #6b7280); font-size:.86em;
+  }
+</style>
+
+<div class="container">
+  <div class="card">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+      <div>
+        <div class="section-title">API-Trace</div>
+        <div class="section-sub">Outbound-API-Calls (Printix-Cloud-API, OAuth, Cloud-Upload) live mitschneiden.</div>
+      </div>
+      <a href="/admin" class="btn btn-secondary btn-sm">← Übersicht</a>
+    </div>
+
+    <div class="trace-toolbar">
+      <span class="trace-status-pill {% if trace_active %}trace-on{% else %}trace-off{% endif %}">
+        <span>●</span>
+        {% if trace_active %}Aktiv — Calls werden geloggt{% else %}Inaktiv — kein Logging{% endif %}
+      </span>
+      <form method="post" action="/admin/api-trace/toggle" style="display:inline-flex;align-items:center;gap:8px;">
+        {% if trace_active %}
+          <button type="submit" class="btn btn-secondary btn-sm">Ausschalten</button>
+        {% else %}
+          <input type="hidden" name="enabled" value="1" />
+          <button type="submit" class="btn btn-primary btn-sm">Einschalten</button>
+        {% endif %}
+      </form>
+      <form method="post" action="/admin/api-trace/clear" onsubmit="return confirm('Alle Trace-Einträge löschen?');" style="display:inline;">
+        <button type="submit" class="btn btn-secondary btn-sm">Log leeren</button>
+      </form>
+      <span class="spacer" style="flex:1;"></span>
+      <label class="auto-refresh">
+        <input type="checkbox" id="auto-refresh" />
+        Auto-Refresh (5s)
+      </label>
+      <span style="color:var(--text-muted,#6b7280); font-size:.82em;">
+        {{ total_count }} Einträge — Seite {{ page }} / {{ total_pages }}
+      </span>
+    </div>
+
+    {% if not trace_active %}
+    <div style="padding:10px 14px; background: rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.4);
+                border-radius:8px; margin-bottom:14px; font-size:.88em; color:#92400e;">
+      <strong>Hinweis:</strong> API-Trace ist deaktiviert. Bestehende Einträge bleiben sichtbar,
+      aber neue Calls werden nicht aufgezeichnet. Trace nur kurz für Debugging aktivieren — auf
+      Produktion sollte er normalerweise aus sein.
+    </div>
+    {% endif %}
+
+    <form method="get" action="/admin/api-trace" class="trace-filter-bar">
+      <div>
+        <label for="f-component">Komponente</label>
+        <select id="f-component" name="component" class="input">
+          <option value="">— alle —</option>
+          {% for c in (distinct_components or []) %}
+            <option value="{{ c }}" {% if c == filter_component %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="f-method">Methode</label>
+        <select id="f-method" name="method" class="input">
+          <option value="">— alle —</option>
+          {% for m in ['GET','POST','PUT','PATCH','DELETE'] %}
+            <option value="{{ m }}" {% if m == filter_method %}selected{% endif %}>{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="f-status">Status</label>
+        <select id="f-status" name="status" class="input">
+          <option value="">— alle —</option>
+          <option value="2xx" {% if filter_status == '2xx' %}selected{% endif %}>2xx OK</option>
+          <option value="3xx" {% if filter_status == '3xx' %}selected{% endif %}>3xx Redirect</option>
+          <option value="4xx" {% if filter_status == '4xx' %}selected{% endif %}>4xx Client</option>
+          <option value="5xx" {% if filter_status == '5xx' %}selected{% endif %}>5xx Server</option>
+          <option value="err" {% if filter_status == 'err' %}selected{% endif %}>Fehler / 0</option>
+        </select>
+      </div>
+      <div>
+        <label for="f-q">Volltext (URL / Body / Error)</label>
+        <input id="f-q" type="text" name="q" value="{{ filter_search or '' }}" class="input" placeholder="z.B. submit, 500, queue-id" />
+      </div>
+      <div style="align-self:end; display:flex; gap:6px;">
+        <a href="/admin/api-trace" class="btn btn-secondary btn-sm">Reset</a>
+        <button type="submit" class="btn btn-primary btn-sm">Filtern</button>
+      </div>
+    </form>
+
+    {% if entries %}
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:160px;">Zeit</th>
+            <th style="width:70px;">Methode</th>
+            <th style="width:60px;">Status</th>
+            <th style="width:70px;">Dauer</th>
+            <th>URL</th>
+            <th style="width:130px;">Komponente</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in entries %}
+          <tr class="trace-row row-{{ e.sev }}" data-id="{{ e.id }}">
+            <td class="trace-ts">{{ e.ts | localtime if e.ts else '—' }}</td>
+            <td><span class="trace-method">{{ e.method }}</span></td>
+            <td>
+              <span class="status-badge status-{{ e.sev }}">
+                {% if e.status_code %}{{ e.status_code }}{% else %}ERR{% endif %}
+              </span>
+            </td>
+            <td style="font-size:.82em; color: var(--text-muted, #6b7280);">{{ e.duration_ms }} ms</td>
+            <td>
+              <div class="trace-url" title="{{ e.url }}">{{ e.url }}</div>
+              {% if e.error %}
+                <div style="font-size:.74em; color:#b91c1c; font-family: ui-monospace,Menlo,monospace;">{{ e.error }}</div>
+              {% endif %}
+            </td>
+            <td style="font-size:.82em; color: var(--text-muted, #6b7280);">{{ e.component or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination">
+      <div>{{ total_count }} Einträge gesamt</div>
+      <div style="display:flex; gap:8px;">
+        {% if has_prev %}
+          <a href="/admin/api-trace?{{ prev_qs }}" class="btn btn-secondary btn-sm">← Zurück</a>
+        {% endif %}
+        {% if has_next %}
+          <a href="/admin/api-trace?{{ next_qs }}" class="btn btn-secondary btn-sm">Weiter →</a>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div style="text-align:center; padding:40px 20px; color: var(--text-muted, #6b7280);">
+      <div style="font-size:2.4em; opacity:.5; margin-bottom:8px;">📡</div>
+      <div style="font-weight:600; color: var(--text, #111827);">Keine Trace-Einträge</div>
+      <div style="margin-top:6px;">
+        {% if not trace_active %}
+          Aktiviere zuerst den Trace oben und löse dann einen API-Call aus (z.B. einen Print-Job).
+        {% else %}
+          Sobald der Server einen Outbound-Call macht, erscheint er hier.
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="trace-overlay" id="trace-overlay" onclick="closeTraceDetail()"></div>
+<aside class="trace-detail" id="trace-detail">
+  <div class="trace-detail-head">
+    <div>
+      <div style="font-weight:600;" id="td-title">Eintrag</div>
+      <div style="font-size:.78em; color: var(--text-muted,#6b7280);" id="td-sub"></div>
+    </div>
+    <button class="btn btn-secondary btn-sm" onclick="closeTraceDetail()">Schließen</button>
+  </div>
+  <div class="trace-detail-body" id="td-body">
+    <div style="color: var(--text-muted,#6b7280);">Lade…</div>
+  </div>
+</aside>
+
+<script>
+(function() {
+  function escHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function prettyJson(s) {
+    if (!s) return '';
+    try {
+      var parsed = JSON.parse(s);
+      return JSON.stringify(parsed, null, 2);
+    } catch(e) {
+      return s;
+    }
+  }
+  function openTraceDetail(id) {
+    var detail = document.getElementById('trace-detail');
+    var overlay = document.getElementById('trace-overlay');
+    var body = document.getElementById('td-body');
+    body.innerHTML = '<div style="color:#6b7280;">Lade…</div>';
+    detail.classList.add('open');
+    overlay.classList.add('open');
+    fetch('/admin/api-trace/' + id + '.json')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d.error) {
+          body.innerHTML = '<div style="color:#b91c1c;">Fehler: ' + escHtml(d.error) + '</div>';
+          return;
+        }
+        document.getElementById('td-title').textContent = d.method + ' ' + (d.status_code || 'ERR');
+        document.getElementById('td-sub').textContent = d.url || '';
+        var html = '';
+        html += '<div class="trace-detail-meta">';
+        html += '<div class="k">Zeit (UTC)</div><div>' + escHtml(d.ts) + '</div>';
+        html += '<div class="k">Komponente</div><div>' + escHtml(d.component) + '</div>';
+        html += '<div class="k">Status</div><div>' + escHtml(d.status_code) + '</div>';
+        html += '<div class="k">Dauer</div><div>' + escHtml(d.duration_ms) + ' ms</div>';
+        if (d.user_id) html += '<div class="k">User</div><div>' + escHtml(d.user_id) + '</div>';
+        if (d.job_id)  html += '<div class="k">Job</div><div>' + escHtml(d.job_id) + '</div>';
+        html += '</div>';
+        if (d.error) {
+          html += '<h4>Error</h4><pre style="background:#7f1d1d;">' + escHtml(d.error) + '</pre>';
+        }
+        if (d.query_string) {
+          html += '<h4>Query-String</h4><pre>' + escHtml(d.query_string) + '</pre>';
+        }
+        html += '<h4>Request-Headers</h4><pre>' + escHtml(prettyJson(d.req_headers)) + '</pre>';
+        if (d.req_body) {
+          html += '<h4>Request-Body</h4><pre>' + escHtml(prettyJson(d.req_body)) + '</pre>';
+        }
+        html += '<h4>Response-Headers</h4><pre>' + escHtml(prettyJson(d.resp_headers)) + '</pre>';
+        if (d.resp_body) {
+          html += '<h4>Response-Body</h4><pre>' + escHtml(prettyJson(d.resp_body)) + '</pre>';
+        }
+        body.innerHTML = html;
+      })
+      .catch(function(err){
+        body.innerHTML = '<div style="color:#b91c1c;">Fehler beim Laden: ' + escHtml(err) + '</div>';
+      });
+  }
+  window.closeTraceDetail = function() {
+    document.getElementById('trace-detail').classList.remove('open');
+    document.getElementById('trace-overlay').classList.remove('open');
+  };
+  // Row-Click → Detail-Panel
+  document.querySelectorAll('.trace-row').forEach(function(row){
+    row.addEventListener('click', function(){
+      openTraceDetail(row.dataset.id);
+    });
+  });
+  // Auto-Refresh
+  var arBox = document.getElementById('auto-refresh');
+  if (arBox) {
+    var saved = localStorage.getItem('apiTraceAutoRefresh') === '1';
+    arBox.checked = saved;
+    var timer = null;
+    function start() {
+      if (timer) return;
+      timer = setInterval(function(){ location.reload(); }, 5000);
+    }
+    function stop() {
+      if (timer) { clearInterval(timer); timer = null; }
+    }
+    if (saved) start();
+    arBox.addEventListener('change', function(){
+      if (arBox.checked) {
+        localStorage.setItem('apiTraceAutoRefresh','1');
+        start();
+      } else {
+        localStorage.removeItem('apiTraceAutoRefresh');
+        stop();
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

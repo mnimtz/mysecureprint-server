@@ -562,6 +562,13 @@ def init_db() -> None:
             )
         """)
 
+    # v0.7.11: API-Trace-Schema fuer Outbound-Call-Debugging.
+    try:
+        from api_trace import init_schema as _api_trace_init
+        _api_trace_init()
+    except Exception as _e:
+        logger.warning("api_trace schema init failed: %s", _e)
+
     logger.info("DB initialisiert: %s", DB_PATH)
 
 

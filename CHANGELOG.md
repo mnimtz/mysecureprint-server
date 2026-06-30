@@ -1,5 +1,39 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.11 — 2026-06-30 — API-Trace fuer Outbound-Call-Debugging
+
+Admin-Pain: bei Printix-API-Errors steht im Server-Log oft nur
+"Printix API Error 500" ohne Request- oder Response-Details — die
+echte Ursache (welcher Body wurde gesendet, was kam zurueck) war
+nicht einsehbar.
+
+Neu: Admin-Dashboard **/admin/api-trace** das jeden Outbound-Call
+(Printix-Cloud-API, OAuth, Cloud-Upload) mit Request + Response,
+Headern, Body, Dauer und Status sichtbar macht. Klick auf eine
+Zeile oeffnet ein Detail-Panel mit pretty-printed JSON.
+
+Implementierung:
+
+1. Neue Tabelle `api_trace_log` (Schema in `src/api_trace.py`,
+   Init aus `src/db.py`). Auto-Prune ab 5000 Eintraegen.
+
+2. Neuer Wrapper `_session_request()` in `PrintixClient` — alle
+   API-Calls (`_get/_post/_put/_patch/_delete`, `submit_print_job`,
+   `change_job_owner`, `upload_file_to_url`, OAuth-Token-Request)
+   gehen jetzt durch `api_trace.trace_request()`.
+
+3. Admin-UI `/admin/api-trace`: Tabelle mit Filter (Komponente,
+   Methode, Status-Klasse, Volltext), Detail-Panel als Slide-In,
+   Auto-Refresh-Toggle (5s), Toggle zum An/Aus-Schalten des
+   Trace, "Log leeren". Sidebar-Eintrag unter Datenschutz.
+
+**Sicherheit**: Authorization-Header werden maskiert
+(`Bearer abcd...wxyz`), `client_secret=...` und `password=...`
+in URLs/Bodies werden redacted, Bodies werden auf 4 KB gekuerzt.
+Default ist API-Trace AUS — gezielt fuers Debugging einschalten
+und nach der Session wieder aus. Auf Produktion sollte der
+Trace nicht dauerhaft laufen.
+
 ## 0.7.10 — 2026-06-30 — Lowercase-Revert + Printix-Submit-Retry ohne user-Param
 
 User-Insight: in der Printix-User-Liste steht der eigene Account
