@@ -1,5 +1,32 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.10 — 2026-06-30 — Lowercase-Revert + Printix-Submit-Retry ohne user-Param
+
+User-Insight: in der Printix-User-Liste steht der eigene Account
+case-preserving als `Marcus@nimtz.email` (grosses M). Die Lowercase-
+Normalisierung aus v0.7.8 war also kontraproduktiv — wir machten den
+Match noch schlechter. ZUSAETZLICH: laut Printix-API-Docs ist der
+`user`-Parameter beim /submit-Endpoint OPTIONAL und primaer fuer
+Redirector / USB-Print / Third-Party-Pull. Bei Cloud-Print zur
+SecurePrint-Anywhere-Queue kann er ggf. weggelassen werden.
+
+Zwei Aenderungen:
+
+1. **Lowercase-Revert**: `owner_email` behaelt die original-Case wie
+   in `users.email` / `cached_printix_users.email` — Printix matched
+   wahrscheinlich case-preserving.
+
+2. **Submit-Retry ohne user-Param**: wenn Printix mit user='...' einen
+   500 zurueckgibt, versuchen wir den Submit ein zweites Mal mit
+   `user=None`. Printix legt den Job dann in die tenant-globale
+   Cloud-Queue — der User kann ihn ueber seine Karte am Drucker
+   trotzdem abholen.
+
+3. **Volle Response-Body-Logs**: Printix-API-Errors loggen jetzt
+   die ersten 1000 Bytes des Response-Body. Vorher war oft nur
+   "An error occourred" sichtbar; die echte Ursache stand manchmal
+   nur im raw-body.
+
 ## 0.7.9 — 2026-06-30 — Audit-Zeitstempel in lokaler Zeitzone
 
 User-Report: Audit-Log zeigt 07:16 UTC obwohl Server-TZ Europe/Berlin

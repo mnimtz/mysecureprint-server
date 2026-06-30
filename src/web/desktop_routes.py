@@ -308,14 +308,13 @@ async def _process_desktop_send_bg(
             _fail("no secure print queue configured", code="no_queue")
             return
 
-        # Owner-Email ermitteln (für Default: den User selbst)
-        # v0.7.8: Email lowercase. Printix matched case-sensitive — wenn der
-        # User-Eintrag in users.email als 'Marcus@nimtz.email' steht (wie Entra
-        # ihn liefert), aber Printix die User-DB als 'marcus@nimtz.email'
-        # speichert, kommt Printix mit 500 zurueck. Lowercase ist hier sicher,
-        # weil RFC 5321 die Local-Part technisch case-sensitive erlaubt, in
-        # der Praxis aber alle realen Mailsysteme case-insensitive matchen.
-        user_email = (user.get("email") or "").strip().lower()
+        # Owner-Email ermitteln (für Default: den User selbst).
+        # v0.7.10: Lowercase-Annahme aus v0.7.8 zurueckgenommen — die
+        # echte Printix-User-Liste fuer diesen Tenant zeigt dass Printix
+        # die Email case-preserving speichert (Marcus@nimtz.email mit
+        # grossem M). Erzwingen wir das aus cached_printix_users wenn
+        # vorhanden — sonst die DB-gespeicherte original-Email.
+        user_email = (user.get("email") or "").strip()
         owner_email = user_email
         try:
             px_id = (user.get("printix_user_id") or "").strip()
@@ -327,11 +326,11 @@ async def _process_desktop_send_bg(
                         "WHERE printix_user_id=?", (px_id,),
                     ).fetchone()
                 if row and row["email"]:
-                    owner_email = (row["email"] or "").strip().lower()
+                    owner_email = (row["email"] or "").strip()
             if not owner_email or "@" not in owner_email:
                 pxu = find_printix_user_by_identity(user_email)
                 if pxu and pxu.get("email"):
-                    owner_email = (pxu["email"] or "").strip().lower()
+                    owner_email = (pxu["email"] or "").strip()
         except Exception:
             pass
 
@@ -591,17 +590,44 @@ async def _process_desktop_send_bg(
             except Exception:
                 pass
 
-            result = client.submit_print_job(
-                printer_id=printer_id,
-                queue_id=target_queue,
-                title=display_filename,
-                user=submit_user_email,
-                pdl="PDF",
-                release_immediately=False,
-                color=bool(color),
-                duplex=("LONG_EDGE" if duplex else "NONE"),
-                copies=max(1, min(99, int(copies or 1))),
-            )
+            # v0.7.10: Fallback fuer Printix-500. Printix-Docs sagen `user`
+            # ist OPTIONAL und nur fuer Redirector/USB-Print-Szenarien.
+            # Wenn Printix mit dem user-Wert nicht klarkommt (500), versuchen
+            # wir den Submit ohne `user` — Printix legt den Job dann in die
+            # tenant-globale Cloud-Queue. Bei einer „SecurePrint Anywhere"-
+            # Queue kann der echte User ihn dann immer noch per Karte
+            # abholen. Falls Printix das auch verweigert, kommt der echte
+            # 500 raus.
+            from printix_client import PrintixAPIError as _PxErr
+            def _do_submit(user_param):
+                return client.submit_print_job(
+                    printer_id=printer_id,
+                    queue_id=target_queue,
+                    title=display_filename,
+                    user=user_param,
+                    pdl="PDF",
+                    release_immediately=False,
+                    color=bool(color),
+                    duplex=("LONG_EDGE" if duplex else "NONE"),
+                    copies=max(1, min(99, int(copies or 1))),
+                )
+            try:
+                result = _do_submit(submit_user_email)
+            except _PxErr as _px_e:
+                if _px_e.status_code == 500 and submit_user_email:
+                    logger.warning(
+                        "Desktop-Send [4/5] Printix 500 mit user='%s' "
+                        "(ErrorID=%s) — Retry ohne user-Param…",
+                        submit_user_email, getattr(_px_e, 'error_id', ''),
+                    )
+                    result = _do_submit(None)
+                    logger.info(
+                        "Desktop-Send [4/5] Retry ohne user-Param OK — "
+                        "Job wird in tenant-globaler Queue abgelegt, "
+                        "User kann via Karte am Drucker abholen.",
+                    )
+                else:
+                    raise
             result_job = result.get("job", result) if isinstance(result, dict) else {}
             px_job_id = result_job.get("id", "") if isinstance(result_job, dict) else ""
             upload_url = ""

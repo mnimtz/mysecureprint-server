@@ -213,7 +213,13 @@ class PrintixClient:
             except Exception:
                 msg = resp.text
                 err_id = ""
-            logger.error("API %s %s → %s: %s", resp.request.method if resp.request else '?', resp.url, resp.status_code, msg)
+            # v0.7.10: vollen Body bei 500ern loggen — Printix gibt sonst
+            # nur "An error occourred" ohne Details und der echte Fehler
+            # ist nur im raw-body sichtbar.
+            _full_body = (resp.text or "")[:1000]
+            logger.error("API %s %s → %s: %s | full_body=%r",
+                          resp.request.method if resp.request else '?',
+                          resp.url, resp.status_code, msg, _full_body)
             raise PrintixAPIError(resp.status_code, msg, err_id)
         if resp.status_code == 204 or not resp.content:
             return {"success": True}
