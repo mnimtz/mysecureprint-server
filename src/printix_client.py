@@ -504,17 +504,11 @@ class PrintixClient:
                 }
             raise
 
-    def change_job_owner(self, job_id: str, new_owner_email: str) -> Any:
-        """Transfer ownership of a print job to another user.
-        Endpoint: POST /jobs/{job_id}/changeOwner
-        Parameter: userEmail (form-urlencoded) — note: NOT ownerEmail, NOT JSON body."""
-        tm = self._require_tm(self._print_tm, "Print API")
-        return self._post(
-            tm,
-            f"/jobs/{job_id}/changeOwner",
-            data={"userEmail": new_owner_email},
-            content_type="application/x-www-form-urlencoded",
-        )
+    # v0.7.18: zweite change_job_owner-Definition (form-urlencoded) entfernt
+    # — sie ueberschrieb die richtige (oben definierte JSON-body-mit-
+    # userEmail-Query-Param-Variante aus printix-mcp-linux). Python wendet
+    # last-definition-wins an; das hatte unsere change-Job-Owner-Calls
+    # broken.
 
     # ─── Card Management ───────────────────────────────────────────────────────
 

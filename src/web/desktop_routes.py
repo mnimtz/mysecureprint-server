@@ -590,30 +590,23 @@ async def _process_desktop_send_bg(
             except Exception:
                 pass
 
-            # v0.7.15: Zurueck zum bewaehrten Muster aus printix-mcp:
-            #   - user=email als Query-Param (legacy v1.0, funktioniert sicher)
-            #   - release_immediately=True (Job ist sofort im Cloud-Pool;
-            #     Secure-Print-Release per Karte am Drucker passiert ueber
-            #     die Queue-Konfiguration, NICHT ueber release_immediately)
-            #   - change_job_owner(...) NACH dem Upload setzt den echten
-            #     Owner fuer Secure-Print-Berechtigung
-            # release_immediately=False hat einen anderen Code-Pfad in
-            # Printix getriggert ("Print Later"), der unsere Anfragen mit
-            # 500 zurueckwies (TS70RB, SQFSJK, etc.).
+            # v0.7.18: Args 1:1 wie in printix-mcp-linux/employee_routes.py:752
+            # (das nachweislich funktionierte). release_immediately=False,
+            # user=email als Query-Param. Mein v0.7.15-Wechsel auf True war
+            # falsch (basierte auf der Default-Annahme statt produktivem Code).
             result = client.submit_print_job(
                 printer_id=printer_id,
                 queue_id=target_queue,
                 title=display_filename,
                 user=submit_user_email,
                 pdl="PDF",
-                release_immediately=True,
+                release_immediately=False,
                 color=bool(color),
                 duplex=("LONG_EDGE" if duplex else "NONE"),
                 copies=max(1, min(99, int(copies or 1))),
             )
             logger.info(
-                "Desktop-Send [4/5] submit OK — user='%s' release_immediately=True",
-                submit_user_email,
+                "Desktop-Send [4/5] submit OK — user='%s'", submit_user_email,
             )
             result_job = result.get("job", result) if isinstance(result, dict) else {}
             px_job_id = result_job.get("id", "") if isinstance(result_job, dict) else ""

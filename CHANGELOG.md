@@ -1,5 +1,29 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.18 — 2026-06-30 — Sorry-Revert: release_immediately=False + change_job_owner Duplikat raus
+
+Sehr peinliche Erkenntnis nach 1:1-Vergleich mit dem nachweislich
+funktionierenden `printix-mcp-linux/src/web/employee_routes.py:752` und
+`forwarder.py:153`:
+
+  Beide nutzen `release_immediately=False`.
+
+Mein v0.7.15-Fix („release_immediately=True ist das Default des alten
+Codes") basierte auf der MCP-Tool-Signature in `printix-mcp/server.py`,
+NICHT auf dem produktiven Print-Flow. Der produktive Code in
+printix-mcp-linux nutzt False. Damit reverte ich v0.7.15 in diesem
+Punkt.
+
+Bonus-Fix: `printix_client.py` hatte ZWEI `change_job_owner`-Definitionen
+(Line 432 + Line 507). Python verwendet last-definition-wins, daher
+ueberschrieb die form-urlencoded-Variante (`data={userEmail}`) die
+korrekte JSON-mit-Query-Param-Variante. Die zweite Definition entfernt.
+
+Damit ist der Submit-Aufruf jetzt BIT-IDENTISCH zu der Variante die in
+printix-mcp-linux nachweislich funktioniert. Wenn jetzt immer noch 500
+zurueckkommt, liegt's mit hoher Sicherheit an den Printix-OAuth-
+Credentials (falscher Scope) bzw. der Premium-Lizenz, nicht am Code.
+
 ## 0.7.17 — 2026-06-30 — Diagnose-Marker fuer /desktop/send Upload-Latenz
 
 User-Report: 300 KB JPG braucht Minuten beim Senden aus iOS. Zwei
