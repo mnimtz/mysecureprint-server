@@ -11,7 +11,7 @@ from typing import Optional
 from urllib.parse import quote_plus
 
 from fastapi import FastAPI, Request, Form, UploadFile, File
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse, Response, PlainTextResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -5212,6 +5212,51 @@ def create_app(session_secret: str) -> FastAPI:
             )
             return RedirectResponse(
                 "/admin/api-trace?err=save_failed", status_code=303,
+            )
+
+    @app.api_route("/admin/perf-logs/toggle",
+                    methods=["GET", "POST"])
+    async def admin_perf_logs_toggle(
+        request: Request,
+        enabled: str = Form(default=""),
+    ):
+        """v0.7.16: 1-Klick-Toggle fuer perf_logs_enabled Setting.
+
+        Aus dem Browser oder einem Bookmark:
+            /admin/perf-logs/toggle?enabled=1   (an)
+            /admin/perf-logs/toggle?enabled=0   (aus)
+            /admin/perf-logs/toggle             (auch aus)
+
+        Damit wird der dt_*-Marker-Output in Admin-Handler-Logs an/aus
+        geschaltet (perf_logs_enabled Setting → db.perf_logs_enabled()).
+        """
+        user = get_session_user(request)
+        if not user:
+            return RedirectResponse("/login", status_code=303)
+        if not user.get("is_admin"):
+            return RedirectResponse("/admin?err=not_admin", status_code=303)
+        if request.method == "GET":
+            enabled = request.query_params.get("enabled", "")
+        try:
+            from db import set_setting, get_setting, audit
+            new_val = "1" if enabled else "0"
+            set_setting("perf_logs_enabled", new_val)
+            check = get_setting("perf_logs_enabled", "0")
+            audit(user["id"], "admin_perf_logs_toggle", f"enabled={new_val}")
+            logger.info(
+                "perf_logs_toggle OK: user=%s set=%s read_back=%s",
+                user.get("username"), new_val, check,
+            )
+            return PlainTextResponse(
+                f"Performance-Logs jetzt {'AN' if new_val == '1' else 'AUS'} "
+                f"(read_back={check}). "
+                f"Toggle erneut: /admin/perf-logs/toggle?enabled="
+                f"{'0' if new_val == '1' else '1'}\n",
+            )
+        except Exception as e:
+            logger.exception("perf_logs_toggle FAIL: %s", e)
+            return PlainTextResponse(
+                f"FEHLER beim Speichern: {e}\n", status_code=500,
             )
 
 

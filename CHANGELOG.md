@@ -1,5 +1,19 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.16 — 2026-06-30 — 1-Klick-Toggle fuer perf_logs_enabled
+
+Neue Admin-Route `/admin/perf-logs/toggle` (GET + POST), analog zur
+api-trace-Toggle:
+
+  https://printix-sp.azurewebsites.net/admin/perf-logs/toggle?enabled=1
+  → schaltet Perf-Logs AN
+  https://printix-sp.azurewebsites.net/admin/perf-logs/toggle?enabled=0
+  → schaltet AUS
+
+Response ist Plain-Text — bequem aus Browser-Adressleiste oder als
+Bookmark. Bestaetigt 'jetzt AN / read_back=1' + zeigt den Toggle-Link
+fuer den Gegenstatus.
+
 ## 0.7.15 — 2026-06-30 — CRITICAL Print-Fix (release_immediately=True) + Perf-Pass
 
 ### Print-Fix — der echte Bug
