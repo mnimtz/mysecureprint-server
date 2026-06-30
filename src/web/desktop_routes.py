@@ -444,7 +444,8 @@ async def _process_desktop_send_bg(
             if not delegate or not delegate.get("delegate_email"):
                 _fail("delegate target not found", code="target_not_found")
                 return
-            submit_user_email = delegate["delegate_email"]
+            # v0.7.23: lowercase — Printix changeOwner ist case-sensitive
+            submit_user_email = (delegate["delegate_email"] or "").strip().lower()
             target_type = "print_delegate"
         elif target_id.startswith("print:user:"):
             # v0.5.4: Delegation-Print an einen beliebigen Printix-User.
@@ -468,7 +469,8 @@ async def _process_desktop_send_bg(
                         (target_printix_id, tenant_local_id, tenant_local_id),
                     ).fetchone()
                 if row:
-                    target_user_email = (row["email"] or "").strip()
+                    # v0.7.23: lowercase — Printix changeOwner case-sensitive
+                    target_user_email = (row["email"] or "").strip().lower()
                     target_user_full_name = (row["full_name"] or "").strip()
             except Exception as _du:
                 logger.warning(

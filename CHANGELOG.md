@@ -1,5 +1,16 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.23 — 2026-06-30 — Delegate-Pfade auch lowercase (consistent mit v0.7.22)
+
+v0.7.22 hat owner_email (print:self) auf lowercase gestellt, aber die
+zwei Delegate-Pfade (print:delegate:<id> und print:user:<id>) nahmen
+den email-Wert weiter raw aus DB. Wenn der Delegate-Eintrag mit
+mixed-case Email (z.B. „Maik.Schneider@kofax.email") angelegt wurde,
+schlaegt change_job_owner spaeter mit USER_NOT_FOUND fehl.
+
+Fix: beide Delegate-Pfade lowercased die email vor Verwendung als
+submit_user_email.
+
 ## 0.7.22 — 2026-06-30 — DEFINITIVER FIX: Email lowercase (Printix case-sensitive verifiziert)
 
 Direkter Test gegen Printix Cloud Print API bestaetigt zwei Wahrheiten:
