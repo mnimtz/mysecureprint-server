@@ -1,5 +1,23 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.12 — 2026-06-30 — API-Trace-Toggle: visuelles Feedback + GET-Fallback
+
+User-Report: 'Einschalten'-Button im /admin/api-trace bewirkte nichts
+Sichtbares. Der Toggle hat geschrieben, die Seite hat aber kein
+Feedback gezeigt — User wusste nicht ob's geklappt hat.
+
+Drei Aenderungen:
+
+1. **Sichtbares Feedback**: nach Toggle Redirect mit `?ok=trace_on` /
+   `?ok=trace_off` / `?err=save_failed` / `?err=not_admin` — das Template
+   zeigt entsprechende Banner.
+2. **303 statt 302**: explizites POST→GET fuer Redirect, Browser
+   konvertiert garantiert auf GET (vorher implizit).
+3. **GET-Fallback**: `/admin/api-trace/toggle?enabled=1` funktioniert
+   auch — fuer Debugging und Bookmark.
+4. **Diagnostik-Logs**: `api_trace_toggle OK: user=X set=1 read_back=1`
+   damit beim naechsten Bug klar ist ob's gespeichert wurde.
+
 ## 0.7.11 — 2026-06-30 — API-Trace fuer Outbound-Call-Debugging
 
 Admin-Pain: bei Printix-API-Errors steht im Server-Log oft nur

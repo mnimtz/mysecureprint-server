@@ -114,6 +114,26 @@
       <a href="/admin" class="btn btn-secondary btn-sm">← Übersicht</a>
     </div>
 
+    {% set _ok = request.query_params.get('ok','') %}
+    {% set _err = request.query_params.get('err','') %}
+    {% if _ok == 'trace_on' %}
+      <div style="padding:10px 14px;background:rgba(34,197,94,.10);border:1px solid rgba(34,197,94,.45);color:#166534;border-radius:8px;margin-bottom:12px;">
+        ✅ API-Trace aktiviert. Alle Outbound-Calls werden ab jetzt gespeichert.
+      </div>
+    {% elif _ok == 'trace_off' %}
+      <div style="padding:10px 14px;background:rgba(107,114,128,.10);border:1px solid rgba(107,114,128,.45);color:#374151;border-radius:8px;margin-bottom:12px;">
+        ⏸ API-Trace deaktiviert.
+      </div>
+    {% elif _err == 'save_failed' %}
+      <div style="padding:10px 14px;background:rgba(220,38,38,.10);border:1px solid rgba(220,38,38,.45);color:#991b1b;border-radius:8px;margin-bottom:12px;">
+        ❌ Speichern fehlgeschlagen — siehe Container-Log.
+      </div>
+    {% elif _err == 'not_admin' %}
+      <div style="padding:10px 14px;background:rgba(220,38,38,.10);border:1px solid rgba(220,38,38,.45);color:#991b1b;border-radius:8px;margin-bottom:12px;">
+        ❌ Kein Admin-Recht — Toggle abgelehnt.
+      </div>
+    {% endif %}
+
     <div class="trace-toolbar">
       <span class="trace-status-pill {% if trace_active %}trace-on{% else %}trace-off{% endif %}">
         <span>●</span>

@@ -5125,22 +5125,52 @@ def create_app(session_secret: str) -> FastAPI:
             logger.warning("admin_api_trace_clear failed: %s", e)
         return RedirectResponse("/admin/api-trace", status_code=302)
 
-    @app.post("/admin/api-trace/toggle")
+    @app.api_route("/admin/api-trace/toggle",
+                    methods=["GET", "POST"])
     async def admin_api_trace_toggle(
         request: Request,
         enabled: str = Form(default=""),
     ):
+        # v0.7.12: GET-Fallback fuer Debugging + klares Logging damit
+        # wir sehen ob der Toggle ankommt; plus visuelles ?ok=/?err=
+        # Feedback in der URL.
         user = get_session_user(request)
-        if not user or not user.get("is_admin"):
-            return RedirectResponse("/login", status_code=302)
+        peer = (request.client.host if request.client else "?")
+        if not user:
+            logger.warning("api_trace_toggle DENY: no session — peer=%s", peer)
+            return RedirectResponse("/login", status_code=303)
+        if not user.get("is_admin"):
+            logger.warning(
+                "api_trace_toggle DENY: user=%s not admin (is_admin=%s)",
+                user.get("username"), user.get("is_admin"),
+            )
+            return RedirectResponse(
+                "/admin/api-trace?err=not_admin", status_code=303,
+            )
+        if request.method == "GET":
+            enabled = request.query_params.get("enabled", "")
         try:
-            from db import set_setting, audit
+            from db import set_setting, get_setting, audit
             new_val = "1" if enabled else "0"
             set_setting("api_trace_enabled", new_val)
+            check = get_setting("api_trace_enabled", "0")
             audit(user["id"], "admin_api_trace_toggle", f"enabled={new_val}")
+            logger.info(
+                "api_trace_toggle OK: user=%s set=%s read_back=%s",
+                user.get("username"), new_val, check,
+            )
+            ok = "trace_on" if new_val == "1" else "trace_off"
+            return RedirectResponse(
+                f"/admin/api-trace?ok={ok}", status_code=303,
+            )
         except Exception as e:
-            logger.warning("admin_api_trace_toggle failed: %s", e)
-        return RedirectResponse("/admin/api-trace", status_code=302)
+            logger.exception(
+                "api_trace_toggle FAIL: user=%s err=%s",
+                user.get("username"), e,
+            )
+            return RedirectResponse(
+                "/admin/api-trace?err=save_failed", status_code=303,
+            )
 
 
     def _admin_settings_ctx(
