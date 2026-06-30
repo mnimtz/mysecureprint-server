@@ -478,6 +478,41 @@ async def _process_desktop_send_bg(
                     "user='%s' target_id=%s err=%s",
                     _user_descr(user), target_printix_id, _du,
                 )
+            # v0.7.24: Cache-Miss-Fallback. Wenn der User nicht in
+            # cached_printix_users liegt (Cache leer/stale), holen wir
+            # ihn LIVE von der Printix-User-Management-API.
+            if not target_user_email and tenant:
+                try:
+                    logger.info(
+                        "Desktop-Send [2/5] delegation-user cache-miss — "
+                        "trying live Printix lookup for printix_user_id=%s",
+                        target_printix_id,
+                    )
+                    from printix_client import PrintixClient as _PxClient
+                    _lookup_client = _PxClient(
+                        tenant_id=tenant.get("printix_tenant_id", ""),
+                        print_client_id=tenant.get("print_client_id", ""),
+                        print_client_secret=tenant.get("print_client_secret", ""),
+                        card_client_id=tenant.get("card_client_id", ""),
+                        card_client_secret=tenant.get("card_client_secret", ""),
+                        um_client_id=tenant.get("um_client_id", ""),
+                        um_client_secret=tenant.get("um_client_secret", ""),
+                        shared_client_id=tenant.get("shared_client_id", ""),
+                        shared_client_secret=tenant.get("shared_client_secret", ""),
+                    )
+                    live = _lookup_client.get_user(target_printix_id)
+                    if isinstance(live, dict):
+                        target_user_email = (live.get("email")
+                            or live.get("username") or "").strip().lower()
+                        target_user_full_name = (live.get("fullName")
+                            or live.get("name")
+                            or live.get("displayName") or "").strip()
+                except Exception as _le:
+                    logger.warning(
+                        "Desktop-Send [2/5] live-lookup auch failed — "
+                        "user='%s' target_id=%s err=%s",
+                        _user_descr(user), target_printix_id, _le,
+                    )
             if not target_user_email or "@" not in target_user_email:
                 _fail("delegation user not found or has no email",
                       code="target_not_found")

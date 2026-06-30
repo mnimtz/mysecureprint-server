@@ -1,5 +1,22 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.24 — 2026-06-30 — Delegation: Live-Printix-Lookup als Cache-Miss-Fallback
+
+User-Report: print:user:<id> failed mit „delegation user not found or
+has no email" obwohl der User per Picker sichtbar war.
+
+Root-Cause: Picker holt User LIVE von /desktop/management/users (per
+Printix-API). Submit-Lookup geht aber gegen `cached_printix_users`-
+Tabelle. Wenn der Cache leer/stale ist (Printix-User-Sync nicht
+gelaufen) → Mismatch → target_not_found.
+
+Fix: bei Cache-Miss wird der User jetzt LIVE per
+`client.get_user(printix_user_id)` aufgeloest. Email + Name werden
+genauso lowercase normalisiert wie der gecachte Pfad.
+
+Empfehlung: trotzdem regelmaessig User-Sync laufen lassen
+(Performance + Offline-Tauglichkeit).
+
 ## 0.7.23 — 2026-06-30 — Delegate-Pfade auch lowercase (consistent mit v0.7.22)
 
 v0.7.22 hat owner_email (print:self) auf lowercase gestellt, aber die
