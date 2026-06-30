@@ -184,6 +184,31 @@ def _graph_app_token(
     return token
 
 
+def get_graph_token() -> dict:
+    """Holt ein App-Only Graph-Token mit den aktuellen Entra-Settings.
+
+    Liest tenant_id/client_id/client_secret aus dem DB-Setting-Store.
+    Returns dict mit `access_token` (compat zu typischen msal-Returns).
+
+    Wirft RuntimeError wenn keine Credentials konfiguriert sind.
+    """
+    from db import get_setting, _dec  # type: ignore
+    tenant_id = (get_setting("entra_tenant_id", "") or "").strip()
+    client_id = (get_setting("entra_client_id", "") or "").strip()
+    secret_enc = (get_setting("entra_client_secret", "") or "").strip()
+    if not (tenant_id and client_id and secret_enc):
+        raise RuntimeError("entra credentials not configured")
+    try:
+        client_secret = _dec(secret_enc)
+    except Exception:
+        # Falls noch im Plaintext (alte Setups) — direkt verwenden
+        client_secret = secret_enc
+    token = _graph_app_token(tenant_id, client_id, client_secret)
+    if not token:
+        raise RuntimeError("token request returned empty")
+    return {"access_token": token}
+
+
 def send_via_graph(
     recipients: Sequence[str],
     subject: str,

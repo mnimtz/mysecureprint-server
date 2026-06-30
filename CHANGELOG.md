@@ -1,5 +1,51 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.28 — 2026-06-30 — Guest-Print / Email-to-Print + Mail.Send Consent + Email-Template-Fixes
+
+**Neu — Guest-Print / Email-to-Print Gateway**
+
+- Modul `src/guestprint/` mit DB-Layer (`store.py`), Graph-Mail-Poller (`poller.py`)
+  und async Runner (`runner.py`) für die `guestprint_mailbox`/`guestprint_guest`/`guestprint_job`-Tabellen.
+- Admin-UI unter `/admin/guestprint`: Mailbox-CRUD, Gast-Whitelist mit Ablauf-Tagen,
+  Job-Log, manueller Poll-Trigger, globaler An/Aus-Schalter.
+- Sicherheits-relevante Härtung:
+  - `validate_email_address`: blockiert `\r\n\t\x00` und Whitespace.
+  - `_safe_filename`: Whitelist `[A-Za-z0-9._\- ]`, kein Path-Traversal.
+  - MIME/Erweiterung-Whitelist (PDF/PNG/JPEG nur), Hard-Cap (Default 25 MiB,
+    Server-Cap 100 MiB), Re-Check nach Download gegen lügende Graph-Size.
+  - Multi-Worker-sicher: `try_acquire_poll_lock` macht atomares SQL-UPDATE
+    auf `last_poll_at` — kein Doppelpoll wenn mehrere uvicorn-Worker laufen.
+  - Tenant-Isolation: alle Admin-Routes prüfen `mb.tenant_id == active`.
+  - Idempotenz via UNIQUE `(mailbox_id, message_id, attachment_name)`.
+
+**Neu — Mail.Send / Mail.Read Auto-Consent im Entra-Setup**
+
+- `auto_register_app(include_mail_send=True)` erteilt jetzt direkt nach
+  App-Registration den Tenant-weiten Admin-Consent für die `Mail.Send`
+  (und optional `Mail.Read`) App-Role via `/servicePrincipals/{sp}/appRoleAssignments`.
+  Vorher musste der Admin den Consent manuell im Azure Portal klicken.
+- Neuer Public-Helper `grant_mail_app_role_consent()` für nachträgliche
+  Erteilung wenn der initiale Grant fehlgeschlagen ist (z.B. weil der
+  Device-Code-Admin keinen Global-Admin-Status hatte).
+- Device-Code-Scopes erweitert um `AppRoleAssignment.ReadWrite.All`.
+
+**Fix — Email-Templates Lokalisierung + Platzhalter**
+
+- Neuer Platzhalter `{qr_code}`: Admin kann den QR-Block frei platzieren.
+  Wenn nicht im Template enthalten, wird er wie bisher am Ende angefügt.
+- Neuer Platzhalter `{app_store_url}`: Verweist auf MySecurePrint im App Store
+  (per `ios_app_store_url`-Setting überschreibbar).
+- Neue Sprach-Wahl im Template-Editor (`mobile_invite_email_lang`-Setting).
+  Vorher: Admin schrieb englischen Body, aber Preview zeigte deutschen
+  QR-Label/Footer weil i18n-Bausteine die Admin-UI-Sprache zogen → unstimmig.
+  Jetzt: Body + Bausteine in der gleichen, explizit gewählten Template-Sprache.
+- Preview und echter Versand verwenden konsistent dieselbe Template-Sprache.
+
+**Public Helper**
+
+- `mail_client.get_graph_token()` liest Tenant/Client/Secret aus den Settings
+  und liefert ein App-Only Graph-Token — dient als Basis für den Email-Poller.
+
 ## 0.7.27 — 2026-06-30 — Entra-Auto-Setup: App-Name + Auto-Tenant-Consent
 
 **Geändert:** Beim Entra-Auto-Setup via Device-Code-Flow heißt die im Azure-Tenant

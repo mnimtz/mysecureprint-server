@@ -412,7 +412,8 @@ def exchange_code_pkce(code: str,
 _GRAPH_SCOPES_DEVICE = (
     "https://graph.microsoft.com/Application.ReadWrite.All "
     "https://graph.microsoft.com/Organization.Read.All "
-    "https://graph.microsoft.com/DelegatedPermissionGrant.ReadWrite.All"
+    "https://graph.microsoft.com/DelegatedPermissionGrant.ReadWrite.All "
+    "https://graph.microsoft.com/AppRoleAssignment.ReadWrite.All"
 )
 
 # Zusaetzliche Scopes fuer den Guest-Print-Auto-Setup: wir brauchen
@@ -543,6 +544,70 @@ def poll_device_code_token(device_code: str, tenant: str = "common") -> dict:
 
 
 _MSGRAPH_APP_ID = "00000003-0000-0000-c000-000000000000"
+
+
+def _ensure_service_principal(headers: dict, app_id: str) -> str:
+    """Liefert die ObjectId des ServicePrincipals fuer eine App-Registration,
+    erstellt den SP wenn er noch nicht existiert. Leerstring bei Fehler."""
+    try:
+        sp_resp = _requests.post(
+            f"{_GRAPH_URL}/servicePrincipals",
+            headers=headers, json={"appId": app_id}, timeout=15,
+        )
+        if sp_resp.status_code in (200, 201):
+            return sp_resp.json().get("id", "")
+        # 409 = existiert schon → Lookup
+        try:
+            lookup = _requests.get(
+                f"{_GRAPH_URL}/servicePrincipals",
+                headers=headers,
+                params={"$filter": f"appId eq '{app_id}'"},
+                timeout=15,
+            )
+            if lookup.status_code == 200:
+                items = lookup.json().get("value", [])
+                if items:
+                    return items[0].get("id", "")
+        except Exception:
+            pass
+        logger.warning("Graph: SP-Create/Lookup fehlgeschlagen: %s %s",
+                        sp_resp.status_code, sp_resp.text[:200])
+        return ""
+    except Exception as e:
+        logger.warning("Graph: SP-Create Exception: %s", e)
+        return ""
+
+
+def _grant_app_role_consent(headers: dict, sp_id: str,
+                              resource_sp_id: str, app_role_id: str) -> bool:
+    """Erteilt Tenant-weiten Admin-Consent fuer eine **Application** Permission
+    (App-Role) via POST /servicePrincipals/{sp}/appRoleAssignments.
+
+    Idempotent — "Permission being assigned already exists" wird als Erfolg
+    gewertet.
+    """
+    try:
+        resp = _requests.post(
+            f"{_GRAPH_URL}/servicePrincipals/{sp_id}/appRoleAssignments",
+            headers=headers,
+            json={
+                "principalId": sp_id,
+                "resourceId":  resource_sp_id,
+                "appRoleId":   app_role_id,
+            },
+            timeout=15,
+        )
+        if resp.status_code in (200, 201):
+            return True
+        body = (resp.text or "").lower()
+        if "already exists" in body:
+            return True
+        logger.warning("Graph: app-role-consent fehlgeschlagen: %s %s",
+                        resp.status_code, resp.text[:300])
+        return False
+    except Exception as e:
+        logger.warning("Graph: app-role-consent Exception: %s", e)
+        return False
 
 
 def _grant_tenant_consent_delegated(headers: dict, app_id: str,
@@ -776,11 +841,56 @@ def auto_register_app(
         # landen User direkt in der App.
         consent_status = _grant_tenant_consent_delegated(headers, app_id)
 
+        # 4. App-Role-Consent (App-Only-Permissions) — Mail.Send/Mail.Read.
+        # Bei Delegated-Permissions reicht der oauth2PermissionGrants-Pfad oben,
+        # aber App-Only-Permissions brauchen einen appRoleAssignment auf den
+        # ServicePrincipal selbst. Beides braucht Admin-Privileges.
+        mail_send_consent = "skipped"
+        mail_read_consent = "skipped"
+        if include_mail_send or include_mail_read:
+            own_sp_id = _ensure_service_principal(headers, app_id)
+            graph_sp_id = ""
+            if own_sp_id:
+                try:
+                    sp_resp = _requests.get(
+                        f"{_GRAPH_URL}/servicePrincipals",
+                        headers=headers,
+                        params={"$filter": f"appId eq '{_MSGRAPH_APP_ID}'"},
+                        timeout=10,
+                    )
+                    if sp_resp.status_code == 200:
+                        items = sp_resp.json().get("value", [])
+                        if items:
+                            graph_sp_id = items[0].get("id", "")
+                except Exception:
+                    pass
+
+            if own_sp_id and graph_sp_id:
+                if include_mail_send:
+                    mail_send_consent = (
+                        "granted" if _grant_app_role_consent(
+                            headers, own_sp_id, graph_sp_id,
+                            _GRAPH_MAIL_SEND_APP_ROLE)
+                        else "grant_failed")
+                if include_mail_read:
+                    mail_read_consent = (
+                        "granted" if _grant_app_role_consent(
+                            headers, own_sp_id, graph_sp_id,
+                            _GRAPH_MAIL_READ_APP_ROLE)
+                        else "grant_failed")
+            else:
+                if include_mail_send:
+                    mail_send_consent = "sp_failed"
+                if include_mail_read:
+                    mail_read_consent = "sp_failed"
+
         logger.info(
             "Entra SSO-App automatisch erstellt: %s (client_id=%s, tenant=%s, "
-            "audience=%s, secret_expires=%s, admin_consent=%s)",
+            "audience=%s, secret_expires=%s, admin_consent=%s, "
+            "mail_send=%s, mail_read=%s)",
             app_name, app_id, tenant_id, audience,
             secret_expires_at or "?", consent_status,
+            mail_send_consent, mail_read_consent,
         )
         return {
             "tenant_id":         tenant_id,
@@ -790,6 +900,8 @@ def auto_register_app(
             "object_id":         obj_id,
             "audience":          audience,
             "admin_consent":     consent_status,
+            "mail_send_consent": mail_send_consent,
+            "mail_read_consent": mail_read_consent,
         }
 
     except Exception as e:
@@ -814,6 +926,45 @@ def start_device_code_flow_guestprint(tenant: str = "common") -> dict | None:
     vom SSO-Flow durch die breiteren Scopes (AppRoleAssignment.ReadWrite.All
     fuer programmatischen Consent, User.Read.All fuer den Mailbox-Picker)."""
     return start_device_code_flow(tenant=tenant, scopes=_GRAPH_SCOPES_GUESTPRINT)
+
+
+def grant_mail_app_role_consent(access_token: str, app_id: str,
+                                   include_mail_send: bool = True,
+                                   include_mail_read: bool = False) -> dict:
+    """Nachtraeglicher Admin-Consent fuer Mail.Send / Mail.Read App-Roles.
+
+    Aufgerufen von der Admin-UI wenn der initiale Auto-Setup-Grant fehlgeschlagen
+    ist (z.B. weil der Admin nicht Global-Admin war) und der Admin den Consent
+    spaeter im Azure-Portal manuell macht ODER hier erneut anstoesst.
+
+    Returns: {"mail_send": "granted"|"grant_failed"|"sp_failed"|"skipped",
+              "mail_read": "...",
+              "ok": bool}
+    """
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type":  "application/json",
+    }
+    out = {"mail_send": "skipped", "mail_read": "skipped", "ok": False}
+    own_sp_id = _ensure_service_principal(headers, app_id)
+    graph_sp_id = _get_service_principal_by_app_id(access_token, _MSGRAPH_APP_ID)
+    if not (own_sp_id and graph_sp_id):
+        if include_mail_send:
+            out["mail_send"] = "sp_failed"
+        if include_mail_read:
+            out["mail_read"] = "sp_failed"
+        return out
+    if include_mail_send:
+        out["mail_send"] = ("granted" if _grant_app_role_consent(
+            headers, own_sp_id, graph_sp_id, _GRAPH_MAIL_SEND_APP_ROLE)
+                              else "grant_failed")
+    if include_mail_read:
+        out["mail_read"] = ("granted" if _grant_app_role_consent(
+            headers, own_sp_id, graph_sp_id, _GRAPH_MAIL_READ_APP_ROLE)
+                              else "grant_failed")
+    out["ok"] = (out["mail_send"] in ("granted", "skipped")
+                  and out["mail_read"] in ("granted", "skipped"))
+    return out
 
 
 def _get_service_principal_by_app_id(access_token: str, app_id: str) -> str:

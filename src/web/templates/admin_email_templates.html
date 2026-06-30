@@ -16,13 +16,39 @@
     {% endif %}
 
     <div style="background:#f1f5f9;border-radius:8px;padding:10px 14px;margin:8px 0 14px;font-size:.88em;">
-      <strong>{{ _('email_templates_placeholders') }}:</strong>
-      <code>{full_name}</code>, <code>{server_url}</code>,
-      <code>{invite_url}</code>, <code>{expires_at}</code>,
-      <code>{admin_name}</code>
+      <strong>{{ _('email_templates_placeholders') }}:</strong><br>
+      <code>{full_name}</code> · <code>{server_url}</code> ·
+      <code>{invite_url}</code> · <code>{expires_at}</code> ·
+      <code>{admin_name}</code> ·
+      <code>{app_store_url}</code> ·
+      <code>{qr_code}</code>
+      <div style="margin-top:6px;font-size:.85em;color:#475569;">
+        <code>{qr_code}</code> wird an der Stelle eingesetzt, wo du ihn platzierst — sonst am Ende der Mail.
+        <code>{app_store_url}</code> verweist auf MySecurePrint im App Store.
+      </div>
     </div>
 
     <form method="post" action="/admin/email-templates">
+      <div class="form-group" style="margin-bottom:10px;">
+        <label>Template-Sprache</label>
+        <select name="tpl_lang" style="width:100%;">
+          {% set lang_options = [
+              ('de', 'Deutsch'), ('en', 'English'), ('fr', 'Français'),
+              ('es', 'Español'), ('it', 'Italiano'), ('nl', 'Nederlands'),
+              ('sv', 'Svenska'), ('nb', 'Norsk')
+          ] %}
+          {% for code, name in lang_options %}
+            <option value="{{ code }}"
+                    {% if (tpl_lang or 'de') == code %}selected{% endif %}>
+              {{ name }}
+            </option>
+          {% endfor %}
+        </select>
+        <small class="hint" style="color:#666;">
+          Bestimmt die Sprache der eingebetteten Bausteine (QR-Label, Standard-Footer) — damit dein Body-Text und die Beilagen in der gleichen Sprache sind.
+        </small>
+      </div>
+
       <div class="form-group">
         <label>{{ _('email_templates_subject') }}</label>
         <input type="text" name="subject"

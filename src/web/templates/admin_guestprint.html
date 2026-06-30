@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+{% block title %}Guest-Print / Email-to-Print{% endblock %}
+
+{% block content %}
+<div class="workspace" style="max-width: 1100px; margin: 24px auto; padding: 0 16px;">
+
+  <header style="display:flex;justify-content:space-between;align-items:center;
+                  gap:16px;margin-bottom:20px;">
+    <div>
+      <h1 style="font-size:1.6em;margin-bottom:4px;">📧 Guest-Print / Email-to-Print</h1>
+      <p style="color:#666;font-size:.9em;">
+        Eine überwachte O365-Mailbox empfängt Emails. Anhänge werden im
+        Namen des Absenders gedruckt — sofern der Sender ein interner User
+        oder ein gewhitelisteter Gast ist.
+      </p>
+    </div>
+    <form id="gp-toggle-form" method="post"
+          action="/admin/guestprint/toggle"
+          style="display:flex;align-items:center;gap:8px;">
+      <label style="cursor:pointer;display:flex;align-items:center;gap:8px;
+                    font-weight:600;color:{% if enabled %}#0a7a3a{% else %}#888{% endif %};">
+        <input type="checkbox" name="enabled" value="1"
+               {% if enabled %}checked{% endif %}
+               onchange="toggleGlobal(this)">
+        {% if enabled %}aktiv{% else %}deaktiviert{% endif %}
+      </label>
+    </form>
+  </header>
+
+  {% if request.query_params.get('error') %}
+    <div style="background:#fee;border:1px solid #fcc;padding:12px;
+                border-radius:8px;margin-bottom:16px;color:#900;">
+      ✗ {{ request.query_params.get('error') | replace('+', ' ') }}
+    </div>
+  {% endif %}
+
+  <!-- Mailbox-Liste -->
+  <div style="display:grid;grid-template-columns:280px 1fr;gap:24px;">
+
+    <aside style="background:#f8f9fb;border:1px solid #e5e7eb;
+                    border-radius:12px;padding:16px;">
+      <h3 style="font-size:.95em;color:#666;text-transform:uppercase;
+                 margin-bottom:12px;">Postfächer</h3>
+      <ul style="list-style:none;padding:0;margin:0 0 16px 0;">
+        {% for m in mboxes %}
+          <li style="padding:8px 10px;border-radius:6px;margin-bottom:4px;
+                     background:{% if selected and selected.id == m.id %}#dbeafe{% else %}transparent{% endif %};">
+            <a href="/admin/guestprint/mailbox/{{ m.id }}"
+               style="text-decoration:none;color:#1e3a5f;">
+              <div style="font-weight:600;font-size:.92em;
+                          {% if not m.enabled %}opacity:.5;{% endif %}">
+                {{ m.name or m.upn }}
+              </div>
+              <div style="font-size:.78em;color:#888;">{{ m.upn }}</div>
+            </a>
+          </li>
+        {% else %}
+          <li style="font-size:.85em;color:#999;font-style:italic;
+                     padding:8px 4px;">
+            Keine Postfächer konfiguriert.
+          </li>
+        {% endfor %}
+      </ul>
+
+      <details style="margin-top:8px;">
+        <summary style="cursor:pointer;font-weight:600;color:#2563eb;
+                        font-size:.9em;">+ Neues Postfach</summary>
+        <form method="post" action="/admin/guestprint/mailbox"
+              style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+          <input type="email" name="upn" placeholder="postfach@firma.com"
+                 required style="padding:8px;border:1px solid #d1d5db;
+                                  border-radius:6px;">
+          <input type="text" name="name" placeholder="Anzeigename (optional)"
+                 style="padding:8px;border:1px solid #d1d5db;border-radius:6px;">
+          <input type="number" name="poll_interval_sec" value="60" min="15" max="3600"
+                 style="padding:8px;border:1px solid #d1d5db;border-radius:6px;">
+          <select name="on_success"
+                  style="padding:8px;border:1px solid #d1d5db;border-radius:6px;">
+            <option value="move">Bei Erfolg: in Processed-Ordner verschieben</option>
+            <option value="keep">Behalten (nur als gelesen markieren)</option>
+            <option value="delete">Löschen</option>
+          </select>
+          <button type="submit"
+                  style="background:#2563eb;color:white;padding:8px;
+                         border:none;border-radius:6px;cursor:pointer;
+                         font-weight:600;">Anlegen</button>
+        </form>
+      </details>
+    </aside>
+
+    <main>
+      {% if selected %}
+        <!-- Mailbox-Detail -->
+        <div style="background:white;border:1px solid #e5e7eb;
+                    border-radius:12px;padding:20px;margin-bottom:20px;">
+          <div style="display:flex;justify-content:space-between;
+                      align-items:center;margin-bottom:16px;">
+            <div>
+              <h2 style="font-size:1.2em;margin-bottom:4px;">{{ selected.name or selected.upn }}</h2>
+              <code style="color:#888;font-size:.85em;">{{ selected.upn }}</code>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button type="button" onclick="pollNow('{{ selected.id }}')"
+                      style="padding:6px 12px;background:#16a34a;color:white;
+                             border:none;border-radius:6px;cursor:pointer;
+                             font-weight:600;font-size:.9em;">
+                Jetzt pollen
+              </button>
+              <form method="post"
+                    action="/admin/guestprint/mailbox/{{ selected.id }}/delete"
+                    onsubmit="return confirm('Mailbox wirklich löschen? Whitelist + Job-Log gehen mit verloren.');">
+                <button type="submit"
+                        style="padding:6px 12px;background:#dc2626;color:white;
+                               border:none;border-radius:6px;cursor:pointer;
+                               font-weight:600;font-size:.9em;">
+                  Löschen
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {% if selected.last_error %}
+            <div style="background:#fee;border:1px solid #fcc;padding:10px;
+                        border-radius:6px;color:#900;font-size:.85em;
+                        margin-bottom:12px;">
+              <strong>Letzter Fehler:</strong> {{ selected.last_error }}
+            </div>
+          {% endif %}
+
+          <details>
+            <summary style="cursor:pointer;font-weight:600;color:#2563eb;">
+              Einstellungen
+            </summary>
+            <form method="post"
+                  action="/admin/guestprint/mailbox/{{ selected.id }}/update"
+                  style="display:grid;grid-template-columns:1fr 1fr;gap:12px;
+                         margin-top:12px;">
+              <label>Anzeigename
+                <input type="text" name="name" value="{{ selected.name }}"
+                       style="width:100%;padding:6px;border:1px solid #d1d5db;
+                              border-radius:4px;"></label>
+              <label>Poll-Intervall (Sek)
+                <input type="number" name="poll_interval_sec"
+                       value="{{ selected.poll_interval_sec }}"
+                       min="15" max="3600"
+                       style="width:100%;padding:6px;border:1px solid #d1d5db;
+                              border-radius:4px;"></label>
+              <label>Processed-Ordner
+                <input type="text" name="folder_processed"
+                       value="{{ selected.folder_processed }}"
+                       style="width:100%;padding:6px;border:1px solid #d1d5db;
+                              border-radius:4px;"></label>
+              <label>Skipped-Ordner
+                <input type="text" name="folder_skipped"
+                       value="{{ selected.folder_skipped }}"
+                       style="width:100%;padding:6px;border:1px solid #d1d5db;
+                              border-radius:4px;"></label>
+              <label>Max. Anhang-Größe (Bytes)
+                <input type="number" name="max_attachment_bytes"
+                       value="{{ selected.max_attachment_bytes }}"
+                       min="1024" max="104857600"
+                       style="width:100%;padding:6px;border:1px solid #d1d5db;
+                              border-radius:4px;"></label>
+              <label>Bei Erfolg
+                <select name="on_success"
+                        style="width:100%;padding:6px;border:1px solid #d1d5db;
+                               border-radius:4px;">
+                  <option value="move" {% if selected.on_success == 'move' %}selected{% endif %}>Verschieben</option>
+                  <option value="keep" {% if selected.on_success == 'keep' %}selected{% endif %}>Behalten</option>
+                  <option value="delete" {% if selected.on_success == 'delete' %}selected{% endif %}>Löschen</option>
+                </select>
+              </label>
+              <label style="grid-column:1/-1;">
+                <input type="checkbox" name="enabled" value="1"
+                       {% if selected.enabled %}checked{% endif %}>
+                Aktiviert (pollt regelmäßig)
+              </label>
+              <button type="submit"
+                      style="grid-column:1/-1;padding:8px;background:#2563eb;
+                             color:white;border:none;border-radius:6px;
+                             cursor:pointer;font-weight:600;">Speichern</button>
+            </form>
+          </details>
+        </div>
+
+        <!-- Whitelist -->
+        <div style="background:white;border:1px solid #e5e7eb;
+                    border-radius:12px;padding:20px;margin-bottom:20px;">
+          <h3 style="font-size:1.05em;margin-bottom:12px;">
+            🛡️ Gast-Whitelist
+          </h3>
+          <p style="font-size:.85em;color:#666;margin-bottom:14px;">
+            Externe Email-Adressen die drucken dürfen. Interne Server-User
+            werden automatisch erkannt — sie brauchen keinen Eintrag.
+          </p>
+          {% if guests %}
+            <table style="width:100%;font-size:.88em;border-collapse:collapse;
+                          margin-bottom:14px;">
+              <thead>
+                <tr style="background:#f3f4f6;text-align:left;">
+                  <th style="padding:8px;">Email</th>
+                  <th style="padding:8px;">Name</th>
+                  <th style="padding:8px;">Drucker</th>
+                  <th style="padding:8px;">Gültig bis</th>
+                  <th style="padding:8px;">Status</th>
+                  <th style="padding:8px;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for g in guests %}
+                  <tr style="border-bottom:1px solid #eee;">
+                    <td style="padding:8px;"><code>{{ g.sender_email }}</code></td>
+                    <td style="padding:8px;">{{ g.full_name or '—' }}</td>
+                    <td style="padding:8px;font-size:.82em;color:#666;">
+                      {{ g.printer_id or 'Standard' }}
+                    </td>
+                    <td style="padding:8px;font-size:.82em;color:#666;">
+                      {{ g.expires_at[:10] if g.expires_at else 'unbegrenzt' }}
+                    </td>
+                    <td style="padding:8px;">
+                      {% if g.enabled %}
+                        <span style="color:#0a7a3a;">●</span> aktiv
+                      {% else %}
+                        <span style="color:#999;">●</span> aus
+                      {% endif %}
+                    </td>
+                    <td style="padding:8px;">
+                      <form method="post"
+                            action="/admin/guestprint/guest/{{ g.id }}/delete"
+                            onsubmit="return confirm('Whitelist-Eintrag löschen?');"
+                            style="display:inline;">
+                        <button type="submit"
+                                style="background:transparent;border:none;
+                                       color:#dc2626;cursor:pointer;font-size:.85em;">
+                          Entfernen
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% endif %}
+
+          <details>
+            <summary style="cursor:pointer;font-weight:600;color:#2563eb;">
+              + Neuen Gast freischalten
+            </summary>
+            <form method="post"
+                  action="/admin/guestprint/mailbox/{{ selected.id }}/guest"
+                  style="display:grid;grid-template-columns:1fr 1fr;gap:10px;
+                         margin-top:12px;">
+              <input type="email" name="sender_email"
+                     placeholder="gast@firma.com" required
+                     style="padding:8px;border:1px solid #d1d5db;
+                            border-radius:6px;">
+              <input type="text" name="full_name" placeholder="Vollständiger Name"
+                     style="padding:8px;border:1px solid #d1d5db;border-radius:6px;">
+              <input type="text" name="printer_id" placeholder="Drucker-ID (optional)"
+                     style="padding:8px;border:1px solid #d1d5db;border-radius:6px;">
+              <input type="number" name="expiration_days" value="7"
+                     min="0" max="3650"
+                     placeholder="Gültig für Tage (0 = unbegrenzt)"
+                     style="padding:8px;border:1px solid #d1d5db;border-radius:6px;">
+              <button type="submit"
+                      style="grid-column:1/-1;padding:8px;background:#16a34a;
+                             color:white;border:none;border-radius:6px;
+                             cursor:pointer;font-weight:600;">
+                Whitelisten
+              </button>
+            </form>
+          </details>
+        </div>
+
+        <!-- Job-Log -->
+        <div style="background:white;border:1px solid #e5e7eb;
+                    border-radius:12px;padding:20px;">
+          <h3 style="font-size:1.05em;margin-bottom:12px;">
+            📋 Letzte 50 Jobs
+          </h3>
+          {% if jobs %}
+            <table style="width:100%;font-size:.85em;border-collapse:collapse;">
+              <thead>
+                <tr style="background:#f3f4f6;text-align:left;">
+                  <th style="padding:6px;">Zeit</th>
+                  <th style="padding:6px;">Sender</th>
+                  <th style="padding:6px;">Betreff</th>
+                  <th style="padding:6px;">Datei</th>
+                  <th style="padding:6px;">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for j in jobs %}
+                  <tr style="border-bottom:1px solid #f0f0f0;">
+                    <td style="padding:6px;color:#888;font-size:.78em;">
+                      {{ j.created_at[:16].replace('T', ' ') }}
+                    </td>
+                    <td style="padding:6px;"><code>{{ j.sender_email }}</code></td>
+                    <td style="padding:6px;color:#444;">{{ j.subject[:40] }}</td>
+                    <td style="padding:6px;font-size:.8em;color:#666;">
+                      {{ j.attachment_name }}
+                    </td>
+                    <td style="padding:6px;">
+                      {% if j.status == 'ok' %}
+                        <span style="color:#0a7a3a;font-weight:600;">✓ gedruckt</span>
+                      {% elif j.status == 'rejected' %}
+                        <span style="color:#dc2626;">✗ {{ j.error or 'abgelehnt' }}</span>
+                      {% elif j.status == 'error' %}
+                        <span style="color:#dc2626;">⚠ {{ j.error or 'fehler' }}</span>
+                      {% else %}
+                        <span style="color:#888;">{{ j.status }}</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <p style="color:#999;font-style:italic;font-size:.9em;">
+              Noch keine Jobs.
+            </p>
+          {% endif %}
+        </div>
+
+      {% else %}
+        <div style="background:#f8f9fb;border:1px solid #e5e7eb;
+                    border-radius:12px;padding:40px;text-align:center;">
+          <h2 style="font-size:1.2em;color:#666;margin-bottom:8px;">
+            Postfach auswählen
+          </h2>
+          <p style="color:#888;font-size:.9em;">
+            Wähle links ein Postfach oder lege ein neues an.
+          </p>
+        </div>
+      {% endif %}
+    </main>
+  </div>
+</div>
+
+<script>
+function toggleGlobal(el) {
+  const fd = new FormData();
+  fd.append("enabled", el.checked ? "1" : "0");
+  fetch("/admin/guestprint/toggle", {method: "POST", body: fd})
+    .then(r => r.ok ? window.location.reload() : alert("Fehler"));
+}
+function pollNow(mid) {
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = "Polle…";
+  fetch(`/admin/guestprint/mailbox/${mid}/poll-now`, {method: "POST"})
+    .then(r => r.json())
+    .then(d => {
+      btn.disabled = false;
+      btn.textContent = "Jetzt pollen";
+      if (d.ok) {
+        alert("Poll OK — " + JSON.stringify(d.stats));
+        window.location.reload();
+      } else {
+        alert("Fehler: " + (d.error || "?"));
+      }
+    });
+}
+</script>
+{% endblock %}

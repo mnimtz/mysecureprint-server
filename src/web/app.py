@@ -3066,24 +3066,57 @@ def create_app(session_secret: str) -> FastAPI:
         tr = TRANSLATIONS.get(lang or "en") or TRANSLATIONS.get("en", {})
 
         display_name = (full_name or "").strip() or recipient
+        # v0.7.28: App-Store-URL als Platzhalter — Admin kann ihn frei platzieren.
+        # Hartkodiert auf die Marketing-URL der App. Sobald die App Store-Link
+        # verfuegbar ist (post Apple-Review), via Setting ueberschreibbar.
+        app_store_url_default = (
+            "https://apps.apple.com/de/app/mysecureprint/id6785880823"
+        )
+        app_store_url = ""
+        if get_setting is not None:
+            try:
+                app_store_url = (get_setting(
+                    "ios_app_store_url", "") or "").strip()
+            except Exception:
+                app_store_url = ""
+        if not app_store_url:
+            app_store_url = app_store_url_default
+
         ctx = defaultdict(str, {
             "full_name": display_name,
             "server_url": server_url or "",
             "invite_url": invite_url,
             "expires_at": (expires_at or "")[:19],
             "admin_name": admin_name or "",
+            "app_store_url": app_store_url,
+            "lang": lang or "en",
+            # `{qr_code}` wird unten nach QR-Generierung gesetzt, vorerst leer
+            "qr_code": "",
         })
 
         # Configurable subject/body (optional)
         subject_tpl = ""
         body_tpl = ""
+        tpl_lang = ""
         if get_setting is not None:
             try:
                 subject_tpl = get_setting("mobile_invite_email_subject", "")
                 body_tpl = get_setting("mobile_invite_email_body", "")
+                tpl_lang = (get_setting(
+                    "mobile_invite_email_lang", "") or "").strip()
             except Exception:
                 subject_tpl = ""
                 body_tpl = ""
+                tpl_lang = ""
+
+        # v0.7.28: Wenn der Admin einen eigenen Body in einer Sprache
+        # hinterlegt hat, ziehen wir die i18n-Bausteine (QR-Label,
+        # Footer-Default) auch in DIESER Sprache — sonst gibt es z.B.
+        # englischen Body mit deutschem QR-Label. Bei reinen Fallback-
+        # Templates (kein body_tpl) bleibt lang die caller-gewuenschte.
+        if body_tpl.strip() and tpl_lang:
+            tr = (TRANSLATIONS.get(tpl_lang)
+                    or TRANSLATIONS.get("en", {}))
 
         # Fallback subject (i18n)
         if not subject_tpl.strip():
@@ -3127,19 +3160,36 @@ def create_app(session_secret: str) -> FastAPI:
             )
 
         if body_tpl.strip():
+            # v0.7.28: {qr_code} ist ein platzierbarer Platzhalter im
+            # Body — wenn der Admin ihn benutzt, wird die QR-HTML-Block
+            # dort eingesetzt; sonst (wie frueher) am Ende angefuegt.
+            qr_inline_used = "{qr_code}" in body_tpl
+            # Wrap-Erkennung MUSS vor der Substitution passieren — sonst
+            # detected ein injizierter <img> (aus {qr_code}) als „HTML"
+            # und der Rest des Plaintext-Bodys wird nicht in <p> gewickelt.
+            looks_plaintext = "<" not in body_tpl
+            ctx["qr_code"] = qr_html_block if qr_inline_used else ""
             try:
                 body_text = body_tpl.format_map(ctx)
             except Exception:
                 body_text = body_tpl
-            # Configured body is treated as HTML (admin owns it). If it
-            # looks plain (no <), wrap in <p> with line breaks preserved.
-            if "<" not in body_text:
-                body_text = "<p>" + body_text.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+            if looks_plaintext:
+                # Plaintext-Body: split am QR-Block damit wir nicht den
+                # injizierten <img> in <p>…</p> einwickeln.
+                if qr_inline_used and qr_html_block:
+                    parts = body_text.split(qr_html_block, 1)
+                    pre = "<p>" + parts[0].replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+                    post = ""
+                    if len(parts) == 2:
+                        post = "<p>" + parts[1].replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+                    body_text = pre + qr_html_block + post
+                else:
+                    body_text = "<p>" + body_text.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
             html_body = (
                 "<div style=\"font-family:Helvetica,Arial,sans-serif;"
                 "color:#1a1a1a;line-height:1.55;max-width:560px;\">"
                 + body_text
-                + qr_html_block
+                + ("" if qr_inline_used else qr_html_block)
                 + "</div>"
             )
         else:
@@ -3672,6 +3722,8 @@ def create_app(session_secret: str) -> FastAPI:
         from db import get_setting
         subject_val = get_setting("mobile_invite_email_subject", "")
         body_val = get_setting("mobile_invite_email_body", "")
+        tpl_lang = (get_setting("mobile_invite_email_lang", "")
+                      or admin.get("invitation_language") or "de").strip()
         return templates.TemplateResponse(
             "admin_email_templates.html",
             {
@@ -3680,6 +3732,7 @@ def create_app(session_secret: str) -> FastAPI:
                 "saved": False,
                 "subject_val": subject_val,
                 "body_val": body_val,
+                "tpl_lang": tpl_lang,
                 "default_subject": _EMAIL_TPL_DEFAULT_SUBJECT,
                 "default_body": _EMAIL_TPL_DEFAULT_BODY,
                 "preview_html": "",
@@ -3694,15 +3747,21 @@ def create_app(session_secret: str) -> FastAPI:
         subject: str = Form(default=""),
         body: str = Form(default=""),
         preview: str = Form(default=""),
+        tpl_lang: str = Form(default="de"),
     ):
         admin = get_session_user(request)
         if not admin or not admin.get("is_admin"):
             return RedirectResponse("/login", status_code=302)
         from db import set_setting, audit
         preview_only = bool(preview)
+        # Whitelist allowed langs — verhindert dass willkuerliche Strings
+        # in den `lang`-Lookup von TRANSLATIONS reinfliegen.
+        if tpl_lang not in ("de", "en", "fr", "es", "it", "nl", "sv", "nb"):
+            tpl_lang = "de"
         # Save (or preview-write so preview reflects the would-be state)
         set_setting("mobile_invite_email_subject", subject.strip())
         set_setting("mobile_invite_email_body", body)
+        set_setting("mobile_invite_email_lang", tpl_lang)
         if not preview_only:
             try:
                 audit(
@@ -3723,7 +3782,7 @@ def create_app(session_secret: str) -> FastAPI:
                     f"{mcp_base_url_or(request)}/m/setup?i=PREVIEW_TOKEN"
                 ),
                 expires_at="2026-12-31T23:59:59",
-                lang=(admin.get("invitation_language") or "de"),
+                lang=tpl_lang,
                 server_url=mcp_base_url_or(request),
                 admin_name=admin.get("full_name", "")
                     or admin.get("username", ""),
@@ -3738,6 +3797,7 @@ def create_app(session_secret: str) -> FastAPI:
                 "saved": (not preview_only),
                 "subject_val": subject,
                 "body_val": body,
+                "tpl_lang": tpl_lang,
                 "default_subject": _EMAIL_TPL_DEFAULT_SUBJECT,
                 "default_body": _EMAIL_TPL_DEFAULT_BODY,
                 "preview_html": preview_html,
@@ -7447,5 +7507,46 @@ def create_app(session_secret: str) -> FastAPI:
         _tunnel_threading.Thread(target=_delayed_start, daemon=True).start()
     except Exception as e:
         logger.warning("tunnel auto-start scheduling failed: %s", e)
+
+    # v0.7.27: Guest-Print / Email-to-Print Gateway. Routes + Polling-Task.
+    # Opt-in via `guestprint_enabled` Setting + min. 1 konfigurierter
+    # Mailbox; sonst still idle. Polling-Schleife sleept und re-prueft
+    # Setting jeden Tick, so dass Toggle ohne App-Restart funktioniert.
+    try:
+        from web.guestprint_routes import register as _gp_register
+
+        def _gp_resolve_tenant_id(user):
+            if not user:
+                return ""
+            try:
+                from db import get_tenant_full_by_user_id
+                t = get_tenant_full_by_user_id(user.get("user_id") or user.get("id"))
+                return (t or {}).get("id", "") if t else ""
+            except Exception:
+                return ""
+
+        _gp_register(
+            app,
+            require_login_fn=require_login,
+            get_active_tenant_id_fn=_gp_resolve_tenant_id,
+            templates=templates,
+            set_setting_fn=set_setting,
+            get_setting_fn=get_setting,
+            audit_fn=audit,
+        )
+        logger.info("Guest-Print routes registriert")
+    except Exception as e:
+        logger.warning("Guest-Print routes registration failed: %s", e)
+
+    @app.on_event("startup")
+    async def _start_guestprint_runner():
+        try:
+            import guestprint as _gp
+            # submit_print_job_fn=None → Jobs werden nur loggend erfasst.
+            # Tatsaechliches Drucken erfolgt in v0.8.x via cloudprint-Bridge.
+            _gp.start_runner(submit_print_job_fn=None)
+            logger.info("Guest-Print runner bereit (opt-in via guestprint_enabled)")
+        except Exception as e:
+            logger.warning("Guest-Print runner startup failed: %s", e)
 
     return app
