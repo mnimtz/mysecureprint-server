@@ -501,12 +501,14 @@ async def _process_desktop_send_bg(
                         shared_client_secret=tenant.get("shared_client_secret", ""),
                     )
                     live = _lookup_client.get_user(target_printix_id)
+                    # v0.7.25: Printix wrappt user in {"user": {...}, "success":...}
                     if isinstance(live, dict):
-                        target_user_email = (live.get("email")
-                            or live.get("username") or "").strip().lower()
-                        target_user_full_name = (live.get("fullName")
-                            or live.get("name")
-                            or live.get("displayName") or "").strip()
+                        u = live.get("user", live) if isinstance(live.get("user"), dict) else live
+                        target_user_email = (u.get("email")
+                            or u.get("username") or "").strip().lower()
+                        target_user_full_name = (u.get("fullName")
+                            or u.get("name")
+                            or u.get("displayName") or "").strip()
                 except Exception as _le:
                     logger.warning(
                         "Desktop-Send [2/5] live-lookup auch failed — "

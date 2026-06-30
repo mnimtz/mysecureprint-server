@@ -1,5 +1,17 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.25 — 2026-06-30 — Live-Lookup Response unwrappen ({"user": {...}})
+
+v0.7.24 Live-Fallback failed weil Printix's get_user() den User in
+{"user": {...}, "success": true, "message": "OK"} wrappt. Wir griffen
+auf live.get('email') (Top-Level) zu — leer → wieder „not found".
+
+Fix: erst `live.get('user', live)` unwrappen, dann email/name aus dem
+inner dict ziehen.
+
+Damit funktionieren Delegation-Picks an User die nicht im Cache sind
+(z.B. Guest-User die erst gerade hinzugefuegt wurden) sauber.
+
 ## 0.7.24 — 2026-06-30 — Delegation: Live-Printix-Lookup als Cache-Miss-Fallback
 
 User-Report: print:user:<id> failed mit „delegation user not found or
