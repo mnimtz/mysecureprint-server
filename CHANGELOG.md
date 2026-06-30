@@ -1,5 +1,25 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.7 — 2026-06-30 — _user_descr() ueberall in desktop_routes Logs
+
+User-Wunsch: 'user='Marcus'' in Logs ist Display-Name, hilft nicht
+beim Diagnostizieren. Sollten echte Identifier (username, email,
+printix_user_id) sein.
+
+Alle Log-Marker in `src/web/desktop_routes.py` von `user.get("username")`
+auf `_user_descr(user)` umgestellt (Outer-Exception eingeschlossen).
+Stages [1/5] bis [5/5] + START + QUEUED + Delegate + Capture + Error-
+Pfade — total 22 Stellen.
+
+Beispiel-Output ab jetzt:
+  `user=marcus.nimtz (Marcus Nimtz, marcus@nimtz.email) [px:abc12345]`
+
+Statt vorher: `user='Marcus'`. Eindeutig diagnostizierbar.
+
+Eine Stelle (Zeile 88: lokale SQL-Query-Variable) bleibt
+`user.get("username")` — dort wird ja gezielt der Username-Wert
+gebraucht, nicht ein Display-String.
+
 ## 0.7.6 — 2026-06-30 — Username/full_name aus Printix beim Entra-Login
 
 User-Report: 'Marcus' als users.username ist verwirrend in Logs/UI,

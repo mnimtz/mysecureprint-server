@@ -151,7 +151,7 @@ async def _process_desktop_send_bg(
             logger.warning(
                 "Desktop-Send BG-FAIL — user='%s' target=%s job_id=%s "
                 "code=%s msg=%s",
-                user.get("username"), target_id, internal_id, code, msg,
+                _user_descr(user), target_id, internal_id, code, msg,
             )
             # v6.7.115: Audit-Trail für fehlgeschlagene iOS-Print-Jobs.
             try:
@@ -189,19 +189,19 @@ async def _process_desktop_send_bg(
             logger.info(
                 "Desktop-Send [1/5] convert OK — user='%s' conv='%s' "
                 "out_size=%d dt=%.2fs job_id=%s",
-                user.get("username"), conv_label, len(data), dt_conv, internal_id,
+                _user_descr(user), conv_label, len(data), dt_conv, internal_id,
             )
         except ConversionError as ce:
             logger.warning(
                 "Desktop-Send [1/5] convert FAIL — user='%s' file='%s' err=%s",
-                user.get("username"), filename, ce,
+                _user_descr(user), filename, ce,
             )
             _fail(str(ce), code="convert_failed")
             return
         except Exception as e:
             logger.error(
                 "Desktop-Send [1/5] convert EXCEPTION — user='%s' file='%s' err=%s",
-                user.get("username"), filename, e,
+                _user_descr(user), filename, e,
             )
             _fail(str(e)[:200], code="convert_error")
             return
@@ -230,7 +230,7 @@ async def _process_desktop_send_bg(
                     logger.info(
                         "Desktop-Send [2/5] fallback-tenant (%s) — user='%s' "
                         "→ tenant.user_id=%s queue=%s",
-                        fallback_source, user.get("username"),
+                        fallback_source, _user_descr(user),
                         fallback.get("user_id"),
                         fallback.get("lpr_target_queue"),
                     )
@@ -263,7 +263,7 @@ async def _process_desktop_send_bg(
                     logger.info(
                         "Desktop-Send [2/5] 3-tier resolver hit — user='%s' "
                         "source=%s queue=%s",
-                        user.get("username"), rq_source, rq_id,
+                        _user_descr(user), rq_source, rq_id,
                     )
             except Exception as _re:
                 logger.debug("3-tier resolver failed in send-path: %s", _re)
@@ -387,7 +387,7 @@ async def _process_desktop_send_bg(
                 logger.exception(
                     "Desktop-Send [4/5] capture-plugin EXCEPTION — user='%s' "
                     "plugin=%s err=%s",
-                    user.get("username"), profile.get("plugin_type"), _pe,
+                    _user_descr(user), profile.get("plugin_type"), _pe,
                 )
                 _fail(str(_pe)[:200], code="plugin_error")
                 return
@@ -432,7 +432,7 @@ async def _process_desktop_send_bg(
                 logger.warning(
                     "Desktop-Send [2/5] delegate-lookup err — user='%s' "
                     "deleg_id=%s: %s",
-                    user.get("username"), deleg_id, _e,
+                    _user_descr(user), deleg_id, _e,
                 )
                 delegate = None
             if not delegate or not delegate.get("delegate_email"):
@@ -468,7 +468,7 @@ async def _process_desktop_send_bg(
                 logger.warning(
                     "Desktop-Send [2/5] delegation-user-lookup err — "
                     "user='%s' target_id=%s err=%s",
-                    user.get("username"), target_printix_id, _du,
+                    _user_descr(user), target_printix_id, _du,
                 )
             if not target_user_email or "@" not in target_user_email:
                 _fail("delegation user not found or has no email",
@@ -494,7 +494,7 @@ async def _process_desktop_send_bg(
             logger.info(
                 "Desktop-Send [2/5] delegation-user — sender='%s' → "
                 "target='%s' (%s) target_id=%s job_id=%s",
-                user.get("username"), target_user_email,
+                _user_descr(user), target_user_email,
                 target_user_full_name, target_id, internal_id,
             )
         elif target_id.startswith("print:queue:"):
@@ -519,7 +519,7 @@ async def _process_desktop_send_bg(
             logger.info(
                 "Desktop-Send [2/5] queue-specific — user='%s' → "
                 "queue=%s target_id=%s job_id=%s",
-                user.get("username"), chosen_queue_id, target_id, internal_id,
+                _user_descr(user), chosen_queue_id, target_id, internal_id,
             )
         else:
             _fail(f"unsupported target: {target_id}", code="target_unsupported")
@@ -528,7 +528,7 @@ async def _process_desktop_send_bg(
         logger.info(
             "Desktop-Send [2/5] resolved — user='%s' target=%s type=%s "
             "submit_to='%s' queue=%s job_id=%s",
-            user.get("username"), target_id, target_type,
+            _user_descr(user), target_id, target_type,
             submit_user_email, config["lpr_target_queue"], internal_id,
         )
 
@@ -561,14 +561,14 @@ async def _process_desktop_send_bg(
                 logger.error(
                     "Desktop-Send [3/5] printer-id-lookup FAIL — user='%s' "
                     "queue=%s scanned_printers=%d",
-                    user.get("username"), target_queue, len(raw_list),
+                    _user_descr(user), target_queue, len(raw_list),
                 )
                 _fail("target queue not found in Printix", code="queue_missing")
                 return
             logger.info(
                 "Desktop-Send [3/5] printer resolved — user='%s' printer_id=%s "
                 "queue=%s job_id=%s",
-                user.get("username"), printer_id, target_queue, internal_id,
+                _user_descr(user), printer_id, target_queue, internal_id,
             )
 
             # Jetzt (nachdem Tenant bekannt ist) den Tracking-Eintrag
@@ -611,14 +611,14 @@ async def _process_desktop_send_bg(
                 logger.error(
                     "Desktop-Send [3/5] submit FAIL (no job-id/upload-url) — "
                     "user='%s' result_keys=%s",
-                    user.get("username"),
+                    _user_descr(user),
                     list(result.keys()) if isinstance(result, dict) else "?",
                 )
                 _fail("Printix accepted no job", code="printix_no_job")
                 return
             logger.info(
                 "Desktop-Send [3/5] submit OK — user='%s' printix_job=%s job_id=%s",
-                user.get("username"), px_job_id, internal_id,
+                _user_descr(user), px_job_id, internal_id,
             )
 
             t_upload = _t.monotonic()
@@ -626,12 +626,12 @@ async def _process_desktop_send_bg(
             dt_upload = _t.monotonic() - t_upload
             logger.info(
                 "Desktop-Send [4a/5] blob-upload OK — user='%s' size=%d dt=%.2fs",
-                user.get("username"), len(data), dt_upload,
+                _user_descr(user), len(data), dt_upload,
             )
             client.complete_upload(px_job_id)
             logger.info(
                 "Desktop-Send [4b/5] completeUpload OK — user='%s' printix_job=%s",
-                user.get("username"), px_job_id,
+                _user_descr(user), px_job_id,
             )
 
             if "@" in submit_user_email:
@@ -640,7 +640,7 @@ async def _process_desktop_send_bg(
                     logger.info(
                         "Desktop-Send [5/5] changeOwner OK — user='%s' "
                         "printix_job=%s owner='%s'",
-                        user.get("username"), px_job_id, submit_user_email,
+                        _user_descr(user), px_job_id, submit_user_email,
                     )
 
                     # Auto-Register printix_user_id: wenn der angemeldete User
@@ -694,19 +694,19 @@ async def _process_desktop_send_bg(
                                 logger.info(
                                     "Desktop-Send: auto-registered printix_user_id=%s "
                                     "fuer user='%s' (old='%s')",
-                                    new_uuid, user.get("username"), current_pxid or "-",
+                                    new_uuid, _user_descr(user), current_pxid or "-",
                                 )
                     except Exception as _ar:
                         logger.warning(
                             "Desktop-Send: auto-register printix_user_id "
                             "fehlgeschlagen fuer user='%s' err=%s",
-                            user.get("username"), _ar,
+                            _user_descr(user), _ar,
                         )
                 except Exception as _co:
                     logger.warning(
                         "Desktop-Send [5/5] changeOwner FAIL — user='%s' "
                         "printix_job=%s owner='%s' err=%s",
-                        user.get("username"), px_job_id, submit_user_email, _co,
+                        _user_descr(user), px_job_id, submit_user_email, _co,
                     )
             else:
                 logger.warning(
@@ -756,7 +756,7 @@ async def _process_desktop_send_bg(
         except Exception as e:
             logger.exception(
                 "Desktop-Send BG EXCEPTION — user='%s' target=%s file='%s' err=%s",
-                user.get("username"), target_id, filename, e,
+                _user_descr(user), target_id, filename, e,
             )
             _fail(str(e)[:300], code="send_failed")
     except Exception as outer:
@@ -764,7 +764,7 @@ async def _process_desktop_send_bg(
         # cloudprint_jobs-Eintrag nicht ewig auf 'queued' haengt.
         logger.exception(
             "Desktop-Send BG OUTER EXCEPTION — user='%s' job_id=%s err=%s",
-            user.get("username") if isinstance(user, dict) else "?",
+            _user_descr(user) if isinstance(user, dict) else "?",
             internal_id, outer,
         )
         try:
@@ -976,7 +976,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             tenant = get_tenant_for_user(parent_id) or get_tenant_for_user(user["user_id"])
             tid = (tenant or {}).get("id", "")
             limit_int = max(1, min(int(limit or 20), 200))
-            uname = (user.get("username") or "").lower()
+            uname = (_user_descr(user) or "").lower()
             uemail = (user.get("email") or "").lower()
             pxid = (user.get("printix_user_id") or "").lower()
             with _conn() as conn:
@@ -1018,7 +1018,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             return _json_error("token invalid", code="auth_required", status=401)
         logger.info(
             "Desktop-Me OK — user='%s' uid=%s device='%s' peer=%s",
-            user.get("username"), user.get("user_id"),
+            _user_descr(user), user.get("user_id"),
             user.get("device_name", "-"), ci["peer"],
         )
         return JSONResponse({
@@ -1105,7 +1105,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         else:
             logger.debug(
                 "Desktop-Targets: kein Secure-Print — tenant=%s user='%s' source=%s",
-                bool(tenant), user.get("username"), source,
+                bool(tenant), _user_descr(user), source,
             )
 
         # 2) Delegates (jede aktive Delegation = 1 Ziel)
@@ -1131,7 +1131,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         except Exception as _e:
             logger.warning(
                 "Desktop-Targets: Delegate-Lookup failed — user='%s' err=%s",
-                user.get("username"), _e,
+                _user_descr(user), _e,
             )
 
         # 3) Capture-Profile — alle aktiven Profile des Tenants als Send-To-Ziel.
@@ -1163,13 +1163,13 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         except Exception as _e:
             logger.warning(
                 "Desktop-Targets: Capture-Lookup failed — user='%s' err=%s",
-                user.get("username"), _e,
+                _user_descr(user), _e,
             )
 
         logger.info(
             "Desktop-Targets OK — user='%s' targets=%d (self=%d delegates=%d "
             "capture=%d) peer=%s",
-            user.get("username"), len(targets),
+            _user_descr(user), len(targets),
             breakdown["self"], breakdown["delegates"], breakdown["capture"],
             ci["peer"],
         )
@@ -1201,26 +1201,26 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
 
         if not file or not file.filename:
             logger.warning("Desktop-Send FAIL (no file) — user='%s' peer=%s",
-                           user.get("username"), ci["peer"])
+                           _user_descr(user), ci["peer"])
             return _json_error("no file", code="no_file", status=400)
 
         MAX = 50 * 1024 * 1024
         data = await file.read()
         if not data:
             logger.warning("Desktop-Send FAIL (empty file) — user='%s' peer=%s",
-                           user.get("username"), ci["peer"])
+                           _user_descr(user), ci["peer"])
             return _json_error("empty file", code="empty_file", status=400)
         if len(data) > MAX:
             logger.warning(
                 "Desktop-Send FAIL (too large) — user='%s' size=%d peer=%s",
-                user.get("username"), len(data), ci["peer"],
+                _user_descr(user), len(data), ci["peer"],
             )
             return _json_error("file too large (max 50 MB)",
                                code="too_large", status=413)
         logger.info(
             "Desktop-Send START — user='%s' device='%s' target=%s filename='%s' "
             "size=%d copies=%s color=%s duplex=%s peer=%s",
-            user.get("username"), user.get("device_name", "-"), target_id,
+            _user_descr(user), user.get("device_name", "-"), target_id,
             file.filename, len(data), copies,
             bool(color), bool(duplex), ci["peer"],
         )
@@ -1268,7 +1268,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 job_id=internal_id,
                 tenant_id=_tid_for_insert,
                 queue_name="",
-                username=(user.get("email") or user.get("username") or "")[:120],
+                username=(user.get("email") or _user_descr(user) or "")[:120],
                 hostname=f"desktop:{user.get('device_name', '')}"[:80],
                 job_name=file.filename,
                 data_size=len(data),
@@ -1302,7 +1302,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 logger.error(
                     "Desktop-Send BG WATCHDOG TIMEOUT — user='%s' job_id=%s "
                     "(>300s — Status auf 'error' gesetzt)",
-                    user.get("username"), internal_id,
+                    _user_descr(user), internal_id,
                 )
                 try:
                     from cloudprint.db_extensions import update_cloudprint_job_status
@@ -1317,7 +1317,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         logger.info(
             "Desktop-Send QUEUED — user='%s' target=%s job_id=%s size=%d "
             "— 202 Accepted, Verarbeitung läuft asynchron",
-            user.get("username"), target_id, internal_id, len(data),
+            _user_descr(user), target_id, internal_id, len(data),
         )
         return JSONResponse({
             "ok": True,
@@ -1556,7 +1556,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         logger.info(
             "Desktop-Entra-Login OK — user='%s' uid=%s email='%s' oid=%s… "
             "token=%s device='%s'",
-            user.get("username"), user.get("id"), user.get("email", ""),
+            _user_descr(user), user.get("id"), user.get("email", ""),
             profile.get("oid", "")[:10], _mask_token(token),
             device_name or "Entra-Desktop",
         )
@@ -1786,7 +1786,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         logger.info(
             "Desktop-Entra-AuthCode-Exchange OK — user='%s' uid=%s email='%s' "
             "oid=%s… token=%s device='%s'",
-            user.get("username"), user.get("id"), user.get("email", ""),
+            _user_descr(user), user.get("id"), user.get("email", ""),
             profile.get("oid", "")[:10], _mask_token(token),
             device_name or "Entra-Mobile",
         )
