@@ -1,5 +1,24 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.5 — 2026-06-30 — Diagnose + Watchdog + lesbare User-Logs
+
+iOS-Druck blieb in 'queued' haengen, kein klarer Fehler zu sehen.
+Plus User-Wunsch: Log zeigt nur 'Marcus' statt vollem Namen.
+
+- **Lesbare User-Logs**: neuer `_user_descr(user)` Helper rendert
+  `Marcus Nimtz (Marcus, marcus@nimtz.email) [px:abc12345]`. Erst-
+  verwendung im no-queue-Diagnostic.
+- **Detaillierte no_queue-Diagnose**: wenn 3-Tier-Resolver nichts
+  findet, loggt der Server exakt was jeder Tier zurueckgab
+  (override_allowed/user_q/group_ids/group_qs/global_q/global_lbl).
+  Spart Rate-und-Versuch beim naechsten Bug.
+- **5-Min-Watchdog**: Background-Task laenger als 300s → cancelled
+  + Status auf `error: bg_task_timeout`. Vorher haengte Job ewig auf
+  `queued`.
+- **Outer-Exception schreibt Status**: wenn der ganze BG-Task-Body
+  crashed (z.B. ImportError), wird der Job auf
+  `error: bg_task_crashed: <reason>` gesetzt statt stumm zu sterben.
+
 ## 0.7.4 — 2026-06-30 — Audit-Log UI: Severity, Source-Filter, klickbare Spalten, voller Benutzername
 
 User-Beschwerden zur `/admin/audit`-Seite:

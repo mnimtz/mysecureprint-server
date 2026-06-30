@@ -78,6 +78,30 @@ def _mask_token(token: Optional[str]) -> str:
     return f"…{token[-8:]}" if len(token) > 10 else "…"
 
 
+def _user_descr(user: dict) -> str:
+    """v0.7.5: lesbare User-Beschreibung fuers Log — full_name (username,
+    email) [px:short_printix_id]. Wenn full_name leer, fallback auf
+    username. Hilft bei Diagnose statt nur 'user=Marcus'."""
+    if not user:
+        return "<none>"
+    full = (user.get("full_name") or "").strip()
+    uname = (user.get("username") or "").strip()
+    email = (user.get("email") or "").strip()
+    pxid = (user.get("printix_user_id") or "").strip()
+    parts = []
+    parts.append(full or uname or email or "?")
+    extra = []
+    if full and uname and uname != full:
+        extra.append(uname)
+    if email:
+        extra.append(email)
+    if extra:
+        parts.append(f"({', '.join(extra)})")
+    if pxid:
+        parts.append(f"[px:{pxid[:8]}]")
+    return " ".join(parts)
+
+
 # ─── Registrierung ───────────────────────────────────────────────────────────
 
 async def _process_desktop_send_bg(
@@ -245,11 +269,41 @@ async def _process_desktop_send_bg(
                 logger.debug("3-tier resolver failed in send-path: %s", _re)
 
         if not tenant or not config or not config.get("lpr_target_queue"):
+            # v0.7.5: detaillierte Diagnose — welche der 3 Quellen war leer?
+            _debug_lines = []
+            try:
+                from cloudprint.db_extensions import (
+                    is_user_queue_override_allowed, get_cloudprint_config,
+                    get_global_default_queue, get_user_printix_group_ids,
+                    get_group_queue_default,
+                )
+                _override_allowed = is_user_queue_override_allowed()
+                _user_cfg = get_cloudprint_config(user["user_id"]) or {}
+                _user_q = _user_cfg.get("lpr_target_queue", "")
+                _debug_lines.append(
+                    f"override_allowed={_override_allowed} user_q='{_user_q}'"
+                )
+                if tenant:
+                    _tid = tenant.get("id") or tenant.get("tenant_id") or ""
+                    _grp_ids = get_user_printix_group_ids(user["user_id"]) or []
+                    _grp_qs = []
+                    for _gid in _grp_ids:
+                        _gd = get_group_queue_default(_tid, _gid)
+                        if _gd:
+                            _grp_qs.append(f"{_gid}={_gd.get('queue_id','')}")
+                    _debug_lines.append(
+                        f"group_ids={len(_grp_ids)} group_qs=[{', '.join(_grp_qs) or '<none>'}]"
+                    )
+                _g_id, _g_lbl = get_global_default_queue()
+                _debug_lines.append(f"global_q='{_g_id}' global_lbl='{_g_lbl}'")
+            except Exception as _de:
+                _debug_lines.append(f"diag_failed={_de}")
             logger.warning(
-                "Desktop-Send [2/5] no queue — user='%s' parent_id=%s "
-                "tenant=%s queue=%s (auch 3-tier resolver + Single-Tenant-Fallback leer)",
-                user.get("username"), parent_id, bool(tenant),
+                "Desktop-Send [2/5] no queue — user=%s parent_id=%s tenant=%s "
+                "queue=%s | diag: %s",
+                _user_descr(user), parent_id, bool(tenant),
                 (config or {}).get("lpr_target_queue"),
+                "; ".join(_debug_lines),
             )
             _fail("no secure print queue configured", code="no_queue")
             return
@@ -706,12 +760,24 @@ async def _process_desktop_send_bg(
             )
             _fail(str(e)[:300], code="send_failed")
     except Exception as outer:
-        # Letzter Fallback — damit die Task nicht stumm stirbt.
+        # v0.7.5: Outer Fallback — damit die Task nicht stumm stirbt UND der
+        # cloudprint_jobs-Eintrag nicht ewig auf 'queued' haengt.
         logger.exception(
             "Desktop-Send BG OUTER EXCEPTION — user='%s' job_id=%s err=%s",
             user.get("username") if isinstance(user, dict) else "?",
             internal_id, outer,
         )
+        try:
+            from cloudprint.db_extensions import update_cloudprint_job_status
+            update_cloudprint_job_status(
+                internal_id, "error",
+                error_message=f"bg_task_crashed: {str(outer)[:300]}",
+            )
+        except Exception as _outer_status:
+            logger.error(
+                "Desktop-Send BG OUTER STATUS UPDATE FAILED — job_id=%s err=%s",
+                internal_id, _outer_status,
+            )
 
 
 def register_desktop_routes(app: FastAPI, get_app_version) -> None:
@@ -1216,17 +1282,37 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             # der eigentliche Druckflow ist wichtiger als die UI-Anzeige.
             logger.debug("initial cloudprint_job insert failed: %s", _cj)
 
-        asyncio.create_task(_process_desktop_send_bg(
-            user=user,
-            target_id=target_id,
-            data=data,
-            filename=file.filename,
-            copies=copies,
-            color=color,
-            duplex=duplex,
-            internal_id=internal_id,
-            t_start=t_start,
-        ))
+        # v0.7.5: Wrapper mit 5-Min-Watchdog. Wenn die BG-Task laenger als
+        # 300s laeuft (z.B. Printix-Submit haengt im Network-Wait), wird
+        # die Task gecancelled und der Job auf 'error' gesetzt — so haengt
+        # nichts ewig auf 'queued'.
+        async def _watched_bg():
+            import asyncio as _aio
+            try:
+                await _aio.wait_for(
+                    _process_desktop_send_bg(
+                        user=user, target_id=target_id, data=data,
+                        filename=file.filename, copies=copies,
+                        color=color, duplex=duplex,
+                        internal_id=internal_id, t_start=t_start,
+                    ),
+                    timeout=300,
+                )
+            except _aio.TimeoutError:
+                logger.error(
+                    "Desktop-Send BG WATCHDOG TIMEOUT — user='%s' job_id=%s "
+                    "(>300s — Status auf 'error' gesetzt)",
+                    user.get("username"), internal_id,
+                )
+                try:
+                    from cloudprint.db_extensions import update_cloudprint_job_status
+                    update_cloudprint_job_status(
+                        internal_id, "error",
+                        error_message="bg_task_timeout: keine Antwort nach 300s",
+                    )
+                except Exception:
+                    pass
+        asyncio.create_task(_watched_bg())
 
         logger.info(
             "Desktop-Send QUEUED — user='%s' target=%s job_id=%s size=%d "
