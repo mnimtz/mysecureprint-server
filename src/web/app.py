@@ -2479,6 +2479,54 @@ def create_app(session_secret: str) -> FastAPI:
     # Cloudflare Tunnel, Pingdom, …). The MCP server has its own /health
     # on port 8765; this is the equivalent for the web UI port 8080.
 
+    @app.get("/health/perf", response_class=JSONResponse)
+    async def health_perf(request: Request):
+        """v0.7.19: Diagnose-Endpoint — misst pro DB-Operation die Latenz.
+        Unauthentifiziert (bewusst), gibt nur Timing-Zahlen zurueck.
+        Zeigt sofort ob das Performance-Problem an der DB-Latenz liegt."""
+        import time as _ht
+        results: dict = {}
+        try:
+            from db import _conn, DB_PATH
+        except Exception as e:
+            return JSONResponse({"error": f"db import failed: {e}"}, status_code=500)
+        results["db_path"] = DB_PATH
+        # 1. Connection-Open
+        t = _ht.monotonic()
+        try:
+            with _conn() as c:
+                results["t_conn_open_ms"] = round((_ht.monotonic() - t) * 1000, 1)
+                # 2. SELECT 1
+                t2 = _ht.monotonic()
+                c.execute("SELECT 1").fetchone()
+                results["t_select1_ms"] = round((_ht.monotonic() - t2) * 1000, 1)
+                # 3. COUNT(*) audit_log
+                try:
+                    t3 = _ht.monotonic()
+                    n = c.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]
+                    results["t_count_audit_ms"] = round((_ht.monotonic() - t3) * 1000, 1)
+                    results["audit_rows"] = n
+                except Exception as e:
+                    results["t_count_audit_err"] = str(e)
+                # 4. PRAGMA journal_mode
+                try:
+                    t4 = _ht.monotonic()
+                    jm = c.execute("PRAGMA journal_mode").fetchone()[0]
+                    sy = c.execute("PRAGMA synchronous").fetchone()[0]
+                    cs = c.execute("PRAGMA cache_size").fetchone()[0]
+                    results["t_pragmas_ms"] = round((_ht.monotonic() - t4) * 1000, 1)
+                    results["pragma_journal_mode"] = jm
+                    results["pragma_synchronous"] = sy
+                    results["pragma_cache_size"] = cs
+                except Exception as e:
+                    results["pragma_err"] = str(e)
+            results["t_total_ms"] = round((_ht.monotonic() - t) * 1000, 1)
+        except Exception as e:
+            results["err"] = f"{type(e).__name__}: {e}"
+            results["t_total_ms"] = round((_ht.monotonic() - t) * 1000, 1)
+        # Erwartung: alles <50ms bei lokalem Disk; >500ms = SMB-Mount Latenz
+        return JSONResponse(results)
+
     @app.get("/health", response_class=JSONResponse)
     async def health_json(request: Request):
         """Liefert JSON-Status. 200 OK wenn alles erreichbar ist,
@@ -5025,11 +5073,15 @@ def create_app(session_secret: str) -> FastAPI:
         import math as _math
         total_pages = max(1, _math.ceil(total_count / PAGE_SIZE)) if total_count else 1
 
-        if _perf:
-            logger.info(
+        _dt_total_ms = (_t.monotonic() - _t0) * 1000.0
+        # v0.7.19: SLOW-LOG immer aktiv. Wenn ein Request laenger als 500ms
+        # dauert, loggen wir die Breakdown unconditional. Damit sehen wir
+        # bei 2-Min-Hangs sofort welche DB-Query der Buegel ist.
+        if _perf or _dt_total_ms > 500:
+            logger.warning(
                 "perf admin_audit dt_total=%.0fms dt_db=%.0fms rows=%d "
                 "total=%s%d filters=user=%s action=%s severity=%s source=%s",
-                (_t.monotonic() - _t0) * 1000.0, _dt_db_ms, len(entries),
+                _dt_total_ms, _dt_db_ms, len(entries),
                 ">=" if total_is_approx else "", total_count,
                 bool(f_user), bool(f_action), bool(f_severity), bool(f_source),
             )

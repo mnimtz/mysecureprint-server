@@ -1,5 +1,28 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.19 — 2026-06-30 — /health/perf Diagnose-Endpoint + Slow-Log immer aktiv
+
+User-Report: jede Admin-Seite + iOS-Send braucht ~2 Min, trotz v0.7.15
+Performance-Pass. Heisst die Bremse ist tiefer.
+
+Neuer unauth Diagnose-Endpoint:
+
+  GET /health/perf
+
+Misst pro DB-Operation die Latenz in Millisekunden:
+- t_conn_open_ms — Connection-Open
+- t_select1_ms — trivialer SELECT 1
+- t_count_audit_ms — COUNT(*) audit_log + Anzahl
+- t_pragmas_ms — PRAGMA-Reads + Werte (journal/synchronous/cache_size)
+- t_total_ms — Summe
+
+Erwartung: alles <50ms bei lokalem Disk. >500ms = SMB-Mount-Latenz
+(Azure Files). Ueber 2000ms = ernstes Problem.
+
+Plus: admin_audit Slow-Log nicht mehr gated auf perf_logs_enabled —
+laeuft IMMER wenn dt_total >500ms. Damit sehen wir bei naechstem
+2-Min-Hang sofort die Breakdown im Container-Log.
+
 ## 0.7.18 — 2026-06-30 — Sorry-Revert: release_immediately=False + change_job_owner Duplikat raus
 
 Sehr peinliche Erkenntnis nach 1:1-Vergleich mit dem nachweislich
