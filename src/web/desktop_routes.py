@@ -213,10 +213,41 @@ async def _process_desktop_send_bg(
             except Exception as _fb:
                 logger.debug("Tenant-Fallback failed: %s", _fb)
 
+        # v0.7.2: 3-Tier-Resolver als letzte Stufe konsultieren bevor wir
+        # 'no_queue' werfen. /desktop/targets nutzt resolve_user_queue()
+        # bereits — die iOS-App zeigt also die korrekte Default-Queue an,
+        # aber /desktop/send checkte vorher nur die Legacy-Spalte
+        # tenants.lpr_target_queue und brach mit no_queue ab obwohl ein
+        # globaler Default per allow_user_queue_override + default_lpr_target_queue
+        # konfiguriert war. Jetzt: wenn config kein lpr_target_queue hat,
+        # versuche den 3-Tier-Resolver (user_override → group → global).
+        if not config or not config.get("lpr_target_queue"):
+            try:
+                from cloudprint.db_extensions import resolve_user_queue
+                rq_id, rq_label, rq_source = resolve_user_queue(user["user_id"])
+                if rq_id:
+                    if not config:
+                        config = {}
+                    config["lpr_target_queue"] = rq_id
+                    if rq_label:
+                        config["lpr_target_queue_label"] = rq_label
+                    # tenant kann hier noch None sein — get_tenant_full_by_user_id
+                    # mit dem User selbst nochmal versuchen, sonst Admin-Tenant
+                    if not tenant:
+                        tenant = (get_tenant_full_by_user_id(user["user_id"])
+                                  or get_tenant_full_by_user_id(parent_id))
+                    logger.info(
+                        "Desktop-Send [2/5] 3-tier resolver hit — user='%s' "
+                        "source=%s queue=%s",
+                        user.get("username"), rq_source, rq_id,
+                    )
+            except Exception as _re:
+                logger.debug("3-tier resolver failed in send-path: %s", _re)
+
         if not tenant or not config or not config.get("lpr_target_queue"):
             logger.warning(
                 "Desktop-Send [2/5] no queue — user='%s' parent_id=%s "
-                "tenant=%s queue=%s (auch Single-Tenant-Fallback leer)",
+                "tenant=%s queue=%s (auch 3-tier resolver + Single-Tenant-Fallback leer)",
                 user.get("username"), parent_id, bool(tenant),
                 (config or {}).get("lpr_target_queue"),
             )

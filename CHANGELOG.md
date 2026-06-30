@@ -1,5 +1,23 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.2 — 2026-06-30 — Fix: /desktop/send respektiert 3-Tier-Queue-Resolver
+
+User-Report: iOS-Druck schlaegt mit `no_queue: no secure print queue
+configured` fehl obwohl die Default-Queue korrekt im Admin gesetzt
+ist und die iOS-App sie sauber anzeigt.
+
+Root-Cause: Inkonsistenz zwischen /desktop/targets und /desktop/send:
+- `/desktop/targets` nutzt `resolve_user_queue()` (3-Tier: User-Override
+  → Group → Global) und liefert deshalb die korrekte Queue an die App.
+- `/desktop/send` checkte aber NUR die Legacy-Spalte
+  `tenants.lpr_target_queue` + Single-Tenant-Fallback. Der globale
+  Default (`default_lpr_target_queue`) wurde ignoriert.
+
+Fix: in `_process_desktop_send_bg` zusaetzlicher Step VOR dem
+no_queue-Fail — `resolve_user_queue()` konsultieren und die Queue in
+`config["lpr_target_queue"]` injizieren. tenant-Lookup nochmal probieren
+falls noch leer. Logging erweitert mit „3-tier resolver hit"-Marker.
+
 ## 0.7.1 — 2026-06-30 — QR-Code in /welcome + /account scanbar (war 20x20px)
 
 User-Report: weder iPhone-Kamera noch unsere App erkennt den Setup-QR.
