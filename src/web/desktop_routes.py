@@ -590,21 +590,27 @@ async def _process_desktop_send_bg(
             except Exception:
                 pass
 
-            # v0.7.10: Fallback fuer Printix-500. Printix-Docs sagen `user`
-            # ist OPTIONAL und nur fuer Redirector/USB-Print-Szenarien.
-            # Wenn Printix mit dem user-Wert nicht klarkommt (500), versuchen
-            # wir den Submit ohne `user` — Printix legt den Job dann in die
-            # tenant-globale Cloud-Queue. Bei einer „SecurePrint Anywhere"-
-            # Queue kann der echte User ihn dann immer noch per Karte
-            # abholen. Falls Printix das auch verweigert, kommt der echte
-            # 500 raus.
+            # v0.7.14: userMapping statt user-Query-Param fuer Secure Print.
+            # Printix-Docs sagen explizit: bei `releaseImmediately=false`
+            # MUSS userMapping benutzt werden (JSON-Body mit
+            # {key: "Email", value: "..."}), nicht der user-Query-Param.
+            # Beide gleichzeitig → 400 Error. Frueherer Code mit `user=`
+            # war der Grund fuer die TS70RB / SQFSJK Printix-500-Fehler.
+            #
+            # Fallback-Kette:
+            #   1. userMapping mit key=Email (Standard)
+            #   2. wenn 500: ohne user/userMapping (legt in tenant-globaler
+            #      Queue ab — User kann via Karte holen)
             from printix_client import PrintixAPIError as _PxErr
-            def _do_submit(user_param):
+            def _do_submit(*, mapping_key=None, mapping_value=None,
+                              user_param=None):
                 return client.submit_print_job(
                     printer_id=printer_id,
                     queue_id=target_queue,
                     title=display_filename,
                     user=user_param,
+                    user_mapping_key=mapping_key,
+                    user_mapping_value=mapping_value,
                     pdl="PDF",
                     release_immediately=False,
                     color=bool(color),
@@ -612,17 +618,23 @@ async def _process_desktop_send_bg(
                     copies=max(1, min(99, int(copies or 1))),
                 )
             try:
-                result = _do_submit(submit_user_email)
+                result = _do_submit(mapping_key="Email",
+                                       mapping_value=submit_user_email)
+                logger.info(
+                    "Desktop-Send [4/5] submit OK mit userMapping(Email=%s)",
+                    submit_user_email,
+                )
             except _PxErr as _px_e:
-                if _px_e.status_code == 500 and submit_user_email:
+                if _px_e.status_code in (400, 422, 500) and submit_user_email:
                     logger.warning(
-                        "Desktop-Send [4/5] Printix 500 mit user='%s' "
-                        "(ErrorID=%s) — Retry ohne user-Param…",
-                        submit_user_email, getattr(_px_e, 'error_id', ''),
+                        "Desktop-Send [4/5] Printix %s mit userMapping(Email=%s) "
+                        "(ErrorID=%s) — Retry ohne userMapping…",
+                        _px_e.status_code, submit_user_email,
+                        getattr(_px_e, 'error_id', ''),
                     )
-                    result = _do_submit(None)
+                    result = _do_submit()
                     logger.info(
-                        "Desktop-Send [4/5] Retry ohne user-Param OK — "
+                        "Desktop-Send [4/5] Retry ohne userMapping OK — "
                         "Job wird in tenant-globaler Queue abgelegt, "
                         "User kann via Karte am Drucker abholen.",
                     )

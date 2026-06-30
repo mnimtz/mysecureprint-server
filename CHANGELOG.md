@@ -1,5 +1,36 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.14 — 2026-06-30 — CRITICAL: userMapping statt user-Query-Param fuer Secure Print
+
+User-Report: Wiederholte Printix-500-Errors (ErrorIDs TS70RB, PwuzH9,
+3OM337, SQFSJK) beim iOS-Druck. Aus Printix-Docs (printix.github.io):
+
+> „You cannot specify both `userMapping` and the `user` query parameter
+> simultaneously."
+> „For Secure Print workflows with `releaseImmediately=false`, use
+> `userMapping` instead of the `user` parameter."
+
+Root-Cause: wir uebergaben den User immer als `?user=Email`. Fuer
+Cloud-Print mit `releaseImmediately=false` (Secure Print Anywhere)
+verlangt Printix aber `userMapping` im JSON-Body — mit einem
+explizitem Identity-Key. Akzeptierte Keys:
+  AzureObjectId / AzureUPN / SAMAccountName /
+  OnPremImmutableId / OnPremUpn / **Email**
+
+Fix:
+- `printix_client.submit_print_job()` bekommt zwei neue Parameter
+  `user_mapping_key` + `user_mapping_value`. Wenn gesetzt, wird das
+  als `body.userMapping={key,value}` mitgegeben.
+- `printix_client` schreibt entweder `?user=...` ODER
+  `body.userMapping={...}` — niemals beides.
+- `desktop_routes._process_desktop_send_bg`: nutzt jetzt
+  `userMapping(key='Email', value=submit_user_email)`.
+- Fallback-Retry: bei 400/422/500 OHNE userMapping (Job landet in
+  tenant-globaler Queue, User holt via Karte am Drucker).
+
+Damit sollte der Submit fuer `releaseImmediately=false` (= Secure
+Print) endlich durchlaufen.
+
 ## 0.7.13 — 2026-06-30 — API-Trace 'Aktiv'-Status auch ohne Listing-Daten
 
 User-Report: Setting im Audit-Log korrekt gespeichert (`api_trace_toggle

@@ -334,6 +334,8 @@ class PrintixClient:
 
     def submit_print_job(self, printer_id: str, queue_id: str, title: str,
                           user: Optional[str] = None,
+                          user_mapping_key: Optional[str] = None,
+                          user_mapping_value: Optional[str] = None,
                           pdl: Optional[str] = None,
                           release_immediately: bool = True,
                           color: Optional[bool] = None,
@@ -345,6 +347,17 @@ class PrintixClient:
         """Submit a new print job (API v1.1).
         Endpoint: POST /printers/{printer_id}/queues/{queue_id}/submit?title=...
         Requires header 'version: 1.1' for the structured body format.
+
+        v0.7.14: zwei Modi fuer User-Identifikation, Printix-Docs:
+          - `user` (Query-Param): Legacy Redirector / USB-Print Integration.
+            Beliebiger Username-String — exact match noetig.
+          - `user_mapping_key` + `user_mapping_value` (Body JSON): NEUER
+            Identifikator fuer Secure-Print (releaseImmediately=false).
+            Key muss einer der MS Identity-Attribute sein:
+              AzureObjectId / AzureUPN / SAMAccountName /
+              OnPremImmutableId / OnPremUpn / Email
+          - BEIDE gleichzeitig -> Printix 400 Error.
+
         color: True=color, False=monochrome (boolean, not string).
         duplex: NONE | SHORT_EDGE | LONG_EDGE.
         scaling: NOSCALE | SHRINK | FIT.
@@ -353,12 +366,17 @@ class PrintixClient:
         pdl: PCL5 | PCLXL | POSTSCRIPT | UFRII | TEXT | XPS."""
         tm = self._require_tm(self._print_tm, "Print API")
         params: dict = {"title": title, "releaseImmediately": str(release_immediately).lower()}
-        if user:
+        if user and not user_mapping_key:
             params["user"] = user
         normalized_pdl = self._normalize_submit_pdl(pdl)
         if normalized_pdl:
             params["PDL"] = normalized_pdl
         body: dict = {}
+        if user_mapping_key and user_mapping_value:
+            body["userMapping"] = {
+                "key": user_mapping_key,
+                "value": user_mapping_value,
+            }
         if color is not None:
             body["color"] = color
         if duplex:
