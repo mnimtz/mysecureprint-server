@@ -309,7 +309,13 @@ async def _process_desktop_send_bg(
             return
 
         # Owner-Email ermitteln (für Default: den User selbst)
-        user_email = (user.get("email") or "").strip()
+        # v0.7.8: Email lowercase. Printix matched case-sensitive — wenn der
+        # User-Eintrag in users.email als 'Marcus@nimtz.email' steht (wie Entra
+        # ihn liefert), aber Printix die User-DB als 'marcus@nimtz.email'
+        # speichert, kommt Printix mit 500 zurueck. Lowercase ist hier sicher,
+        # weil RFC 5321 die Local-Part technisch case-sensitive erlaubt, in
+        # der Praxis aber alle realen Mailsysteme case-insensitive matchen.
+        user_email = (user.get("email") or "").strip().lower()
         owner_email = user_email
         try:
             px_id = (user.get("printix_user_id") or "").strip()
@@ -321,11 +327,11 @@ async def _process_desktop_send_bg(
                         "WHERE printix_user_id=?", (px_id,),
                     ).fetchone()
                 if row and row["email"]:
-                    owner_email = row["email"]
+                    owner_email = (row["email"] or "").strip().lower()
             if not owner_email or "@" not in owner_email:
                 pxu = find_printix_user_by_identity(user_email)
                 if pxu and pxu.get("email"):
-                    owner_email = pxu["email"]
+                    owner_email = (pxu["email"] or "").strip().lower()
         except Exception:
             pass
 

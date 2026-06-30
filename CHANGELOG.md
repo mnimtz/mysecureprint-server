@@ -1,5 +1,25 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.8 — 2026-06-30 — Printix-Submit-500 wegen Email-Case (Marcus@ vs marcus@)
+
+User-Report: iOS-Druck failed mit Printix API 500 (ErrorID TS70RB,
+PwuzH9). Im Log:
+  `submit_to='Marcus@nimtz.email'`  (Großschreibung von Entra)
+  → POST .../submit?user=Marcus%40nimtz.email → 500
+
+Printix matched Emails case-sensitive — `Marcus@…` ≠ `marcus@…`.
+Entra-Login stored `users.email` mit dem Casing wie's in MS Graph
+zurueckkam (oft Vorname-Casing).
+
+Fix: `owner_email` im /desktop/send wird konsequent ge-lowercased,
+egal aus welcher Quelle (users.email, cached_printix_users, Printix-
+Identity-Lookup). Plus Backfill: bei Entra-Login wird die DB-
+gespeicherte users.email auch lowercase gestellt.
+
+Zwischen den Loglines: nach Deploy + einmal Entra-Logout/Login wird
+deine users.email von 'Marcus@nimtz.email' auf 'marcus@nimtz.email'
+permanent umgeschrieben. Ab dann printet print:self sauber durch.
+
 ## 0.7.7 — 2026-06-30 — _user_descr() ueberall in desktop_routes Logs
 
 User-Wunsch: 'user='Marcus'' in Logs ist Display-Name, hilft nicht

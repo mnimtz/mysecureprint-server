@@ -1267,7 +1267,13 @@ def create_app(session_secret: str) -> FastAPI:
                     _px_full = (_px_row["full_name"] or "").strip()
                     _cu = (user.get("username") or "").strip()
                     _cf = (user.get("full_name") or "").strip()
+                    _ce = (user.get("email") or "").strip()
                     _bkw = {}
+                    # v0.7.8: Email lowercase damit Printix-Submit matched
+                    # (Entra liefert 'Marcus@x.de', Printix kennt
+                    # 'marcus@x.de').
+                    if _ce and _ce != _ce.lower():
+                        _bkw["email"] = _ce.lower()
                     if (_px_uname and _px_uname != _cu
                             and not username_exists(_px_uname)):
                         _bkw["username"] = _px_uname
@@ -1284,6 +1290,8 @@ def create_app(session_secret: str) -> FastAPI:
                             user["username"] = _px_uname
                         if "full_name" in _bkw:
                             user["full_name"] = _px_full
+                        if "email" in _bkw:
+                            user["email"] = _bkw["email"]
         except Exception as _bf:
             logger.debug("Entra->Printix backfill skip: %s", _bf)
 
