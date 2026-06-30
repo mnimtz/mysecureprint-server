@@ -964,12 +964,25 @@ def _create_empty_tenant(user_id: str, name: str = "") -> dict:
 
 
 def authenticate_user(username: str, password: str) -> Optional[dict]:
-    """Prüft Benutzername + Passwort, gibt User-Dict zurück oder None."""
+    """Prüft Benutzername + Passwort, gibt User-Dict zurück oder None.
+
+    v0.7.29: User-Enumeration-Defense — bei nicht-existierendem User
+    laufen wir trotzdem durch `verify_password` mit einem Dummy-Hash, so
+    dass der Response-Time-Channel zwischen "User existiert nicht" und
+    "Passwort falsch" verschwindet."""
     from crypto import verify_password
+    # bcrypt-Dummy-Hash fuer den Negativ-Pfad. Ein gueltiger bcrypt-Hash
+    # von "x" — verify_password laeuft die gleiche Anzahl Runden.
+    _DUMMY_HASH = "$2b$12$abcdefghijklmnopqrstuv.WaIfL2vEi2VBxQVcZUmEPjY6XK5VG2W"
     with _conn() as conn:
         row = conn.execute("SELECT * FROM users WHERE username=?",
                            (username.strip(),)).fetchone()
     if not row:
+        # bcrypt-Cost gleichziehen, damit Timing-Side-Channel kollabiert.
+        try:
+            verify_password(password, _DUMMY_HASH)
+        except Exception:
+            pass
         return None
     user = dict(row)
     if not verify_password(password, user["password_hash"]):
@@ -1761,7 +1774,13 @@ def get_tenant_by_bearer_token(bearer_token: str) -> Optional[dict]:
                 "Bearer-Token-Lookup: Hash-Backfill für Tenant %s fehlgeschlagen: %s",
                 d.get("id", "?"), e,
             )
-        if plain == bearer_token:
+        # v0.7.29: timing-safer compare. plain/bearer_token sind beide str —
+        # compare_digest braucht gleich-lange Bytes oder ist dann eine
+        # Konstante. **Why:** das ist ein Legacy-Fallback-Pfad, der nur
+        # bei fehlendem Hash anschlaegt; bei Token-Brute-Force darf hier
+        # kein Timing-Channel entstehen.
+        import hmac as _hmac
+        if _hmac.compare_digest(plain or "", bearer_token or ""):
             return _tenant_decrypted(d)
     return None
 

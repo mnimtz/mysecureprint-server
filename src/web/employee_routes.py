@@ -35,6 +35,31 @@ from typing import Callable, Optional
 from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from urllib.parse import urlparse
+
+
+def _safe_referer(request: "Request", fallback: str) -> str:
+    """v0.7.29: Open-Redirect-Defense — akzeptiert nur Referer der
+    a) leer ist → fallback,
+    b) ein relativer Pfad ist (`/...`), KEIN `//x` oder `/\\x`,
+    c) absolut auf demselben Host (request.url.netloc) liegt.
+    Sonst fallback."""
+    ref = (request.headers.get("referer") or "").strip()
+    if not ref:
+        return fallback
+    if ref.startswith("/"):
+        if ref.startswith("//") or ref.startswith("/\\"):
+            return fallback
+        return ref
+    try:
+        p = urlparse(ref)
+    except Exception:
+        return fallback
+    if p.scheme not in ("http", "https"):
+        return fallback
+    if p.netloc != request.url.netloc:
+        return fallback
+    return ref
 
 logger = logging.getLogger("printix.employee")
 
@@ -1334,7 +1359,8 @@ def register_employee_routes(
 
         from cloudprint.db_extensions import update_delegation_status
         update_delegation_status(delegation_id, "active")
-        return RedirectResponse(request.headers.get("referer", "/my/employees"), status_code=302)
+        return RedirectResponse(_safe_referer(request, "/my/employees"),
+                                  status_code=302)
 
     @app.post("/my/employees/delegation/{delegation_id}/reject")
     @app.post("/employees/delegation/{delegation_id}/reject")
@@ -1345,4 +1371,5 @@ def register_employee_routes(
 
         from cloudprint.db_extensions import delete_delegation
         delete_delegation(delegation_id)
-        return RedirectResponse(request.headers.get("referer", "/my/employees"), status_code=302)
+        return RedirectResponse(_safe_referer(request, "/my/employees"),
+                                  status_code=302)

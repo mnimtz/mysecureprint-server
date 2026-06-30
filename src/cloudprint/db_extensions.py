@@ -1013,17 +1013,40 @@ def get_delegations_for_owner(owner_user_id: str) -> list[dict]:
 
 
 def get_delegations_for_delegate(delegate_user_id: str) -> list[dict]:
-    """Gibt alle Delegationen zurück, bei denen der User Delegate ist."""
+    """Gibt alle Delegationen zurück, bei denen der User Delegate ist.
+
+    v0.7.29: Bug-Fix — bisher nur `d.delegate_user_id = ?` matched. Printix-
+    Only-Delegationen (add_printix_delegate setzt delegate_user_id='') und
+    Email-basierte Delegate-Eintraege wurden NICHT zurueckgegeben, sodass
+    der Delegate seine Owner gar nicht sah. Jetzt joinen wir auch ueber
+    printix_user_id und email des Users.
+    """
     from db import _conn
+    if not delegate_user_id:
+        return []
     with _conn() as conn:
+        # User-Identitaeten ermitteln (printix_user_id + email)
+        u = conn.execute(
+            "SELECT id, printix_user_id, email FROM users WHERE id = ?",
+            (delegate_user_id,),
+        ).fetchone()
+        if not u:
+            return []
+        u_pid = (u["printix_user_id"] or "").strip()
+        u_email = (u["email"] or "").strip().lower()
+
         rows = conn.execute(
             """SELECT d.*, u.username AS owner_username, u.email AS owner_email,
                       u.full_name AS owner_full_name, u.printix_user_id AS owner_printix_user_id
                FROM delegations d
                JOIN users u ON u.id = d.owner_user_id
-               WHERE d.delegate_user_id = ? AND d.status = 'active'
+               WHERE d.status = 'active' AND (
+                       d.delegate_user_id = ?
+                    OR (? != '' AND d.delegate_printix_user_id = ?)
+                    OR (? != '' AND LOWER(d.delegate_email) = ?)
+               )
                ORDER BY d.created_at DESC""",
-            (delegate_user_id,),
+            (delegate_user_id, u_pid, u_pid, u_email, u_email),
         ).fetchall()
     return [dict(r) for r in rows]
 

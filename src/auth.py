@@ -88,8 +88,14 @@ class BearerAuthMiddleware:
 
         token = auth_header[7:]  # Strip "Bearer "
 
-        # Tenant in DB nachschlagen
-        tenant = self._lookup_tenant(token)
+        # Tenant in DB nachschlagen — DB-Fehler != Auth-Fehler (v0.7.29).
+        try:
+            tenant = self._lookup_tenant(token)
+        except Exception as e:
+            logger.error("DB-Fehler bei Token-Lookup: %s", e)
+            await self._service_unavailable(send,
+                "Backend storage unavailable. Try again shortly.")
+            return
         if tenant is None:
             logger.warning("Ungültiger Bearer Token für: %s %s",
                            scope.get("method", "?"), path)
@@ -122,14 +128,16 @@ class BearerAuthMiddleware:
             current_tenant.reset(token_ct)
             current_sql_config.reset(sql_ct)
 
-    def _lookup_tenant(self, token: str) -> Optional[dict]:
-        """Sucht den Tenant anhand des Bearer Tokens in der SQLite-DB."""
-        try:
-            from db import get_tenant_by_bearer_token
-            return get_tenant_by_bearer_token(token)
-        except Exception as e:
-            logger.error("DB-Fehler bei Token-Lookup: %s", e)
-            return None
+    def _lookup_tenant(self, token: str):
+        """Sucht den Tenant anhand des Bearer Tokens.
+
+        v0.7.29: Wirft jetzt bei DB-Fehlern eine Exception statt als
+        "kein Token gefunden" zu erscheinen. Caller-Middleware kann
+        damit zwischen "Auth ungueltig" (None) und "Backend down"
+        (Exception → 503) unterscheiden. Vorher hat das Schweigen
+        Outages versteckt."""
+        from db import get_tenant_by_bearer_token
+        return get_tenant_by_bearer_token(token)
 
     # ── HTTP-Antworten ─────────────────────────────────────────────────────────
 
@@ -168,6 +176,17 @@ class BearerAuthMiddleware:
         await send({"type": "http.response.start", "status": 404,
                     "headers": [[b"content-length", b"0"]]})
         await send({"type": "http.response.body", "body": b""})
+
+    async def _service_unavailable(self, send, message: str):
+        body = json.dumps({"error": "service_unavailable",
+                              "message": message}).encode()
+        await send({"type": "http.response.start", "status": 503,
+                    "headers": [
+                        [b"content-type", b"application/json"],
+                        [b"content-length", str(len(body)).encode()],
+                        [b"retry-after", b"5"],
+                    ]})
+        await send({"type": "http.response.body", "body": body})
 
     async def _health_response(self, send):
         body = json.dumps({

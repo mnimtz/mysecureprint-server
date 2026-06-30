@@ -1,5 +1,31 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.29 — 2026-06-30 — Security-Härtung aus 3-fach-Audit
+
+**Critical**
+
+- Session-Fixation behoben: Beim Login (lokal + Entra) wird die Pre-Auth-Session jetzt verworfen bevor `user_id` gesetzt wird. Vorher konnte ein vom Angreifer gepflanzter Session-Cookie nach erfolgreichem Login mitlaufen.
+- `get_delegations_for_delegate(user_id)` lieferte für Printix-Only-Delegationen (`delegate_user_id=''`) und Email-basierte Delegate-Einträge keine Ergebnisse — der Delegate sah seine Owner gar nicht. Match jetzt auch über `delegate_printix_user_id` und `delegate_email`.
+- Timing-Side-Channels weg: Bearer-Token-Fallback in `db.py` und OAuth-Client-Secret-Prüfung in `oauth.py` nutzen jetzt `hmac.compare_digest`.
+- User-Enumeration-Defense: `authenticate_user` läuft jetzt auch bei nicht-existierendem User durch `verify_password` mit einem Dummy-Hash → kein Timing-Channel mehr zwischen "User existiert nicht" und "Passwort falsch".
+
+**High**
+
+- Session-Cookie ist jetzt `https_only=True` (Override via `SESSION_COOKIE_INSECURE=1` für lokale HTTP-Tests).
+- Admin-Toggles `/admin/api-trace/toggle` und `/admin/perf-logs/toggle` akzeptieren keine GETs mehr (waren via `<img src=…>` von extern triggerbar bei eingeloggtem Admin).
+- BearerAuthMiddleware unterscheidet jetzt zwischen DB-Down (`503`) und ungültigem Token (`401`) — vorher landete jeder DB-Fehler als "Invalid bearer token" und versteckte Outages.
+- Open-Redirect-Schutz bei `/my/employees/delegation/*/{approve,reject}` — Referer wird gegen Same-Host whitelisted, sonst fallback auf `/my/employees`.
+- MCP-Proxy hatte `timeout=None` → hängender Sub-Prozess blockierte Worker-Slots dauerhaft. Jetzt `connect=5s/write=30s/pool=5s`, read=None nur für SSE.
+- MCP-Proxy-Fehlertext nicht mehr roh an Client (versteckte lokale Pfade/Versionen) — nur generische Message + Server-Log.
+- Background-Tasks (4 Scheduler) werden jetzt in einem Modul-Set gehalten, damit der Event-Loop sie nicht via Weak-Ref GC-killen kann.
+- `printix_client.upload_file_to_url` schloss die `requests.Session` nicht — pro Upload leakte ein Connection-Pool. Jetzt `with` statement.
+
+**iOS-Client**
+
+- `SettingsStore.bearerToken.didSet`: löscht den UserDefaults-Spiegel nur noch wenn der Keychain-Write erfolgreich war — sonst standen User ohne Token da bei provisionierungs-Fehlern.
+- `SetupView`: strenge Server-URL-Validierung (Scheme http/https, nicht-leerer Host mit Punkt oder `localhost`) — vorher reichte jeder zufällige String.
+- `SetupView.redeemMobileInvite`: nicht mehr alles als `URLError(.userAuthenticationRequired)` verklausuliert; Server-Error-Body wird geparsed und als NSError mit echter Message hochgereicht.
+
 ## 0.7.28 — 2026-06-30 — Guest-Print / Email-to-Print + Mail.Send Consent + Email-Template-Fixes
 
 **Neu — Guest-Print / Email-to-Print Gateway**

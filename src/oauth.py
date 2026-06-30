@@ -691,7 +691,11 @@ class OAuthMiddleware:
                 return
         elif not is_public:
             # Klassischer confidential client — Secret erforderlich.
-            if not client_secret or client_secret != expected_secret:
+            # v0.7.29: hmac.compare_digest — kein Timing-Channel mehr.
+            import hmac as _hmac
+            secret_ok = bool(client_secret) and _hmac.compare_digest(
+                client_secret or "", expected_secret or "")
+            if not secret_ok:
                 logger.warning("OAuth: Falsches/fehlendes client_secret für client_id=%s",
                                client_id)
                 await self._json(send, 401, {"error": "invalid_client",

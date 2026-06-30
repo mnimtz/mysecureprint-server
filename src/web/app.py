@@ -395,7 +395,17 @@ def create_app(session_secret: str) -> FastAPI:
                         return RedirectResponse("/account", status_code=302)
         return await call_next(request)
 
-    app.add_middleware(SessionMiddleware, secret_key=session_secret, max_age=3600 * 8)
+    # v0.7.29: Session-Cookie haerten.
+    # - https_only blockt HTTP-Klartext (Azure-WebApp ist immer TLS).
+    # - same_site=lax = Starlette-Default, hier explizit gemacht damit
+    #   spaetere Upgrades nicht versehentlich auf "none" springen.
+    # Local-Dev (kein TLS) muss SESSION_COOKIE_INSECURE=1 setzen.
+    _https_only = (os.environ.get("SESSION_COOKIE_INSECURE", "") != "1")
+    app.add_middleware(SessionMiddleware,
+                         secret_key=session_secret,
+                         max_age=3600 * 8,
+                         https_only=_https_only,
+                         same_site="lax")
 
     def mcp_base_url() -> str:
         """Gibt die öffentliche MCP-Basis-URL zurück.
@@ -1067,6 +1077,13 @@ def create_app(session_secret: str) -> FastAPI:
                 logger.warning("login pro-gate check failed: %s", _le)
                 # bei Fehler: durchlassen, lieber als Lockout
 
+        # v0.7.29: Session-Fixation-Schutz — vor dem Schreiben der
+        # authentifizierten user_id pre-auth Cookie-Inhalt verwerfen.
+        # Sprach-Praeferenz bleibt erhalten.
+        _sess_lang = request.session.get("lang")
+        request.session.clear()
+        if _sess_lang:
+            request.session["lang"] = _sess_lang
         request.session["user_id"] = user["id"]
         try:
             audit(user["id"], "login", "Eingeloggt")
@@ -1240,7 +1257,11 @@ def create_app(session_secret: str) -> FastAPI:
                 **_e, **tc,
             })
 
-        # Session setzen
+        # Session setzen — mit Session-Fixation-Schutz (v0.7.29).
+        _sess_lang = request.session.get("lang")
+        request.session.clear()
+        if _sess_lang:
+            request.session["lang"] = _sess_lang
         request.session["user_id"] = user["id"]
         try:
             audit(user["id"], "login", f"Entra-Login ({user_info.get('email', '')})")
@@ -5279,8 +5300,9 @@ def create_app(session_secret: str) -> FastAPI:
             logger.warning("admin_api_trace_clear failed: %s", e)
         return RedirectResponse("/admin/api-trace", status_code=302)
 
-    @app.api_route("/admin/api-trace/toggle",
-                    methods=["GET", "POST"])
+    # v0.7.29: GET entfernt — Toggle-Endpoint war via Img-Tag CSRF-fest
+    # nur durch SameSite=Lax. Jetzt strikt POST.
+    @app.post("/admin/api-trace/toggle")
     async def admin_api_trace_toggle(
         request: Request,
         enabled: str = Form(default=""),
@@ -5326,8 +5348,8 @@ def create_app(session_secret: str) -> FastAPI:
                 "/admin/api-trace?err=save_failed", status_code=303,
             )
 
-    @app.api_route("/admin/perf-logs/toggle",
-                    methods=["GET", "POST"])
+    # v0.7.29: strikt POST — siehe api-trace/toggle.
+    @app.post("/admin/perf-logs/toggle")
     async def admin_perf_logs_toggle(
         request: Request,
         enabled: str = Form(default=""),
@@ -7118,6 +7140,16 @@ def create_app(session_secret: str) -> FastAPI:
     except Exception as _ep:
         logger.error("Employee-Routen konnten nicht registriert werden: %s", _ep)
 
+    # v0.7.29: Hintergrund-Tasks haengen sich am Event-Loop nur ueber eine
+    # weak ref auf — wird die nicht gehalten kann der GC den Task einfach
+    # killen. Wir halten sie hier in einem Modul-Set; done-callback raeumt
+    # sauber auf.
+    _BG_TASKS: set = set()
+
+    def _track_bg(task):
+        _BG_TASKS.add(task)
+        task.add_done_callback(_BG_TASKS.discard)
+
     # ── Desktop-Client-API (v6.7.31) ─────────────────────────────────────────
     # v0.6.1: User berichtet /desktop/targets → 404. Step-by-step
     # Diagnose: jeden Sub-Schritt einzeln logging damit wir genau sehen
@@ -7210,7 +7242,7 @@ def create_app(session_secret: str) -> FastAPI:
                 await _asyncio.sleep(300)
 
         try:
-            _asyncio.create_task(_loop())
+            _track_bg(_asyncio.create_task(_loop()))
             logger.info("Entra pending-tables GC sweep gestartet (5min interval)")
         except Exception as e:
             logger.warning("Entra pending GC startup failed: %s", e)
@@ -7249,7 +7281,7 @@ def create_app(session_secret: str) -> FastAPI:
                 await _asyncio.sleep(86400 - 60)
 
         try:
-            _asyncio.create_task(_loop())
+            _track_bg(_asyncio.create_task(_loop()))
             logger.info("Entra continuous-eval scheduler bereit (opt-in)")
         except Exception as e:
             logger.warning("Entra continuous-eval startup failed: %s", e)
@@ -7294,7 +7326,7 @@ def create_app(session_secret: str) -> FastAPI:
                     await _asyncio.sleep(300)
 
         try:
-            _asyncio.create_task(_loop())
+            _track_bg(_asyncio.create_task(_loop()))
             logger.info("Printix user-sync scheduler bereit (opt-in)")
         except Exception as e:
             logger.warning(
@@ -7345,7 +7377,7 @@ def create_app(session_secret: str) -> FastAPI:
                 await _asyncio.sleep(86400 - 60)
 
         try:
-            _asyncio.create_task(_loop())
+            _track_bg(_asyncio.create_task(_loop()))
             logger.info("Blob-Backup-Scheduler bereit (täglich, opt-in)")
         except Exception as e:
             logger.warning("blob backup scheduler startup failed: %s", e)
@@ -7427,7 +7459,12 @@ def create_app(session_secret: str) -> FastAPI:
         }
         body = await request.body() if request.method in ("POST", "PUT", "PATCH") else None
 
-        client = _httpx.AsyncClient(timeout=None)
+        # v0.7.29: kein timeout=None mehr — ein haengender MCP-Prozess
+        # blockierte sonst Worker-Slots fuer immer. read=None ist OK weil
+        # MCP SSE-streamed, aber connect/write/pool brauchen feste Caps.
+        client = _httpx.AsyncClient(
+            timeout=_httpx.Timeout(connect=5.0, read=None,
+                                       write=30.0, pool=5.0))
         try:
             req = client.build_request(
                 request.method, target,
@@ -7446,8 +7483,12 @@ def create_app(session_secret: str) -> FastAPI:
         except Exception as e:
             try: await client.aclose()
             except Exception: pass
+            # v0.7.29: Exception-Text nicht roh nach aussen — interne
+            # Pfade/Versionen leakten an MCP-Clients.
+            logger.warning("MCP proxy error: %s", e)
             return JSONResponse(
-                {"detail": f"MCP proxy error: {e}"}, status_code=502,
+                {"detail": "MCP proxy error (see server logs)"},
+                status_code=502,
             )
 
         excluded_response = {

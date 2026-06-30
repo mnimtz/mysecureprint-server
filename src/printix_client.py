@@ -411,15 +411,18 @@ class PrintixClient:
         # v0.7.11: ueber den Trace-Wrapper, damit Cloud-Upload-Fehler im
         # Admin-API-Trace sichtbar sind. Der binaere Body wird im Logger
         # automatisch auf 4 KB gekuerzt.
-        _s = requests.Session()
-        resp = _trace_request(
-            _s, "PUT", upload_url,
-            component="printix-upload",
-            data=file_bytes,
-            headers=headers, timeout=120,
-        )
-        if not resp.ok:
-            raise PrintixAPIError(resp.status_code, f"File upload failed: {resp.text}")
+        # v0.7.29: with-Statement schliesst die Session sauber — sonst
+        # leakte pro Upload ein Connection-Pool.
+        with requests.Session() as _s:
+            resp = _trace_request(
+                _s, "PUT", upload_url,
+                component="printix-upload",
+                data=file_bytes,
+                headers=headers, timeout=120,
+            )
+            if not resp.ok:
+                raise PrintixAPIError(resp.status_code,
+                                          f"File upload failed: {resp.text}")
         return {"success": True}
 
     def complete_upload(self, job_id: str) -> Any:
