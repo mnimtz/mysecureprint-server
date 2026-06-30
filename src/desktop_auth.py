@@ -27,9 +27,30 @@ from typing import Optional
 
 logger = logging.getLogger("printix.desktop_auth")
 
+# v0.6.8: Lazy-Schema-Guard — Azure-Files-Mount /data ist beim Boot manchmal
+# noch nicht bereit; init_desktop_schema() crasht dann mit "unable to open
+# database file" und ALLE /desktop/*-Routen wuerden 404 zurueckgeben. Fix:
+# Schema bei jedem ersten erfolgreichen DB-Zugriff lazy nachholen.
+_schema_ready = False
+
+
+def _ensure_schema() -> None:
+    """Idempotenter Schema-Init mit Lazy-Retry. Wird beim ersten DB-
+    Zugriff erneut versucht, falls beim Boot der Mount noch nicht da war.
+    """
+    global _schema_ready
+    if _schema_ready:
+        return
+    try:
+        init_desktop_schema()
+        _schema_ready = True
+    except Exception as e:
+        logger.warning("desktop_tokens schema lazy-init failed: %s", e)
+
 
 def init_desktop_schema() -> None:
     """Legt die `desktop_tokens`-Tabelle idempotent an."""
+    global _schema_ready
     from db import _conn
     with _conn() as conn:
         conn.executescript("""
@@ -43,11 +64,13 @@ def init_desktop_schema() -> None:
             CREATE INDEX IF NOT EXISTS idx_desktop_tokens_user
                 ON desktop_tokens (user_id);
         """)
+    _schema_ready = True
     logger.info("Migration: desktop_tokens-Tabelle geprüft/erstellt")
 
 
 def create_token(user_id: str, device_name: str = "") -> str:
     """Generiert einen neuen Token und persistiert ihn."""
+    _ensure_schema()
     from db import _conn
     token = secrets.token_urlsafe(32)
     now = datetime.now(timezone.utc).isoformat()
@@ -69,6 +92,7 @@ def validate_token(token: str) -> Optional[dict]:
     """
     if not token:
         return None
+    _ensure_schema()
     from db import _conn
     with _conn() as conn:
         row = conn.execute(

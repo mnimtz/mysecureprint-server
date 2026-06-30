@@ -6334,21 +6334,35 @@ def create_app(session_secret: str) -> FastAPI:
     # Diagnose: jeden Sub-Schritt einzeln logging damit wir genau sehen
     # wo's haengt. Auch wenn alles still durchlaeuft sieht man hier ob's
     # bis zum Ende kam.
+    # v0.6.8: Root-Cause des /desktop/* 404: init_desktop_schema() crasht
+    # bei Azure-Boot mit "unable to open database file" — der Azure-Files-
+    # Mount /data ist noch nicht bereit wenn create_app() laeuft. Vorher
+    # brach der ganze try-Block ab und KEINE Desktop-Routen wurden
+    # registriert; spaetere Requests scheiterten dann mit 404. Fix:
+    # Schema-Init und Routen-Registrierung entkoppeln. Routen MUESSEN
+    # immer registriert werden. Schema-Init ist idempotent + lazy beim
+    # ersten DB-Zugriff (Schema wird beim 1. Token-Insert sowieso
+    # erzeugt durch andere Routen, die spaeter laufen).
     logger.info("Desktop-Init: starting…")
+    # Schritt 1: Schema lazy versuchen — Fehler nicht fatal
     try:
         from desktop_auth import init_desktop_schema
-        logger.info("Desktop-Init: imported desktop_auth")
         init_desktop_schema()
         logger.info("Desktop-Init: init_desktop_schema() OK")
+    except Exception as _se:
+        logger.warning(
+            "Desktop-Init: init_desktop_schema() failed (will retry on first "
+            "request) — %s", _se,
+        )
+    # Schritt 2: Routen registrieren — DAS MUSS klappen, sonst 404
+    try:
         from web.desktop_routes import register_desktop_routes
-        logger.info("Desktop-Init: imported register_desktop_routes")
         from app_version import APP_VERSION as _APP_V
-        logger.info("Desktop-Init: imported APP_VERSION = %s", _APP_V)
         register_desktop_routes(app, lambda: _APP_V)
         logger.info("Desktop-Init: register_desktop_routes() COMPLETED — "
-                     "alle /desktop/* sollten registriert sein")
+                    "alle /desktop/* sind registriert")
     except Exception as _dp:
-        logger.exception("Desktop-Init: FAILED with exception:")
+        logger.exception("Desktop-Init: register_desktop_routes FAILED:")
         logger.error("Desktop-Routen Fehler: %s (alle /desktop/* werden 404 zurueckgeben!)", _dp)
 
     # ── Desktop Management (iOS Mgmt-Tab, v6.7.66) ──────────────────────────

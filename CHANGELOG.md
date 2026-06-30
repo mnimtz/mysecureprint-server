@@ -1,5 +1,36 @@
 # Changelog — MySecurePrint Server
 
+## 0.6.8 — 2026-06-30 — CRITICAL: Root-Cause /desktop/* 404 gefunden + gefixt
+
+Aus den Azure-StartupLogs der v0.6.7-Instanz:
+
+  Desktop-Init: starting…
+  Desktop-Init: imported desktop_auth
+  Desktop-Init: FAILED with exception:
+  Traceback (most recent call last):
+    File "/app/web/app.py", line 6341, in create_app
+      init_desktop_schema()
+    File "/app/desktop_auth.py", line 34, in init_desktop_schema
+      with _conn() as conn:
+    ...
+  sqlite3.OperationalError: unable to open database file
+
+Root Cause: Azure-Files-Mount `/data/` ist beim Boot manchmal noch nicht
+bereit wenn `create_app()` laeuft. `init_desktop_schema()` kann die
+SQLite-DB nicht oeffnen → der gemeinsame try/except brach ab BEVOR
+`register_desktop_routes()` aufgerufen wurde → alle /desktop/* gaben
+404 zurueck, bis zum naechsten erfolgreichen Restart.
+
+Fix (zwei Stellen):
+1. `web/app.py`: Schema-Init und Routen-Registrierung ENTKOPPELT.
+   Routen werden IMMER registriert, auch wenn Schema-Init fehlschlaegt.
+2. `desktop_auth.py`: neuer `_ensure_schema()`-Lazy-Guard, der bei
+   jedem ersten `create_token()`/`validate_token()`-Aufruf das Schema
+   nachzieht falls beim Boot fehlgeschlagen.
+
+Damit ist /desktop/* nach einem Boot, bei dem der Azure-Files-Mount
+zu spaet kommt, trotzdem voll funktional.
+
 ## 0.6.7 — 2026-06-29 — /desktop/targets: user_can_choose Flag
 
 User-Report: iOS-App zeigt nur „SecurePrint" als fixes Ziel, obwohl im
