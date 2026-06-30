@@ -914,13 +914,17 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             uemail = (user.get("email") or "").lower()
             pxid = (user.get("printix_user_id") or "").lower()
             with _conn() as conn:
+                # v0.7.3: tenant_id-Filter gelockert auf (tenant_id=?
+                # OR tenant_id=''). Vorher waren ALLE iOS-Print-Jobs
+                # unsichtbar weil sie historisch mit tenant_id="" angelegt
+                # wurden (jetzt gefixt, aber alte Daten brauchen den OR).
                 rows = conn.execute(
                     """SELECT job_id, job_name AS filename, status,
                               queue_name AS queue,
                               created_at, forwarded_at, error_message,
                               detected_identity AS source_identity
                        FROM cloudprint_jobs
-                       WHERE tenant_id = ?
+                       WHERE (tenant_id = ? OR IFNULL(tenant_id,'') = '')
                          AND (
                            LOWER(IFNULL(username,'')) = ?
                            OR LOWER(IFNULL(username,'')) = ?
@@ -1177,10 +1181,26 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             src_dir = _os.path.dirname(_os.path.dirname(__file__))
             if src_dir not in _sys.path:
                 _sys.path.insert(0, src_dir)
-            from cloudprint.db_extensions import create_cloudprint_job
+            from cloudprint.db_extensions import (
+                create_cloudprint_job, get_parent_user_id,
+            )
+            # v0.7.3: tenant_id beim INSERT mitgeben — sonst findet
+            # /desktop/me/jobs die Rows nie (WHERE tenant_id = ? matched
+            # leeren String nicht). Vorher: alle iOS-Print-Jobs hatten
+            # tenant_id="" -> Jobs-Tab in iOS war immer leer.
+            _tid_for_insert = ""
+            try:
+                from db import get_tenant_full_by_user_id
+                _pid = get_parent_user_id(user["user_id"]) or user["user_id"]
+                _tnt = (get_tenant_full_by_user_id(_pid)
+                        or get_tenant_full_by_user_id(user["user_id"]))
+                if _tnt:
+                    _tid_for_insert = _tnt.get("id", "") or ""
+            except Exception:
+                pass
             create_cloudprint_job(
                 job_id=internal_id,
-                tenant_id="",
+                tenant_id=_tid_for_insert,
                 queue_name="",
                 username=(user.get("email") or user.get("username") or "")[:120],
                 hostname=f"desktop:{user.get('device_name', '')}"[:80],

@@ -1,5 +1,22 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.3 — 2026-06-30 — Fix: iOS Jobs-Tab war IMMER leer (tenant_id-Mismatch)
+
+User-Report: „Jobs in der iOS-App ging noch nie".
+
+Root-Cause: bei jedem iOS-Send legt /desktop/send eine Tracking-Row in
+`cloudprint_jobs` an, ABER mit `tenant_id=""` (hardcoded). Der GET
+/desktop/me/jobs-Endpoint filtert aber strikt nach
+`WHERE tenant_id = <user-tenant-uuid>` → Leerstring matched die Tenant-
+UUID nie → 0 Treffer → leerer Tab. Egal wie viele Jobs der User schickte.
+
+Fix:
+1. `create_cloudprint_job()` Aufruf in /desktop/send legt jetzt den
+   tatsaechlichen tenant_id mit ein (Lookup via get_parent_user_id +
+   get_tenant_full_by_user_id mit Fallback).
+2. /desktop/me/jobs Query auf `(tenant_id=? OR tenant_id='')` gelockert
+   damit auch historische Rows (vor dem Fix) sichtbar werden.
+
 ## 0.7.2 — 2026-06-30 — Fix: /desktop/send respektiert 3-Tier-Queue-Resolver
 
 User-Report: iOS-Druck schlaegt mit `no_queue: no secure print queue
