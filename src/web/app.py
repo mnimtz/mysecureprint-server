@@ -552,24 +552,30 @@ def create_app(session_secret: str) -> FastAPI:
             return False, "missing"
 
     def _make_welcome_qr_svg(payload: str) -> str:
-        """Erzeugt ein inline SVG-QR fuer den Welcome-Screen.
+        """Erzeugt einen inline PNG-data-URI QR fuer den Welcome-Screen.
 
-        Nutzt das schon vorhandene ``segno``-Paket (kein Pillow noetig).
-        Liefert bei Fehler einen leeren String — das Template zeigt dann
-        nur die URL ohne QR an, statt hart zu crashen.
+        v0.7.1: SVG-Output von segno ignoriert `scale` und liefert
+        width=20, was zu klein zum Scannen ist (weder iPhone-Kamera
+        noch unsere App erkennen das). PNG-Output respektiert scale
+        zuverlaessig. Wir liefern jetzt ein PNG-data-URI img-Tag
+        zurueck — Template-Variable bleibt unveraendert, das HTML
+        rendert das Tag direkt.
         """
         try:
             import segno
             import io
+            import base64
             qr = segno.make(payload, error="m")
-            # v0.4.1: segno schreibt Bytes — StringIO crashte silent mit
-            # TypeError → leerer Return → Template zeigte "QR unavailable".
             buf = io.BytesIO()
-            qr.save(
-                buf, kind="svg", scale=8, border=2,
-                dark="#002854", light="#ffffff", xmldecl=False, svgns=True,
+            qr.save(buf, kind="png", scale=8, border=2,
+                    dark="#002854", light="#ffffff")
+            b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+            return (
+                f'<img src="data:image/png;base64,{b64}" '
+                f'alt="Setup-QR" '
+                f'style="width:260px;height:260px;display:block;'
+                f'margin:0 auto;image-rendering:pixelated;">'
             )
-            return buf.getvalue().decode("utf-8")
         except Exception as e:
             logger.warning("welcome QR generation failed: %s", e)
             return ""

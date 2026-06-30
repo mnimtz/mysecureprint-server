@@ -1,5 +1,16 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.1 — 2026-06-30 — QR-Code in /welcome + /account scanbar (war 20x20px)
+
+User-Report: weder iPhone-Kamera noch unsere App erkennt den Setup-QR.
+Root-Cause: segno-SVG-Output ignoriert `scale` und liefert
+`<svg width="20" height="20">` — 20 Pixel ist zu klein zum Scannen.
+
+Fix: `_make_welcome_qr_svg()` rendert jetzt PNG (scale=10) als base64
+data-URI in `<img>`-Tag mit CSS `width:260px`. Gleiche Pipeline wie
+employee-routes /m/setup-qr.png — die PNG-Path respektiert scale
+zuverlaessig.
+
 ## 0.7.0 — 2026-06-30 — Microsoft Graph als Mail-Provider (Resend optional)
 
 Wer EntraID via Auto-Setup eingerichtet hat, kann jetzt System-Mails
