@@ -228,7 +228,7 @@
       <tbody>
         {% for e in entries %}
         <tr class="row-sev-{{ e.severity }}">
-          <td class="audit-ts">{{ e.created_at[:19] if e.created_at else '—' }}</td>
+          <td class="audit-ts">{{ e.created_at | localtime if e.created_at else '—' }}</td>
           <td>
             <span class="sev-badge sev-{{ e.severity }}">
               {% if e.severity == 'error' %}{{ _('audit_sev_error') }}

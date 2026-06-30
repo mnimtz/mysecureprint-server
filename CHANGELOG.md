@@ -1,5 +1,19 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.9 — 2026-06-30 — Audit-Zeitstempel in lokaler Zeitzone
+
+User-Report: Audit-Log zeigt 07:16 UTC obwohl Server-TZ Europe/Berlin
+gesetzt ist und die User-OS-Settings auf CEST stehen — eigentlich
+soll 09:16 angezeigt werden.
+
+Der `_localtime_filter` (Jinja, konvertiert UTC-ISO auf konfigurierte
+Display-TZ via `_resolve_display_tz`) war schon registriert, das
+Audit-Template nutzte ihn aber nicht — gab nur `e.created_at[:19]`
+raw aus.
+
+Fix: `admin_audit.html` Z. 231: `{{ e.created_at | localtime }}`.
+Format: 'YYYY-MM-DD HH:MM:SS TZ'.
+
 ## 0.7.8 — 2026-06-30 — Printix-Submit-500 wegen Email-Case (Marcus@ vs marcus@)
 
 User-Report: iOS-Druck failed mit Printix API 500 (ErrorID TS70RB,
