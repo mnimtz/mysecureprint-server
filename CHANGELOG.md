@@ -1,5 +1,24 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.27 — 2026-06-30 — Entra-Auto-Setup: App-Name + Auto-Tenant-Consent
+
+**Geändert:** Beim Entra-Auto-Setup via Device-Code-Flow heißt die im Azure-Tenant
+angelegte App jetzt **„MySecurePrint"** (vorher „Printix Management Console").
+Betrifft nur Neu-Einrichtungen — bestehende Registrierungen muss man in Azure
+Portal → App registrations → Properties → Display name manuell umbenennen.
+
+**Neu:** Auto-Setup erteilt jetzt automatisch **Tenant-weiten Admin-Consent**
+für `openid`/`profile`/`email`/`User.Read` via `oauth2PermissionGrants` mit
+`consentType=AllPrincipals`. Folge: Normale User sehen beim ersten Microsoft-
+Login **keinen Permissions-Screen** mehr, sondern landen direkt in der App.
+
+Voraussetzung: Device-Code-Flow holt zusätzlich `DelegatedPermissionGrant.ReadWrite.All`
+— der Admin sieht beim Einrichten also eine etwas längere Permission-Liste.
+
+Wenn der Grant fehlschlägt (z.B. Tenant verlangt strikt manuellen Consent),
+liefert `auto_register_app` `admin_consent="grant_failed"` zurück und der Admin
+muss in Azure Portal manuell „Grant admin consent" klicken.
+
 ## 0.7.26 — 2026-06-30 — Delegation-Druck als Admin-Toggle (Server-Side)
 
 User-Wunsch: Statt dass jeder iOS-User selber den Delegate-Toggle in

@@ -411,7 +411,8 @@ def exchange_code_pkce(code: str,
 # Graph API scopes for device code flow (app registration)
 _GRAPH_SCOPES_DEVICE = (
     "https://graph.microsoft.com/Application.ReadWrite.All "
-    "https://graph.microsoft.com/Organization.Read.All"
+    "https://graph.microsoft.com/Organization.Read.All "
+    "https://graph.microsoft.com/DelegatedPermissionGrant.ReadWrite.All"
 )
 
 # Zusaetzliche Scopes fuer den Guest-Print-Auto-Setup: wir brauchen
@@ -541,10 +542,75 @@ def poll_device_code_token(device_code: str, tenant: str = "common") -> dict:
         return {"status": "error", "error": desc}
 
 
+_MSGRAPH_APP_ID = "00000003-0000-0000-c000-000000000000"
+
+
+def _grant_tenant_consent_delegated(headers: dict, app_id: str,
+                                       scopes: str = "openid profile email User.Read") -> str:
+    """
+    Legt einen ServicePrincipal im eigenen Tenant an + erteilt Tenant-weiten
+    Admin-Consent fuer die uebergebenen Delegated-Scopes. So sehen User beim
+    ersten Login KEINEN Permissions-Screen mehr.
+
+    Voraussetzung: Token hat `DelegatedPermissionGrant.ReadWrite.All`.
+
+    Returns "granted" | "sp_failed" | "no_msgraph_sp" | "grant_failed".
+    """
+    try:
+        sp_resp = _requests.post(
+            f"{_GRAPH_URL}/servicePrincipals",
+            headers=headers,
+            json={"appId": app_id},
+            timeout=15,
+        )
+        if sp_resp.status_code not in (200, 201):
+            logger.warning("Graph: SP-Erstellung fehlgeschlagen: %s %s",
+                            sp_resp.status_code, sp_resp.text[:300])
+            return "sp_failed"
+        sp_id = sp_resp.json()["id"]
+    except Exception as e:
+        logger.warning("Graph: SP-Erstellung Exception: %s", e)
+        return "sp_failed"
+
+    try:
+        ms_sp = _requests.get(
+            f"{_GRAPH_URL}/servicePrincipals(appId='{_MSGRAPH_APP_ID}')",
+            headers=headers,
+            timeout=10,
+        )
+        if ms_sp.status_code != 200:
+            return "no_msgraph_sp"
+        ms_sp_id = ms_sp.json()["id"]
+    except Exception:
+        return "no_msgraph_sp"
+
+    try:
+        grant_resp = _requests.post(
+            f"{_GRAPH_URL}/oauth2PermissionGrants",
+            headers=headers,
+            json={
+                "clientId": sp_id,
+                "consentType": "AllPrincipals",
+                "resourceId": ms_sp_id,
+                "scope": scopes,
+            },
+            timeout=15,
+        )
+        if grant_resp.status_code not in (200, 201):
+            logger.warning("Graph: tenant-consent grant fehlgeschlagen: %s %s",
+                            grant_resp.status_code, grant_resp.text[:300])
+            return "grant_failed"
+    except Exception as e:
+        logger.warning("Graph: tenant-consent grant Exception: %s", e)
+        return "grant_failed"
+
+    return "granted"
+
+
 def auto_register_app(
     access_token: str,
     sso_redirect_uri: str,
-    app_name: str = "Printix Management Console",
+    app_name: str = "MySecurePrint",
     audience: str | None = None,
     include_mail_send: bool = False,
     include_mail_read: bool = False,
@@ -684,7 +750,7 @@ def auto_register_app(
         # damit das Admin-UI ein Warn-Banner anzeigen kann.
         secret_body = {
             "passwordCredential": {
-                "displayName": "Printix MCP Auto-Generated",
+                "displayName": "MySecurePrint Auto-Generated",
             }
         }
         resp2 = _requests.post(
@@ -703,11 +769,18 @@ def auto_register_app(
         client_secret = secret_data.get("secretText", "")
         secret_expires_at = secret_data.get("endDateTime", "")
 
+        # 3. Tenant-weiten Admin-Consent fuer openid/profile/email/User.Read
+        # erteilen — sonst sieht jeder User beim ersten Login Apples
+        # Permissions-Screen "Diese Anwendung wird nicht von Microsoft
+        # veroeffentlicht / Angeforderte Berechtigungen". Mit dem Grant
+        # landen User direkt in der App.
+        consent_status = _grant_tenant_consent_delegated(headers, app_id)
+
         logger.info(
             "Entra SSO-App automatisch erstellt: %s (client_id=%s, tenant=%s, "
-            "audience=%s, secret_expires=%s)",
+            "audience=%s, secret_expires=%s, admin_consent=%s)",
             app_name, app_id, tenant_id, audience,
-            secret_expires_at or "?",
+            secret_expires_at or "?", consent_status,
         )
         return {
             "tenant_id":         tenant_id,
@@ -716,6 +789,7 @@ def auto_register_app(
             "secret_expires_at": secret_expires_at,
             "object_id":         obj_id,
             "audience":          audience,
+            "admin_consent":     consent_status,
         }
 
     except Exception as e:
