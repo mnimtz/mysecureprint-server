@@ -1,5 +1,27 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.22 — 2026-06-30 — DEFINITIVER FIX: Email lowercase (Printix case-sensitive verifiziert)
+
+Direkter Test gegen Printix Cloud Print API bestaetigt zwei Wahrheiten:
+
+**Test 1: Anywhere-Queues sind broken im Tenant** (egal welche Email,
+egal welcher release-Mode) — 44s timeout, 500 UNKNOWN_ERROR.
+  → Printix-Support kontaktieren mit den ErrorIDs.
+
+**Test 2: change_job_owner + submit_print_job sind CASE-SENSITIVE**
+auf Emails. Mit derselben Brother-MFC-Queue:
+
+  userEmail=Marcus@nimtz.email → 404 USER_NOT_FOUND
+  userEmail=marcus@nimtz.email → 200 OK ✅
+
+Mein v0.7.8 Lowercase-Fix war richtig. Mein v0.7.10 Revert war
+falsch — basierte auf dem User-Listen-Display in der Web-UI, das
+NICHT die canonical email zeigt. Die canonical email IST lowercase.
+
+Fix: `owner_email` wieder konsequent `.strip().lower()` an allen
+Quellen (users.email, cached_printix_users.email, find_printix_user_
+by_identity).
+
 ## 0.7.21 — 2026-06-30 — Self-Test-Endpoint /admin/printix-submit-selftest
 
 Neuer Admin-Endpoint der auf dem Server selbst 6 verschiedene Submit-

@@ -309,12 +309,13 @@ async def _process_desktop_send_bg(
             return
 
         # Owner-Email ermitteln (für Default: den User selbst).
-        # v0.7.10: Lowercase-Annahme aus v0.7.8 zurueckgenommen — die
-        # echte Printix-User-Liste fuer diesen Tenant zeigt dass Printix
-        # die Email case-preserving speichert (Marcus@nimtz.email mit
-        # grossem M). Erzwingen wir das aus cached_printix_users wenn
-        # vorhanden — sonst die DB-gespeicherte original-Email.
-        user_email = (user.get("email") or "").strip()
+        # v0.7.22: Email WIEDER lowercase. Direkter Test gegen Printix
+        # Cloud Print API bestaetigt: changeOwner/submit Endpoints sind
+        # case-sensitive. `marcus@nimtz.email` → 200 OK,
+        # `Marcus@nimtz.email` → 404 USER_NOT_FOUND. Der Print-Portal-
+        # Display-Name in der User-Liste war eine UI-Sache, nicht die
+        # canonical email. Mein v0.7.10-Revert war falsch.
+        user_email = (user.get("email") or "").strip().lower()
         owner_email = user_email
         try:
             px_id = (user.get("printix_user_id") or "").strip()
@@ -326,11 +327,11 @@ async def _process_desktop_send_bg(
                         "WHERE printix_user_id=?", (px_id,),
                     ).fetchone()
                 if row and row["email"]:
-                    owner_email = (row["email"] or "").strip()
+                    owner_email = (row["email"] or "").strip().lower()
             if not owner_email or "@" not in owner_email:
                 pxu = find_printix_user_by_identity(user_email)
                 if pxu and pxu.get("email"):
-                    owner_email = (pxu["email"] or "").strip()
+                    owner_email = (pxu["email"] or "").strip().lower()
         except Exception:
             pass
 
