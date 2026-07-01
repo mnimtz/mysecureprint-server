@@ -188,6 +188,22 @@ See [CHANGELOG.md](CHANGELOG.md) for the full history.
 
 ---
 
+## Repo layout (mono-repo)
+
+```
+mysecureprint-server/
+├── src/            Server (Python, FastAPI, uvicorn)
+├── docs/           Operator docs (deploy, Apple review, GDPR, ...)
+├── deploy/azure/   1-click Deploy-to-Azure template
+├── clients/
+│   ├── ios/        MySecurePrint iOS app (Xcode project, MySecurePrint.xcodeproj)
+│   └── macos/      MySecurePrint macOS Send helper + PrintixSendCore SwiftPM
+└── ...
+```
+
+Server + client apps live in the same repo so a server-API change and the
+corresponding iOS/macOS client update can ship as one commit / one PR.
+
 ## Documents in `docs/`
 
 - [`azure-deploy-guide.md`](docs/azure-deploy-guide.md) — Manual `az` CLI commands as alternative to the deploy-to-azure button.

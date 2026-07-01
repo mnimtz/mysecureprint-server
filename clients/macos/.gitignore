@@ -1,0 +1,15 @@
+# Swift Package Manager build output
+.build/
+.swiftpm/
+Package.resolved
+
+# Release artefacts (built by scripts/)
+dist/
+
+# Xcode crumbs (for those editing via Xcode)
+*.xcodeproj/
+xcuserdata/
+DerivedData/
+
+# macOS
+.DS_Store

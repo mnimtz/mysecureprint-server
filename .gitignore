@@ -34,3 +34,16 @@ backup_HA/
 
 # Claude Code local memory (agent guidance, not for public consumption)
 memory/
+
+# ─── iOS / macOS clients (Xcode/Swift build artefacts) ────────────
+# Nur SOURCES gehen in den Repo, nie Build-Outputs.
+clients/*/build/
+clients/*/.build/
+clients/*/DerivedData/
+clients/**/*.xcuserstate
+clients/**/xcuserdata/
+clients/**/*.xcworkspace/xcuserdata/
+clients/**/.swiftpm/
+clients/**/Package.resolved
+# ASC-API keys + private secrets — nicht committen
+clients/**/AuthKey_*.p8

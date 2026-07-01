@@ -1,5 +1,17 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.46 — 2026-07-01 — Mono-Repo: iOS + macOS Clients umgezogen
+
+Bisher lebten die MySecurePrint-Client-Apps (iOS + macOS) in einem separaten Repo (`github.com/mnimtz/Printix-MCP`) — historisch aus dem printix-mcp-Vorgänger. Das war irreführend: Namensgebung + Zugehörigkeit passten nicht. Jetzt sind sie unter `clients/` in diesem Repo:
+
+```
+clients/
+├── ios/     — MySecurePrint iOS-App (Xcode, MySecurePrint.xcodeproj)
+└── macos/   — MySecurePrint macOS Send-Helper + PrintixSendCore SwiftPM
+```
+
+Vorteil: Server-API-Änderung + Client-Anpassung landen im gleichen Commit / PR. `.gitignore` ergänzt: Xcode-Build-Artefakte (`build/`, `.build/`, `DerivedData/`, `xcuserdata/`) + ASC-API-Keys (`AuthKey_*.p8`) werden nicht committed.
+
 ## 0.7.45 — 2026-07-01 — /desktop/me: delegation_allowed Flag mit
 
 `/desktop/me` liefert jetzt zusätzlich das `delegation_allowed`-Boolean aus dem Admin-Setting `delegation_print_allowed`. iOS-App (ab v1.0.2) nutzt das um den User-Toggle „Delegation-Druck erlauben" in Settings auszublenden wenn der Admin das Feature server-seitig deaktiviert hat — vorher konnte der User ihn lokal einschalten, der Server hat aber jeden Delegate-Print rejected und der User war irritiert.

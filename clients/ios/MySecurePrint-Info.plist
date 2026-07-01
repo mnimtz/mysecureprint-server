@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>MySecurePrint</string>
+	<key>CFBundleName</key>
+	<string>MySecurePrint</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2026 Marcus Nimtz. All rights reserved.</string>
+	<!-- Export Compliance: Wir nutzen ausschliesslich iOS-Standard-
+	     Verschlüsselung (HTTPS via URLSession). Das befreit uns von
+	     der jaehrlichen Export-Erklaerung nach US-Recht. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<!-- App Transport Security: Die Server-URL ist vom User frei
+	     konfigurierbar — viele betreiben den printix-mcp-Server intern
+	     ohne oeffentliches TLS-Zertifikat (LAN, Self-Hosted, dev).
+	     NSAllowsLocalNetworking erlaubt .local, link-local und
+	     unqualified hostnames (LAN). Fuer routable IPs ohne TLS
+	     muesste der User HTTPS aufsetzen. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<false/>
+	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>MySecurePrint nutzt die Kamera, um den QR-Code aus dem Mitarbeiter-Portal zu scannen und den Server automatisch einzurichten.</string>
+	<key>NFCReaderUsageDescription</key>
+	<string>MySecurePrint liest die UID deiner RFID-Karte (z.B. Firmenausweis), damit du sie zum Druck-Release zuordnen kannst.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>de.nimtz.mysecureprint.oauth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>mysecureprint</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
