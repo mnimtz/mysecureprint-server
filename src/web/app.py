@@ -5938,69 +5938,95 @@ def create_app(session_secret: str) -> FastAPI:
             _admin_settings_ctx(request, user))
 
     @app.post("/admin/settings", response_class=HTMLResponse)
-    async def admin_settings_post(
-        request:              Request,
-        public_url:           str = Form(default=""),
-        capture_public_url:   str = Form(default=""),
-        entra_enabled:        str = Form(default=""),
-        entra_tenant_id:      str = Form(default=""),
-        entra_client_id:      str = Form(default=""),
-        entra_client_secret:  str = Form(default=""),
-        entra_auto_approve:   str = Form(default=""),
-        entra_redirect_uri:   str = Form(default=""),
-        ipps_public_url:      str = Form(default=""),
-        ipps_port:            str = Form(default=""),
-        global_mail_api_key:   str = Form(default=""),
-        global_mail_from:      str = Form(default=""),
-        global_mail_from_name: str = Form(default=""),
-        mail_provider:         str = Form(default=""),
-        mail_graph_sender:     str = Form(default=""),
-    ):
+    async def admin_settings_post(request: Request):
+        """v0.7.42: Section-safe save — nur Felder speichern die tatsächlich
+        im submitteten Form-Body waren.
+
+        Vorher-Bug: die Section-Filter (`?section=printix`) blendeten die
+        anderen Sections aus dem DOM. Beim POST wurden aber via
+        `Form(default="")` alle Felder als "" gelesen — der Handler
+        überschrieb dann Entra-Enabled/Tenant/Client-ID + Mail-Absender
+        etc. mit Leerstrings, obwohl der Admin nur die Printix-Section
+        gespeichert hatte. Resultat: Entra sah nach jedem Save als
+        „deaktiviert" aus, Mail-Absender-Feld leer, etc.
+
+        Fix: manuelles Form-Parsing mit `.get()` und Section-Markern.
+        """
         user = get_session_user(request)
         if not user or not user.get("is_admin"):
             return RedirectResponse("/login", status_code=302)
 
-        url = public_url.strip().rstrip("/")
-        capture_url = capture_public_url.strip().rstrip("/")
+        form = await request.form()
+
+        def has(field: str) -> bool:
+            return field in form
+
+        def val(field: str, default: str = "") -> str:
+            v = form.get(field, default)
+            return v.strip() if isinstance(v, str) else default
+
         try:
             from db import set_setting, _enc, audit
-            set_setting("public_url", url)
-            set_setting("capture_public_url", capture_url)
+            changes: list[str] = []
 
-            # v6.5.0: Cloud Print / IPPS (v6.6.0: LPR entfernt)
-            set_setting("ipps_public_url", ipps_public_url.strip().rstrip("/"))
-            set_setting("ipps_port", ipps_port.strip() or "")
+            # v6.5.0: Cloud Print / IPPS — nur wenn Section aktiv
+            if has("public_url"):
+                url = val("public_url").rstrip("/")
+                set_setting("public_url", url)
+                changes.append(f"public_url={url}")
+            if has("capture_public_url"):
+                capture_url = val("capture_public_url").rstrip("/")
+                set_setting("capture_public_url", capture_url)
+                if capture_url:
+                    changes.append(f"capture_public_url={capture_url}")
+            if has("ipps_public_url"):
+                set_setting("ipps_public_url", val("ipps_public_url").rstrip("/"))
+            if has("ipps_port"):
+                set_setting("ipps_port", val("ipps_port"))
 
-            # v6.7.25: Globales Mail-Fallback. API-Key nur überschreiben wenn
-            # ein neuer Wert eingegeben wurde (wie bei entra_client_secret).
-            if global_mail_api_key.strip():
-                set_setting("global_mail_api_key", _enc(global_mail_api_key.strip()))
-            set_setting("global_mail_from",      global_mail_from.strip())
-            set_setting("global_mail_from_name", global_mail_from_name.strip())
+            # v6.7.25: Globales Mail-Fallback — nur wenn Section aktiv
+            if has("global_mail_api_key") and val("global_mail_api_key"):
+                set_setting("global_mail_api_key",
+                              _enc(val("global_mail_api_key")))
+            if has("global_mail_from"):
+                set_setting("global_mail_from", val("global_mail_from"))
+            if has("global_mail_from_name"):
+                set_setting("global_mail_from_name",
+                              val("global_mail_from_name"))
 
             # v0.7.0: Mail-Provider-Auswahl (resend/graph) + Graph-Sender
-            _mp = (mail_provider or "").strip().lower()
-            if _mp in ("resend", "graph"):
-                set_setting("mail_provider", _mp)
-            set_setting("mail_graph_sender", mail_graph_sender.strip())
+            if has("mail_provider"):
+                _mp = val("mail_provider").lower()
+                if _mp in ("resend", "graph"):
+                    set_setting("mail_provider", _mp)
+            if has("mail_graph_sender"):
+                set_setting("mail_graph_sender", val("mail_graph_sender"))
 
-            # Entra-Settings speichern
-            set_setting("entra_enabled", "1" if entra_enabled else "0")
-            set_setting("entra_tenant_id", entra_tenant_id.strip())
-            set_setting("entra_client_id", entra_client_id.strip())
-            set_setting("entra_auto_approve", "1" if entra_auto_approve else "0")
-            # Secret nur überschreiben wenn neuer Wert eingegeben wurde
-            if entra_client_secret.strip():
-                set_setting("entra_client_secret", _enc(entra_client_secret.strip()))
-            # Redirect URI speichern (muss mit Azure App Registration übereinstimmen)
-            if entra_redirect_uri.strip():
-                set_setting("entra_redirect_uri", entra_redirect_uri.strip().rstrip("/"))
+            # Entra-Settings — nur wenn Section aktiv war (entra_enabled
+            # Checkbox ist Marker; unchecked = "" wenn im Form drin).
+            # Wichtig: wenn Entra-Section GAR NICHT gerendert war, fehlt
+            # entra_enabled komplett — dann bleibt der DB-Wert wie er ist.
+            if has("entra_enabled") or has("entra_tenant_id") or has("entra_client_id"):
+                set_setting("entra_enabled",
+                              "1" if has("entra_enabled") and val("entra_enabled") else "0")
+                if has("entra_tenant_id"):
+                    set_setting("entra_tenant_id", val("entra_tenant_id"))
+                if has("entra_client_id"):
+                    set_setting("entra_client_id", val("entra_client_id"))
+                if has("entra_auto_approve"):
+                    set_setting("entra_auto_approve",
+                                  "1" if val("entra_auto_approve") else "0")
+                if has("entra_client_secret") and val("entra_client_secret"):
+                    set_setting("entra_client_secret",
+                                  _enc(val("entra_client_secret")))
+                if has("entra_redirect_uri") and val("entra_redirect_uri"):
+                    set_setting("entra_redirect_uri",
+                                  val("entra_redirect_uri").rstrip("/"))
+                changes.append("entra=" +
+                                 ("aktiviert" if val("entra_enabled") else "deaktiviert"))
 
-            changes = [f"public_url={url}"]
-            if capture_url:
-                changes.append(f"capture_public_url={capture_url}")
-            if entra_enabled:
-                changes.append("entra=aktiviert")
+            if not changes:
+                changes.append("keine Änderungen erkannt")
             audit(user["id"], "admin_settings", ", ".join(changes))
         except Exception as e:
             logger.error("Admin-Settings-Fehler: %s", e)

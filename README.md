@@ -82,28 +82,33 @@ Hardened over v0.7.29–0.7.40 based on adversarial audits:
 
 ---
 
-## What this is / isn't
+## Feature scope
 
-| | mysecureprint-server (this repo) | [printix-mcp-docker](https://github.com/mnimtz/printix-mcp-docker) |
-|---|---|---|
-| **Audience** | iOS/macOS app users | AI assistants + Web admins + iOS users |
-| **MCP server (Claude / ChatGPT / Make.com)** | ❌ | ✅ ~132 tools |
-| **Reports + Scheduler + Report-Mail** | ❌ | ✅ |
-| **Capture webhook (paper→OCR pipeline)** | ❌ | ✅ |
-| **IPP/IPPS cloud-print listener** | ❌ | ✅ optional |
-| **Dashboard + tenant browser** | ❌ | ✅ |
-| **iOS app endpoints (Entra PKCE, cards, delegation)** | ✅ | ✅ |
-| **Guest-Print / Email-to-Print gateway** | ✅ (v0.7.28+) | ✅ |
-| **Mail via Microsoft Graph** | ✅ (v0.7.0+) | ✅ |
-| **Document conversion (Word/JPG/PDF → PCL XL)** | ✅ | ✅ |
-| **Merge duplicate user accounts** | ✅ (v0.7.33+) | ❌ |
-| **End-user management (register, invite, Entra SSO)** | ✅ | ✅ |
-| **HTTPS setup (Tunnel / Auto-TLS / cert import)** | ✅ | ✅ |
-| **Audit log, GDPR data export** | ✅ | ✅ |
-| **Target hosting** | Azure App Service (1-click) | Anywhere Docker runs |
-| **Container size** | ~600 MB (LibreOffice + Ghostscript) | ~800 MB |
+| Area | Status |
+|---|---|
+| **iOS + macOS app backend** — Entra PKCE, NFC card enrolment, multi-target print, delegation, share-sheet upload | ✅ |
+| **Print delegation** — send jobs to other users' SecurePrint queues (admin-controlled toggle, off by default for GDPR) | ✅ |
+| **Guest-Print / Email-to-Print gateway** — watch an O365 mailbox, print attachments on behalf of whitelisted external senders + auto-recognized internal users | ✅ (v0.7.28+) |
+| **Document conversion** — Word / Excel / PowerPoint / images (HEIC/PNG/JPG) / plain text / PDF → PCL XL via LibreOffice + Ghostscript | ✅ |
+| **Microsoft Graph mail** — send system mails from your own O365 tenant, or fall back to Resend HTTP API | ✅ (v0.7.0+) |
+| **Entra ID auto-setup** — device-code wizard creates the App Registration, generates client secret, grants tenant-wide admin consent (openid/profile/email/User.Read + optional Mail.Send/Mail.Read) | ✅ |
+| **Entra ↔ local account linking** — same email in both auth systems auto-links on next login (with tid verification against `entra_tenant_id`) | ✅ (v0.7.32+) |
+| **User management** — invite via email, bulk CSV-import, individual create, edit, suspend, delete, **merge duplicates** | ✅ |
+| **End-user self-service portal** — my jobs, my delegates, my cloud-print settings | ✅ |
+| **8 UI languages** — de / en / fr / es / it / nl / nb / sv + 7 fun-mode dialects | ✅ (v0.7.31+) |
+| **MCP tool exposure** — Claude / ChatGPT / Make.com integration via a tenant-scoped MCP endpoint | ⚠ partial — MCP OAuth + Bearer scaffolding is in (`/admin/mcp-access`, `/admin/mcp-permissions`) but the tool catalog is smaller than in the operational Printix-MCP fork |
+| **Rate limiting on desktop-login** — 8 tries per 5 min, dual IP + username bucket | ✅ (v0.7.30+) |
+| **HTTPS setup** — Cloudflare Tunnel wizard, Let's-Encrypt Auto-TLS on custom domain, manual cert import | ✅ |
+| **GDPR data export + Privacy/Imprint pages** — full-JSON per-user dump, TMG-compliant legal pages generated from operator settings | ✅ |
+| **Audit log + API-Trace dashboard** — every admin action + outbound Printix/Graph call visible with per-admin toggle | ✅ |
+| **Backups** — encrypted daily blob-backup to Azure Storage, manual on-demand export | ✅ |
+| **Reports + Scheduler + Report-Mail** | ❌ — not shipped in this build |
+| **Capture webhook (paper→OCR pipeline)** | ❌ — not shipped in this build |
+| **IPP/IPPS cloud-print listener** | ❌ — not shipped in this build |
+| **Target hosting** | Azure App Service (1-click) or any Docker host |
+| **Container size** | ~600 MB (LibreOffice + Ghostscript included) |
 
-Use **this repo** if you want the iOS-app backend with print conversion + Guest-Print + a clean admin UI. Use **printix-mcp-docker** if you also want AI-assistant integration or the operational features above.
+Optimised for teams who want a self-hosted, Azure-native companion for the MySecurePrint iOS/macOS apps — with the option to expose Printix data to AI assistants (Claude, ChatGPT) via MCP.
 
 ---
 

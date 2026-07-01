@@ -1,5 +1,16 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.42 — 2026-07-01 — Bugfix: /admin/settings-Save überschrieb fremde Sections
+
+**Kritischer Fix.** Der Section-Filter (`?section=printix`, `?section=entra` etc.) blendete andere Sektionen aus dem DOM aus. Beim POST wurden aber alle `Form(default="")`-Felder als leere Strings gelesen — der Handler überschrieb dann die andere Section mit `""` / `"0"`. Konkrete Auswirkungen die der User berichtete:
+
+- „EntraID erscheint immer als nicht aktiviert" nach Speichern in Printix-Section → weil `entra_enabled` beim Save auf `"0"` gefallen ist.
+- „Email-Absender wird leer, Anzeigename wird leer" → `global_mail_from` / `global_mail_from_name` / `mail_graph_sender` wurden mit leeren Strings überschrieben.
+
+Fix: Handler parst jetzt `request.form()` direkt und prüft mit `has(field)`, ob das Feld überhaupt im submitteten Form-Body war. Fehlende Felder bleiben unangetastet.
+
+Außerdem README aufgeräumt: „What this is / isn't" umbenannt zu „Feature scope", Vergleichstabelle mit `printix-mcp-docker` entfernt und durch eine kompakte Feature-Übersicht ersetzt (inkl. MCP-Scaffolding, das jetzt drin ist).
+
 ## 0.7.41 — 2026-07-01 — i18n Coverage Runde 2 (Massen-Übersetzung)
 
 Aus 6 parallelen Übersetzungs-Läufen (einer pro Ziel-Sprache) für alle live-benutzten, kurzen UI-Strings. Coverage der ~977 short+live Keys pro Sprache:
