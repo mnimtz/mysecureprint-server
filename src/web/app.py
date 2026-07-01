@@ -1021,11 +1021,17 @@ def create_app(session_secret: str) -> FastAPI:
     async def login_get(request: Request):
         if get_session_user(request):
             return RedirectResponse("/", status_code=302)
-        # v0.7.34: post-merge info wenn der User seinen Session-Account
-        # gerade in einen anderen gemerged hat.
+        # v0.7.34/37: post-merge info wenn der User seinen Session-Account
+        # gerade in einen anderen gemerged hat. `_` ist nur ein Template-
+        # Kontext-Var — hier verwenden wir direkt den TRANSLATIONS-Lookup.
         info = None
         if request.query_params.get("merged") == "1":
-            info = _("login_after_merge_info")
+            from web.i18n import TRANSLATIONS as _TR
+            _lang = (request.session.get("lang")
+                       or request.query_params.get("lang")
+                       or "de")
+            info = ((_TR.get(_lang) or _TR.get("en") or {})
+                     .get("login_after_merge_info", ""))
         return templates.TemplateResponse("login.html", {
             "request": request, "error": None, "info": info,
             "entra_enabled": _entra_login_enabled(),

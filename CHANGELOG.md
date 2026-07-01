@@ -1,5 +1,11 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.37 — 2026-07-01 — /login?merged=1 crashte mit NameError
+
+Fix: `_(...)` ist in `login_get` kein importierter Callable, sondern nur ein Template-Kontext-Var. Der Aufruf `_("login_after_merge_info")` warf `NameError: name '_' is not defined` → HTTP 500 direkt nach dem Merge, kurz nachdem die Session verworfen wurde. Der User sah dann statt der Info-Nachricht einen Server-Error.
+
+Jetzt: TRANSLATIONS-Dict direkt gelesen, Fallback auf Englisch.
+
 ## 0.7.36 — 2026-07-01 — Merge + Auto-Link: users.updated_at existiert nicht
 
 Bugfix: `users`-Tabelle hat historisch nur `created_at`, kein `updated_at`. Zwei UPDATE-Queries in v0.7.32/33 referenzierten fälschlich `updated_at` und schlugen mit `sqlite3.OperationalError: no such column: updated_at` fehl:
