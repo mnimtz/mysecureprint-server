@@ -1,5 +1,22 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.41 — 2026-07-01 — i18n Coverage Runde 2 (Massen-Übersetzung)
+
+Aus 6 parallelen Übersetzungs-Läufen (einer pro Ziel-Sprache) für alle live-benutzten, kurzen UI-Strings. Coverage der ~977 short+live Keys pro Sprache:
+
+- Niederländisch: **99%** (970/977) native-übersetzt
+- Französisch: **97%** (955/977)
+- Norwegisch (Bokmål): 88% (865/977)
+- Italienisch: 88% (863/977)
+- Spanisch: 85% (833/977)
+- Schwedisch: 78% (763/977)
+
+Umfang begrenzt auf:
+1. Live-Keys — nur solche die in Templates oder Python-Code tatsächlich referenziert werden. Aus 2825 definierten Keys sind 1092 live; die restlichen 1740 stammen aus geerbten Printix-MCP-Legacy-Templates die es hier nicht mehr gibt.
+2. Kurze Strings (< 100 Zeichen). Legal-/GDPR-Paragrafen bleiben vorerst auf English-Fallback — für die kommt ein manueller Review-Pass in einer späteren Runde.
+
+Außerdem: 5 im Code referenzierte aber nirgends definierte Keys nachgezogen (`emp_cloud_print`, `emp_delegation`, `emp_my_jobs`, `nav_employees`, `reg_summary_server_url`) — vorher zeigte die UI den Roh-Key.
+
 ## 0.7.40 — 2026-07-01 — i18n Coverage Runde 1
 
 Aus der User-Screenshot-Analyse (NL-UI zeigte englische Sidebar-Labels + „Datenschutz|Impressum|Rechtliches" Footer in Deutsch):
