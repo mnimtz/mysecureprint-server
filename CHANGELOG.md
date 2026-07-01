@@ -1,5 +1,16 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.31 — 2026-07-01 — i18n-Backfill für Admin-Templates
+
+Aus dem i18n-Audit: mehrere Admin-Templates hatten hardcodete deutsche Strings die auf englischer UI stehen blieben. Betrifft insbesondere die vom User genannten Seiten:
+
+- `admin_user_bulk.html`: Titel „Benutzer Bulk-Import (CSV)" + Beschreibung + alle Labels/Buttons/Hints jetzt via `_()` gekapselt.
+- `admin_user_create.html`: „Konto wird sofort angelegt, kein Registrierungs-Wizard." + Printix-Credentials-Hinweis.
+- `admin_email_templates.html`: „Template-Sprache" Label + Beschreibung „Bestimmt die Sprache der eingebetteten Bausteine …" + Placeholder-Hinweis für `{qr_code}`/`{app_store_url}`.
+- `admin_guestprint.html`: Intro, Mailbox-Liste, Whitelist, Detail-Formular, Buttons — komplett übersetzbar.
+
+Neue Keys in `TRANSLATIONS`: 41 pro Sprache (de/en explizit, fr/es/it/nl/nb/sv teilweise übersetzt, Rest fällt automatisch auf en zurück).
+
 ## 0.7.30 — 2026-07-01 — Backlog aus dem Audit: Rate-Limiting + TokenManager-Refactor
 
 **High**

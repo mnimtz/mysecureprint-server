@@ -22,15 +22,12 @@
       <code>{admin_name}</code> ·
       <code>{app_store_url}</code> ·
       <code>{qr_code}</code>
-      <div style="margin-top:6px;font-size:.85em;color:#475569;">
-        <code>{qr_code}</code> wird an der Stelle eingesetzt, wo du ihn platzierst — sonst am Ende der Mail.
-        <code>{app_store_url}</code> verweist auf MySecurePrint im App Store.
-      </div>
+      <div style="margin-top:6px;font-size:.85em;color:#475569;">{{ _('email_tpl_qr_hint') }}</div>
     </div>
 
     <form method="post" action="/admin/email-templates">
       <div class="form-group" style="margin-bottom:10px;">
-        <label>Template-Sprache</label>
+        <label>{{ _('email_tpl_lang_label') }}</label>
         <select name="tpl_lang" style="width:100%;">
           {% set lang_options = [
               ('de', 'Deutsch'), ('en', 'English'), ('fr', 'Français'),
@@ -44,9 +41,7 @@
             </option>
           {% endfor %}
         </select>
-        <small class="hint" style="color:#666;">
-          Bestimmt die Sprache der eingebetteten Bausteine (QR-Label, Standard-Footer) — damit dein Body-Text und die Beilagen in der gleichen Sprache sind.
-        </small>
+        <small class="hint" style="color:#666;">{{ _('email_tpl_lang_hint') }}</small>
       </div>
 
       <div class="form-group">

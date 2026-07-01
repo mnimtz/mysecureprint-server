@@ -4,9 +4,7 @@
 <div class="container">
   <div class="card" style="max-width:520px;margin:40px auto;">
     <h2 class="section-title">{{ _('admin_create_user') }}</h2>
-    <p class="section-sub" style="margin-bottom:24px;">
-      Konto wird sofort angelegt, kein Registrierungs-Wizard.
-    </p>
+    <p class="section-sub" style="margin-bottom:24px;">{{ _('users_create_hint') }}</p>
 
     {% if saved %}
     <div class="alert alert-success">
@@ -76,10 +74,7 @@
 
     {% if saved %}
     <div class="divider"></div>
-    <p style="font-size:.88em;color:#6b7280;">
-      💡 Printix-Credentials kann der neue Benutzer nach dem Login unter
-      <a href="/admin/settings">Einstellungen</a> selbst eintragen.
-    </p>
+    <p style="font-size:.88em;color:#6b7280;">{{ _('users_create_creds_hint') }}</p>
     {% endif %}
   </div>
 </div>

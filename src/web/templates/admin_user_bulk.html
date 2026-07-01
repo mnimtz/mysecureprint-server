@@ -3,12 +3,8 @@
 {% block content %}
 <div class="container">
   <div class="card" style="max-width:780px;margin:40px auto;">
-    <h2 class="section-title">📥 Benutzer Bulk-Import (CSV)</h2>
-    <p class="section-sub" style="margin-bottom:20px;">
-      Legt mehrere Benutzer auf einmal an. Optional: Einladungs-Mail mit
-      temporärem Passwort und/oder Anlage in Printix (Voraussetzung:
-      User-Management-Credentials).
-    </p>
+    <h2 class="section-title">📥 {{ _('bulk_title') }}</h2>
+    <p class="section-sub" style="margin-bottom:20px;">{{ _('bulk_intro') }}</p>
 
     {% if error %}
     <div class="alert alert-error">⚠ {{ error }}</div>
@@ -29,7 +25,7 @@
         <tr>
           <th>Zeile</th>
           <th>E-Mail</th>
-          <th>Benutzername</th>
+          <th>{{ _('bulk_col_username') }}</th>
           <th>Status</th>
           <th>Details</th>
         </tr>
@@ -59,7 +55,7 @@
 
     <form method="post" action="/admin/users/bulk-import" enctype="multipart/form-data">
       <div class="form-group">
-        <label>CSV-Datei</label>
+        <label>{{ _('bulk_csv_file') }}</label>
         <input type="file" name="csv_file" accept=".csv,text/csv">
         <small class="hint">
           UTF-8, erste Zeile = Header. Erlaubte Spalten:
@@ -71,7 +67,7 @@
       </div>
 
       <div class="form-group">
-        <label>... oder CSV direkt einfügen</label>
+        <label>{{ _('bulk_or_paste') }}</label>
         <textarea name="csv_text" rows="6"
                   style="font-family:ui-monospace,monospace;font-size:.88em;"
                   placeholder="email,full_name,username,local_role&#10;max@acme.com,Max Mustermann,max,employee"></textarea>
@@ -83,17 +79,15 @@
           <option value="employee">{{ _('role_employee') }}</option>
           <option value="admin">{{ _('role_admin') }}</option>
         </select>
-        <small class="hint">Wird pro Zeile durch <code>local_role</code> überschrieben.</small>
+        <small class="hint">{{ _('bulk_role_override') }}</small>
       </div>
 
       <div class="form-group">
         <label>
           <input type="checkbox" name="send_invitation" value="1" checked>
-          Einladungs-Mail mit temporärem Passwort senden
+          {{ _('bulk_send_invite') }}
         </label>
-        <small class="hint">
-          Voraussetzung: In den Einstellungen sind Mail-API-Key und Absender konfiguriert.
-        </small>
+        <small class="hint">{{ _('bulk_invite_prereq') }}</small>
       </div>
 
       <div class="form-group">
@@ -112,25 +106,21 @@
       <div class="form-group">
         <label>
           <input type="checkbox" name="create_printix" value="1">
-          Benutzer auch in Printix anlegen
+          {{ _('bulk_also_printix') }}
         </label>
-        <small class="hint">
-          Benötigt gültige Printix-User-Management-Credentials im Tenant.
-          Die Printix-Role-Zuordnung erfolgt über die CSV-Spalte <code>printix_role</code>
-          (USER oder GUEST_USER). Fehlt sie, greift der Standard unten.
-        </small>
+        <small class="hint">{{ _('bulk_printix_prereq') }}</small>
       </div>
 
       <div class="form-group">
         <label>Standard Printix-Rolle</label>
         <select name="default_printix_role">
-          <option value="USER">USER (regulärer Mitarbeiter)</option>
+          <option value="USER">{{ _('bulk_role_user') }}</option>
           <option value="GUEST_USER" selected>GUEST_USER (Gast mit Ablaufdatum)</option>
         </select>
       </div>
 
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:20px;">
-        <button type="submit" class="btn btn-primary">📥 Import starten</button>
+        <button type="submit" class="btn btn-primary">📥 {{ _('bulk_start') }}</button>
         <a href="/admin/users" class="btn btn-secondary">{{ _('cancel') }}</a>
       </div>
     </form>
