@@ -199,7 +199,7 @@
 			mainGroup = CA17DD1F2F24BB4F00DC2502;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				CA13A1AF2F9749BE001B6E19 /* XCLocalSwiftPackageReference "../../macos-client" */,
+				CA13A1AF2F9749BE001B6E19 /* XCLocalSwiftPackageReference "../macos" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = CA17DD292F24BB4F00DC2502 /* Products */;
@@ -543,9 +543,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		CA13A1AF2F9749BE001B6E19 /* XCLocalSwiftPackageReference "../../macos-client" */ = {
+		CA13A1AF2F9749BE001B6E19 /* XCLocalSwiftPackageReference "../macos" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "../../macos-client";
+			relativePath = "../macos";
 		};
 /* End XCLocalSwiftPackageReference section */
 
