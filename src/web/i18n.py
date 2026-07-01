@@ -33820,6 +33820,26 @@ _V0734_MERGE_LOGIN_INFO = {
     "de": {"login_after_merge_info": "Deine beiden Konten wurden zusammengeführt. Bitte logge dich jetzt mit dem Ziel-Konto neu ein — Passwort und Microsoft-Login funktionieren beide."},
     "en": {"login_after_merge_info": "Your two accounts have been merged. Please sign in again with the target account — both password and Microsoft login now lead to the same user."},
 }
+
+_V0738_USER_COLS = {
+    "de": {
+        "admin_login_method": "Login-Weg",
+        "admin_last_login":   "Letzter Login",
+        "admin_login_local":  "Lokal (Passwort)",
+        "admin_login_pw":     "Passwort möglich",
+    },
+    "en": {
+        "admin_login_method": "Login method",
+        "admin_last_login":   "Last login",
+        "admin_login_local":  "Local (password)",
+        "admin_login_pw":     "Password possible",
+    },
+}
+for _lang, _keys in _V0738_USER_COLS.items():
+    TRANSLATIONS.setdefault(_lang, {}).update(_keys)
+for _lang in list(TRANSLATIONS.keys()):
+    if _lang not in _V0738_USER_COLS:
+        TRANSLATIONS[_lang].update(_V0738_USER_COLS["en"])
 for _lang, _keys in _V0734_MERGE_LOGIN_INFO.items():
     TRANSLATIONS.setdefault(_lang, {}).update(_keys)
 for _lang in list(TRANSLATIONS.keys()):

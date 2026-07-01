@@ -1100,6 +1100,11 @@ def create_app(session_secret: str) -> FastAPI:
             audit(user["id"], "login", "Eingeloggt")
         except Exception:
             pass
+        try:
+            from db import record_user_login
+            record_user_login(user["id"], "password")
+        except Exception:
+            pass
 
         # v6.2.0: Background-Prefetch — Tenant-Daten werden parallel
         # geladen, damit die ersten Seiten nach dem Login sofort da sind.
@@ -1277,6 +1282,11 @@ def create_app(session_secret: str) -> FastAPI:
         request.session["user_id"] = user["id"]
         try:
             audit(user["id"], "login", f"Entra-Login ({user_info.get('email', '')})")
+        except Exception:
+            pass
+        try:
+            from db import record_user_login
+            record_user_login(user["id"], "entra")
         except Exception:
             pass
 

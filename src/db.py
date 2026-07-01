@@ -231,6 +231,12 @@ def init_db() -> None:
         # v0.1.3: Zeitpunkt des letzten erfolgreichen MS-refresh-Checks
         if "entra_last_refresh_at" not in existing_cols:
             conn.execute("ALTER TABLE users ADD COLUMN entra_last_refresh_at TEXT NOT NULL DEFAULT ''")
+        # v0.7.38: Zeitpunkt + Methode des letzten Logins fuer die
+        # User-Uebersicht (spalte im Admin-UI). ISO-8601 UTC.
+        if "last_login_at" not in existing_cols:
+            conn.execute("ALTER TABLE users ADD COLUMN last_login_at TEXT NOT NULL DEFAULT ''")
+        if "last_login_method" not in existing_cols:
+            conn.execute("ALTER TABLE users ADD COLUMN last_login_method TEXT NOT NULL DEFAULT ''")
     # Sichere Migration für tenants-Tabelle: Alert-Spalten hinzufügen
     with _conn() as conn:
         existing_t = {r[1] for r in conn.execute("PRAGMA table_info(tenants)").fetchall()}
@@ -1012,6 +1018,18 @@ def set_user_status(user_id: str, status: str) -> None:
         conn.execute("UPDATE users SET status=? WHERE id=?", (status, user_id))
 
 
+def record_user_login(user_id: str, method: str = "password") -> None:
+    """v0.7.38: schreibt Zeitpunkt + Methode des letzten Logins.
+    method = 'password' | 'entra' | 'entra_link' | 'bearer'."""
+    if not user_id:
+        return
+    with _conn() as conn:
+        conn.execute(
+            "UPDATE users SET last_login_at = ?, last_login_method = ? "
+            "WHERE id = ?",
+            (_now(), method[:20], user_id))
+
+
 def find_duplicate_users_by_email() -> list[dict]:
     """v0.7.32: Liefert Gruppen von Usern mit gleicher (case-insensitive)
     Email. Wird vom Admin-Merge-Tool angezeigt.
@@ -1358,6 +1376,8 @@ def _user_public(user: dict) -> dict:
         "invitation_accepted_at": user.get("invitation_accepted_at", ""),
         "created_at": user.get("created_at", ""),
         "entra_oid":  user.get("entra_oid", ""),
+        "last_login_at": user.get("last_login_at", ""),
+        "last_login_method": user.get("last_login_method", ""),
         # v7.2.27: MCP role override — needed by /admin/mcp-permissions
         # to render the User-Override section. Without this, set values
         # were persisted to the DB but the next page load would always

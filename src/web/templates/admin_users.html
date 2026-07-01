@@ -51,7 +51,9 @@
           <th>{{ _('admin_email') }}</th>
           <th>{{ _('admin_role') }}</th>
           <th>{{ _('admin_assignment') }}</th>
+          <th>{{ _('admin_login_method') }}</th>
           <th>{{ _('admin_status') }}</th>
+          <th>{{ _('admin_last_login') }}</th>
           <th>{{ _('admin_invitation') }}</th>
           <th>{{ _('common_created') }}</th>
           <th>{{ _('common_actions') }}</th>
@@ -92,12 +94,38 @@
             {% endif %}
           </td>
           <td>
+            {% if u.entra_oid %}
+              <span class="badge badge-blue" title="Entra ID Object: {{ u.entra_oid[:12] }}…">
+                🔷 Entra
+              </span>
+              {% if u.username %}
+                <div style="font-size:.78em;color:#6b7280;margin-top:2px;">
+                  + {{ _('admin_login_pw') }}
+                </div>
+              {% endif %}
+            {% else %}
+              <span class="badge badge-gray">🔒 {{ _('admin_login_local') }}</span>
+            {% endif %}
+          </td>
+          <td>
             {% if u.status == 'approved' %}
               <span class="badge badge-green">✓ {{ _('admin_status_active') }}</span>
             {% elif u.status == 'pending' %}
               <span class="badge badge-yellow">⏳ {{ _('admin_status_pending') }}</span>
             {% else %}
               <span class="badge badge-red">✗ {{ _('admin_status_suspended') }}</span>
+            {% endif %}
+          </td>
+          <td style="font-size:.85em;color:#6b7280;white-space:nowrap;">
+            {% if u.last_login_at %}
+              {{ u.last_login_at[:16].replace('T', ' ') }}
+              {% if u.last_login_method %}
+                <div style="font-size:.78em;color:#9ca3af;">
+                  via {{ u.last_login_method }}
+                </div>
+              {% endif %}
+            {% else %}
+              —
             {% endif %}
           </td>
           <td>

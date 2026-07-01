@@ -1,5 +1,16 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.38 — 2026-07-01 — Benutzer-Übersicht: Login-Weg + Letzter Login
+
+Zwei neue Spalten in `/admin/users`:
+
+- **Login-Weg**: zeigt pro User, ob der Account per Entra (Microsoft), lokal (Passwort) oder beides eingerichtet ist. Entra-Accounts bekommen ein blaues 🔷-Badge; wenn zusätzlich ein Username existiert (Passwort-Login möglich), steht darunter „+ Passwort möglich". Reine Lokal-Accounts kriegen ein 🔒-Badge.
+- **Letzter Login**: Zeitpunkt + Methode (`password` / `entra`). Wird bei jedem erfolgreichen Login (lokal und Entra) via `record_user_login(user_id, method)` gepflegt.
+
+Zwei neue Spalten in `users`-Tabelle via safe-migration:
+- `last_login_at` (TEXT, ISO-8601 UTC)
+- `last_login_method` (TEXT, `password` | `entra`)
+
 ## 0.7.37 — 2026-07-01 — /login?merged=1 crashte mit NameError
 
 Fix: `_(...)` ist in `login_get` kein importierter Callable, sondern nur ein Template-Kontext-Var. Der Aufruf `_("login_after_merge_info")` warf `NameError: name '_' is not defined` → HTTP 500 direkt nach dem Merge, kurz nachdem die Session verworfen wurde. Der User sah dann statt der Info-Nachricht einen Server-Error.
