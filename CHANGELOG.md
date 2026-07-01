@@ -1,5 +1,21 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.40 — 2026-07-01 — i18n Coverage Runde 1
+
+Aus der User-Screenshot-Analyse (NL-UI zeigte englische Sidebar-Labels + „Datenschutz|Impressum|Rechtliches" Footer in Deutsch):
+
+**Norsk Bokmål (nb) — Vollmerge**
+Bokmål (`nb`) hatte nur 56 Keys, sah zu 97% wie englisch aus. Wir mergen jetzt komplett aus `no` (2754 Keys) — vom User meist als „Norwegisch" gemeint. Explizite `nb`-Overrides bleiben.
+
+**Sidebar + Users-Seite: hochsichtbare Keys explizit übersetzt** für fr / es / it / nl / nb / sv. Betrifft:
+- Alle 4 Kategorie-Überschriften (`nav_cat_users`, `nav_cat_config`, `nav_cat_gdpr`, `nav_cat_cloud`)
+- Alle 25 Sub-Links (nav_overview, nav_bulk_import, nav_users_merge, nav_email_templates, nav_setup_status, nav_cfg_*, nav_gdpr_*, nav_rbac, nav_audit, nav_blob_backup, nav_mcp_access, nav_my_portal)
+- Common (common_actions, common_created, common_back)
+- Users-Seite (admin_users_sub)
+- Footer (legal_nav_imprint, legal_nav_legal)
+
+**Bekannte Rest-Lücken (Backlog):** fr/es/it/nl/nb/sv haben je noch ~900 Keys die identisch zu Englisch sind — d.h. formal übersetzt, praktisch nicht. Weitere Runden folgen. Total 2825 unique Keys × 6 non-primary Sprachen ist manuell nur in Batches machbar.
+
 ## 0.7.39 — 2026-07-01 — Spalten-Reihenfolge: Letzter Login rechts neben Erstellt
 
 Kosmetik. Vorher: Letzter Login stand direkt hinter Status. Jetzt: Login-Weg → Status → Einladung → Erstellt → Letzter Login → Aktionen.
