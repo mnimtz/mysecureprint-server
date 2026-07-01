@@ -2880,6 +2880,57 @@ def create_app(session_secret: str) -> FastAPI:
             "error": err_msg, **t_ctx(request)
         })
 
+    # v0.7.32: Admin-Merge-Tool fuer Duplikat-User (gleiche Email,
+    # zwei Records — z.B. lokaler Account + Entra-Auto-Create). GET
+    # listet alle Duplikate; POST fuehrt zwei explizit ausgewaehlte
+    # User zusammen.
+    @app.get("/admin/users/merge", response_class=HTMLResponse)
+    async def admin_users_merge_get(request: Request):
+        admin = get_session_user(request)
+        if not admin or not admin.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        from db import find_duplicate_users_by_email
+        duplicates = find_duplicate_users_by_email()
+        return templates.TemplateResponse(
+            "admin_users_merge.html",
+            {"request": request, "user": admin,
+              "duplicates": duplicates,
+              "success": request.query_params.get("ok"),
+              "error": request.query_params.get("err"),
+              **t_ctx(request)})
+
+    @app.post("/admin/users/merge", response_class=RedirectResponse)
+    async def admin_users_merge_post(
+        request: Request,
+        source_id: str = Form(...),
+        target_id: str = Form(...),
+    ):
+        admin = get_session_user(request)
+        if not admin or not admin.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        # Kein Selbst-Delete
+        if source_id == (admin.get("id") or admin.get("user_id")):
+            return RedirectResponse(
+                "/admin/users/merge?err=cannot+merge+yourself",
+                status_code=303)
+        try:
+            from db import merge_users, MergeError
+            merge_users(source_id, target_id,
+                          initiated_by=admin.get("id"))
+        except MergeError as e:
+            from urllib.parse import quote_plus
+            return RedirectResponse(
+                f"/admin/users/merge?err={quote_plus(str(e))}",
+                status_code=303)
+        except Exception as e:
+            logger.error("user_merge failed: %s", e)
+            from urllib.parse import quote_plus
+            return RedirectResponse(
+                f"/admin/users/merge?err={quote_plus('unexpected: ' + str(e)[:200])}",
+                status_code=303)
+        return RedirectResponse("/admin/users/merge?ok=1",
+                                  status_code=303)
+
     @app.post("/admin/users/{user_id}/approve")
     async def admin_approve(user_id: str, request: Request):
         admin = get_session_user(request)

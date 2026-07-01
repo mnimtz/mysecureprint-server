@@ -1012,6 +1012,176 @@ def set_user_status(user_id: str, status: str) -> None:
         conn.execute("UPDATE users SET status=? WHERE id=?", (status, user_id))
 
 
+def find_duplicate_users_by_email() -> list[dict]:
+    """v0.7.32: Liefert Gruppen von Usern mit gleicher (case-insensitive)
+    Email. Wird vom Admin-Merge-Tool angezeigt.
+    Format: list of dicts {email, users: [user_dict, ...]}."""
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM users WHERE email IS NOT NULL AND email != '' "
+            "ORDER BY LOWER(email), created_at ASC"
+        ).fetchall()
+    groups: dict[str, list[dict]] = {}
+    for r in rows:
+        d = dict(r)
+        key = (d.get("email") or "").strip().lower()
+        if key:
+            groups.setdefault(key, []).append(_user_public(d))
+    return [{"email": e, "users": us}
+            for e, us in groups.items() if len(us) > 1]
+
+
+class MergeError(Exception):
+    """Fehler beim User-Merge (Konflikte, letzter Admin, Tenant-Owner, ...)."""
+
+
+def merge_users(source_id: str, target_id: str,
+                    initiated_by: str = "") -> dict:
+    """v0.7.32: Fuehrt zwei User zusammen — alle FK-Referenzen von
+    `source_id` werden auf `target_id` umgebogen, `source_id` wird
+    geloescht.
+
+    Sicherheits-Checks:
+      - source != target
+      - Beide existieren
+      - Beide haben dieselbe (case-insensitive) Email — sonst refuse
+      - Wenn source_id ein Tenant-Owner ist:
+          - Target ist auch Tenant-Owner? → Refuse (Konflikt)
+          - Sonst: Tenants werden an target ueberschrieben
+      - Wenn source der letzte Admin ist und target kein Admin → refuse
+      - Wenn source `entra_oid` gesetzt hat und target nicht → wird auf
+        target verschoben (der Wunsch-Fall).
+      - Wenn beide entra_oid haben → refuse.
+
+    Returns dict mit den ausgefuehrten Updates fuer Audit-Log.
+    """
+    if not source_id or not target_id:
+        raise MergeError("source or target missing")
+    if source_id == target_id:
+        raise MergeError("source and target identical")
+
+    with _conn() as conn:
+        src = conn.execute(
+            "SELECT * FROM users WHERE id = ?", (source_id,)
+        ).fetchone()
+        tgt = conn.execute(
+            "SELECT * FROM users WHERE id = ?", (target_id,)
+        ).fetchone()
+        if not src or not tgt:
+            raise MergeError("source or target user not found")
+        src_d = dict(src)
+        tgt_d = dict(tgt)
+
+        # Email-Sanity — Duplikate MUESSEN dieselbe Email haben
+        se = (src_d.get("email") or "").strip().lower()
+        te = (tgt_d.get("email") or "").strip().lower()
+        if not se or se != te:
+            raise MergeError(
+                f"email mismatch — source='{se}' target='{te}'")
+
+        # Entra-OID-Konflikt
+        src_oid = (src_d.get("entra_oid") or "").strip()
+        tgt_oid = (tgt_d.get("entra_oid") or "").strip()
+        if src_oid and tgt_oid and src_oid != tgt_oid:
+            raise MergeError(
+                "both users have entra_oid — real identity conflict")
+
+        # Letzter Admin
+        if src_d.get("is_admin"):
+            admin_count = conn.execute(
+                "SELECT COUNT(*) FROM users WHERE is_admin = 1 "
+                "AND status = 'approved'"
+            ).fetchone()[0]
+            if admin_count <= 1 and not tgt_d.get("is_admin"):
+                raise MergeError(
+                    "source is the last admin — target must be admin too")
+
+        # Tenant-Owner-Konflikt
+        src_tenant = conn.execute(
+            "SELECT id FROM tenants WHERE user_id = ?", (source_id,)
+        ).fetchone()
+        tgt_tenant = conn.execute(
+            "SELECT id FROM tenants WHERE user_id = ?", (target_id,)
+        ).fetchone()
+        if src_tenant and tgt_tenant and src_tenant["id"] != tgt_tenant["id"]:
+            raise MergeError(
+                "both users own different tenants — cannot merge")
+
+        # ── Update-Phase ─────────────────────────────────────────────────
+        updates: dict[str, int] = {}
+
+        def _upd(sql: str, name: str):
+            cur = conn.execute(sql, (target_id, source_id))
+            if cur.rowcount:
+                updates[name] = updates.get(name, 0) + cur.rowcount
+
+        # Alle bekannten Tabellen mit user-FK. Wir gehen defensiv vor:
+        # jeder UPDATE wird in try/except gewrappt (via _upd) damit fehlende
+        # Tabellen (z.B. nach DB-Migration) nicht die ganze Merge kippen.
+        for sql, label in [
+            ("UPDATE audit_log SET user_id = ? WHERE user_id = ?", "audit_log.user_id"),
+            ("UPDATE tenants SET user_id = ? WHERE user_id = ?", "tenants.user_id"),
+            ("UPDATE users SET invited_by_user_id = ? WHERE invited_by_user_id = ?", "users.invited_by_user_id"),
+            ("UPDATE delegations SET owner_user_id = ? WHERE owner_user_id = ?", "delegations.owner_user_id"),
+            ("UPDATE delegations SET delegate_user_id = ? WHERE delegate_user_id = ?", "delegations.delegate_user_id"),
+            ("UPDATE delegations SET created_by = ? WHERE created_by = ?", "delegations.created_by"),
+            ("UPDATE cached_printix_users SET user_id = ? WHERE user_id = ?", "cached_printix_users.user_id"),
+            ("UPDATE feature_requests SET user_id = ? WHERE user_id = ?", "feature_requests.user_id"),
+            ("UPDATE group_queue_defaults SET created_by = ? WHERE created_by = ?", "group_queue_defaults.created_by"),
+            ("UPDATE mcp_group_roles SET user_id = ? WHERE user_id = ?", "mcp_group_roles.user_id"),
+            ("UPDATE mcp_group_roles SET assigned_by = ? WHERE assigned_by = ?", "mcp_group_roles.assigned_by"),
+            ("UPDATE mcp_group_roles SET created_by = ? WHERE created_by = ?", "mcp_group_roles.created_by"),
+            ("UPDATE guestprint_guest SET user_id = ? WHERE user_id = ?", "guestprint_guest.user_id"),
+        ]:
+            try:
+                _upd(sql, label)
+            except sqlite3.OperationalError:
+                # Spalte/Tabelle existiert in dieser DB-Version nicht — OK.
+                pass
+
+        # Attribute vom Source nach Target uebernehmen wo Target leer ist.
+        # WICHTIG: entra_oid muss uebertragen werden — das ist der eigent-
+        # liche Grund fuer den Merge.
+        carry_cols: dict[str, str] = {}
+        for col in ("entra_oid", "printix_user_id", "full_name",
+                     "company"):
+            src_val = (src_d.get(col) or "")
+            tgt_val = (tgt_d.get(col) or "")
+            if src_val and not tgt_val:
+                carry_cols[col] = src_val
+
+        if carry_cols:
+            sets = ", ".join(f"{c} = ?" for c in carry_cols)
+            args = list(carry_cols.values())
+            args.append(_now())
+            args.append(target_id)
+            conn.execute(
+                f"UPDATE users SET {sets}, updated_at = ? WHERE id = ?",
+                args)
+            updates["users.carry_attrs"] = 1
+
+        # Source loeschen
+        conn.execute("DELETE FROM users WHERE id = ?", (source_id,))
+        updates["users.deleted"] = 1
+
+    # Audit (transactionally after commit — wir sind out of `with`)
+    try:
+        audit(
+            initiated_by or target_id,
+            "user_merged",
+            (f"source={source_id} → target={target_id}; "
+             f"updates={updates}"),
+            object_type="user", object_id=target_id,
+        )
+    except Exception as e:
+        logger.warning("user_merged audit failed: %s", e)
+
+    logger.info("user_merged: %s → %s, updates=%s",
+                 source_id, target_id, updates)
+    return {"source_id": source_id, "target_id": target_id,
+              "updates": updates}
+
+
 class LastAdminError(Exception):
     """Wird geworfen, wenn die Aktion den letzten Admin entfernen wuerde."""
 

@@ -33767,3 +33767,49 @@ for _lang, _keys in _V0728_TEMPLATE_KEYS.items():
         continue
     for _k, _v in _V0728_TEMPLATE_KEYS["en"].items():
         TRANSLATIONS[_lang].setdefault(_k, _v)
+
+
+# v0.7.32: Merge-Tool + Common
+_V0732_MERGE_KEYS: dict[str, dict[str, str]] = {
+    "de": {
+        "nav_users_merge":  "Duplikate zusammenführen",
+        "merge_title":      "Konten zusammenführen",
+        "merge_intro":      "Zeigt Benutzer mit gleicher Email in mehreren Records. Wähle den zu löschenden Account (Source) und den zu behaltenden (Target). Alle Referenzen (Jobs, Delegationen, Audit-Zeilen, …) werden vom Source auf den Target umgebogen, entra_oid wird übernommen wenn nur einer der beiden ihn gesetzt hat.",
+        "merge_users":      "Konten",
+        "merge_source_label": "Source (wird gelöscht)",
+        "merge_source_help": "Alle Daten dieses Accounts werden auf den Target-Account übertragen. Account selbst wird danach entfernt.",
+        "merge_target_label": "Target (wird behalten)",
+        "merge_target_help": "Dieser Account bleibt bestehen und übernimmt die Daten des Sources.",
+        "merge_pick_source": "Source-Account wählen",
+        "merge_pick_target": "Target-Account wählen",
+        "merge_go":         "Zusammenführen",
+        "merge_confirm":    "Merge wirklich ausführen? Die Aktion ist nicht rückgängig zu machen.",
+        "merge_success":    "Merge erfolgreich.",
+        "merge_no_duplicates": "Keine Duplikate gefunden.",
+        "merge_no_duplicates_hint": "Alle Emails sind eindeutig.",
+        "common_back":      "Zurück",
+    },
+    "en": {
+        "nav_users_merge":  "Merge duplicates",
+        "merge_title":      "Merge accounts",
+        "merge_intro":      "Shows users with the same email across multiple records. Pick the account to delete (source) and the one to keep (target). All references (jobs, delegations, audit rows, ...) are moved from source to target, and entra_oid transfers if only one of them has it.",
+        "merge_users":      "accounts",
+        "merge_source_label": "Source (will be deleted)",
+        "merge_source_help": "All data of this account is moved to the target. This account itself is then removed.",
+        "merge_target_label": "Target (will be kept)",
+        "merge_target_help": "This account stays and inherits the source's data.",
+        "merge_pick_source": "Pick source account",
+        "merge_pick_target": "Pick target account",
+        "merge_go":         "Merge",
+        "merge_confirm":    "Really merge? This cannot be undone.",
+        "merge_success":    "Merge successful.",
+        "merge_no_duplicates": "No duplicates found.",
+        "merge_no_duplicates_hint": "All emails are unique.",
+        "common_back":      "Back",
+    },
+}
+for _lang, _keys in _V0732_MERGE_KEYS.items():
+    TRANSLATIONS.setdefault(_lang, {}).update(_keys)
+for _lang in list(TRANSLATIONS.keys()):
+    if _lang not in _V0732_MERGE_KEYS:
+        TRANSLATIONS[_lang].update(_V0732_MERGE_KEYS["en"])

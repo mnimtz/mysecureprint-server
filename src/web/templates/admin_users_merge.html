@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Konten zusammenführen — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="card" style="max-width:900px;margin:24px auto;">
+    <h1 style="font-size:1.4em;margin-bottom:8px;">🔗 {{ _('merge_title') }}</h1>
+    <p class="section-sub" style="margin-bottom:20px;">
+      {{ _('merge_intro') }}
+    </p>
+
+    {% if success %}
+      <div class="alert alert-success" style="margin-bottom:16px;">
+        ✓ {{ _('merge_success') }}
+      </div>
+    {% endif %}
+
+    {% if error %}
+      <div class="alert alert-error" style="margin-bottom:16px;">
+        ⚠ {{ error }}
+      </div>
+    {% endif %}
+
+    {% if duplicates %}
+      {% for group in duplicates %}
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;
+                    padding:18px;margin-bottom:20px;">
+          <div style="display:flex;justify-content:space-between;
+                      align-items:center;margin-bottom:12px;gap:12px;">
+            <div>
+              <div style="font-size:.78em;color:#64748b;text-transform:uppercase;
+                          letter-spacing:.5px;">Email-Gruppe</div>
+              <code style="font-size:1.05em;color:#1e293b;">{{ group.email }}</code>
+            </div>
+            <span class="badge badge-yellow">
+              {{ group.users | length }} {{ _('merge_users') }}
+            </span>
+          </div>
+
+          <table style="width:100%;font-size:.9em;border-collapse:collapse;
+                        margin-bottom:14px;">
+            <thead>
+              <tr style="text-align:left;color:#64748b;font-size:.8em;">
+                <th style="padding:6px 8px;">User-ID</th>
+                <th style="padding:6px 8px;">{{ _('common_name') }}</th>
+                <th style="padding:6px 8px;">Login-Weg</th>
+                <th style="padding:6px 8px;">Rolle</th>
+                <th style="padding:6px 8px;">Angelegt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for u in group.users %}
+                <tr style="border-top:1px solid #eee;">
+                  <td style="padding:6px 8px;">
+                    <code style="font-size:.78em;color:#666;">{{ u.id[:8] }}…</code>
+                  </td>
+                  <td style="padding:6px 8px;">
+                    {{ u.full_name or u.username or '—' }}
+                  </td>
+                  <td style="padding:6px 8px;">
+                    {% if u.entra_oid %}
+                      <span class="badge badge-blue">Entra</span>
+                    {% else %}
+                      <span class="badge badge-gray">Lokal</span>
+                    {% endif %}
+                  </td>
+                  <td style="padding:6px 8px;">
+                    {% if u.is_admin %}Admin{% else %}{{ u.role_type or 'employee' }}{% endif %}
+                  </td>
+                  <td style="padding:6px 8px;font-size:.82em;color:#888;">
+                    {{ (u.created_at or '')[:10] }}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+          <form method="post" action="/admin/users/merge"
+                onsubmit="return confirm(this.dataset.confirm);"
+                data-confirm="{{ _('merge_confirm') }}"
+                style="display:grid;grid-template-columns:1fr 1fr auto;
+                       gap:10px;align-items:end;">
+            <div>
+              <label style="font-size:.82em;color:#475569;display:block;
+                            margin-bottom:4px;">
+                {{ _('merge_source_label') }}
+              </label>
+              <select name="source_id" required
+                      style="width:100%;padding:8px;border:1px solid #cbd5e1;
+                             border-radius:6px;">
+                <option value="">— {{ _('merge_pick_source') }} —</option>
+                {% for u in group.users %}
+                  <option value="{{ u.id }}">
+                    {% if u.entra_oid %}Entra: {% else %}Lokal: {% endif %}
+                    {{ u.full_name or u.username or u.id[:8] }}
+                    ({{ (u.created_at or '')[:10] }})
+                  </option>
+                {% endfor %}
+              </select>
+              <div style="font-size:.78em;color:#dc2626;margin-top:4px;">
+                {{ _('merge_source_help') }}
+              </div>
+            </div>
+            <div>
+              <label style="font-size:.82em;color:#475569;display:block;
+                            margin-bottom:4px;">
+                {{ _('merge_target_label') }}
+              </label>
+              <select name="target_id" required
+                      style="width:100%;padding:8px;border:1px solid #cbd5e1;
+                             border-radius:6px;">
+                <option value="">— {{ _('merge_pick_target') }} —</option>
+                {% for u in group.users %}
+                  <option value="{{ u.id }}">
+                    {% if u.entra_oid %}Entra: {% else %}Lokal: {% endif %}
+                    {{ u.full_name or u.username or u.id[:8] }}
+                    ({{ (u.created_at or '')[:10] }})
+                  </option>
+                {% endfor %}
+              </select>
+              <div style="font-size:.78em;color:#059669;margin-top:4px;">
+                {{ _('merge_target_help') }}
+              </div>
+            </div>
+            <button type="submit"
+                    style="padding:10px 18px;background:#2563eb;color:white;
+                           border:none;border-radius:6px;cursor:pointer;
+                           font-weight:600;white-space:nowrap;">
+              🔗 {{ _('merge_go') }}
+            </button>
+          </form>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div style="background:#f0fdf4;border:1px solid #86efac;
+                  border-radius:12px;padding:20px;text-align:center;">
+        <div style="font-size:1.1em;color:#166534;">
+          ✓ {{ _('merge_no_duplicates') }}
+        </div>
+        <p style="color:#4b5563;font-size:.88em;margin-top:6px;">
+          {{ _('merge_no_duplicates_hint') }}
+        </p>
+      </div>
+    {% endif %}
+
+    <div style="margin-top:24px;">
+      <a href="/admin/users" class="btn btn-secondary">← {{ _('common_back') }}</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,5 +1,19 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.33 — 2026-07-01 — Admin-UI: User-Accounts zusammenführen
+
+Neues Tool unter **/admin/users/merge** (auch als Sidebar-Link im User-Bereich verlinkt):
+
+- Zeigt alle Email-Duplikate im User-Bestand (z.B. lokaler Account + Entra-Auto-Create derselben Person). Pro Duplikat-Gruppe: kompakte Tabelle mit User-ID, Name, Login-Weg (Entra vs Lokal), Rolle, Erstellungsdatum.
+- Zwei Dropdowns pro Gruppe: **Source** (wird gelöscht) + **Target** (wird behalten). Klare Farbcodierung: rote Warnung am Source, grüner Hinweis am Target.
+- Merge-Funktion (`db.merge_users`) transactional:
+  1. Sanity-Checks: gleiche Email, kein `entra_oid`-Konflikt, kein Last-Admin-Verlust, keine Tenant-Owner-Kollision.
+  2. Alle bekannten FK-Referenzen werden vom Source auf Target umgebogen: `audit_log`, `tenants`, `users.invited_by_user_id`, `delegations.*`, `cached_printix_users`, `feature_requests`, `group_queue_defaults.created_by`, `mcp_group_roles.*`, `guestprint_guest`.
+  3. Attribute (`entra_oid`, `printix_user_id`, `full_name`, `company`) werden vom Source auf Target übernommen, wenn Target die jeweilige Spalte leer hat — sonst behält Target seinen Wert.
+  4. Source wird gelöscht.
+  5. Audit-Log-Eintrag `user_merged` mit Update-Statistik.
+- Neuer i18n-Block `_V0732_MERGE_KEYS` in `TRANSLATIONS` (de/en explizit, andere Sprachen erben Englisch).
+
 ## 0.7.32 — 2026-07-01 — Backlog + Low/Medium Audit-Findings
 
 **Features (Backlog)**
