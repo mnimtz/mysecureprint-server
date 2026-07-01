@@ -1,5 +1,14 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.36 — 2026-07-01 — Merge + Auto-Link: users.updated_at existiert nicht
+
+Bugfix: `users`-Tabelle hat historisch nur `created_at`, kein `updated_at`. Zwei UPDATE-Queries in v0.7.32/33 referenzierten fälschlich `updated_at` und schlugen mit `sqlite3.OperationalError: no such column: updated_at` fehl:
+
+- `merge_users` beim Attribute-Carry (`users.carry_attrs`).
+- `get_or_create_entra_user` beim Email-basierten Auto-Linking.
+
+Beide Stellen setzen `updated_at` jetzt nicht mehr — Merge und Auto-Link funktionieren.
+
 ## 0.7.35 — 2026-07-01 — Sidebar: alle Sections collapsed by default
 
 Kosmetik: Neben „Konfiguration" und „Datenschutz" starten jetzt auch die Sections **👥 Benutzer** und **☁️ Cloud & Integrationen** eingeklappt. Erste Ansicht ist damit viel aufgeräumter — Admin klappt gezielt die Section auf, die er gerade braucht.

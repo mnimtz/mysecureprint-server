@@ -1151,12 +1151,14 @@ def merge_users(source_id: str, target_id: str,
                 carry_cols[col] = src_val
 
         if carry_cols:
+            # v0.7.36: users-Tabelle hat kein updated_at — nur created_at.
+            # Vorher schlug der Merge hier mit
+            # "no such column: updated_at" fehl.
             sets = ", ".join(f"{c} = ?" for c in carry_cols)
             args = list(carry_cols.values())
-            args.append(_now())
             args.append(target_id)
             conn.execute(
-                f"UPDATE users SET {sets}, updated_at = ? WHERE id = ?",
+                f"UPDATE users SET {sets} WHERE id = ?",
                 args)
             updates["users.carry_attrs"] = 1
 
@@ -1596,10 +1598,10 @@ def get_or_create_entra_user(
                 ).fetchone()
                 if row:
                     linked = dict(row)
+                    # v0.7.36: users hat kein updated_at (nur created_at).
                     conn.execute(
-                        "UPDATE users SET entra_oid = ?, updated_at = ? "
-                        "WHERE id = ?",
-                        (entra_oid, _now(), linked["id"]),
+                        "UPDATE users SET entra_oid = ? WHERE id = ?",
+                        (entra_oid, linked["id"]),
                     )
                     linked["entra_oid"] = entra_oid
                     logger.info(
