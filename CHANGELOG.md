@@ -1,5 +1,15 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.43 — 2026-07-01 — Settings-Karte: Titel folgt aktiver Section
+
+UX-Fix. Wenn der Admin per Sidebar auf „Erweiterte Einstellungen" oder „Microsoft Entra ID" ging, stand über der Karte immer der generische Titel „Admin-Einstellungen" — der User wusste nicht welche Section grade aktiv ist und dachte, mehrere Sidebar-Links landen auf derselben Seite. Jetzt:
+
+- `?section=entra` → Titel: 🔷 **Microsoft Entra ID** + Entra-Subtitel
+- `?section=general` → Titel: ⚙️ **Erweiterte Einstellungen** + Admin-Subtitel
+- ohne Section-Filter → generischer Titel wie vorher
+
+Inneres Verhalten unverändert (Save-Bugfix aus v0.7.42 bleibt).
+
 ## 0.7.42 — 2026-07-01 — Bugfix: /admin/settings-Save überschrieb fremde Sections
 
 **Kritischer Fix.** Der Section-Filter (`?section=printix`, `?section=entra` etc.) blendete andere Sektionen aus dem DOM aus. Beim POST wurden aber alle `Form(default="")`-Felder als leere Strings gelesen — der Handler überschrieb dann die andere Section mit `""` / `"0"`. Konkrete Auswirkungen die der User berichtete:

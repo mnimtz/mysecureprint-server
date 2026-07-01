@@ -348,11 +348,29 @@
   {% endif %}
 
   {# ── Allgemeine Settings (Server-URL, Mail, Entra) ─────────────────── #}
+  {# v0.7.43: Kartentitel folgt jetzt der aktiven Section, damit klar ist
+     WELCHE Section grade sichtbar ist. Vorher stand immer "Admin-Einstellungen"
+     als Titel — egal ob man von "Erweiterte Einstellungen" oder "Microsoft
+     Entra ID" aus der Sidebar kam. #}
   {% if not section or section == 'entra' or section == 'general' %}
   <div class="card" style="max-width:680px;margin:0 auto 40px auto;">
-    <h2 class="section-title">{{ _('admin_settings') }}</h2>
+    <h2 class="section-title">
+      {% if section == 'entra' %}
+        🔷 {{ _('entra_title') }}
+      {% elif section == 'general' %}
+        ⚙️ {{ _('nav_cfg_advanced') }}
+      {% else %}
+        {{ _('admin_settings') }}
+      {% endif %}
+    </h2>
     <p class="section-sub" style="margin-bottom:24px;">
-      {{ _('admin_settings_sub') }}
+      {% if section == 'entra' %}
+        {{ _('entra_subtitle') }}
+      {% elif section == 'general' %}
+        {{ _('admin_settings_sub') }}
+      {% else %}
+        {{ _('admin_settings_sub') }}
+      {% endif %}
     </p>
 
     {% if auto_setup_success | default(false) %}
