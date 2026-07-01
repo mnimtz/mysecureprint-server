@@ -59,29 +59,47 @@ class _TokenManager:
     AUTH_URL = "https://auth.printix.net/oauth/token"
 
     # ── Global token cache (shared across all PrintixClient instances) ──
-    _cache: dict[tuple[str, str], "_TokenManager"] = {}
+    # v0.7.30: Cache-Key ist jetzt NUR die client_id (nicht mehr das
+    # ganze Credential-Paar). Vorteile:
+    #   - Secret bleibt nicht mehr in dict-Keys stehen.
+    #   - Bei Secret-Rotation (Admin regeneriert im Portal) waechst der
+    #     Cache nicht unbeschraenkt.
+    # Wenn das gespeicherte Secret sich vom vorgegebenen unterscheidet,
+    # ersetzen wir den Cache-Eintrag inplace.
+    _cache: dict[str, "_TokenManager"] = {}
     _cache_lock = threading.Lock()
 
     @classmethod
     def get_or_create(
         cls, client_id: str, client_secret: str, label: str = ""
     ) -> "_TokenManager":
-        """Return a cached _TokenManager or create and cache a new one.
-
-        Key is (client_id, client_secret) — same credentials always
-        reuse the same token, no matter how many PrintixClient instances
-        are created.
-        """
-        key = (client_id, client_secret)
+        """Return a cached _TokenManager or create and cache a new one."""
         with cls._cache_lock:
-            tm = cls._cache.get(key)
+            tm = cls._cache.get(client_id)
             if tm is not None:
+                # v0.7.30: Secret-Rotation-Detection. hmac.compare_digest
+                # gegen Timing-Channel (auch wenn Cache-Access selbst
+                # nicht kritisch ist — habit).
+                import hmac as _hmac
+                if not _hmac.compare_digest(tm.client_secret or "",
+                                              client_secret or ""):
+                    tm.client_secret = client_secret
+                    tm._token = None
+                    tm._expires_at = 0.0
                 if label and not tm.label:
                     tm.label = label
                 return tm
             tm = cls(client_id, client_secret, label)
-            cls._cache[key] = tm
+            cls._cache[client_id] = tm
             return tm
+
+    @classmethod
+    def invalidate(cls, client_id: str) -> None:
+        """v0.7.30: Explizite Cache-Invalidation. Aufgerufen wenn ein
+        Tenant seine Printix-Credentials im Admin-UI aendert — sonst
+        rennt der naechste Call noch in ein 401 mit dem alten Token."""
+        with cls._cache_lock:
+            cls._cache.pop(client_id, None)
 
     def __init__(self, client_id: str, client_secret: str, label: str = ""):
         self.client_id = client_id

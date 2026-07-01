@@ -59,6 +59,60 @@ def _client_info(request: Request) -> dict:
     return {"peer": peer, "ua": ua, "host": host}
 
 
+# v0.7.30: Rate-Limiter fuer /desktop/auth/login. Bare-Metal Token-
+# Bucket: pro Key erlauben wir MAX_TRIES in WINDOW Sekunden, danach 429
+# mit Retry-After. Reset bei erfolgreichem Login. Thread-safe.
+import threading as _t_threading
+import time as _t_time
+
+_AUTH_RL_LOCK = _t_threading.Lock()
+_AUTH_RL_BUCKETS: dict[str, list[float]] = {}
+_AUTH_RL_WINDOW = 300.0   # 5 min
+_AUTH_RL_MAX = 8           # 8 Versuche pro Fenster pro Bucket
+
+
+def _auth_rl_key(request: Request, username: str) -> tuple[str, str]:
+    """Zwei Keys — pro-IP und pro-Username. Angreifer muss beide
+    Buckets fuellen um weiterzumachen."""
+    peer = (request.client.host if request.client else "") or "unknown"
+    uname = (username or "").strip().lower() or "-"
+    return f"ip:{peer}", f"user:{uname}"
+
+
+def _auth_rl_check(request: Request, username: str) -> Optional[float]:
+    """Returns None wenn der Login erlaubt ist, sonst die Anzahl Sekunden
+    bis der naechste Versuch OK ist (Retry-After)."""
+    now = _t_time.monotonic()
+    horizon = now - _AUTH_RL_WINDOW
+    keys = _auth_rl_key(request, username)
+    with _AUTH_RL_LOCK:
+        wait_max: float = 0.0
+        for k in keys:
+            arr = _AUTH_RL_BUCKETS.get(k, [])
+            # abgelaufene Eintraege aufraeumen
+            arr = [t for t in arr if t > horizon]
+            _AUTH_RL_BUCKETS[k] = arr
+            if len(arr) >= _AUTH_RL_MAX:
+                # oldest fell out of window when?
+                wait = arr[0] - horizon
+                if wait > wait_max:
+                    wait_max = wait
+        if wait_max > 0:
+            return wait_max
+        for k in keys:
+            _AUTH_RL_BUCKETS[k].append(now)
+    return None
+
+
+def _auth_rl_reset(request: Request, username: str) -> None:
+    """Bei erfolgreichem Login das User-Bucket leeren. IP-Bucket
+    bleibt — sonst kann man mit einem gueltigen Account das IP-Limit
+    fuer andere Accounts sabotieren."""
+    _, user_key = _auth_rl_key(request, username)
+    with _AUTH_RL_LOCK:
+        _AUTH_RL_BUCKETS.pop(user_key, None)
+
+
 def _log_req(request: Request, endpoint: str, extra: str = "") -> dict:
     """Einzeiler pro Request — Format analog zu IPP-HTTP.
     Returns ci-dict für späteren Gebrauch (z.B. in Fehler-Logs)."""
@@ -927,6 +981,20 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             return _json_error("username and password required",
                                code="auth_missing_fields", status=422)
 
+        # v0.7.30: Rate-Limit VOR bcrypt-verify — sonst haemmert der
+        # Angreifer den CPU-teuren Password-Hash.
+        wait = _auth_rl_check(request, username)
+        if wait is not None:
+            logger.warning(
+                "Desktop-Login RATE-LIMITED — user='%s' peer=%s retry_in=%.0fs",
+                username, (request.client.host if request.client else "-"), wait,
+            )
+            resp = _json_error("too many login attempts",
+                                 code="auth_rate_limited",
+                                 status=429)
+            resp.headers["Retry-After"] = str(int(wait) + 1)
+            return resp
+
         ci = _log_req(request, "POST /auth/login",
                       f"username='{username}' device='{device_name or '-'}'")
         from db import authenticate_user
@@ -943,6 +1011,11 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 username, user.get("status"), ci["peer"],
             )
             return _json_error("account not approved", code="auth_pending", status=403)
+
+        # v0.7.30: erfolgreicher Login raeumt das User-Bucket auf (User
+        # koennte sich sofort mit anderem Passwort wieder anmelden ohne
+        # Rate-Limit-Sperre).
+        _auth_rl_reset(request, username)
 
         token = create_token(user["id"], device_name=device_name)
         logger.info(

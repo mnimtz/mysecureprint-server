@@ -1,5 +1,12 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.30 — 2026-07-01 — Backlog aus dem Audit: Rate-Limiting + TokenManager-Refactor
+
+**High**
+
+- Neuer Rate-Limiter auf `/desktop/auth/login`: 8 Versuche pro 5-Minuten-Fenster, dual gefiltert (per-IP + per-Username), Antwort `429 auth_rate_limited` mit `Retry-After`. Check läuft VOR dem bcrypt-Verify, sodass Angreifer keinen CPU-teuren Hash mehr erzwingen können. Erfolgreicher Login räumt das User-Bucket auf (IP-Bucket bleibt).
+- `_TokenManager`-Cache: Key ist jetzt nur `client_id` (nicht mehr `(client_id, client_secret)`). Vorteile: Secret bleibt nicht mehr in Dict-Keys stehen, und bei Secret-Rotation wächst der Cache nicht unbegrenzt. Secret-Mismatch wird via `hmac.compare_digest` erkannt → Cache-Eintrag wird inplace mit dem neuen Secret aktualisiert. Neuer Public-Helper `_TokenManager.invalidate(client_id)` für explizite Cache-Invalidation bei Credential-Änderung im Admin-UI.
+
 ## 0.7.29 — 2026-06-30 — Security-Härtung aus 3-fach-Audit
 
 **Critical**
