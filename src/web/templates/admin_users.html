@@ -53,9 +53,9 @@
           <th>{{ _('admin_assignment') }}</th>
           <th>{{ _('admin_login_method') }}</th>
           <th>{{ _('admin_status') }}</th>
-          <th>{{ _('admin_last_login') }}</th>
           <th>{{ _('admin_invitation') }}</th>
           <th>{{ _('common_created') }}</th>
+          <th>{{ _('admin_last_login') }}</th>
           <th>{{ _('common_actions') }}</th>
         </tr>
       </thead>
@@ -116,18 +116,6 @@
               <span class="badge badge-red">✗ {{ _('admin_status_suspended') }}</span>
             {% endif %}
           </td>
-          <td style="font-size:.85em;color:#6b7280;white-space:nowrap;">
-            {% if u.last_login_at %}
-              {{ u.last_login_at[:16].replace('T', ' ') }}
-              {% if u.last_login_method %}
-                <div style="font-size:.78em;color:#9ca3af;">
-                  via {{ u.last_login_method }}
-                </div>
-              {% endif %}
-            {% else %}
-              —
-            {% endif %}
-          </td>
           <td>
             {% if u.invitation_sent_at and u.invitation_accepted_at %}
               <span class="badge badge-green">✓ {{ _('admin_invitation_accepted') }}</span>
@@ -139,6 +127,18 @@
           </td>
           <td style="font-size:.85em; color:#6b7280;">
             {{ u.created_at[:10] if u.created_at else '—' }}
+          </td>
+          <td style="font-size:.85em;color:#6b7280;white-space:nowrap;">
+            {% if u.last_login_at %}
+              {{ u.last_login_at[:16].replace('T', ' ') }}
+              {% if u.last_login_method %}
+                <div style="font-size:.78em;color:#9ca3af;">
+                  via {{ u.last_login_method }}
+                </div>
+              {% endif %}
+            {% else %}
+              —
+            {% endif %}
           </td>
           <td style="white-space:nowrap;">
             <!-- Bearbeiten -->

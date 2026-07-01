@@ -1,5 +1,9 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.39 — 2026-07-01 — Spalten-Reihenfolge: Letzter Login rechts neben Erstellt
+
+Kosmetik. Vorher: Letzter Login stand direkt hinter Status. Jetzt: Login-Weg → Status → Einladung → Erstellt → Letzter Login → Aktionen.
+
 ## 0.7.38 — 2026-07-01 — Benutzer-Übersicht: Login-Weg + Letzter Login
 
 Zwei neue Spalten in `/admin/users`:
