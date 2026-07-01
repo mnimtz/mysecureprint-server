@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import urllib.request
+from app_version import APP_VERSION
 import urllib.error
 from typing import Sequence
 
@@ -80,7 +81,7 @@ def send_report(
             "Authorization": f"Bearer {api_key.strip()}",
             "Content-Type":  "application/json",
             "Accept":        "application/json",
-            "User-Agent":    "mysecureprint-server/0.5.7",
+            "User-Agent":    f"mysecureprint-server/{APP_VERSION}",
         },
     )
     try:
@@ -158,7 +159,7 @@ def _graph_app_token(
         headers={
             "Content-Type": "application/x-www-form-urlencoded",
             "Accept":       "application/json",
-            "User-Agent":   "mysecureprint-server/0.7.0",
+            "User-Agent":   f"mysecureprint-server/{APP_VERSION}",
         },
     )
     try:
@@ -278,7 +279,7 @@ def send_via_graph(
             "Authorization": f"Bearer {token}",
             "Content-Type":  "application/json",
             "Accept":        "application/json",
-            "User-Agent":    "mysecureprint-server/0.7.0",
+            "User-Agent":    f"mysecureprint-server/{APP_VERSION}",
         },
     )
     try:

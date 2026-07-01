@@ -39,11 +39,27 @@ class PrintixAPIError(Exception):
         super().__init__(f"Printix API Error {status_code}: {message} (ErrorID: {error_id})")
 
 
+_BASE64_RE = None
+
+
 def _is_base64(s: str) -> bool:
-    try:
-        return base64.b64encode(base64.b64decode(s)).decode() == s
-    except Exception:
+    """v0.7.32: robuste Base64-Detection.
+
+    Vorher: `b64encode(b64decode(s)) == s` — schlaegt fehl weil
+    b64decode tolerant ist (URL-safe `-_`, Padding-Frei), b64encode
+    aber immer den kanonischen `+/=`-Output liefert. Ergebnis: gueltige
+    Base64-Strings wurden faelschlich als NICHT-Base64 klassifiziert
+    und dann doppelt-encoded.
+
+    Jetzt: Regex + Length-Modulo-Check.
+    """
+    global _BASE64_RE
+    if _BASE64_RE is None:
+        import re as _re
+        _BASE64_RE = _re.compile(r"^[A-Za-z0-9+/]+={0,2}$")
+    if not s or len(s) % 4 != 0:
         return False
+    return bool(_BASE64_RE.fullmatch(s))
 
 
 class _TokenManager:

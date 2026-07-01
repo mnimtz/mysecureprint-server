@@ -125,6 +125,16 @@ def _log_req(request: Request, endpoint: str, extra: str = "") -> dict:
     return ci
 
 
+
+def _hsid(session_id: str) -> str:
+    """v0.7.32: kurzer SHA256-Prefix statt raw-Substring. Damit ist ein
+    geleaktes Log-Fragment kein brute-force-Enabler mehr."""
+    import hashlib as _hl
+    if not session_id:
+        return "-"
+    return _hl.sha256(session_id.encode()).hexdigest()[:8]
+
+
 def _mask_token(token: Optional[str]) -> str:
     """Zeigt nur die letzten 8 Zeichen — nie den vollen Token im Log."""
     if not token:
@@ -1638,7 +1648,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         logger.info(
             "Desktop-Entra-Start OK — session=%s… user_code=%s expires_in=%ss "
             "interval=%ss device='%s' peer=%s",
-            session_id[:12], result.get("user_code", ""),
+            _hsid(session_id), result.get("user_code", ""),
             result.get("expires_in", 900), result.get("interval", 5),
             device_name or "-", ci["peer"],
         )
@@ -1663,7 +1673,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
            - no_match:     Entra-User konnte keinem MCP-User zugeordnet werden
         """
         ci = _log_req(request, "POST /auth/entra/poll",
-                      f"session={session_id[:12] if session_id else '-'}…")
+                      f"session={_hsid(session_id)}…")
         from db import _conn
         with _conn() as conn:
             row = conn.execute(
@@ -1673,7 +1683,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         if not row:
             logger.warning(
                 "Desktop-Entra-Poll FAIL (session unknown) — session=%s… peer=%s",
-                session_id[:12] if session_id else "-", ci["peer"],
+                _hsid(session_id), ci["peer"],
             )
             return _json_error("unknown session", code="session_unknown", status=404)
 
@@ -1691,7 +1701,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         status = result.get("status", "pending")
         logger.debug(
             "Desktop-Entra-Poll — session=%s… status=%s device='%s'",
-            session_id[:12], status, device_name or "-",
+            _hsid(session_id), status, device_name or "-",
         )
         if status == "pending":
             return JSONResponse({"status": "pending"})
@@ -1701,13 +1711,13 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                              (session_id,))
             logger.info(
                 "Desktop-Entra-Poll EXPIRED — session=%s… (cleaned up)",
-                session_id[:12],
+                _hsid(session_id),
             )
             return JSONResponse({"status": "expired"})
         if status == "error":
             logger.warning(
                 "Desktop-Entra-Poll ERROR — session=%s… err=%s",
-                session_id[:12], result.get("error", ""),
+                _hsid(session_id), result.get("error", ""),
             )
             return JSONResponse({"status": "error",
                                  "error": result.get("error", "")})
@@ -1716,7 +1726,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         if status != "success" or not result.get("access_token"):
             logger.warning(
                 "Desktop-Entra-Poll unexpected state — session=%s… status=%s",
-                session_id[:12], status,
+                _hsid(session_id), status,
             )
             return JSONResponse({"status": "error", "error": "unexpected_state"})
 
@@ -1748,7 +1758,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         if not profile or not profile.get("oid"):
             logger.warning(
                 "Desktop-Entra-Poll NO_MATCH (no profile) — session=%s…",
-                session_id[:12],
+                _hsid(session_id),
             )
             return JSONResponse({"status": "no_match",
                                  "error": "no user profile from Microsoft"})
@@ -1876,7 +1886,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         logger.info(
             "Desktop-Entra-AuthCode-Start OK — session=%s… state=%s… "
             "redirect=%s device='%s' peer=%s",
-            session_id[:12], state[:8], redirect_uri,
+            _hsid(session_id), state[:8], redirect_uri,
             device_name or "-", ci["peer"],
         )
 
@@ -1893,7 +1903,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                                                 code: str = Form(...),
                                                 state: str = Form(...)):
         ci = _log_req(request, "POST /auth/entra/authcode/exchange",
-                      f"session={session_id[:12] if session_id else '-'}…")
+                      f"session={_hsid(session_id)}…")
         from db import _conn
         # v0.1.2 (CRITICAL #3 aus ENTRA_REVIEW.md):
         # Pending-Row SOFORT loeschen, sobald wir sie gefunden haben —
@@ -1928,7 +1938,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             logger.warning(
                 "Desktop-Entra-AuthCode-Exchange FAIL (session unknown) — "
                 "session=%s… peer=%s",
-                session_id[:12] if session_id else "-", ci["peer"],
+                _hsid(session_id) if session_id else "-", ci["peer"],
             )
             return _json_error("unknown session", code="session_unknown",
                                status=404)
@@ -1941,7 +1951,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             logger.warning(
                 "Desktop-Entra-AuthCode-Exchange FAIL (state mismatch) — "
                 "session=%s… got=%s… expected=%s… peer=%s",
-                session_id[:12], (state or "")[:8], (row["state"] or "")[:8],
+                _hsid(session_id), (state or "")[:8], (row["state"] or "")[:8],
                 ci["peer"],
             )
             return _json_error("state mismatch", code="state_mismatch",
@@ -1963,7 +1973,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             logger.warning(
                 "Desktop-Entra-AuthCode-Exchange FAIL (token exchange failed) — "
                 "session=%s…",
-                session_id[:12],
+                _hsid(session_id),
             )
             return _json_error("token exchange failed",
                                code="exchange_failed", status=502)

@@ -22,6 +22,7 @@ import json
 import logging
 import os
 import secrets
+import threading
 import time
 from urllib.parse import urlencode, urlparse
 from app_version import APP_VERSION
@@ -33,6 +34,9 @@ logger = logging.getLogger("printix.oauth")
 #   code_challenge (optional), code_challenge_method (optional)
 _auth_codes: dict = {}
 _request_count = 0
+# v0.7.32: Lock schuetzt _auth_codes + _request_count vor gleichzeitigen
+# ASGI-Worker-Zugriffen (RuntimeError: dict changed size during iteration).
+_auth_codes_lock = threading.Lock()
 
 
 # ─── PKCE Helper (RFC 7636) ──────────────────────────────────────────────────
@@ -56,13 +60,18 @@ def _verify_pkce(challenge: str, method: str, verifier: str) -> bool:
 
 
 def _cleanup_codes():
+    """v0.7.32: thread-safe. Ohne Lock knallte das bei parallelen
+    ASGI-Requests mit 'dictionary changed size during iteration'."""
     global _request_count
-    _request_count += 1
-    if _request_count % 50 == 0:
-        now = time.time()
-        expired = [k for k, v in _auth_codes.items() if v["expires_at"] < now]
-        for k in expired:
-            del _auth_codes[k]
+    with _auth_codes_lock:
+        _request_count += 1
+        if _request_count % 50 == 0:
+            now = time.time()
+            # Snapshot der Keys nehmen, dann iterieren — dann sind wir
+            # gegen parallele _auth_codes[...] = ...  Zugriffe robust.
+            for k in [k for k, v in list(_auth_codes.items())
+                        if v.get("expires_at", 0) < now]:
+                _auth_codes.pop(k, None)
 
 
 # ─── Redirect-URI Whitelist (RFC 6749 §3.1.2) ─────────────────────────────────

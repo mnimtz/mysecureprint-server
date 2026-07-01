@@ -1232,6 +1232,7 @@ def create_app(session_secret: str) -> FastAPI:
                 entra_oid=user_info["oid"],
                 email=user_info.get("email", ""),
                 display_name=user_info.get("name", ""),
+                entra_tid=user_info.get("tid", ""),
             )
         except Exception as e:
             logger.error("Entra user lookup/create Fehler: %s", e)
@@ -1677,10 +1678,19 @@ def create_app(session_secret: str) -> FastAPI:
     def _get_base_url(request: Request) -> str:
         """Ermittelt die Base-URL der Web-UI aus dem eingehenden Request.
 
-        Wichtig: Verwendet NICHT public_url (das ist fuer den MCP-Server).
-        Stattdessen wird die URL aus dem Request abgeleitet (Host-Header,
-        x-forwarded-* bei Reverse-Proxy).
+        v0.7.32: **Bevorzugt** das DB-Setting `public_url` wenn gesetzt —
+        ein Angreifer, der einen `X-Forwarded-Host: evil.com` Header
+        einschleust, konnte sonst die Entra-Redirect-URI vergiften und
+        den Auth-Code klauen. Der proxy-header-Pfad bleibt als Fallback
+        fuer Reverse-Proxy-Setups ohne explizite public_url-Config.
         """
+        try:
+            from db import get_setting as _gs
+            configured = (_gs("public_url", "") or "").strip().rstrip("/")
+            if configured and configured.startswith(("http://", "https://")):
+                return configured
+        except Exception:
+            pass
         scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
         host = (
             request.headers.get("x-forwarded-host")
@@ -3725,15 +3735,74 @@ def create_app(session_secret: str) -> FastAPI:
 
     # ── v0.5.2: Email-Template Editor ────────────────────────────────────────
 
-    _EMAIL_TPL_DEFAULT_SUBJECT = (
-        "MySecurePrint — set up the app on your iPhone"
-    )
-    _EMAIL_TPL_DEFAULT_BODY = (
-        "Hi {full_name},\n\n"
-        "Your mobile setup link is ready: {invite_url}\n\n"
-        "This invite expires on {expires_at}.\n\n"
-        "— {admin_name}"
-    )
+    # v0.7.32: Placeholder-Default in der Template-Sprache — vorher stand
+    # immer der englische Text da, egal welche Sprache der Admin gewaehlt hatte.
+    _EMAIL_TPL_DEFAULTS = {
+        "en": {
+            "subject": "MySecurePrint — set up the app on your iPhone",
+            "body": ("Hi {full_name},\n\n"
+                       "Your mobile setup link is ready: {invite_url}\n\n"
+                       "This invite expires on {expires_at}.\n\n"
+                       "— {admin_name}"),
+        },
+        "de": {
+            "subject": "MySecurePrint — App auf dem iPhone einrichten",
+            "body": ("Hallo {full_name},\n\n"
+                       "Dein Setup-Link für die App: {invite_url}\n\n"
+                       "Die Einladung läuft am {expires_at} ab.\n\n"
+                       "— {admin_name}"),
+        },
+        "fr": {
+            "subject": "MySecurePrint — configurer l'app sur ton iPhone",
+            "body": ("Bonjour {full_name},\n\n"
+                       "Ton lien d'installation : {invite_url}\n\n"
+                       "L'invitation expire le {expires_at}.\n\n"
+                       "— {admin_name}"),
+        },
+        "es": {
+            "subject": "MySecurePrint — configura la app en tu iPhone",
+            "body": ("Hola {full_name},\n\n"
+                       "Tu enlace de configuración: {invite_url}\n\n"
+                       "La invitación caduca el {expires_at}.\n\n"
+                       "— {admin_name}"),
+        },
+        "it": {
+            "subject": "MySecurePrint — configura l'app sul tuo iPhone",
+            "body": ("Ciao {full_name},\n\n"
+                       "Il tuo link di configurazione: {invite_url}\n\n"
+                       "L'invito scade il {expires_at}.\n\n"
+                       "— {admin_name}"),
+        },
+        "nl": {
+            "subject": "MySecurePrint — de app instellen op je iPhone",
+            "body": ("Hoi {full_name},\n\n"
+                       "Je installatielink: {invite_url}\n\n"
+                       "De uitnodiging verloopt op {expires_at}.\n\n"
+                       "— {admin_name}"),
+        },
+        "nb": {
+            "subject": "MySecurePrint — sett opp appen på iPhone-en din",
+            "body": ("Hei {full_name},\n\n"
+                       "Din oppsettlenke: {invite_url}\n\n"
+                       "Invitasjonen utløper {expires_at}.\n\n"
+                       "— {admin_name}"),
+        },
+        "sv": {
+            "subject": "MySecurePrint — konfigurera appen på din iPhone",
+            "body": ("Hej {full_name},\n\n"
+                       "Din installationslänk: {invite_url}\n\n"
+                       "Inbjudan går ut den {expires_at}.\n\n"
+                       "— {admin_name}"),
+        },
+    }
+
+    def _email_tpl_default(lang: str, field: str) -> str:
+        return (_EMAIL_TPL_DEFAULTS.get(lang, {}).get(field)
+                or _EMAIL_TPL_DEFAULTS["en"][field])
+
+    # Backward-compat exports fuer bestehende Aufrufer/Preview-Kontext.
+    _EMAIL_TPL_DEFAULT_SUBJECT = _EMAIL_TPL_DEFAULTS["en"]["subject"]
+    _EMAIL_TPL_DEFAULT_BODY = _EMAIL_TPL_DEFAULTS["en"]["body"]
 
     @app.get("/admin/email-templates", response_class=HTMLResponse)
     async def admin_email_templates_get(request: Request):
@@ -3754,8 +3823,8 @@ def create_app(session_secret: str) -> FastAPI:
                 "subject_val": subject_val,
                 "body_val": body_val,
                 "tpl_lang": tpl_lang,
-                "default_subject": _EMAIL_TPL_DEFAULT_SUBJECT,
-                "default_body": _EMAIL_TPL_DEFAULT_BODY,
+                "default_subject": _email_tpl_default(tpl_lang, "subject"),
+                "default_body": _email_tpl_default(tpl_lang, "body"),
                 "preview_html": "",
                 "preview_subject": "",
                 **t_ctx(request),
@@ -3819,8 +3888,8 @@ def create_app(session_secret: str) -> FastAPI:
                 "subject_val": subject,
                 "body_val": body,
                 "tpl_lang": tpl_lang,
-                "default_subject": _EMAIL_TPL_DEFAULT_SUBJECT,
-                "default_body": _EMAIL_TPL_DEFAULT_BODY,
+                "default_subject": _email_tpl_default(tpl_lang, "subject"),
+                "default_body": _email_tpl_default(tpl_lang, "body"),
                 "preview_html": preview_html,
                 "preview_subject": preview_subject,
                 **t_ctx(request),

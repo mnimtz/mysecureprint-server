@@ -1084,12 +1084,12 @@
       <a href="/admin/email-templates"   class="sb-sublink {% if active_page == 'admin_email_templates' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_email_templates') }}</a>
     </div>
 
-    {# ── ⚙️ Konfiguration ──────────────────────────────────────────────── #}
-    <button class="sb-cat-toggle open" onclick="toggleSbCat(this)">
+    {# ── ⚙️ Konfiguration — v0.7.32: collapsed by default ─────────────── #}
+    <button class="sb-cat-toggle" onclick="toggleSbCat(this)">
       <span>⚙️</span> {{ _('nav_cat_config') }}
       <span class="sb-cat-chevron">▸</span>
     </button>
-    <div class="sb-cat-items open">
+    <div class="sb-cat-items">
       <a href="/welcome"                          class="sb-sublink {% if active_page == 'welcome' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_setup_status') }}</a>
       <a href="/admin/settings?section=printix"   class="sb-sublink"><span class="sb-dot"></span>{{ _('nav_cfg_printix') }}</a>
       <a href="/admin/settings?section=entra"     class="sb-sublink"><span class="sb-dot"></span>{{ _('nav_cfg_entra') }}</a>
@@ -1105,12 +1105,12 @@
        Azure irrelevant. Routen existieren noch, sind aber nicht
        prominent verlinkt. #}
 
-    {# ── 🛡️ Datenschutz / GDPR ─────────────────────────────────────────── #}
-    <button class="sb-cat-toggle open" onclick="toggleSbCat(this)">
+    {# ── 🛡️ Datenschutz / GDPR — v0.7.32: collapsed by default ────────── #}
+    <button class="sb-cat-toggle" onclick="toggleSbCat(this)">
       <span>🛡️</span> {{ _('nav_cat_gdpr') }}
       <span class="sb-cat-chevron">▸</span>
     </button>
-    <div class="sb-cat-items open">
+    <div class="sb-cat-items">
       <a href="/admin/gdpr"             class="sb-sublink {% if active_page == 'admin_gdpr' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_gdpr_settings') }}</a>
       <a href="/admin/mcp-permissions"  class="sb-sublink {% if active_page == 'admin_rbac' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_rbac') }}</a>
       <a href="/admin/audit"            class="sb-sublink {% if active_page == 'audit' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_audit') }}</a>

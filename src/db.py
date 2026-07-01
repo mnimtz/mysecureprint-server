@@ -1381,22 +1381,23 @@ def get_or_create_entra_user(
     entra_oid: str,
     email: str,
     display_name: str,
+    entra_tid: str = "",
 ) -> Optional[dict]:
     """
     Findet oder erstellt einen Benutzer anhand der Entra Object-ID.
 
-    v0.1.2 — Sicherheits-Hygiene:
-      1. User mit passender entra_oid → direkt zurueckgeben
-      2. KEINE Email-Verknuepfung mehr (CRITICAL #2 aus ENTRA_REVIEW.md).
-         Ein Angreifer mit gleicher E-Mail in einem anderen Tenant
-         konnte sonst bestehende lokale Accounts uebernehmen. Linking
-         eines bestehenden Accounts an eine Entra-Identitaet muss
-         explizit durch einen Admin in /admin/users/{id}/edit erfolgen.
-      3. Bootstrap-Ausnahme: wenn die DB noch GAR KEINE User hat,
-         wird der erste Entra-Sign-in als initialer Owner angelegt
-         (Auto-Setup-Wizard-Pfad).
-      4. Auto-Create nur wenn `entra_auto_approve` aktiv ist (oder DB
-         ist leer = Bootstrap).
+    v0.7.32 — Sicheres Email-basiertes Auto-Linking:
+      1. User mit passender entra_oid → direkt zurueckgeben.
+      2. **Neu**: User mit passender Email (case-insensitive) UND ohne
+         gesetzte entra_oid UND passendem Tenant → linken (entra_oid
+         eintragen). Bedingung: der übergebene `entra_tid` matched
+         `entra_tenant_id` in Settings. Damit ist nur die *bereits*
+         konfigurierte Tenant-Identität berechtigt, lokale Accounts
+         zu übernehmen — der Foreign-Tenant-Angriff aus v0.1.2 bleibt
+         geblockt (siehe ENTRA_REVIEW.md).
+      3. Bootstrap-Ausnahme: keine User in DB → erster Sign-in wird
+         initialer Owner.
+      4. Auto-Create nur wenn `entra_auto_approve` aktiv ist.
     """
     if not entra_oid:
         return None
@@ -1409,10 +1410,44 @@ def get_or_create_entra_user(
         if row:
             return _user_public(dict(row))
 
-    # 2. KEINE Email-Fallback-Verknuepfung mehr — siehe Docstring.
-    #    Frueher: hier wurde bei Email-Match `entra_oid` einfach an den
-    #    bestehenden Account angeheftet. Das ist jetzt nur noch ein
-    #    manueller Admin-Schritt.
+    # 2. Email-basiertes Auto-Linking (v0.7.32) — nur wenn
+    #    2a) Email vorhanden, 2b) Tenant matched Konfiguration,
+    #    2c) bestehender User hat KEINE entra_oid (kein Overwrite).
+    normalized_email = (email or "").strip().lower()
+    if normalized_email and entra_tid:
+        cfg_tid = (get_setting("entra_tenant_id", "") or "").strip().lower()
+        if cfg_tid and cfg_tid == entra_tid.strip().lower():
+            with _conn() as conn:
+                row = conn.execute(
+                    "SELECT * FROM users "
+                    "WHERE LOWER(email) = ? "
+                    "AND (entra_oid IS NULL OR entra_oid = '')",
+                    (normalized_email,),
+                ).fetchone()
+                if row:
+                    linked = dict(row)
+                    conn.execute(
+                        "UPDATE users SET entra_oid = ?, updated_at = ? "
+                        "WHERE id = ?",
+                        (entra_oid, _now(), linked["id"]),
+                    )
+                    linked["entra_oid"] = entra_oid
+                    logger.info(
+                        "Entra Auto-Link: entra_oid %s an user %s (%s) "
+                        "verknüpft (email match, tenant OK)",
+                        entra_oid[:10], linked["id"], normalized_email,
+                    )
+                    try:
+                        audit(
+                            linked["id"], "entra_auto_link",
+                            f"Entra-Identität via Email-Match verknüpft "
+                            f"(oid={entra_oid[:10]}…, tid={entra_tid[:10]}…)",
+                            object_type="user", object_id=linked["id"],
+                        )
+                    except Exception:
+                        pass
+                    return _user_public(linked)
+
     is_bootstrap = not has_users()
     if not is_bootstrap:
         # Im Normalbetrieb pruefen wir Auto-Approve — wenn aus, kein

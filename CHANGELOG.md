@@ -1,5 +1,21 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.32 — 2026-07-01 — Backlog + Low/Medium Audit-Findings
+
+**Features (Backlog)**
+
+- Email-Template-Placeholder folgt der Template-Sprache: Der Default-Body/Subject-Text wird jetzt aus einer neuen `_EMAIL_TPL_DEFAULTS`-Map pro Sprache (de/en/fr/es/it/nl/nb/sv) gerendert. Vorher stand da immer der englische Text, egal welche Sprache gewählt war.
+- Sidebar: „Konfiguration" und „Datenschutz" starten jetzt **collapsed by default** — spart Scroll-Höhe im Admin-UI.
+- Entra-User Email-basiertes Auto-Linking: `get_or_create_entra_user` verlinkt Entra-Identität mit existierendem lokalem User bei Email-Match — **aber nur wenn der `tid`-Claim mit `entra_tenant_id` in Settings matched** (Foreign-Tenant-Angriff aus v0.1.2 bleibt geblockt). Lokal existierender Account mit `entra_oid=NULL` und passender Email wird ge-updated statt dupliziert; Audit-Log-Eintrag `entra_auto_link` wird geschrieben.
+
+**Security-Härtung (aus Audit)**
+
+- OAuth `_cleanup_codes`: jetzt Thread-safe via `threading.Lock` — vorher konnte `RuntimeError: dictionary changed size during iteration` unter Last passieren.
+- Desktop-Entra-Session-IDs werden nur noch als SHA256-Prefix in die Logs geschrieben (`_hsid(...)` Helper) — geleakte Log-Fragmente sind kein Brute-Force-Enabler mehr.
+- `_get_base_url` bevorzugt jetzt das DB-Setting `public_url` gegenüber `X-Forwarded-Host` — ein Angreifer, der einen manipulierten Host-Header einschleust, kann die Entra-Redirect-URI nicht mehr vergiften.
+- `mail_client.py`: hardcodete User-Agent-Strings (`mysecureprint-server/0.5.7` bzw. `0.7.0`) durch `f"mysecureprint-server/{APP_VERSION}"` ersetzt — Log-basierte Version-Tracing funktioniert wieder.
+- `_is_base64` durch Regex + Length-Modulo-Check ersetzt — der bisherige `b64encode(b64decode(s)) == s`-Round-Trip lieferte False Negatives für kanonische Base64-Strings und führte zu Doppel-Encoding.
+
 ## 0.7.31 — 2026-07-01 — i18n-Backfill für Admin-Templates
 
 Aus dem i18n-Audit: mehrere Admin-Templates hatten hardcodete deutsche Strings die auf englischer UI stehen blieben. Betrifft insbesondere die vom User genannten Seiten:
