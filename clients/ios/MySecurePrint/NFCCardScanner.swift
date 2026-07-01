@@ -218,8 +218,7 @@ private final class NFCSessionHandler: NSObject, NFCTagReaderSessionDelegate {
         case .miFare(let t):       return t.identifier
         case .iso15693(let t):     return t.identifier
         case .iso7816(let t):      return t.identifier
-        // .feliCa hier bewusst nicht behandelt — wir pollen FeliCa
-        // nicht, also kommt dieser Case nie durch. Faellt auf default.
+        case .feliCa:              return nil   // wir pollen FeliCa nicht
         @unknown default:          return nil
         }
     }
