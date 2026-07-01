@@ -16,6 +16,10 @@
       <div class="alert alert-error">{{ error }}</div>
       {% endif %}
 
+      {% if info %}
+      <div class="alert alert-info">{{ info }}</div>
+      {% endif %}
+
       {% if entra_enabled | default(false) %}
       <a href="/auth/entra/login"
          style="display:flex;align-items:center;justify-content:center;gap:10px;

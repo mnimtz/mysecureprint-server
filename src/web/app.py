@@ -1021,8 +1021,13 @@ def create_app(session_secret: str) -> FastAPI:
     async def login_get(request: Request):
         if get_session_user(request):
             return RedirectResponse("/", status_code=302)
+        # v0.7.34: post-merge info wenn der User seinen Session-Account
+        # gerade in einen anderen gemerged hat.
+        info = None
+        if request.query_params.get("merged") == "1":
+            info = _("login_after_merge_info")
         return templates.TemplateResponse("login.html", {
-            "request": request, "error": None,
+            "request": request, "error": None, "info": info,
             "entra_enabled": _entra_login_enabled(),
             **t_ctx(request),
         })
@@ -2908,11 +2913,15 @@ def create_app(session_secret: str) -> FastAPI:
         admin = get_session_user(request)
         if not admin or not admin.get("is_admin"):
             return RedirectResponse("/login", status_code=302)
-        # Kein Selbst-Delete
-        if source_id == (admin.get("id") or admin.get("user_id")):
-            return RedirectResponse(
-                "/admin/users/merge?err=cannot+merge+yourself",
-                status_code=303)
+        # v0.7.34: Wenn der Admin gerade als der Source-Account eingeloggt
+        # ist, ist das der typische Duplikat-Consolidation-Fall (z.B. via
+        # Entra eingeloggt, will Entra-Duplikat in lokalen Account
+        # mergen). Wir erlauben's — machen die Session danach aber sauber
+        # kaputt und schicken den Admin auf /login zurueck, damit er als
+        # Target-Account weitermacht.
+        session_uid = admin.get("id") or admin.get("user_id")
+        session_will_break = (session_uid == source_id)
+
         try:
             from db import merge_users, MergeError
             merge_users(source_id, target_id,
@@ -2928,6 +2937,12 @@ def create_app(session_secret: str) -> FastAPI:
             return RedirectResponse(
                 f"/admin/users/merge?err={quote_plus('unexpected: ' + str(e)[:200])}",
                 status_code=303)
+        if session_will_break:
+            # Session zeigt jetzt auf einen geloeschten User -> Session
+            # verwerfen, Login-Screen mit klarer Erklaerung anzeigen.
+            request.session.clear()
+            return RedirectResponse(
+                "/login?merged=1", status_code=303)
         return RedirectResponse("/admin/users/merge?ok=1",
                                   status_code=303)
 

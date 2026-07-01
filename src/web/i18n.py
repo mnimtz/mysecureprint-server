@@ -33813,3 +33813,15 @@ for _lang, _keys in _V0732_MERGE_KEYS.items():
 for _lang in list(TRANSLATIONS.keys()):
     if _lang not in _V0732_MERGE_KEYS:
         TRANSLATIONS[_lang].update(_V0732_MERGE_KEYS["en"])
+
+
+# v0.7.34: post-merge login-info
+_V0734_MERGE_LOGIN_INFO = {
+    "de": {"login_after_merge_info": "Deine beiden Konten wurden zusammengeführt. Bitte logge dich jetzt mit dem Ziel-Konto neu ein — Passwort und Microsoft-Login funktionieren beide."},
+    "en": {"login_after_merge_info": "Your two accounts have been merged. Please sign in again with the target account — both password and Microsoft login now lead to the same user."},
+}
+for _lang, _keys in _V0734_MERGE_LOGIN_INFO.items():
+    TRANSLATIONS.setdefault(_lang, {}).update(_keys)
+for _lang in list(TRANSLATIONS.keys()):
+    if _lang not in _V0734_MERGE_LOGIN_INFO:
+        TRANSLATIONS[_lang].update(_V0734_MERGE_LOGIN_INFO["en"])

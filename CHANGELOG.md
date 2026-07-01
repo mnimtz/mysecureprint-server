@@ -1,5 +1,13 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.34 — 2026-07-01 — Merge-Tool: Session-User als Source erlauben
+
+Der Merge-Route-Handler hatte einen zu strengen Sicherheits-Check „cannot merge yourself" — der blockte genau den Haupt-Anwendungsfall: Admin ist gerade als Entra-Duplikat eingeloggt und will das Entra-Konto in seinen lokalen Account mergen. Jetzt:
+
+- Merge läuft normal durch, auch wenn `source_id == session.user_id`.
+- Wenn die eigene Session durch den Merge kaputt geht (der eigene User wird gelöscht), wird die Session verworfen und auf `/login?merged=1` umgeleitet.
+- Login-Screen zeigt neuen Info-Banner: „Deine beiden Konten wurden zusammengeführt. Bitte logge dich jetzt mit dem Ziel-Konto neu ein — Passwort und Microsoft-Login funktionieren beide."
+
 ## 0.7.33 — 2026-07-01 — Admin-UI: User-Accounts zusammenführen
 
 Neues Tool unter **/admin/users/merge** (auch als Sidebar-Link im User-Bereich verlinkt):
