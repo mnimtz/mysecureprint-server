@@ -1,6 +1,21 @@
 {% extends "base.html" %}
 {% block title %}{{ _('admin_settings') }} — {{ _('brand_console_name') }}{% endblock %}
 {% block content %}
+{# Hash-Anchor → Section-Filter. Wenn ein Alt-Link wie /admin/settings#entra
+   aufgerufen wird, leiten wir auf ?section=entra um, damit nicht alle
+   Cards untereinander gestapelt erscheinen. Synchron im <head>-Kontext,
+   damit kein Flash entsteht. #}
+<script>
+(function () {
+  var h = (window.location.hash || '').replace(/^#/, '');
+  if (!h) return;
+  if (window.location.search.indexOf('section=') !== -1) return;
+  var known = {queue:1, timezone:1, legal:1, printix:1, mail:1, entra:1,
+               backup:1, general:1};
+  if (!known[h]) return;
+  window.location.replace('/admin/settings?section=' + encodeURIComponent(h));
+})();
+</script>
 <div class="container">
 
   {# v0.5.1: Section-Filter — Sidebar verlinkt mit ?section=printix etc.
