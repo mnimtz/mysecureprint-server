@@ -1,5 +1,9 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.35 — 2026-07-01 — Sidebar: alle Sections collapsed by default
+
+Kosmetik: Neben „Konfiguration" und „Datenschutz" starten jetzt auch die Sections **👥 Benutzer** und **☁️ Cloud & Integrationen** eingeklappt. Erste Ansicht ist damit viel aufgeräumter — Admin klappt gezielt die Section auf, die er gerade braucht.
+
 ## 0.7.34 — 2026-07-01 — Merge-Tool: Session-User als Source erlauben
 
 Der Merge-Route-Handler hatte einen zu strengen Sicherheits-Check „cannot merge yourself" — der blockte genau den Haupt-Anwendungsfall: Admin ist gerade als Entra-Duplikat eingeloggt und will das Entra-Konto in seinen lokalen Account mergen. Jetzt:

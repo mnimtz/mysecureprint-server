@@ -1070,12 +1070,12 @@
 
     {% if user.is_admin %}
 
-    {# ── 👥 Benutzer ──────────────────────────────────────────────────── #}
-    <button class="sb-cat-toggle open" onclick="toggleSbCat(this)">
+    {# ── 👥 Benutzer — v0.7.35: collapsed by default ──────────────────── #}
+    <button class="sb-cat-toggle" onclick="toggleSbCat(this)">
       <span>👥</span> {{ _('nav_cat_users') }}
       <span class="sb-cat-chevron">▸</span>
     </button>
-    <div class="sb-cat-items open">
+    <div class="sb-cat-items">
       <a href="/admin/users"             class="sb-sublink {% if active_page == 'admin_users' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_overview') }}</a>
       <a href="/admin/users/invite"      class="sb-sublink {% if active_page == 'admin_invite' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_invite') }}</a>
       <a href="/admin/users/create"      class="sb-sublink {% if active_page == 'admin_create_user' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_create_user') }}</a>
@@ -1119,12 +1119,12 @@
       <a href="/privacy"       class="sb-sublink" target="_blank" rel="noopener"><span class="sb-dot"></span>{{ _('nav_gdpr_privacy_preview') }}</a>
     </div>
 
-    {# ── ☁️ Cloud & Integrationen ──────────────────────────────────────── #}
-    <button class="sb-cat-toggle open" onclick="toggleSbCat(this)">
+    {# ── ☁️ Cloud & Integrationen — v0.7.35: collapsed by default ────── #}
+    <button class="sb-cat-toggle" onclick="toggleSbCat(this)">
       <span>☁️</span> {{ _('nav_cat_cloud') }}
       <span class="sb-cat-chevron">▸</span>
     </button>
-    <div class="sb-cat-items open">
+    <div class="sb-cat-items">
       <a href="/admin/blob-backup" class="sb-sublink {% if active_page == 'admin_blob_backup' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_blob_backup') }}</a>
       <a href="/admin/mcp-access"  class="sb-sublink {% if active_page == 'admin_mcp_access' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_mcp_access') }}</a>
     </div>
