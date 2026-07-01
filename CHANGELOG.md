@@ -1,5 +1,9 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.44 — 2026-07-01 — Welcome-Dashboard: Server-URL-Kopier-Button entfernt
+
+Der „Kopieren"-Button neben der Server-URL im Dashboard-Header lag optisch über anderen Buttons und verwirrte mehr als er half. Weg. Die URL steht weiterhin sichtbar in der URL-Pille; Admins die sie kopieren wollen können das mit dem üblichen Text-Markieren + Cmd/Strg+C machen.
+
 ## 0.7.43 — 2026-07-01 — Settings-Karte: Titel folgt aktiver Section
 
 UX-Fix. Wenn der Admin per Sidebar auf „Erweiterte Einstellungen" oder „Microsoft Entra ID" ging, stand über der Karte immer der generische Titel „Admin-Einstellungen" — der User wusste nicht welche Section grade aktiv ist und dachte, mehrere Sidebar-Links landen auf derselben Seite. Jetzt:

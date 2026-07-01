@@ -129,12 +129,6 @@
         <h3>{{ _('welcome_server_url_label') }}</h3>
         <div class="url-pill">
           <span id="serverUrl" style="flex:1;">{{ base_url or '—' }}</span>
-          {% if base_url %}
-          <button class="copy-btn" type="button"
-                  onclick="(function(b){navigator.clipboard.writeText('{{ base_url }}').then(()=>{b.textContent='✓';setTimeout(()=>b.textContent='{{ _('welcome_copy') }}',1500);});})(this)">
-            {{ _('welcome_copy') }}
-          </button>
-          {% endif %}
         </div>
         <p style="margin-top:14px; font-size:.85em; color:#64748b;">
           {{ _('welcome_app_link_label') }}:
