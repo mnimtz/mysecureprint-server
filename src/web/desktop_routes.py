@@ -1208,6 +1208,20 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         if not user:
             logger.warning("Desktop-Me FAIL (token invalid) — peer=%s", ci["peer"])
             return _json_error("token invalid", code="auth_required", status=401)
+        # v0.7.45: Admin-Flag `delegation_print_allowed` mit ausliefern.
+        # iOS-App braucht das um zu wissen ob sie den Delegate-Toggle in
+        # Settings ueberhaupt aktivieren duerfen soll — bisher wurde er
+        # immer angezeigt, User war irritiert warum er ihn einschalten
+        # konnte obwohl Server dann sowieso alle delegate-Prints ablehnt.
+        try:
+            from db import get_setting as _gs
+            delegation_allowed = (
+                (_gs("delegation_print_allowed", "0") or "0").strip()
+                in ("1", "true", "yes", "on")
+            )
+        except Exception:
+            delegation_allowed = False
+
         logger.info(
             "Desktop-Me OK — user='%s' uid=%s device='%s' peer=%s",
             _user_descr(user), user.get("user_id"),
@@ -1222,6 +1236,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 "role_type": user.get("role_type", "user"),
                 "device_name": user.get("device_name", ""),
             },
+            "delegation_allowed": delegation_allowed,
         })
 
     # ── Targets ───────────────────────────────────────────────────────────

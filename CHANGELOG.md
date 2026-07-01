@@ -1,5 +1,9 @@
 # Changelog — MySecurePrint Server
 
+## 0.7.45 — 2026-07-01 — /desktop/me: delegation_allowed Flag mit
+
+`/desktop/me` liefert jetzt zusätzlich das `delegation_allowed`-Boolean aus dem Admin-Setting `delegation_print_allowed`. iOS-App (ab v1.0.2) nutzt das um den User-Toggle „Delegation-Druck erlauben" in Settings auszublenden wenn der Admin das Feature server-seitig deaktiviert hat — vorher konnte der User ihn lokal einschalten, der Server hat aber jeden Delegate-Print rejected und der User war irritiert.
+
 ## 0.7.44 — 2026-07-01 — Welcome-Dashboard: Server-URL-Kopier-Button entfernt
 
 Der „Kopieren"-Button neben der Server-URL im Dashboard-Header lag optisch über anderen Buttons und verwirrte mehr als er half. Weg. Die URL steht weiterhin sichtbar in der URL-Pille; Admins die sie kopieren wollen können das mit dem üblichen Text-Markieren + Cmd/Strg+C machen.
