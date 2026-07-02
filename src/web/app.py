@@ -5957,8 +5957,11 @@ def create_app(session_secret: str) -> FastAPI:
         if not saved_redirect:
             base = _get_base_url(request)
             saved_redirect = f"{base}/auth/entra/callback"
-        # Push Notifications — v0.7.77
+        # Push Notifications — v0.7.78
         push_enabled = gs("push_enabled", "0") == "1"
+        push_relay_url = gs("push_relay_url", "")
+        push_relay_token = gs("push_relay_token", "")
+        push_relay_registered = bool(push_relay_url and push_relay_token)
         try:
             from push_tokens import _get_push_token_count
             push_token_count = _get_push_token_count()
@@ -5990,8 +5993,11 @@ def create_app(session_secret: str) -> FastAPI:
             "email_to_print_enabled":  email_to_print_enabled,
             "entra": entra_cfg,
             "entra_redirect_uri": saved_redirect,
-            "push_enabled":     push_enabled,
-            "push_token_count": push_token_count,
+            "push_enabled":           push_enabled,
+            "push_relay_url":         push_relay_url,
+            "push_relay_token":       push_relay_token,
+            "push_relay_registered":  push_relay_registered,
+            "push_token_count":       push_token_count,
             "auto_setup_success": auto_setup_success,
             "backups": backups,
             "backup_success": backup_success,
@@ -6186,12 +6192,14 @@ def create_app(session_secret: str) -> FastAPI:
                 changes.append("entra=" +
                                  ("aktiviert" if val("entra_enabled") else "deaktiviert"))
 
-            # v0.7.77: Push Notifications — nur on/off
+            # v0.7.78: Push Notifications
             if has("push_enabled_present"):
                 set_setting("push_enabled",
                               "1" if has("push_enabled") and val("push_enabled") else "0")
                 changes.append("push=" +
                                  ("aktiviert" if has("push_enabled") and val("push_enabled") else "deaktiviert"))
+                if val("push_relay_url").strip():
+                    set_setting("push_relay_url", val("push_relay_url").strip())
 
             if not changes:
                 changes.append("keine Änderungen erkannt")
@@ -7501,6 +7509,68 @@ def create_app(session_secret: str) -> FastAPI:
                 f"/admin/mcp-access?err={quote_plus(str(e))}", status_code=302)
         return RedirectResponse("/admin/mcp-access?ok=oauth_rotated",
                                 status_code=302)
+
+    # ─── Push Relay: Auto-Register + Test ────────────────────────────────────────
+
+    @app.post("/admin/settings/push-register", response_class=HTMLResponse)
+    async def admin_push_register(request: Request):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        try:
+            from db import _get_setting as gs, set_setting, audit
+            from push_notify import auto_register, DEFAULT_RELAY_URL
+            relay_url = gs("push_relay_url", "").strip() or DEFAULT_RELAY_URL
+            instance_url = _get_base_url(request)
+            token = await auto_register(instance_url=instance_url, relay_url=relay_url)
+            set_setting("push_relay_url", relay_url)
+            set_setting("push_relay_token", token)
+            audit(user["id"], "push_relay_registered", f"relay={relay_url} instance={instance_url}")
+        except Exception as e:
+            logger.error("push-register failed: %s", e)
+            from urllib.parse import quote_plus
+            return RedirectResponse(
+                f"/admin/settings?section=push&err={quote_plus(str(e)[:120])}#push",
+                status_code=302,
+            )
+        return RedirectResponse("/admin/settings?section=push&ok=push_registered#push",
+                                status_code=302)
+
+    @app.post("/admin/settings/push-unregister", response_class=HTMLResponse)
+    async def admin_push_unregister(request: Request):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        try:
+            from db import set_setting, audit
+            set_setting("push_relay_token", "")
+            audit(user["id"], "push_relay_unregistered", "token cleared")
+        except Exception as e:
+            logger.error("push-unregister failed: %s", e)
+        return RedirectResponse("/admin/settings?section=push&ok=push_unregistered#push",
+                                status_code=302)
+
+    @app.post("/admin/settings/push-test")
+    async def admin_push_test(request: Request):
+        from fastapi.responses import JSONResponse
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return JSONResponse({"ok": False, "error": "Unauthorized"}, status_code=401)
+        try:
+            from db import _get_setting as gs
+            from push_notify import send_test_push
+            relay_url = gs("push_relay_url", "")
+            relay_token = gs("push_relay_token", "")
+            if not relay_url or not relay_token:
+                return JSONResponse({"ok": False, "error": "Relay nicht konfiguriert"})
+            result = await send_test_push(
+                user_id=user["id"],
+                relay_url=relay_url,
+                relay_token=relay_token,
+            )
+            return JSONResponse(result)
+        except Exception as e:
+            return JSONResponse({"ok": False, "error": str(e)[:120]})
 
     # ─── Tenant: Printers / Queues / Users+Cards ─────────────────────────────────
 

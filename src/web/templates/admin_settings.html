@@ -1211,15 +1211,16 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
   {% endif %}{# end of outer general/entra wrapper #}
 </div>
 
-  {# ── 🔔 Push Notifications — v0.7.77 ───────────────────────────────── #}
+  {# ── 🔔 Push Notifications — v0.7.78 ───────────────────────────────── #}
   {% if not section or section == 'push' %}
   <div class="settings-card" id="push">
     <h2 class="section-title">🔔 Push Notifications</h2>
+
+    {# ── Aktivieren/Deaktivieren ── #}
     <form method="post" action="/admin/settings?section=push">
       <input type="hidden" name="push_enabled_present" value="1">
-
       <div class="form-row">
-        <label class="form-label">Push Notifications</label>
+        <label class="form-label">Benachrichtigungen</label>
         <div class="form-control">
           <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
             <input type="checkbox" name="push_enabled" value="1"
@@ -1227,34 +1228,114 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
                    style="width:18px;height:18px;">
             <span>Aktivieren</span>
           </label>
-          <p class="form-hint">Sendet Benachrichtigungen an die iOS-App bei neuen Druckaufträgen und Statusänderungen.</p>
+          <p class="form-hint">Sendet Push-Benachrichtigungen an die iOS-App bei Druckaufträgen und Statusänderungen.</p>
         </div>
       </div>
 
-      <div style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px 16px;margin:8px 0 18px;">
-        <p style="margin:0 0 6px;font-size:.9em;font-weight:600;color:#1e40af;">ℹ️ Keine Konfiguration erforderlich</p>
-        <p style="margin:0;font-size:.85em;color:#1e3a8a;line-height:1.5;">
-          Push-Benachrichtigungen werden automatisch über den MySecurePrint-Relay-Dienst zugestellt —
-          die Zugangsdaten für Apple APNs sind dort zentral hinterlegt.
-          Du musst hier nichts weiter einstellen.
-        </p>
-      </div>
-
-      {% if push_token_count is defined %}
+      {# ── Relay-URL (editierbar) ── #}
       <div class="form-row">
-        <label class="form-label">Registrierte Geräte</label>
+        <label class="form-label">Relay-URL</label>
         <div class="form-control">
-          <span style="font-size:.95em;color:var(--ta-navy);font-weight:600;">{{ push_token_count }}</span>
-          <span style="font-size:.85em;color:#64748b;margin-left:6px;">aktive Push-Token in der Datenbank</span>
+          <input type="url" name="push_relay_url" class="form-input"
+                 value="{{ push_relay_url or 'https://msp-push-relay.azurewebsites.net' }}"
+                 placeholder="https://msp-push-relay.azurewebsites.net"
+                 style="max-width:420px;">
+          <p class="form-hint">URL des MSP Push Relay Servers. Nur ändern, wenn du einen eigenen Relay betreibst.</p>
         </div>
       </div>
-      {% endif %}
 
-      <div class="form-actions">
+      <div class="form-actions" style="margin-bottom:0;">
         <button type="submit" class="btn btn-primary">Speichern</button>
       </div>
     </form>
+
+    <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0;">
+
+    {# ── Relay-Registrierung ── #}
+    <div class="form-row">
+      <label class="form-label">Relay-Status</label>
+      <div class="form-control">
+        {% if push_relay_registered %}
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="display:inline-flex;align-items:center;gap:6px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;padding:4px 10px;font-size:.85em;font-weight:600;">
+              ✓ Registriert
+            </span>
+            <code style="font-size:.78em;color:#64748b;word-break:break-all;">
+              {{ push_relay_token[:8] }}…{{ push_relay_token[-4:] }}
+            </code>
+          </div>
+          <p class="form-hint" style="margin-top:6px;">Server ist beim Relay registriert. Token wird sicher gespeichert.</p>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+            <button id="push-test-btn" type="button" class="btn btn-secondary btn-sm"
+                    onclick="pushTest()">Test-Push senden</button>
+            <form method="post" action="/admin/settings/push-unregister" style="margin:0;">
+              <button type="submit" class="btn btn-danger btn-sm"
+                      onclick="return confirm('Relay-Token löschen?')">Abmelden</button>
+            </form>
+          </div>
+          <div id="push-test-result" style="display:none;margin-top:8px;padding:8px 12px;border-radius:6px;font-size:.85em;"></div>
+        {% else %}
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="display:inline-flex;align-items:center;gap:6px;background:#fef9c3;color:#854d0e;border:1px solid #fde047;border-radius:6px;padding:4px 10px;font-size:.85em;font-weight:600;">
+              ⚠ Nicht registriert
+            </span>
+          </div>
+          <p class="form-hint" style="margin-top:6px;">
+            Dieser Server ist noch nicht beim Relay registriert. Klicke auf Auto-Registrieren,
+            damit der Relay einen eindeutigen Token für diesen Server ausstellt.
+          </p>
+          <form method="post" action="/admin/settings/push-register" style="margin-top:10px;">
+            <button type="submit" class="btn btn-primary btn-sm">⚡ Auto-Registrieren</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ── Gerätezähler ── #}
+    {% if push_token_count is defined and push_token_count is not none %}
+    <div class="form-row">
+      <label class="form-label">Registrierte Geräte</label>
+      <div class="form-control">
+        <span style="font-size:.95em;color:var(--ta-navy);font-weight:600;">{{ push_token_count }}</span>
+        <span style="font-size:.85em;color:#64748b;margin-left:6px;">aktive Push-Token in der Datenbank</span>
+      </div>
+    </div>
+    {% endif %}
   </div>
+
+  <script>
+  function pushTest() {
+    const btn = document.getElementById('push-test-btn');
+    const res = document.getElementById('push-test-result');
+    btn.disabled = true;
+    btn.textContent = 'Sende…';
+    fetch('/admin/settings/push-test', {method:'POST'})
+      .then(r => r.json())
+      .then(d => {
+        res.style.display = 'block';
+        if (d.ok) {
+          res.style.background = '#dcfce7';
+          res.style.color = '#166534';
+          res.style.border = '1px solid #86efac';
+          res.textContent = '✓ Test-Push gesendet an ' + (d.sent || 0) + ' Gerät(e).';
+        } else {
+          res.style.background = '#fee2e2';
+          res.style.color = '#991b1b';
+          res.style.border = '1px solid #fca5a5';
+          res.textContent = '✗ ' + (d.error || 'Unbekannter Fehler');
+        }
+        btn.disabled = false;
+        btn.textContent = 'Test-Push senden';
+      })
+      .catch(e => {
+        res.style.display = 'block';
+        res.style.background = '#fee2e2';
+        res.textContent = '✗ ' + e;
+        btn.disabled = false;
+        btn.textContent = 'Test-Push senden';
+      });
+  }
+  </script>
   {% endif %}{# end push section gate #}
 
 <!-- i18n strings for JavaScript -->
