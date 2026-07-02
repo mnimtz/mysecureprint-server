@@ -12,6 +12,10 @@ struct LoginView: View {
     @State private var entraBusy: Bool = false
     @State private var error: String = ""
     @State private var webAuthAnchor: WebAuthAnchor = WebAuthAnchor()
+    /// Hält die ASWebAuthenticationSession am Leben bis der Callback
+    /// feuert. Ohne diesen starken Verweis gibt ARC die Session nach
+    /// `session.start()` frei — der Callback kommt nie.
+    @State private var activeWebAuthSession: ASWebAuthenticationSession?
 
     private let oauthRedirectURI    = "mysecureprint://oauth/callback"
     private let oauthCallbackScheme = "mysecureprint"
@@ -199,7 +203,7 @@ struct LoginView: View {
         if let mserr = qi.first(where: { $0.name == "error" })?.value {
             let desc = qi.first(where: { $0.name == "error_description" })?.value
                 ?? qi.first(where: { $0.name == "error_subcode" })?.value
-            self.error = desc?.isEmpty == false ? desc! : mserr
+            self.error = (desc?.isEmpty == false ? desc : nil) ?? mserr
             return
         }
         guard let code  = qi.first(where: { $0.name == "code" })?.value,
@@ -228,12 +232,18 @@ struct LoginView: View {
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<URL?, Error>) in
             let session = ASWebAuthenticationSession(
                 url: url, callbackURLScheme: callbackScheme
-            ) { callbackURL, error in
+            ) { [self] callbackURL, error in
+                // Session-Referenz freigeben sobald der Callback feuert.
+                self.activeWebAuthSession = nil
                 if let error = error { cont.resume(throwing: error) }
                 else                 { cont.resume(returning: callbackURL) }
             }
             session.presentationContextProvider = webAuthAnchor
             session.prefersEphemeralWebBrowserSession = false
+            // Starken Verweis setzen BEVOR start() aufgerufen wird,
+            // damit ARC die Session nicht zwischen start() und dem
+            // ersten Callback-Aufruf freigibt.
+            self.activeWebAuthSession = session
             session.start()
         }
     }

@@ -320,6 +320,14 @@ final class SettingsStore: ObservableObject {
         targetLabels = [:]
         selectionExpiresAt = nil
         pendingInviteToken = ""
+        // Admin-Flags auf sichere Defaults zuruecksetzen — werden nach
+        // dem naechsten Login via refreshRole() neu geladen. Ohne Reset
+        // koennte ein nachfolgender Login mit niedrigerer Rolle kurz den
+        // Management-Tab sehen (hasManagementAccess prueft userRoleType,
+        // das schon oben gecleart wird, aber delegationAllowedByAdmin /
+        // employeesCanManageCards sind reine In-Memory-Flags).
+        delegationAllowedByAdmin = true
+        employeesCanManageCards = false
     }
 
     private static func defaultDeviceName() -> String {

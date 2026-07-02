@@ -179,17 +179,18 @@ private final class NFCSessionHandler: NSObject, NFCTagReaderSessionDelegate {
         NSLog("[NFCScanner] Karte gelesen — Typ: \(typeName), Laenge: \(uid.count) Bytes")
         #endif
         session.alertMessage = String(format: String(localized: "Karte gelesen: %@"), hex)
+        // Continuation ZUERST entnehmen und nil-setzen, BEVOR
+        // invalidate() aufgerufen wird. invalidate() triggert
+        // didInvalidateWithError auf demselben Main-Queue-Run-Loop —
+        // wenn continuation dort noch nicht nil ist, wuerde die
+        // Continuation doppelt resumed (einmal mit Fehler, einmal hier
+        // mit dem UID-Wert). Durch das fruehzeitige Nil-Setzen
+        // ignoriert didInvalidateWithError den Callback korrekt.
+        let cont = self.continuation
+        self.continuation = nil
+        self.session = nil
         session.invalidate()
-        // Resume passiert hier, nicht im didInvalidate — sonst wuerde
-        // unser eigener invalidate()-Aufruf als "Fehler" durchlaufen.
-        // I-1 fix: self.session + self.continuation NULLen, sonst leakt
-        // der Handler ueber den NFC-Session-Retain-Cycle.
-        Task { @MainActor in
-            let cont = self.continuation
-            self.continuation = nil
-            self.session = nil
-            cont?.resume(returning: hex)
-        }
+        cont?.resume(returning: hex)
     }
 
     /// Mensch-lesbarer Tag-Typ, reicht fuer Diagnose und Error-Messages.
