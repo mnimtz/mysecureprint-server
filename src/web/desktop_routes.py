@@ -244,7 +244,7 @@ async def _process_desktop_send_bg(
                 _push_fail(
                     user_id=user.get("user_id", ""),
                     title="Druckauftrag fehlgeschlagen",
-                    body=f"„{filename}" konnte nicht gesendet werden: {msg[:80]}",
+                    body=f"„{filename}” konnte nicht gesendet werden: {msg[:80]}",
                     extra={"job_id": internal_id, "error_code": code},
                     collapse_id=f"job:{internal_id}",
                 )
@@ -939,7 +939,7 @@ async def _process_desktop_send_bg(
                 _push(
                     user_id=user.get("user_id", ""),
                     title="Druckauftrag gesendet",
-                    body=f"„{display_filename}" wurde an {target_queue or target_id} übermittelt.",
+                    body=f"„{display_filename}” wurde an {target_queue or target_id} übermittelt.",
                     extra={"job_id": internal_id, "printix_job_id": px_job_id},
                     collapse_id=f"job:{internal_id}",
                 )
