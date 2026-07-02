@@ -612,6 +612,26 @@ def create_app(session_secret: str) -> FastAPI:
             logger.warning("welcome QR generation failed: %s", e)
             return ""
 
+    # v0.7.73: Echter App-Store-Link, sprachabhängig auf die richtige
+    # Länder-Storefront zeigen (Sprache der Beschreibungsseite).
+    _APP_STORE_ID = "6785880823"
+    _APP_STORE_SLUG = "mysecureprint"
+    _LANG_TO_STORE: dict[str, str] = {
+        "de": "de", "fr": "fr", "es": "es", "it": "it",
+        "nl": "nl", "nb": "no", "sv": "se",
+    }
+
+    def _app_store_url(lang: str) -> str:
+        cc = _LANG_TO_STORE.get((lang or "en").lower(), "")
+        if cc:
+            return (
+                f"https://apps.apple.com/{cc}/app/"
+                f"{_APP_STORE_SLUG}/{_APP_STORE_ID}"
+            )
+        # Englisch + alle anderen → universeller Link (kein /us/ —
+        # dann landet Apple bei der Systemsprache des Browsers).
+        return f"https://apps.apple.com/app/id{_APP_STORE_ID}"
+
     @app.get("/welcome", response_class=HTMLResponse)
     async def welcome_page(request: Request):
         """Admin-Dashboard mit Konfigurations-Status, Server-URL und
@@ -639,21 +659,23 @@ def create_app(session_secret: str) -> FastAPI:
         mcp_ok, _       = _get_mcp_status()
 
         user = get_session_user(request)
+        ctx = t_ctx(request)
 
         return templates.TemplateResponse("welcome.html", {
-            "request":      request,
-            "user":         user,
-            "base_url":     base_url,
-            "qr_payload":   qr_payload,
-            "qr_svg":       qr_svg,
-            "printix_ok":   printix_ok,
-            "entra_ok":     entra_ok,
-            "legal_ok":     legal_ok,
-            "admin_ok":     admin_ok,
-            "mcp_ok":       mcp_ok,
-            "active_page":  "welcome",
-            "version":      current_app_version(),
-            **t_ctx(request),
+            "request":        request,
+            "user":           user,
+            "base_url":       base_url,
+            "qr_payload":     qr_payload,
+            "qr_svg":         qr_svg,
+            "printix_ok":     printix_ok,
+            "entra_ok":       entra_ok,
+            "legal_ok":       legal_ok,
+            "admin_ok":       admin_ok,
+            "mcp_ok":         mcp_ok,
+            "active_page":    "welcome",
+            "version":        current_app_version(),
+            "app_store_url":  _app_store_url(ctx.get("lang", "en")),
+            **ctx,
         })
 
     # ── Registrierung ─────────────────────────────────────────────────────────
@@ -3210,9 +3232,7 @@ def create_app(session_secret: str) -> FastAPI:
         # v0.7.28: App-Store-URL als Platzhalter — Admin kann ihn frei platzieren.
         # Hartkodiert auf die Marketing-URL der App. Sobald die App Store-Link
         # verfuegbar ist (post Apple-Review), via Setting ueberschreibbar.
-        app_store_url_default = (
-            "https://apps.apple.com/de/app/mysecureprint/id6785880823"
-        )
+        app_store_url_default = _app_store_url(lang or "en")
         app_store_url = ""
         if get_setting is not None:
             try:
@@ -4428,6 +4448,7 @@ def create_app(session_secret: str) -> FastAPI:
                 f"{quote_plus(inv['server_url'])}&token={quote_plus(i)}"
             )
             qr_svg = _make_mobile_invite_qr_svg(deep_link)
+        ctx = t_ctx(request)
         return templates.TemplateResponse(
             "m_setup.html",
             {
@@ -4438,7 +4459,8 @@ def create_app(session_secret: str) -> FastAPI:
                 "deep_link": deep_link,
                 "qr_svg": qr_svg,
                 "server_url": server_url_for_app,
-                **t_ctx(request),
+                "app_store_url": _app_store_url(ctx.get("lang", "en")),
+                **ctx,
             },
         )
 

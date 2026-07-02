@@ -129,7 +129,13 @@
         </div>
         <p style="margin-top:14px; font-size:.85em; color:#64748b;">
           {{ _('welcome_app_link_label') }}:
-          <a href="#" style="color:var(--ta-cyan-dark);">App Store</a>
+          <a href="{{ app_store_url }}" target="_blank" rel="noopener"
+             style="display:inline-flex;align-items:center;gap:5px;color:var(--ta-cyan-dark);font-weight:500;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 814 1000" fill="currentColor" style="flex-shrink:0;">
+              <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 388.1 1 232.9 1 183.4c0-27.5 7.1-54.4 20.8-78.5C55 54.4 115.2 20 180.1 20c65.3 0 102.3 39.1 148.6 39.1 45 0 88.6-40.1 163.1-40.1 61.1 0 126.2 33.4 162.2 86.6zm-174-93.3c-30.3 35.5-84.3 62.5-134 62.5-10.6 0-21.4-1.6-26-3.9-.4-3.2-.4-6.4-.4-9.6 0-40.2 22.2-83.4 52.2-110.6C695.3 167.4 751.4 143 805 143c.9 0 2.4 0 3.3.3 1.3 44.5-12.8 89.4-46.2 124.3z"/>
+            </svg>
+            App Store
+          </a>
         </p>
       </div>
 
