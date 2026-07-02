@@ -932,6 +932,45 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
             </small>
           </div>
 
+          <!-- ── Transform-Regeln ──────────────────────────────────────── -->
+          <div class="form-group" style="margin-top:12px;">
+            <label style="font-weight:600;">Transform-Regeln
+              <small style="color:#6b7280;font-weight:400;">(optional — UID vor Registrierung umformen)</small>
+            </label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+              <button type="button" class="btn btn-secondary btn-sm"
+                      onclick="entraSetTransform({'leading_zero_mode':'strip'})">Führende Nullen entfernen</button>
+              <button type="button" class="btn btn-secondary btn-sm"
+                      onclick="entraSetTransform({'leading_zero_mode':'force_one'})">Führende Null hinzufügen</button>
+              <button type="button" class="btn btn-secondary btn-sm"
+                      onclick="entraSetTransform({'input_mode':'hex','submit_mode':'decimal'})">Hex → Dezimal</button>
+              <button type="button" class="btn btn-secondary btn-sm"
+                      onclick="entraSetTransform({'input_mode':'decimal','submit_mode':'hex'})">Dezimal → Hex</button>
+              <button type="button" class="btn btn-secondary btn-sm"
+                      onclick="entraSetTransform({'input_mode':'hex','submit_mode':'hex_reversed'})">Bytes umkehren</button>
+              <button type="button" class="btn btn-secondary btn-sm" style="color:#dc2626;"
+                      onclick="entraSetTransform({})">Leeren</button>
+            </div>
+            <textarea name="entra_card_uid_transform_rules" id="entra-transform-rules"
+                      rows="3" style="font-family:monospace;font-size:.85em;width:100%;"
+                      placeholder='{"leading_zero_mode": "strip"}'>{{ entra.card_uid_transform_rules }}</textarea>
+            <small class="hint">
+              JSON-Regelwerk — gleiche Parameter wie die Card-Profile-Transforms
+              (<code>leading_zero_mode</code>, <code>input_mode</code>, <code>submit_mode</code>,
+              <code>trim_prefix</code>, <code>prepend_text</code>, …).
+              Regeln können kombiniert werden.
+            </small>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+              <input type="text" id="entra-transform-preview-input"
+                     placeholder="Beispiel-UID eingeben…"
+                     style="font-family:monospace;width:180px;font-size:.88em;">
+              <button type="button" class="btn btn-secondary btn-sm"
+                      onclick="entraTransformPreview()">Vorschau</button>
+              <span id="entra-transform-preview-result"
+                    style="font-family:monospace;font-size:.88em;color:#374151;"></span>
+            </div>
+          </div>
+
           {% if entra.enabled and entra.client_id and entra.has_secret and entra.card_uid_attribute %}
           <div style="margin-top:12px;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
             <div style="font-weight:600;margin-bottom:8px;font-size:.95em;">
@@ -974,6 +1013,38 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
         return String(s == null ? '' : s)
           .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
       }
+      function entraSetTransform(rules) {
+        var ta = document.getElementById('entra-transform-rules');
+        if (!ta) return;
+        ta.value = Object.keys(rules).length ? JSON.stringify(rules, null, 2) : '';
+      }
+      function entraTransformPreview() {
+        var val = (document.getElementById('entra-transform-preview-input').value || '').trim();
+        var rulesStr = (document.getElementById('entra-transform-rules').value || '').trim();
+        var resultEl = document.getElementById('entra-transform-preview-result');
+        if (!val) { resultEl.textContent = ''; return; }
+        var rules = {};
+        if (rulesStr) {
+          try { rules = JSON.parse(rulesStr); }
+          catch(e) { resultEl.textContent = '✗ Ungültiges JSON'; return; }
+        }
+        fetch('/admin/entra/transform-preview', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({value: val, rules: rules})
+        })
+        .then(function(r){ return r.json(); })
+        .then(function(d) {
+          if (d.error) { resultEl.textContent = '✗ ' + d.error; return; }
+          var changed = d.final !== val;
+          resultEl.innerHTML = '→ <strong>' + _escHtml(d.final) + '</strong>'
+            + (changed
+               ? ' <span style="color:#6b7280;font-size:.9em;">(war: ' + _escHtml(val) + ')</span>'
+               : ' <span style="color:#6b7280;font-size:.9em;">(unverändert)</span>');
+        })
+        .catch(function(e){ resultEl.textContent = '✗ Netzwerkfehler'; });
+      }
+
       function entraCardSync(dryRun) {
         var box = document.getElementById('entra-sync-result');
         box.style.display = 'block';

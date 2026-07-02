@@ -1540,6 +1540,15 @@ def sync_card_uids_from_entra(dry_run: bool = True) -> dict:
     if not attribute:
         return {"error": "Kein Entra-Attribut für Karten-UID konfiguriert (Admin → Entra)"}
 
+    _transform_rules: dict | None = None
+    _transform_rules_raw = (get_setting("entra_card_uid_transform_rules", "") or "").strip()
+    if _transform_rules_raw:
+        try:
+            import json as _tj
+            _transform_rules = _tj.loads(_transform_rules_raw)
+        except Exception as _te:
+            logger.warning("Entra card transform rules sind kein valides JSON: %s", _te)
+
     token = _get_graph_client_token(cfg)
     if not token:
         return {"error": ("Graph-Token konnte nicht abgerufen werden. "
@@ -1581,6 +1590,15 @@ def sync_card_uids_from_entra(dry_run: bool = True) -> dict:
         else:
             card_uid = (eu.get(attribute) or "").strip()
 
+        if not card_uid:
+            continue
+
+        if _transform_rules:
+            try:
+                from cards.transform import apply_profile_transform as _apt
+                card_uid = (_apt(card_uid, _transform_rules).get("final") or card_uid).strip()
+            except Exception as _te:
+                logger.warning("Entra card transform error (uid=%s): %s", card_uid, _te)
         if not card_uid:
             continue
 

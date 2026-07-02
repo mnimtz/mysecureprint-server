@@ -5833,12 +5833,13 @@ def create_app(session_secret: str) -> FastAPI:
                 "client_id":          gs("entra_client_id", ""),
                 "has_secret":         bool(gs("entra_client_secret", "")),
                 "auto_approve":       gs("entra_auto_approve", "0") == "1",
-                "card_uid_attribute": gs("entra_card_uid_attribute", ""),
+                "card_uid_attribute":       gs("entra_card_uid_attribute", ""),
+                "card_uid_transform_rules": gs("entra_card_uid_transform_rules", ""),
             }
         except Exception:
             entra_cfg = {"enabled": False, "tenant_id": "", "client_id": "",
                          "has_secret": False, "auto_approve": False,
-                         "card_uid_attribute": ""}
+                         "card_uid_attribute": "", "card_uid_transform_rules": ""}
         # Gespeicherte Redirect URI (aus Auto-Setup oder manuell gesetzt)
         try:
             saved_redirect = gs("entra_redirect_uri", "")
@@ -6061,6 +6062,9 @@ def create_app(session_secret: str) -> FastAPI:
                 if has("entra_card_uid_attribute"):
                     set_setting("entra_card_uid_attribute",
                                   val("entra_card_uid_attribute"))
+                if has("entra_card_uid_transform_rules"):
+                    set_setting("entra_card_uid_transform_rules",
+                                  val("entra_card_uid_transform_rules").strip())
                 changes.append("entra=" +
                                  ("aktiviert" if val("entra_enabled") else "deaktiviert"))
 
@@ -6101,6 +6105,33 @@ def create_app(session_secret: str) -> FastAPI:
         except Exception as e:
             logger.error("Entra card sync endpoint error: %s", e)
             return JSONResponse({"error": str(e)}, status_code=500)
+
+    @app.post("/admin/entra/transform-preview")
+    async def admin_entra_transform_preview(request: Request):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return JSONResponse({"error": "Nicht autorisiert"}, status_code=401)
+        try:
+            body = await request.json()
+            raw_value = str(body.get("value", "")).strip()
+            rules = body.get("rules") or {}
+            if isinstance(rules, str):
+                import json as _jp
+                rules = _jp.loads(rules)
+            import sys as _sys, os as _os
+            _sys.path.insert(0, _os.path.dirname(_os.path.dirname(
+                _os.path.abspath(__file__))))
+            from cards.transform import apply_profile_transform
+            result = apply_profile_transform(raw_value, rules)
+            return JSONResponse({
+                "raw":     result.get("raw", ""),
+                "final":   result.get("final", ""),
+                "hex":     result.get("hex", ""),
+                "decimal": result.get("decimal", ""),
+                "working": result.get("working", ""),
+            })
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
 
     # v0.4.5: Printix-Zugangsdaten editieren. Vorher nur ueber den
     # Register-Wizard setzbar — Rotation/Update der API-Secrets im
