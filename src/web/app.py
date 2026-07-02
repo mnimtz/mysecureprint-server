@@ -6076,8 +6076,7 @@ def create_app(session_secret: str) -> FastAPI:
             return templates.TemplateResponse("admin_settings.html",
                 _admin_settings_ctx(request, user, error=str(e)))
 
-        return templates.TemplateResponse("admin_settings.html",
-            _admin_settings_ctx(request, user, saved=True))
+        return RedirectResponse("/admin/settings?ok=saved", status_code=303)
 
     @app.post("/admin/entra/sync-cards")
     async def admin_entra_sync_cards(request: Request):

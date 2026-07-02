@@ -407,7 +407,7 @@
       {{ _('entra_auto_success_sub') }}
     </div>
     {% endif %}
-    {% if saved and not auto_setup_success | default(false) %}
+    {% if (saved and not auto_setup_success | default(false)) or request.query_params.get('ok') == 'saved' %}
     <div class="alert alert-success">✓ {{ _('admin_saved') }}</div>
     {% endif %}
     {% if error %}
