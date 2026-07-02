@@ -93,7 +93,9 @@ public struct QuickActionsSync {
         // Input = "files", Output = "none". Automator frisst XML-Plist
         // mit genau diesem Schema. Felder, die Automator zur Laufzeit
         // erwartet, aber die wir nicht brauchen, bleiben leer / default.
-        let script = "\"\(cliPath)\" --target \"\(target.id)\" \"$@\"\n"
+        let safeCliPath = cliPath.replacingOccurrences(of: "\"", with: "\\\"")
+        let safeTargetId = target.id.replacingOccurrences(of: "\"", with: "\\\"")
+        let script = "\"\(safeCliPath)\" --target \"\(safeTargetId)\" \"$@\"\n"
         let wflow = buildWflow(script: script, serviceName: name)
         let wflowData = try PropertyListSerialization.data(fromPropertyList: wflow,
                                                            format: .xml, options: 0)

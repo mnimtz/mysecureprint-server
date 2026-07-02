@@ -781,8 +781,8 @@ def register_employee_routes(
                 user=user_printix_email,
                 pdl="PDF",
                 release_immediately=False,
-                color=bool(color),
-                duplex=("LONG_EDGE" if duplex else "NONE"),
+                color=(color.strip().lower() in ("1", "true", "yes", "on")),
+                duplex=("LONG_EDGE" if duplex.strip().lower() in ("1", "true", "yes", "on") else "NONE"),
                 copies=max(1, min(99, int(copies or 1))),
             )
             result_job = result.get("job", result) if isinstance(result, dict) else {}
@@ -1357,8 +1357,10 @@ def register_employee_routes(
         if not user:
             return RedirectResponse("/login", status_code=302)
 
-        from cloudprint.db_extensions import update_delegation_status
-        update_delegation_status(delegation_id, "active")
+        from cloudprint.db_extensions import get_delegation_by_id, update_delegation_status
+        deleg = get_delegation_by_id(delegation_id)
+        if deleg and deleg.get("owner_user_id") == user["id"]:
+            update_delegation_status(delegation_id, "active")
         return RedirectResponse(_safe_referer(request, "/my/employees"),
                                   status_code=302)
 
@@ -1369,7 +1371,9 @@ def register_employee_routes(
         if not user:
             return RedirectResponse("/login", status_code=302)
 
-        from cloudprint.db_extensions import delete_delegation
-        delete_delegation(delegation_id)
+        from cloudprint.db_extensions import get_delegation_by_id, delete_delegation
+        deleg = get_delegation_by_id(delegation_id)
+        if deleg and deleg.get("owner_user_id") == user["id"]:
+            delete_delegation(delegation_id)
         return RedirectResponse(_safe_referer(request, "/my/employees"),
                                   status_code=302)

@@ -280,6 +280,7 @@ def poll_mailbox_once(mailbox_id: str,
         # Anhaenge holen + drucken
         atts = _get_attachments(token, upn, msg_id)
         any_printed = False
+        _att_statuses: list[str] = []
         for att in atts:
             if att.get("isInline"):
                 continue
@@ -354,6 +355,7 @@ def poll_mailbox_once(mailbox_id: str,
                               guest_id=(guest or {}).get("id", ""),
                               printix_job_id=printix_job_id,
                               status=status, error=err)
+            _att_statuses.append(status)
             if status == "ok":
                 any_printed = True
                 stats["printed"] += 1
@@ -366,7 +368,11 @@ def poll_mailbox_once(mailbox_id: str,
                 except Exception:
                     pass
 
-        # Folder-Move / Read-Mark
+        # Folder-Move / Read-Mark.
+        # Nur wenn mindestens ein Anhang erfolgreich gedruckt wurde — bei
+        # pending die Mail NICHT als gelesen markieren (Retry im nächsten
+        # Poll). Bei hartem Fehler aller Anhänge als gelesen markieren.
+        all_error = bool(_att_statuses) and all(s == "error" for s in _att_statuses)
         on_success = mb.get("on_success", "move")
         if any_printed:
             if on_success == "move":
@@ -380,8 +386,11 @@ def poll_mailbox_once(mailbox_id: str,
                     timeout=15)
             else:
                 _mark_read(token, upn, msg_id)
-        else:
+        elif all_error:
+            # Alle Anhänge mit hartem Fehler → als gelesen markieren damit
+            # die Mail nicht ewig in der Poll-Queue bleibt.
             _mark_read(token, upn, msg_id)
+        # status==pending → Mail bleibt ungelesen für Retry
 
     # Statistik in Mailbox-Tabelle
     try:

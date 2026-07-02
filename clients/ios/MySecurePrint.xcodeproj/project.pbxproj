@@ -545,7 +545,7 @@
 /* Begin XCLocalSwiftPackageReference section */
 		CA13A1AF2F9749BE001B6E19 /* XCLocalSwiftPackageReference "../macos" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "../macos";
+			relativePath = ../macos;
 		};
 /* End XCLocalSwiftPackageReference section */
 

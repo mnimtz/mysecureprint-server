@@ -106,6 +106,9 @@ def validate_token(token: str) -> Optional[dict]:
         ).fetchone()
         if not row:
             return None
+        user_status = row["status"]
+        if user_status not in ("approved", "active", None):
+            return None
         # last_used_at bumpen
         now = datetime.now(timezone.utc).isoformat()
         conn.execute(

@@ -57,11 +57,11 @@ struct TargetsView: View {
                     }
                 }
 
-                Section("Druck-Ziele") {
+                Section(String(localized: "targets_section_title")) {
                     if loading && targets.isEmpty {
-                        HStack { ProgressView(); Text("Lade Ziele …") }
+                        HStack { ProgressView(); Text(String(localized: "targets_loading")) }
                     } else if targets.isEmpty {
-                        Text("Keine Ziele gefunden.")
+                        Text(String(localized: "targets_empty"))
                             .foregroundColor(.secondary)
                     } else {
                         ForEach(targets) { t in
@@ -102,13 +102,13 @@ struct TargetsView: View {
                 }
 
                 if !error.isEmpty {
-                    Section("Fehler") {
+                    Section(String(localized: "error_section_title")) {
                         Text(error).foregroundColor(.red).textSelection(.enabled)
                     }
                 }
 
             }
-            .navigationTitle("Ziele")
+            .navigationTitle(String(localized: "targets_nav_title"))
             .refreshable {
                 await reload()
                 if settings.delegateEnabled { await reloadMgmtUsers() }
@@ -173,9 +173,9 @@ struct TargetsView: View {
     private var queuePickerSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Andere Queue wählen")
+                Text(String(localized: "queue_picker_title"))
                     .font(.headline)
-                Text("Der Admin hat erlaubt, dass du an eine beliebige Tenant-Queue drucken kannst — wähle zusätzlich aus.")
+                Text(String(localized: "queue_picker_sub"))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -220,13 +220,13 @@ struct TargetsView: View {
                 }
 
                 if queuesLoading && allQueues.isEmpty {
-                    HStack { ProgressView(); Text("Lade Queues …") }
+                    HStack { ProgressView(); Text(String(localized: "queues_loading")) }
                 } else if !queuesError.isEmpty {
                     Text(queuesError)
                         .font(.caption)
                         .foregroundColor(.orange)
                 } else if allQueues.isEmpty {
-                    Text("Keine Queues verfügbar.")
+                    Text(String(localized: "queues_empty"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 } else {
@@ -312,9 +312,9 @@ struct TargetsView: View {
     private var delegationPickerSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Delegation-Druck an andere User")
+                Text(String(localized: "delegation_picker_title"))
                     .font(.headline)
-                Text("Wähle weitere Printix-Benutzer aus. Der Druckjob wird zusätzlich an deren Secure-Print-Queue gesendet.")
+                Text(String(localized: "delegation_picker_sub"))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -352,13 +352,13 @@ struct TargetsView: View {
             }
 
             if mgmtUsersLoading && !mgmtUsersLoaded {
-                HStack { ProgressView(); Text("Lade Benutzer …") }
+                HStack { ProgressView(); Text(String(localized: "users_loading")) }
             } else if !mgmtUsersError.isEmpty {
                 Text(mgmtUsersError)
                     .font(.caption)
                     .foregroundColor(.orange)
             } else if mgmtUsersLoaded && allMgmtUsers.isEmpty {
-                Text("Keine Benutzer verfügbar. Benutzer-Suche ist nur für Admin/User verfügbar.")
+                Text(String(localized: "delegation_users_empty"))
                     .font(.caption)
                     .foregroundColor(.secondary)
             } else {
@@ -447,7 +447,7 @@ struct TargetsView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(format: String(localized: "Auto-Reset in %d:%02d"), mm, ss))
                         .fontWeight(.medium)
-                    Text("Auswahl wird danach auf SecurePrint zurückgesetzt, damit du nicht versehentlich dauerhaft an ein Delegate druckst.")
+                    Text(String(localized: "auto_reset_caption"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -531,7 +531,12 @@ struct TargetsView: View {
             }
             // Label-Cache aktualisieren, damit UploadView die
             // Anzeigenamen statt nur die IDs rendert.
-            var labels: [String: String] = [:]
+            // WICHTIG: print:queue: und print:user: Labels erhalten — die
+            // werden vom Queue-/Delegation-Picker geschrieben und sind nicht
+            // in `visible` enthalten. Nur alte Ziel-Labels aktualisieren.
+            var labels: [String: String] = settings.targetLabels.filter {
+                $0.key.hasPrefix("print:queue:") || $0.key.hasPrefix("print:user:")
+            }
             for t in visible { labels[t.id] = localizedTargetLabel(t) }
             settings.targetLabels = labels
             // Falls noch nichts ausgewaehlt ist: erstes Ziel als Default

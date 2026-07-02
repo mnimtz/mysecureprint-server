@@ -54,14 +54,14 @@ struct ManagementView: View {
                 }
                 if let ts = lastUpdated {
                     Section {
-                        Text("Zuletzt aktualisiert: \(formattedTime(ts))")
+                        Text(String(format: String(localized: "mgmt_last_updated"), formattedTime(ts)))
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
                 }
             }
             .refreshable { await reload() }
-            .navigationTitle("Printix Management")
+            .navigationTitle(String(localized: "mgmt_nav_title"))
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -70,7 +70,7 @@ struct ManagementView: View {
                         if isLoading {
                             ProgressView()
                         } else {
-                            Label("Aktualisieren", systemImage: "arrow.clockwise")
+                            Label(String(localized: "mgmt_refresh"), systemImage: "arrow.clockwise")
                         }
                     }
                     .disabled(isLoading)
@@ -86,18 +86,18 @@ struct ManagementView: View {
 
     @ViewBuilder
     private var statsSection: some View {
-        Section("Übersicht") {
+        Section(String(localized: "mgmt_section_overview")) {
             statRow(icon: "printer.fill",
-                    label: "Drucker",
+                    label: "mgmt_stat_printers",
                     bucket: stats?.printers,
                     onlineLabel: String(localized: "online"))
             if settings.userRoleType.lowercased() != "employee" {
                 statRow(icon: "person.2.fill",
-                        label: "Benutzer",
+                        label: "mgmt_stat_users",
                         bucket: stats?.users,
                         onlineLabel: nil)
                 statRow(icon: "desktopcomputer",
-                        label: "Arbeitsplätze",
+                        label: "mgmt_stat_workstations",
                         bucket: stats?.workstations,
                         onlineLabel: String(localized: "online"))
             }
@@ -106,7 +106,7 @@ struct ManagementView: View {
                     Image(systemName: "building.2")
                         .foregroundStyle(.secondary)
                         .frame(width: 26)
-                    Text("Tenant").foregroundStyle(.secondary)
+                    Text("mgmt_stat_tenant").foregroundStyle(.secondary)
                     Spacer()
                     Text(name).font(.footnote.monospaced())
                 }
@@ -124,7 +124,7 @@ struct ManagementView: View {
             Text(label)
             Spacer()
             if bucket?.available == false {
-                Text("n/v").foregroundStyle(.secondary).font(.footnote)
+                Text(String(localized: "mgmt_not_available")).foregroundStyle(.secondary).font(.footnote)
             } else if let b = bucket {
                 if let online = b.online, let total = b.total, let lbl = onlineLabel {
                     Text("\(online)/\(total) \(lbl)")

@@ -41,7 +41,8 @@ public struct ConfigStore {
 
     public var configUrl: URL {
         let support = FileManager.default.urls(for: .applicationSupportDirectory,
-                                               in: .userDomainMask).first!
+                                               in: .userDomainMask).first
+                      ?? URL(fileURLWithPath: NSTemporaryDirectory())
         let dir = support.appendingPathComponent("PrintixSend", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("config.json")

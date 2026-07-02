@@ -166,7 +166,7 @@ public final class ApiClient: @unchecked Sendable {
         let (data, resp) = try await session.data(for: req)
         try ensureOk(resp, data)
         var user: UserInfo? = nil
-        var delAllowed = false
+        var delAllowed = true
         if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             if let userDict = obj["user"] as? [String: Any],
                let userData = try? JSONSerialization.data(withJSONObject: userDict) {
@@ -346,7 +346,8 @@ public final class ApiClient: @unchecked Sendable {
         // Server-Endpoint nutzt FastAPI Form(session_id) — daher form-encoded.
         req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         req.httpBody = Self.formEncode(["session_id": sessionId])
-        let (data, _) = try await session.data(for: req)
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
         return try JSONDecoder().decode(EntraPollResponse.self, from: data)
     }
 
@@ -404,7 +405,8 @@ public final class ApiClient: @unchecked Sendable {
             "code":       code,
             "state":      state,
         ])
-        let (data, _) = try await session.data(for: req)
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
         return try JSONDecoder().decode(EntraPollResponse.self, from: data)
     }
 
