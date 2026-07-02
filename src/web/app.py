@@ -4272,9 +4272,40 @@ def create_app(session_secret: str) -> FastAPI:
                                 f"auto_card_sync {email}: {str(_ce)[:80]}"
                             )
                 except Exception as e:
-                    result["errors"].append(
-                        f"create_user {username}: {str(e)[:120]}"
-                    )
+                    # UNIQUE constraint on username → user exists but wasn't
+                    # caught by the pre-checks (e.g. stale dict or whitespace).
+                    # Try to find and link them instead of failing.
+                    if "UNIQUE constraint" in str(e) and "username" in str(e):
+                        try:
+                            from db import _conn as _dbc
+                            with _dbc() as _c:
+                                _row = _c.execute(
+                                    "SELECT id FROM users WHERE LOWER(username)=LOWER(?)",
+                                    (username,),
+                                ).fetchone()
+                            if _row:
+                                _kwargs = {"printix_user_id": pxid}
+                                if email:
+                                    _kwargs["email"] = email
+                                update_user(user_id=_row["id"], **_kwargs)
+                                logger.info(
+                                    "printix_sync: linked existing user '%s' "
+                                    "to pxid=%s (was missed by pre-check)",
+                                    username, pxid,
+                                )
+                            else:
+                                result["errors"].append(
+                                    f"create_user {username}: {str(e)[:120]}"
+                                )
+                        except Exception as _le:
+                            result["errors"].append(
+                                f"create_user {username}: {str(e)[:80]} "
+                                f"(link-fallback: {str(_le)[:60]})"
+                            )
+                    else:
+                        result["errors"].append(
+                            f"create_user {username}: {str(e)[:120]}"
+                        )
 
             result["new_users_count"] = new_count
             result["ok"] = True
