@@ -7538,6 +7538,13 @@ def create_app(session_secret: str) -> FastAPI:
             "Desktop-Init: init_desktop_schema() failed (will retry on first "
             "request) — %s", _se,
         )
+    # v0.7.72: Push-Token-Tabelle anlegen
+    try:
+        from push_tokens import init_push_schema
+        init_push_schema()
+        logger.info("Desktop-Init: push_tokens schema OK")
+    except Exception as _pse:
+        logger.warning("Desktop-Init: push_tokens schema failed: %s", _pse)
     # Schritt 2: Routen registrieren — DAS MUSS klappen, sonst 404
     try:
         from web.desktop_routes import register_desktop_routes

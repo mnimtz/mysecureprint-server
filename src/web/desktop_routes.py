@@ -238,6 +238,18 @@ async def _process_desktop_send_bg(
                 )
             except Exception as _ae:
                 logger.debug("audit(print_job_failed) failed: %s", _ae)
+            # v0.7.72: Push-Benachrichtigung — Job fehlgeschlagen.
+            try:
+                from push_notify import notify_user as _push_fail
+                _push_fail(
+                    user_id=user.get("user_id", ""),
+                    title="Druckauftrag fehlgeschlagen",
+                    body=f"„{filename}" konnte nicht gesendet werden: {msg[:80]}",
+                    extra={"job_id": internal_id, "error_code": code},
+                    collapse_id=f"job:{internal_id}",
+                )
+            except Exception as _pfe:
+                logger.debug("push(print_job_failed) failed: %s", _pfe)
 
         # === Stage 1: Format-Erkennung + Konvertierung =====================
         t_convert_start = _t.monotonic()
@@ -920,6 +932,19 @@ async def _process_desktop_send_bg(
                 )
             except Exception as _ae:
                 logger.debug("audit(print_job_submitted) failed: %s", _ae)
+
+            # v0.7.72: Push-Benachrichtigung — Job erfolgreich gesendet.
+            try:
+                from push_notify import notify_user as _push
+                _push(
+                    user_id=user.get("user_id", ""),
+                    title="Druckauftrag gesendet",
+                    body=f"„{display_filename}" wurde an {target_queue or target_id} übermittelt.",
+                    extra={"job_id": internal_id, "printix_job_id": px_job_id},
+                    collapse_id=f"job:{internal_id}",
+                )
+            except Exception as _pe:
+                logger.debug("push(print_job_submitted) failed: %s", _pe)
 
             dt_total = _t.monotonic() - t_start
             logger.info(
@@ -2091,3 +2116,72 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             # Endpoint-Versionen damit Client bei Breaking-Changes migrieren kann:
             "api_version": "1.0",
         })
+
+    # ── Push-Notification-Tokens (v0.7.72) ────────────────────────────────────
+
+    @app.post("/desktop/push/register")
+    async def desktop_push_register(
+        request: Request,
+        authorization: Optional[str] = Header(None),
+    ):
+        """Registriert einen APNs Device-Token für Push-Benachrichtigungen.
+
+        Request JSON:
+          { "device_token": "<64-Hex>", "environment": "production"|"sandbox" }
+        """
+        user = _require_token(authorization)
+        if not user:
+            return _json_error("unauthorized", code="auth_required", status=401)
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        device_token = (body.get("device_token") or "").strip()
+        environment  = (body.get("environment") or "production").strip()
+        if not device_token:
+            return _json_error("device_token required", code="missing_field", status=422)
+        # Sanitize: APNs tokens sind 64 Hex-Chars (32 Bytes)
+        device_token = device_token.replace(" ", "").replace("<", "").replace(">", "")
+        if len(device_token) < 32 or len(device_token) > 200:
+            return _json_error("invalid device_token", code="invalid_token", status=422)
+        if environment not in ("production", "sandbox"):
+            environment = "production"
+        try:
+            from push_tokens import register_push_token
+            register_push_token(
+                user_id=user["user_id"],
+                device_token=device_token,
+                desktop_token=user.get("token", ""),
+                environment=environment,
+            )
+        except Exception as e:
+            logger.error("push/register failed: %s", e)
+            return _json_error("registration failed", code="server_error", status=500)
+        return JSONResponse({"status": "ok"})
+
+    @app.delete("/desktop/push/unregister")
+    async def desktop_push_unregister(
+        request: Request,
+        authorization: Optional[str] = Header(None),
+    ):
+        """Entfernt einen APNs Device-Token (z.B. bei Logout).
+
+        Request JSON: { "device_token": "<64-Hex>" }
+        """
+        user = _require_token(authorization)
+        if not user:
+            return _json_error("unauthorized", code="auth_required", status=401)
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        device_token = (body.get("device_token") or "").strip()
+        if not device_token:
+            return _json_error("device_token required", code="missing_field", status=422)
+        device_token = device_token.replace(" ", "").replace("<", "").replace(">", "")
+        try:
+            from push_tokens import remove_push_token
+            remove_push_token(device_token)
+        except Exception as e:
+            logger.warning("push/unregister failed: %s", e)
+        return JSONResponse({"status": "ok"})

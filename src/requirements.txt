@@ -6,6 +6,8 @@ uvicorn>=0.29.0
 # durch, damit ein einzelner Cloudflare Quick Tunnel beides erreichbar
 # macht.
 httpx>=0.25.0
+# v0.7.72: HTTP/2 fuer APNs Push-Notifications
+h2>=4.0.0
 
 # Web-Verwaltungsoberfläche (FastAPI + Jinja2)
 fastapi>=0.111.0,<0.116.0

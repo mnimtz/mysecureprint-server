@@ -14,5 +14,7 @@
 	<array>
 		<string>$(AppIdentifierPrefix)group.de.nimtz.mysecureprint</string>
 	</array>
+	<key>com.apple.developer.aps-environment</key>
+	<string>production</string>
 </dict>
 </plist>

@@ -17,6 +17,13 @@ struct ContentView: View {
             }
         }
         .environmentObject(settings)
+        // v0.7.72: Push-Permission anfordern sobald der User eingeloggt ist.
+        .onChange(of: settings.isLoggedIn) { loggedIn in
+            if loggedIn {
+                PushNotificationManager.shared.requestPermissionAndRegister()
+                PushNotificationManager.shared.uploadCachedTokenIfNeeded(settings: settings)
+            }
+        }
         // mysecureprint://setup?server=...&token=...
         // Welcome-Page-QR liefert nur server (Pre-Fill der SetupView).
         // Admin-Mobile-Invite-QR (v0.2.0) liefert zusaetzlich einen

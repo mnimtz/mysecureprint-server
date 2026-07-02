@@ -298,6 +298,15 @@ final class SettingsStore: ObservableObject {
     }
 
     func clearSession() {
+        // v0.7.72: Push-Token serverseitig loeschen bevor Credentials gecleart werden.
+        let snapServer = serverURL
+        let snapBearer = bearerToken
+        if !snapBearer.isEmpty && !snapServer.isEmpty {
+            Task {
+                await PushNotificationManager.shared.unregister(
+                    serverURL: snapServer, bearerToken: snapBearer)
+            }
+        }
         bearerToken = ""
         userEmail = ""
         userFullName = ""
