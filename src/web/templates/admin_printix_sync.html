@@ -49,6 +49,21 @@
         <small class="hint">{{ _('printix_sync_auto_invite_help') }}</small>
       </div>
 
+      <div class="form-group">
+        <label style="display:flex; align-items:flex-start; gap:8px; font-weight:600; cursor:pointer;">
+          <input type="checkbox" name="auto_card_sync" value="1"
+                 style="margin-top:3px;"
+                 {% if cfg.auto_card_sync %}checked{% endif %}>
+          <span>Karte automatisch aus Entra registrieren
+            <small style="font-weight:400;color:#6b7280;display:block;margin-top:2px;">
+              Sobald ein neuer Printix-User bei uns ankommt, wird sofort sein
+              Karten-UID-Attribut aus Entra gelesen und die Karte in Printix
+              registriert. Setzt Entra-Karten-Attribut und User.Read.All-Permission voraus.
+            </small>
+          </span>
+        </label>
+      </div>
+
       <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:14px;">
         <button type="submit" class="btn btn-primary">💾 {{ _('common_save') }}</button>
       </div>

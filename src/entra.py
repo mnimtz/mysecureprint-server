@@ -1423,10 +1423,13 @@ def _get_graph_client_token(cfg: dict) -> str:
         return ""
 
 
-def _fetch_entra_users_paged(token: str, url: str) -> list:
+def _fetch_entra_users_paged(token: str, url: str,
+                              extra_headers: dict | None = None) -> list:
     """Liest alle Entra-User mit @odata.nextLink-Pagination."""
     results = []
     headers = {"Authorization": f"Bearer {token}"}
+    if extra_headers:
+        headers.update(extra_headers)
     while url:
         try:
             resp = _requests.get(url, headers=headers, timeout=20)
@@ -1518,7 +1521,8 @@ def _register_card_via_printix(tenant: dict, px_uid: str, card_uid: str) -> str:
     return new_card_id
 
 
-def sync_card_uids_from_entra(dry_run: bool = True) -> dict:
+def sync_card_uids_from_entra(dry_run: bool = True,
+                               filter_email: str = "") -> dict:
     """Liest Karten-UIDs aus einem konfigurierten Entra-Attribut und
     registriert sie automatisch in Printix.
 
@@ -1559,9 +1563,20 @@ def sync_card_uids_from_entra(dry_run: bool = True) -> dict:
     is_ext_attr = (attr_lower.startswith("extensionattribute")
                    and attr_lower[len("extensionattribute"):].isdigit())
     select_extra = "onPremisesExtensionAttributes" if is_ext_attr else attribute
-    url = f"{_GRAPH_URL}/users?$select=id,mail,userPrincipalName,{select_extra}&$top=200"
+    select_fields = f"id,mail,userPrincipalName,{select_extra}"
 
-    entra_users = _fetch_entra_users_paged(token, url)
+    if filter_email:
+        # Gezielter Lookup — nur den einen User per E-Mail / UPN abfragen.
+        # $filter auf 'mail' benötigt ConsistencyLevel:eventual (OData 4.0).
+        safe = filter_email.strip().replace("'", "''")
+        url = (f"{_GRAPH_URL}/users"
+               f"?$filter=mail eq '{safe}' or userPrincipalName eq '{safe}'"
+               f"&$select={select_fields}&$count=true")
+        entra_users = _fetch_entra_users_paged(
+            token, url, extra_headers={"ConsistencyLevel": "eventual"})
+    else:
+        url = f"{_GRAPH_URL}/users?$select={select_fields}&$top=200"
+        entra_users = _fetch_entra_users_paged(token, url)
     if not entra_users:
         return {"error": ("Keine Entra-User abgerufen — prüfe Graph-Berechtigung "
                           "User.Read.All und ob das Attribut existiert.")}

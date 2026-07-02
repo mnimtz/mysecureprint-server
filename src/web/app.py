@@ -4021,6 +4021,8 @@ def create_app(session_secret: str) -> FastAPI:
                 "printix_user_sync_interval_minutes", 60))),
             "auto_invite":
                 get_setting("printix_user_sync_auto_invite", "0") == "1",
+            "auto_card_sync":
+                get_setting("printix_user_sync_auto_card_sync", "0") == "1",
             "last_run_at": get_setting(
                 "printix_user_sync_last_run_at", ""),
         }
@@ -4248,6 +4250,20 @@ def create_app(session_secret: str) -> FastAPI:
                             result["errors"].append(
                                 f"auto_invite {username}: {str(e)[:80]}"
                             )
+                    if cfg.get("auto_card_sync") and email:
+                        try:
+                            from entra import sync_card_uids_from_entra
+                            _cs = sync_card_uids_from_entra(
+                                dry_run=False, filter_email=email)
+                            if _cs.get("synced"):
+                                logger.info(
+                                    "Entra auto-card-sync: %d Karte(n) für "
+                                    "neuen User %s registriert",
+                                    len(_cs["synced"]), email)
+                        except Exception as _ce:
+                            logger.warning(
+                                "Entra auto-card-sync fehlgeschlagen "
+                                "(user=%s): %s", email, _ce)
                 except Exception as e:
                     result["errors"].append(
                         f"create_user {username}: {str(e)[:120]}"
@@ -4286,6 +4302,7 @@ def create_app(session_secret: str) -> FastAPI:
         enabled: str = Form(default=""),
         interval_minutes: str = Form(default="60"),
         auto_invite: str = Form(default=""),
+        auto_card_sync: str = Form(default=""),
     ):
         admin = get_session_user(request)
         if not admin or not admin.get("is_admin"):
@@ -4300,6 +4317,8 @@ def create_app(session_secret: str) -> FastAPI:
         set_setting("printix_user_sync_interval_minutes", str(iv))
         set_setting("printix_user_sync_auto_invite",
                     "1" if auto_invite else "0")
+        set_setting("printix_user_sync_auto_card_sync",
+                    "1" if auto_card_sync else "0")
         try:
             audit(
                 admin["id"],
