@@ -379,10 +379,10 @@ def register_desktop_management_routes(app: FastAPI) -> None:
             src_dir = _o.path.dirname(_o.path.dirname(__file__))
             if src_dir not in _s.path:
                 _s.path.insert(0, src_dir)
-            from db import _conn
-            from cloudprint.db_extensions import get_parent_user_id, get_tenant_for_user
-            parent_id = get_parent_user_id(user["user_id"]) or user["user_id"]
-            tenant = get_tenant_for_user(parent_id) or get_tenant_for_user(user["user_id"])
+            from db import _conn, _resolve_tenant_owner_for
+            from cloudprint.db_extensions import get_tenant_for_user
+            parent_id = _resolve_tenant_owner_for(user["user_id"]) or user["user_id"]
+            tenant = get_tenant_for_user(parent_id)
             if not tenant:
                 return JSONResponse({"users": [], "tenant": None})
             tid = tenant.get("id") or tenant.get("tenant_id") or ""

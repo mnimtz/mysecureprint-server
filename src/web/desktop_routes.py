@@ -196,9 +196,9 @@ async def _process_desktop_send_bg(
         if src_dir not in _sys.path:
             _sys.path.insert(0, src_dir)
         from upload_converter import convert_to_pdf, ConversionError
-        from db import get_tenant_full_by_user_id
+        from db import get_tenant_full_by_user_id, _resolve_tenant_owner_for
         from cloudprint.db_extensions import (
-            get_parent_user_id, get_cloudprint_config,
+            get_cloudprint_config,
             get_delegations_for_owner, create_cloudprint_job,
             update_cloudprint_job_status,
         )
@@ -271,8 +271,8 @@ async def _process_desktop_send_bg(
             return
 
         # === Stage 2: Tenant + Queue + Owner-Email =========================
-        parent_id = get_parent_user_id(user["user_id"])
-        tenant = get_tenant_full_by_user_id(parent_id)
+        parent_id = _resolve_tenant_owner_for(user["user_id"])
+        tenant = get_tenant_full_by_user_id(parent_id) if parent_id else None
         config = get_cloudprint_config(user["user_id"])
 
         if not tenant or not config or not config.get("lpr_target_queue"):
@@ -1080,11 +1080,10 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             src_dir = _o.path.dirname(_o.path.dirname(__file__))
             if src_dir not in _s.path:
                 _s.path.insert(0, src_dir)
-            from db import get_tenant_full_by_user_id
-            from cloudprint.db_extensions import get_parent_user_id
+            from db import get_tenant_full_by_user_id, _resolve_tenant_owner_for
             from printix_client import PrintixClient
-            parent_id = get_parent_user_id(user["user_id"]) or user["user_id"]
-            tenant = get_tenant_full_by_user_id(parent_id)
+            parent_id = _resolve_tenant_owner_for(user["user_id"])
+            tenant = get_tenant_full_by_user_id(parent_id) if parent_id else None
             if not tenant or not (tenant.get("print_client_id")
                                   or tenant.get("shared_client_id")):
                 return JSONResponse({"queues": [], "available": False})
@@ -1164,10 +1163,10 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         if not user:
             return _json_error("token invalid", code="auth_required", status=401)
         try:
-            from db import _conn
-            from cloudprint.db_extensions import get_parent_user_id, get_tenant_for_user
-            parent_id = get_parent_user_id(user["user_id"]) or user["user_id"]
-            tenant = get_tenant_for_user(parent_id) or get_tenant_for_user(user["user_id"])
+            from db import _conn, _resolve_tenant_owner_for
+            from cloudprint.db_extensions import get_tenant_for_user
+            parent_id = _resolve_tenant_owner_for(user["user_id"]) or user["user_id"]
+            tenant = get_tenant_for_user(parent_id)
             tid = (tenant or {}).get("id", "")
             limit_int = max(1, min(int(limit or 20), 200))
             uname = (_user_descr(user) or "").lower()
@@ -1260,13 +1259,13 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             logger.warning("Desktop-Targets FAIL (no token) — peer=%s", ci["peer"])
             return _json_error("token invalid", code="auth_required", status=401)
 
-        from db import get_tenant_full_by_user_id
+        from db import get_tenant_full_by_user_id, _resolve_tenant_owner_for
         from cloudprint.db_extensions import (
-            get_parent_user_id, get_delegations_for_owner, get_cloudprint_config,
+            get_delegations_for_owner, get_cloudprint_config,
         )
 
-        parent_id = get_parent_user_id(user["user_id"])
-        tenant = get_tenant_full_by_user_id(parent_id)
+        parent_id = _resolve_tenant_owner_for(user["user_id"])
+        tenant = get_tenant_full_by_user_id(parent_id) if parent_id else None
 
         # v0.5.0: 3-Tier Queue-Resolution.
         # User-Override → Group-Default → Global-Default → leer.
@@ -1500,14 +1499,13 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     if src_dir not in _sys.path:
                         _sys.path.insert(0, src_dir)
                     from cloudprint.db_extensions import (
-                        create_cloudprint_job, get_parent_user_id,
+                        create_cloudprint_job,
                     )
                     _tid = ""
                     try:
-                        from db import get_tenant_full_by_user_id
-                        _pid = get_parent_user_id(user["user_id"]) or user["user_id"]
-                        _tnt = (get_tenant_full_by_user_id(_pid)
-                                or get_tenant_full_by_user_id(user["user_id"]))
+                        from db import get_tenant_full_by_user_id, _resolve_tenant_owner_for
+                        _pid = _resolve_tenant_owner_for(user["user_id"])
+                        _tnt = get_tenant_full_by_user_id(_pid) if _pid else None
                         if _tnt:
                             _tid = _tnt.get("id", "") or ""
                     except Exception:

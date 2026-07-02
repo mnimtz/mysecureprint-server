@@ -59,16 +59,10 @@ def _has_management_access(user: dict) -> bool:
 
 
 def _resolve_tenant(user: dict) -> Optional[dict]:
-    """Liefert den Tenant-Kontext des Users (Full-Record mit Secrets).
-
-    Für Employees wird ueber parent_user_id aufgeloest — aktuell aber
-    ueber _has_management_access() sowieso gesperrt. Die Indirektion
-    bleibt drin, damit das spaeter nur ein Gate-Toggle ist.
-    """
-    from db import get_tenant_full_by_user_id
-    from cloudprint.db_extensions import get_parent_user_id
-    target_user_id = get_parent_user_id(user["user_id"]) or user["user_id"]
-    return get_tenant_full_by_user_id(target_user_id)
+    """Liefert den Tenant-Kontext des Users (Full-Record mit Secrets)."""
+    from db import get_tenant_full_by_user_id, _resolve_tenant_owner_for
+    owner_id = _resolve_tenant_owner_for(user["user_id"])
+    return get_tenant_full_by_user_id(owner_id) if owner_id else None
 
 
 def _make_printix_client(tenant: dict):
