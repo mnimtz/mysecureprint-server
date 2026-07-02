@@ -105,8 +105,8 @@ def register_employee_routes(
 
     def _get_parent_id(user: dict) -> str:
         """Ermittelt den Parent-User-ID (sich selbst für Admin/User)."""
-        from cloudprint.db_extensions import get_parent_user_id
-        return get_parent_user_id(user["id"]) or user["id"]
+        from db import _resolve_tenant_owner_for
+        return _resolve_tenant_owner_for(user["id"]) or user["id"]
 
     def _normalize_username(value: str) -> str:
         base = re.sub(r"[^a-z0-9._-]+", "-", (value or "").strip().lower()).strip("-._")
@@ -284,7 +284,7 @@ def register_employee_routes(
 
         from cloudprint.db_extensions import (
             get_tenant_for_user, get_cloudprint_jobs_for_employee,
-            get_recent_cloudprint_jobs_debug, get_parent_user_id,
+            get_recent_cloudprint_jobs_debug,
         )
         tenant = get_tenant_for_user(user["id"])
         jobs = []
@@ -294,8 +294,8 @@ def register_employee_routes(
 
         if tenant and tenant.get("printix_tenant_id"):
             try:
-                from db import get_tenant_full_by_user_id
-                parent_id = get_parent_user_id(user["id"])
+                from db import get_tenant_full_by_user_id, _resolve_tenant_owner_for
+                parent_id = _resolve_tenant_owner_for(user["id"])
                 full_tenant = get_tenant_full_by_user_id(parent_id)
                 if full_tenant:
                     from printix_client import PrintixClient
@@ -359,9 +359,8 @@ def register_employee_routes(
             return RedirectResponse("/login", status_code=302)
 
         try:
-            from db import get_tenant_full_by_user_id
-            from cloudprint.db_extensions import get_parent_user_id
-            parent_id = get_parent_user_id(user["id"])
+            from db import get_tenant_full_by_user_id, _resolve_tenant_owner_for
+            parent_id = _resolve_tenant_owner_for(user["id"])
             full_tenant = get_tenant_full_by_user_id(parent_id)
             if full_tenant:
                 from printix_client import PrintixClient
@@ -388,10 +387,9 @@ def register_employee_routes(
 
         from cloudprint.db_extensions import (
             get_delegations_for_owner, get_delegations_for_delegate,
-            get_printix_delegate_candidates, get_parent_user_id,
+            get_printix_delegate_candidates,
             get_tenant_for_user,
         )
-        parent_id = get_parent_user_id(user["id"])
         delegations_out = get_delegations_for_owner(user["id"])
         delegations_in = get_delegations_for_delegate(user["id"])
 
@@ -572,9 +570,9 @@ def register_employee_routes(
         if not user:
             return RedirectResponse("/login", status_code=302)
 
-        from db import get_tenant_full_by_user_id
-        from cloudprint.db_extensions import get_parent_user_id, get_cloudprint_config
-        parent_id = get_parent_user_id(user["id"])
+        from db import get_tenant_full_by_user_id, _resolve_tenant_owner_for
+        from cloudprint.db_extensions import get_cloudprint_config
+        parent_id = _resolve_tenant_owner_for(user["id"])
         tenant = get_tenant_full_by_user_id(parent_id)
         config = get_cloudprint_config(user["id"])
 
@@ -678,13 +676,13 @@ def register_employee_routes(
             )
 
         # Tenant + Config laden
-        from db import get_tenant_full_by_user_id
+        from db import get_tenant_full_by_user_id, _resolve_tenant_owner_for
         from cloudprint.db_extensions import (
-            get_parent_user_id, get_cloudprint_config,
+            get_cloudprint_config,
             create_cloudprint_job, update_cloudprint_job_status,
         )
         from cloudprint.printix_cache_db import find_printix_user_by_identity
-        parent_id = get_parent_user_id(user["id"])
+        parent_id = _resolve_tenant_owner_for(user["id"])
         tenant = get_tenant_full_by_user_id(parent_id)
         config = get_cloudprint_config(user["id"])
         if not tenant or not config or not config.get("lpr_target_queue"):
@@ -863,9 +861,8 @@ def register_employee_routes(
         role = user.get("role_type", "user")
         if role != "employee":
             try:
-                from db import get_tenant_full_by_user_id
-                from cloudprint.db_extensions import get_parent_user_id
-                parent_id = get_parent_user_id(user["id"])
+                from db import get_tenant_full_by_user_id, _resolve_tenant_owner_for
+                parent_id = _resolve_tenant_owner_for(user["id"])
                 full_tenant = get_tenant_full_by_user_id(parent_id)
                 if full_tenant and (full_tenant.get("print_client_id") or full_tenant.get("shared_client_id")):
                     import sys as _sys, os as _os, re as _re
