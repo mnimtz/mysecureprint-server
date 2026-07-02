@@ -1578,6 +1578,9 @@ def sync_card_uids_from_entra(dry_run: bool = True,
         url = f"{_GRAPH_URL}/users?$select={select_fields}&$top=200"
         entra_users = _fetch_entra_users_paged(token, url)
     if not entra_users:
+        if filter_email:
+            return {"error": (f"Kein Entra-User mit E-Mail '{filter_email}' gefunden "
+                              "(oder fehlende User.Read.All-Berechtigung).")}
         return {"error": ("Keine Entra-User abgerufen — prüfe Graph-Berechtigung "
                           "User.Read.All und ob das Attribut existiert.")}
 

@@ -4260,10 +4260,17 @@ def create_app(session_secret: str) -> FastAPI:
                                     "Entra auto-card-sync: %d Karte(n) für "
                                     "neuen User %s registriert",
                                     len(_cs["synced"]), email)
+                            elif _cs.get("error"):
+                                logger.debug(
+                                    "Entra auto-card-sync übersprungen "
+                                    "(user=%s): %s", email, _cs["error"])
                         except Exception as _ce:
                             logger.warning(
                                 "Entra auto-card-sync fehlgeschlagen "
                                 "(user=%s): %s", email, _ce)
+                            result["errors"].append(
+                                f"auto_card_sync {email}: {str(_ce)[:80]}"
+                            )
                 except Exception as e:
                     result["errors"].append(
                         f"create_user {username}: {str(e)[:120]}"
