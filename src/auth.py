@@ -68,8 +68,11 @@ class BearerAuthMiddleware:
         if path == "/register" or path.startswith("/oauth/"):
             await self.app(scope, receive, send)
             return
-        if path in ("/favicon.ico", "/robots.txt"):
+        if path in ("/robots.txt",):
             await self._not_found(send)
+            return
+        if path in ("/favicon.ico",) or path.startswith("/logo/"):
+            await self.app(scope, receive, send)
             return
         # Capture Webhooks: HMAC-Auth statt Bearer Token (v4.4.3)
         if path.startswith("/capture/webhook/") or path.startswith("/capture/debug"):

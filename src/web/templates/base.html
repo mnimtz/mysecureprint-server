@@ -6,6 +6,7 @@
   <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
   <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800&display=swap" rel="stylesheet">
   <title>{% block title %}{{ _('brand_console_name') }}{% endblock %}</title>
+  <link rel="icon" type="image/png" href="/logo/icon.png">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -128,7 +129,7 @@
       flex-shrink: 0;
       color: #fff;
     }
-    .nav-brand-mark svg {
+    .nav-brand-mark img {
       width: 100%;
       height: auto;
       display: block;
@@ -389,9 +390,10 @@
       height: 28px;
       flex-shrink: 0;
     }
-    .sidebar-brand-logo svg {
+    .sidebar-brand-logo img {
       width: 100%;
       height: 100%;
+      object-fit: contain;
     }
     .sidebar-brand-text {
       font-size: .9em;

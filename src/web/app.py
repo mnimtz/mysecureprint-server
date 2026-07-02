@@ -478,6 +478,28 @@ def create_app(session_secret: str) -> FastAPI:
             return RedirectResponse(_user_home_target(user), status_code=302)
         return RedirectResponse("/login", status_code=302)
 
+    # ── Static Logo / Favicon ─────────────────────────────────────────────────
+
+    _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
+
+    @app.get("/logo/icon.png")
+    async def logo_icon():
+        path = os.path.join(_ASSETS_DIR, "logo_icon.png")
+        return FileResponse(path, media_type="image/png",
+                            headers={"Cache-Control": "public, max-age=86400"})
+
+    @app.get("/logo/brand.png")
+    async def logo_brand():
+        path = os.path.join(_ASSETS_DIR, "logo_brand.png")
+        return FileResponse(path, media_type="image/png",
+                            headers={"Cache-Control": "public, max-age=86400"})
+
+    @app.get("/favicon.ico")
+    async def favicon():
+        path = os.path.join(_ASSETS_DIR, "logo_icon.png")
+        return FileResponse(path, media_type="image/png",
+                            headers={"Cache-Control": "public, max-age=86400"})
+
     # ── Public Welcome Page (v0.1.1) ──────────────────────────────────────────
 
     def _get_printix_status() -> tuple[bool, str]:
