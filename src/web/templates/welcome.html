@@ -16,7 +16,7 @@
   }
   .welcome-header .subtitle { color: #475569; font-size: 1.05em; margin-bottom: 4px; }
   .welcome-header .version  { color: #94a3b8; font-size: .85em; font-family: monospace; }
-  .welcome-header .brand-mark { display:block; max-width:260px; margin:0 auto; }
+  .welcome-header .brand-mark { display:block; max-width:360px; margin:0 auto; }
 
   .info-grid {
     display: grid; grid-template-columns: 1fr 220px 1fr;
@@ -116,8 +116,6 @@
   {# ── Header ──────────────────────────────────────────────────────── #}
   <div class="welcome-card welcome-header">
     <div class="brand-mark"><img src="/logo/brand.png" alt="MySecurePrint" style="width:100%;height:auto;"></div>
-    <h1>{{ _('welcome_title') }}</h1>
-    <div class="subtitle">{{ _('welcome_subtitle') }}</div>
     <div class="version">v{{ version }}</div>
   </div>
 
