@@ -77,7 +77,6 @@
               <span class="badge badge-blue">{{ _('admin_assignment_global') }}</span>
             {% elif u.relationship_kind == 'employee_of' %}
               <div style="display:flex; flex-direction:column; gap:2px;">
-                <span class="badge badge-yellow">{{ _('admin_assignment_employee_of') }}</span>
                 <strong style="font-size:.92em;">{{ u.relationship_name or '—' }}</strong>
                 {% if u.relationship_email %}
                 <span style="font-size:.8em; color:#6b7280;">{{ u.relationship_email }}</span>
