@@ -95,12 +95,18 @@ final class SettingsStore: ObservableObject {
     /// Hinweis. Default `true` damit alte Server-Versionen (ohne den
     /// Flag im /me-Response) sich wie vorher verhalten.
     @Published var delegationAllowedByAdmin: Bool = true
+    @Published var employeesCanManageCards: Bool = false
 
     /// True wenn der aktuelle User den Management-Tab sehen darf.
     /// Employees nicht (kein Tenant/API-Kontext), Admin + User ja.
     var hasManagementAccess: Bool {
         let r = userRoleType.lowercased()
         return r == "admin" || r == "user"
+    }
+
+    var hasCardsAccess: Bool {
+        let r = userRoleType.lowercased()
+        return r == "admin" || r == "user" || (r == "employee" && employeesCanManageCards)
     }
 
     @Published var lastTargetId: String {

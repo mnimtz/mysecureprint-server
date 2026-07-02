@@ -1228,6 +1228,15 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             _user_descr(user), user.get("user_id"),
             user.get("device_name", "-"), ci["peer"],
         )
+        try:
+            from db import get_setting as _gs2
+            employees_can_manage_cards = (
+                (_gs2("employees_can_manage_cards", "0") or "0").strip()
+                in ("1", "true", "yes", "on")
+            )
+        except Exception:
+            employees_can_manage_cards = False
+
         return JSONResponse({
             "user": {
                 "id": user["user_id"],
@@ -1238,6 +1247,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 "device_name": user.get("device_name", ""),
             },
             "delegation_allowed": delegation_allowed,
+            "employees_can_manage_cards": employees_can_manage_cards,
         })
 
     # ── Targets ───────────────────────────────────────────────────────────

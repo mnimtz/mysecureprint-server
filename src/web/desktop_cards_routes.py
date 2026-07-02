@@ -51,11 +51,15 @@ def _json_error(msg: str, code: str = "error", status: int = 400) -> JSONRespons
 
 
 def _has_management_access(user: dict) -> bool:
-    """Spiegelt hasManagementAccess aus der iOS-App: admin oder user,
-    kein employee. Employees haben keinen eigenen Tenant und werden
-    bewusst ausgeschlossen, bis Phase 1 des Cloud-Print-Plans steht."""
+    """admin oder user haben Karten-Zugriff. Employees nur wenn
+    employees_can_manage_cards in den Server-Settings aktiviert ist."""
+    from db import get_setting
     role = (user.get("role_type") or "").strip().lower()
-    return role in ("admin", "user")
+    if role in ("admin", "user"):
+        return True
+    if role == "employee":
+        return (get_setting("employees_can_manage_cards", "0") or "0").strip() in ("1", "true", "yes", "on")
+    return False
 
 
 def _resolve_tenant(user: dict) -> Optional[dict]:

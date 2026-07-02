@@ -5755,8 +5755,13 @@ def create_app(session_secret: str) -> FastAPI:
                 (_gs_del("delegation_print_allowed", "0") or "0").strip()
                 in ("1", "true", "yes", "on")
             )
+            current_employees_can_manage_cards = (
+                (_gs_del("employees_can_manage_cards", "0") or "0").strip()
+                in ("1", "true", "yes", "on")
+            )
         except Exception:
             current_delegation_allowed = False
+            current_employees_can_manage_cards = False
         queues_for_picker: list = []
 
         # v0.4.5: Tenant-Record laden fuer Printix-Credentials-Editor.
@@ -5843,6 +5848,7 @@ def create_app(session_secret: str) -> FastAPI:
             "current_global_default_queue_label": current_global_default_queue_label,
             "current_allow_user_override":        current_allow_user_override,
             "current_delegation_allowed":         current_delegation_allowed,
+            "current_employees_can_manage_cards": current_employees_can_manage_cards,
             "queues_for_picker":                  _load_printix_queues_for_admin(tenant_full) if tenant_full else [],
             "capture_public_url": capture_public_url,
             "ipps_public_url": ipps_public_url,
@@ -6535,10 +6541,11 @@ def create_app(session_secret: str) -> FastAPI:
     @app.post("/admin/settings/queue-defaults/save", response_class=HTMLResponse)
     async def admin_queue_defaults_save(
         request: Request,
-        default_queue_id:           str = Form(default=""),
-        default_queue_label:        str = Form(default=""),
-        allow_user_queue_override:  str = Form(default=""),
-        delegation_print_allowed:   str = Form(default=""),
+        default_queue_id:              str = Form(default=""),
+        default_queue_label:           str = Form(default=""),
+        allow_user_queue_override:     str = Form(default=""),
+        delegation_print_allowed:      str = Form(default=""),
+        employees_can_manage_cards:    str = Form(default=""),
     ):
         user = get_session_user(request)
         if not user or not user.get("is_admin"):
@@ -6554,6 +6561,8 @@ def create_app(session_secret: str) -> FastAPI:
         # v0.7.26: Delegation-Druck-Toggle persistieren
         _del_new = "1" if delegation_print_allowed in ("1","on","true") else "0"
         set_setting("delegation_print_allowed", _del_new)
+        _cards_new = "1" if employees_can_manage_cards in ("1","on","true") else "0"
+        set_setting("employees_can_manage_cards", _cards_new)
         audit(user["id"], "queue_defaults_saved",
               f"global={default_queue_id} override={allow_user_queue_override or 'off'} "
               f"delegation={_del_new}")

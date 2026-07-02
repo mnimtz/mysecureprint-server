@@ -158,6 +158,7 @@ public final class ApiClient: @unchecked Sendable {
     public struct MeEnvelope {
         public let user: UserInfo?
         public let delegationAllowed: Bool
+        public let employeesCanManageCards: Bool
     }
 
     public func meWithFlags() async throws -> MeEnvelope {
@@ -167,6 +168,7 @@ public final class ApiClient: @unchecked Sendable {
         try ensureOk(resp, data)
         var user: UserInfo? = nil
         var delAllowed = true
+        var empCards = false
         if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             if let userDict = obj["user"] as? [String: Any],
                let userData = try? JSONSerialization.data(withJSONObject: userDict) {
@@ -175,8 +177,11 @@ public final class ApiClient: @unchecked Sendable {
             if let flag = obj["delegation_allowed"] as? Bool {
                 delAllowed = flag
             }
+            if let flag = obj["employees_can_manage_cards"] as? Bool {
+                empCards = flag
+            }
         }
-        return MeEnvelope(user: user, delegationAllowed: delAllowed)
+        return MeEnvelope(user: user, delegationAllowed: delAllowed, employeesCanManageCards: empCards)
     }
 
     // MARK: - Targets

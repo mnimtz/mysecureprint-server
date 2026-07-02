@@ -66,11 +66,14 @@ private struct MainTabs: View {
             JobsView()
                 .tabItem { Label("Jobs", systemImage: "clock.arrow.circlepath") }
 
-            // Nur fuer Admin/User (nicht Employee) — Tenant-Uebersicht.
+            // Management nur fuer Admin/User.
             if settings.hasManagementAccess {
                 ManagementView()
                     .tabItem { Label("Management", systemImage: "building.2.fill") }
+            }
 
+            // Karten: Admin/User immer; Employee wenn Server-Setting aktiv.
+            if settings.hasCardsAccess {
                 CardsView()
                     .tabItem { Label("Karten", systemImage: "creditcard.fill") }
             }
@@ -142,6 +145,7 @@ private struct MainTabs: View {
                 if let n = me.fullName, !n.isEmpty { settings.userFullName = n }
             }
             settings.delegationAllowedByAdmin = env.delegationAllowed
+            settings.employeesCanManageCards = env.employeesCanManageCards
         } catch let ApiError.http(status, _) where status == 401 {
             // M-4: Token serverseitig ungueltig (abgelaufen, widerrufen,
             // User geloescht). Lokale Session leeren, damit die App auf
