@@ -4154,7 +4154,8 @@ def create_app(session_secret: str) -> FastAPI:
                 if not pxid or pxid.startswith("mgr:") or ":" in pxid:
                     continue
                 email = (px.get("email") or "").strip()
-                username = (px.get("username") or email or pxid).strip()
+                _email_local = email.split("@")[0] if "@" in email else ""
+                username = (px.get("username") or _email_local or email or pxid).strip()
                 if pxid in local_by_pxid:
                     existing = local_by_pxid[pxid]
                     # Feature 1A: Email aus Printix nachpflegen
