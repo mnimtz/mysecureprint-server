@@ -808,7 +808,17 @@ def _resolve_tenant_owner_for(user_id: str) -> str:
     if row["tenant_id"]:
         return uid
     parent = (row["parent_user_id"] or "").strip() if row["parent_user_id"] else ""
-    return parent or _find_tenant_owner_user_id()
+    if parent:
+        # Prüfen ob der Parent tatsächlich einen Tenant besitzt — sonst
+        # Fallback zum globalen Tenant-Owner (verhindert no_tenant wenn
+        # parent_user_id auf einen Account ohne Tenant-Konfiguration zeigt).
+        with _conn() as conn:
+            has_tenant = conn.execute(
+                "SELECT 1 FROM tenants WHERE user_id = ?", (parent,)
+            ).fetchone()
+        if has_tenant:
+            return parent
+    return _find_tenant_owner_user_id()
 
 
 def create_user(username: str, password: str, email: str = "", is_first: bool = False, full_name: str = "", company: str = "") -> dict:
