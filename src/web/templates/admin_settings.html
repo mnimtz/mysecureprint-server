@@ -1211,96 +1211,35 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
   {% endif %}{# end of outer general/entra wrapper #}
 </div>
 
-  {# ── 🔔 Push Notifications — v0.7.74 ───────────────────────────────── #}
+  {# ── 🔔 Push Notifications — v0.7.77 ───────────────────────────────── #}
   {% if not section or section == 'push' %}
   <div class="settings-card" id="push">
     <h2 class="section-title">🔔 Push Notifications</h2>
     <form method="post" action="/admin/settings?section=push">
+      <input type="hidden" name="push_enabled_present" value="1">
 
-      {# Global toggle #}
       <div class="form-row">
         <label class="form-label">Push Notifications</label>
         <div class="form-control">
           <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-            <input type="hidden" name="push_enabled_present" value="1">
             <input type="checkbox" name="push_enabled" value="1"
                    {% if push_enabled %}checked{% endif %}
                    style="width:18px;height:18px;">
-            <span>Push Notifications global aktivieren (APNs)</span>
+            <span>Aktivieren</span>
           </label>
           <p class="form-hint">Sendet Benachrichtigungen an die iOS-App bei neuen Druckaufträgen und Statusänderungen.</p>
         </div>
       </div>
 
-      <hr style="margin:18px 0;border:0;border-top:1px solid var(--ta-gray-200);">
-      <h3 style="font-size:.95em;font-weight:700;color:var(--ta-navy);margin-bottom:14px;">APNs-Konfiguration (Token-Auth)</h3>
-
-      {# Key ID #}
-      <div class="form-row">
-        <label class="form-label" for="apns-key-id">Key ID</label>
-        <div class="form-control">
-          <input type="text" id="apns-key-id" name="apns_key_id"
-                 value="{{ apns_key_id | default('') }}"
-                 placeholder="ABCDE12345"
-                 class="form-input" style="font-family:monospace;">
-          <p class="form-hint">10-stellige Key-ID aus dem Apple Developer Portal (Keys → AuthKey_*.p8).</p>
-        </div>
+      <div style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px 16px;margin:8px 0 18px;">
+        <p style="margin:0 0 6px;font-size:.9em;font-weight:600;color:#1e40af;">ℹ️ Keine Konfiguration erforderlich</p>
+        <p style="margin:0;font-size:.85em;color:#1e3a8a;line-height:1.5;">
+          Push-Benachrichtigungen werden automatisch über den MySecurePrint-Relay-Dienst zugestellt —
+          die Zugangsdaten für Apple APNs sind dort zentral hinterlegt.
+          Du musst hier nichts weiter einstellen.
+        </p>
       </div>
 
-      {# Team ID #}
-      <div class="form-row">
-        <label class="form-label" for="apns-team-id">Team ID</label>
-        <div class="form-control">
-          <input type="text" id="apns-team-id" name="apns_team_id"
-                 value="{{ apns_team_id | default('') }}"
-                 placeholder="ABCDE12345"
-                 class="form-input" style="font-family:monospace;">
-          <p class="form-hint">Apple Developer Team-ID (oben rechts im Developer Portal).</p>
-        </div>
-      </div>
-
-      {# Bundle ID #}
-      <div class="form-row">
-        <label class="form-label" for="apns-bundle-id">Bundle ID</label>
-        <div class="form-control">
-          <input type="text" id="apns-bundle-id" name="apns_bundle_id"
-                 value="{{ apns_bundle_id | default('de.nimtz.mysecureprint') }}"
-                 placeholder="de.nimtz.mysecureprint"
-                 class="form-input" style="font-family:monospace;">
-        </div>
-      </div>
-
-      {# Private Key (.p8) #}
-      <div class="form-row">
-        <label class="form-label" for="apns-private-key">Private Key (.p8)</label>
-        <div class="form-control">
-          <textarea id="apns-private-key" name="apns_private_key"
-                    rows="6" class="form-input"
-                    placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"
-                    style="font-family:monospace;font-size:.82em;resize:vertical;">{% if apns_has_key %}{{ apns_private_key_display }}{% endif %}</textarea>
-          <p class="form-hint">
-            Inhalt der .p8-Datei aus dem Apple Developer Portal.
-            {% if apns_has_key %}<strong>⚠ Schlüssel bereits gespeichert</strong> — nur ersetzen wenn nötig (wird verschlüsselt gespeichert).{% endif %}
-          </p>
-        </div>
-      </div>
-
-      {# Sandbox toggle #}
-      <div class="form-row">
-        <label class="form-label">Sandbox-Modus</label>
-        <div class="form-control">
-          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-            <input type="hidden" name="apns_sandbox_present" value="1">
-            <input type="checkbox" name="apns_sandbox" value="1"
-                   {% if apns_sandbox %}checked{% endif %}
-                   style="width:18px;height:18px;">
-            <span>APNs-Sandbox verwenden (nur für Entwicklung / TestFlight)</span>
-          </label>
-          <p class="form-hint">Für App Store Releases deaktivieren → Production-APNs.</p>
-        </div>
-      </div>
-
-      {# Token count info #}
       {% if push_token_count is defined %}
       <div class="form-row">
         <label class="form-label">Registrierte Geräte</label>
