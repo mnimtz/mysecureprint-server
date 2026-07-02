@@ -442,6 +442,8 @@ _GRAPH_MAIL_SEND_APP_ROLE = "b633e1c5-b582-4048-a93e-9f11b44c7e96"
 # schon, damit der Admin den (idR aufwendigen) Consent-Schritt nur
 # einmal machen muss.
 _GRAPH_MAIL_READ_APP_ROLE = "810c84a8-4a9e-49e6-bf7d-12d183f40d01"
+# User.Read.All — alle Entra-User-Profile lesen (fuer Karten-UID-Sync)
+_GRAPH_USER_READ_ALL_APP_ROLE = "df021288-bdef-4463-88db-98f22de89214"
 
 
 def start_device_code_flow(tenant: str = "common",
@@ -679,6 +681,7 @@ def auto_register_app(
     audience: str | None = None,
     include_mail_send: bool = False,
     include_mail_read: bool = False,
+    include_user_read_all: bool = False,
 ) -> dict | None:
     """
     Erstellt eine neue SSO-App-Registration im Entra-Tenant des Admins
@@ -790,6 +793,10 @@ def auto_register_app(
         app_body["requiredResourceAccess"][0]["resourceAccess"].append(
             {"id": _GRAPH_MAIL_READ_APP_ROLE, "type": "Role"},
         )
+    if include_user_read_all:
+        app_body["requiredResourceAccess"][0]["resourceAccess"].append(
+            {"id": _GRAPH_USER_READ_ALL_APP_ROLE, "type": "Role"},
+        )
 
     try:
         resp = _requests.post(
@@ -847,7 +854,8 @@ def auto_register_app(
         # ServicePrincipal selbst. Beides braucht Admin-Privileges.
         mail_send_consent = "skipped"
         mail_read_consent = "skipped"
-        if include_mail_send or include_mail_read:
+        user_read_all_consent = "skipped"
+        if include_mail_send or include_mail_read or include_user_read_all:
             own_sp_id = _ensure_service_principal(headers, app_id)
             graph_sp_id = ""
             if own_sp_id:
@@ -878,30 +886,39 @@ def auto_register_app(
                             headers, own_sp_id, graph_sp_id,
                             _GRAPH_MAIL_READ_APP_ROLE)
                         else "grant_failed")
+                if include_user_read_all:
+                    user_read_all_consent = (
+                        "granted" if _grant_app_role_consent(
+                            headers, own_sp_id, graph_sp_id,
+                            _GRAPH_USER_READ_ALL_APP_ROLE)
+                        else "grant_failed")
             else:
                 if include_mail_send:
                     mail_send_consent = "sp_failed"
                 if include_mail_read:
                     mail_read_consent = "sp_failed"
+                if include_user_read_all:
+                    user_read_all_consent = "sp_failed"
 
         logger.info(
             "Entra SSO-App automatisch erstellt: %s (client_id=%s, tenant=%s, "
             "audience=%s, secret_expires=%s, admin_consent=%s, "
-            "mail_send=%s, mail_read=%s)",
+            "mail_send=%s, mail_read=%s, user_read_all=%s)",
             app_name, app_id, tenant_id, audience,
             secret_expires_at or "?", consent_status,
-            mail_send_consent, mail_read_consent,
+            mail_send_consent, mail_read_consent, user_read_all_consent,
         )
         return {
-            "tenant_id":         tenant_id,
-            "client_id":         app_id,
-            "client_secret":     client_secret,
-            "secret_expires_at": secret_expires_at,
-            "object_id":         obj_id,
-            "audience":          audience,
-            "admin_consent":     consent_status,
-            "mail_send_consent": mail_send_consent,
-            "mail_read_consent": mail_read_consent,
+            "tenant_id":            tenant_id,
+            "client_id":            app_id,
+            "client_secret":        client_secret,
+            "secret_expires_at":    secret_expires_at,
+            "object_id":            obj_id,
+            "audience":             audience,
+            "admin_consent":        consent_status,
+            "mail_send_consent":    mail_send_consent,
+            "mail_read_consent":    mail_read_consent,
+            "user_read_all_consent": user_read_all_consent,
         }
 
     except Exception as e:

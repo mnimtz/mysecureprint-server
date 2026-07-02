@@ -639,8 +639,21 @@
                   </span>
                 </span>
               </label>
+              <label style="display:flex;align-items:flex-start;gap:8px;font-size:.85em;color:#374151;margin-top:8px;cursor:pointer;">
+                <input type="checkbox" id="entra-perm-userreadall" style="margin-top:3px;">
+                <span>
+                  <strong>Karten-UID Sync aus Entra aktivieren</strong>
+                  (<code>User.Read.All</code> Application-Permission)
+                  <br><span style="color:#6b7280;font-size:.92em;">
+                    Erlaubt MySecurePrint, Karten-UIDs aus einem konfigurierbaren
+                    Entra-Attribut (z.B. <code>extensionAttribute1</code>) zu lesen
+                    und automatisch in Printix zu registrieren. Benoetigt
+                    Admin-Consent — wird direkt beim Setup erteilt.
+                  </span>
+                </span>
+              </label>
               <div style="font-size:.78em;color:#92400e;background:#fef3c7;border-radius:6px;padding:6px 10px;margin-top:8px;">
-                Achtung: Beide Permissions erfordern <strong>Admin-Consent</strong>
+                Achtung: Diese Permissions erfordern <strong>Admin-Consent</strong>
                 (im Azure-Portal &rarr; API-Berechtigungen &rarr; „Grant admin consent").
               </div>
             </div>
@@ -1213,8 +1226,10 @@ function entraStartDeviceCode() {
   try {
     var _ms = document.getElementById('entra-perm-mailsend');
     var _mr = document.getElementById('entra-perm-mailread');
+    var _ur = document.getElementById('entra-perm-userreadall');
     _qs = '?include_mail_send=' + ((_ms && _ms.checked) ? '1' : '0')
-        + '&include_mail_read=' + ((_mr && _mr.checked) ? '1' : '0');
+        + '&include_mail_read=' + ((_mr && _mr.checked) ? '1' : '0')
+        + '&include_user_read_all=' + ((_ur && _ur.checked) ? '1' : '0');
   } catch (e) { _qs = ''; }
   fetch('/admin/entra/device-code' + _qs, {method:'POST'})
     .then(function(r) { return r.json(); })

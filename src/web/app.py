@@ -1538,6 +1538,9 @@ def create_app(session_secret: str) -> FastAPI:
         request.session["entra_setup_include_mail_read"] = (
             qp.get("include_mail_read", "") in ("1", "true", "on", "yes")
         )
+        request.session["entra_setup_include_user_read_all"] = (
+            qp.get("include_user_read_all", "") in ("1", "true", "on", "yes")
+        )
 
         result = start_device_code_flow()
         # v0.4.8: Microsoft-Fehler weiterreichen falls vorhanden, damit der
@@ -1654,10 +1657,13 @@ def create_app(session_secret: str) -> FastAPI:
             "entra_setup_include_mail_send", False))
         _inc_read = bool(request.session.pop(
             "entra_setup_include_mail_read", False))
+        _inc_ura = bool(request.session.pop(
+            "entra_setup_include_user_read_all", False))
         result = auto_register_app(
             access_token, sso_redirect_uri,
             include_mail_send=_inc_send,
             include_mail_read=_inc_read,
+            include_user_read_all=_inc_ura,
         )
 
         if not result or not result.get("client_id"):
