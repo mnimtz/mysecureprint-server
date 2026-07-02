@@ -642,13 +642,10 @@
               <label style="display:flex;align-items:flex-start;gap:8px;font-size:.85em;color:#374151;margin-top:8px;cursor:pointer;">
                 <input type="checkbox" id="entra-perm-userreadall" style="margin-top:3px;">
                 <span>
-                  <strong>Karten-UID Sync aus Entra aktivieren</strong>
+                  <strong>{{ _('entra_perm_card_sync_label') }}</strong>
                   (<code>User.Read.All</code> Application-Permission)
                   <br><span style="color:#6b7280;font-size:.92em;">
-                    Erlaubt MySecurePrint, Karten-UIDs aus einem konfigurierbaren
-                    Entra-Attribut (z.B. <code>extensionAttribute1</code>) zu lesen
-                    und automatisch in Printix zu registrieren. Benoetigt
-                    Admin-Consent — wird direkt beim Setup erteilt.
+                    {{ _('entra_perm_card_sync_help') }}
                   </span>
                 </span>
               </label>
@@ -911,13 +908,13 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
           <!-- ── Karten-UID Sync ──────────────────────────────────────── -->
           <div class="divider" style="margin:16px 0;"></div>
           <div class="form-group">
-            <label style="font-weight:600;">Karten-UID Attribut
-              <small style="color:#6b7280;font-weight:400;">(Entra-Attribut das die NFC-Karten-ID enthält)</small>
+            <label style="font-weight:600;">{{ _('entra_card_uid_attr_label') }}
+              <small style="color:#6b7280;font-weight:400;">({{ _('entra_card_uid_attr_sub') }})</small>
             </label>
             <input type="text" name="entra_card_uid_attribute"
                    value="{{ entra.card_uid_attribute }}"
                    list="entra-card-attr-suggestions"
-                   placeholder="z.B. extensionAttribute3 oder employeeId"
+                   placeholder="{{ _('entra_card_uid_attr_placeholder') }}"
                    style="font-family:monospace;">
             <datalist id="entra-card-attr-suggestions">
               {% for i in range(1, 16) %}
@@ -926,46 +923,38 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
               <option value="employeeId">
               <option value="onPremisesImmutableId">
             </datalist>
-            <small class="hint">
-              Standardattribute: <code>extensionAttribute1</code>–<code>extensionAttribute15</code>
-              (on-prem AD → Entra Sync). Benutzerdefinierte Schema-Extensions ebenfalls möglich.
-            </small>
+            <small class="hint">{{ _('entra_card_uid_attr_hint') }}</small>
           </div>
 
           <!-- ── Transform-Regeln ──────────────────────────────────────── -->
           <div class="form-group" style="margin-top:12px;">
-            <label style="font-weight:600;">Transform-Regeln
-              <small style="color:#6b7280;font-weight:400;">(optional — UID vor Registrierung umformen)</small>
+            <label style="font-weight:600;">{{ _('entra_card_transform_label') }}
+              <small style="color:#6b7280;font-weight:400;">({{ _('entra_card_transform_sub') }})</small>
             </label>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
               <button type="button" class="btn btn-secondary btn-sm"
-                      onclick="entraSetTransform({'leading_zero_mode':'strip'})">Führende Nullen entfernen</button>
+                      onclick="entraSetTransform({'leading_zero_mode':'strip'})">{{ _('entra_card_transform_strip') }}</button>
               <button type="button" class="btn btn-secondary btn-sm"
-                      onclick="entraSetTransform({'leading_zero_mode':'force_one'})">Führende Null hinzufügen</button>
+                      onclick="entraSetTransform({'leading_zero_mode':'force_one'})">{{ _('entra_card_transform_force_one') }}</button>
               <button type="button" class="btn btn-secondary btn-sm"
-                      onclick="entraSetTransform({'input_mode':'hex','submit_mode':'decimal'})">Hex → Dezimal</button>
+                      onclick="entraSetTransform({'input_mode':'hex','submit_mode':'decimal'})">{{ _('entra_card_transform_hex_dec') }}</button>
               <button type="button" class="btn btn-secondary btn-sm"
-                      onclick="entraSetTransform({'input_mode':'decimal','submit_mode':'hex'})">Dezimal → Hex</button>
+                      onclick="entraSetTransform({'input_mode':'decimal','submit_mode':'hex'})">{{ _('entra_card_transform_dec_hex') }}</button>
               <button type="button" class="btn btn-secondary btn-sm"
-                      onclick="entraSetTransform({'input_mode':'hex','submit_mode':'hex_reversed'})">Bytes umkehren</button>
+                      onclick="entraSetTransform({'input_mode':'hex','submit_mode':'hex_reversed'})">{{ _('entra_card_transform_reverse') }}</button>
               <button type="button" class="btn btn-secondary btn-sm" style="color:#dc2626;"
-                      onclick="entraSetTransform({})">Leeren</button>
+                      onclick="entraSetTransform({})">{{ _('entra_card_transform_clear') }}</button>
             </div>
             <textarea name="entra_card_uid_transform_rules" id="entra-transform-rules"
                       rows="3" style="font-family:monospace;font-size:.85em;width:100%;"
                       placeholder='{"leading_zero_mode": "strip"}'>{{ entra.card_uid_transform_rules }}</textarea>
-            <small class="hint">
-              JSON-Regelwerk — gleiche Parameter wie die Card-Profile-Transforms
-              (<code>leading_zero_mode</code>, <code>input_mode</code>, <code>submit_mode</code>,
-              <code>trim_prefix</code>, <code>prepend_text</code>, …).
-              Regeln können kombiniert werden.
-            </small>
+            <small class="hint">{{ _('entra_card_transform_hint') }}</small>
             <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
               <input type="text" id="entra-transform-preview-input"
-                     placeholder="Beispiel-UID eingeben…"
+                     placeholder="{{ _('entra_card_transform_preview_ph') }}"
                      style="font-family:monospace;width:180px;font-size:.88em;">
               <button type="button" class="btn btn-secondary btn-sm"
-                      onclick="entraTransformPreview()">Vorschau</button>
+                      onclick="entraTransformPreview()">{{ _('entra_card_transform_preview_btn') }}</button>
               <span id="entra-transform-preview-result"
                     style="font-family:monospace;font-size:.88em;color:#374151;"></span>
             </div>
@@ -974,22 +963,22 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
           {% if entra.enabled and entra.client_id and entra.has_secret and entra.card_uid_attribute %}
           <div style="margin-top:12px;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
             <div style="font-weight:600;margin-bottom:8px;font-size:.95em;">
-              Karten-UIDs synchronisieren
+              {{ _('entra_card_sync_title') }}
               <span style="font-weight:400;color:#6b7280;">
                 — Attribut: <code>{{ entra.card_uid_attribute }}</code>
               </span>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
               <button type="button" class="btn btn-secondary"
-                      onclick="entraCardSync(true)">Vorschau (dry-run)</button>
+                      onclick="entraCardSync(true)">{{ _('entra_card_sync_preview_btn') }}</button>
               <button type="button" class="btn btn-primary"
-                      onclick="entraCardSync(false)">Jetzt synchronisieren</button>
+                      onclick="entraCardSync(false)">{{ _('entra_card_sync_now_btn') }}</button>
             </div>
             <div id="entra-sync-result" style="display:none;"></div>
           </div>
           {% elif entra.enabled and entra.client_id and entra.has_secret %}
           <div class="alert alert-info" style="font-size:.88em;margin-top:8px;">
-            Trage ein Entra-Attribut ein und speichere, um den Karten-Sync zu aktivieren.
+            {{ _('entra_card_sync_attr_missing') }}
           </div>
           {% endif %}
 
@@ -1026,7 +1015,7 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
         var rules = {};
         if (rulesStr) {
           try { rules = JSON.parse(rulesStr); }
-          catch(e) { resultEl.textContent = '✗ Ungültiges JSON'; return; }
+          catch(e) { resultEl.textContent = '{{ _("entra_card_transform_invalid_json") }}'; return; }
         }
         fetch('/admin/entra/transform-preview', {
           method: 'POST',
@@ -1048,7 +1037,7 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
       function entraCardSync(dryRun) {
         var box = document.getElementById('entra-sync-result');
         box.style.display = 'block';
-        box.innerHTML = '<span style="color:#6b7280;">Wird synchronisiert…</span>';
+        box.innerHTML = '<span style="color:#6b7280;">{{ _("entra_card_sync_syncing") }}</span>';
         fetch('/admin/entra/sync-cards?dry_run=' + (dryRun ? '1' : '0'), {method:'POST'})
           .then(function(r){ return r.json(); })
           .then(function(d) {
@@ -1058,26 +1047,26 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
               return;
             }
             var html = dryRun
-              ? '<div class="alert alert-info" style="font-size:.85em;"><strong>Vorschau</strong> — keine Änderungen gespeichert</div>'
-              : '<div class="alert alert-success" style="font-size:.85em;">✓ Sync abgeschlossen</div>';
+              ? '<div class="alert alert-info" style="font-size:.85em;"><strong>{{ _("entra_card_sync_preview_title") }}</strong> — {{ _("entra_card_sync_preview_note") }}</div>'
+              : '<div class="alert alert-success" style="font-size:.85em;">{{ _("entra_card_sync_success") }}</div>';
             html += '<div style="font-size:.85em;margin-top:8px;">';
-            html += '<strong>' + (d.synced||[]).length + '</strong> synchronisiert, ';
-            html += '<strong>' + (d.skipped||[]).length + '</strong> übersprungen, ';
-            html += '<strong>' + (d.errors||[]).length + '</strong> Fehler';
+            html += '<strong>' + (d.synced||[]).length + '</strong> {{ _("entra_card_sync_synced") }}, ';
+            html += '<strong>' + (d.skipped||[]).length + '</strong> {{ _("entra_card_sync_skipped") }}, ';
+            html += '<strong>' + (d.errors||[]).length + '</strong> {{ _("entra_card_sync_errors") }}';
             html += ' (von ' + (d.total_entra||0) + ' Entra-Usern)';
             html += '</div>';
             if ((d.synced||[]).length) {
-              html += '<details style="margin-top:8px;font-size:.83em;"><summary style="cursor:pointer;color:#00A0FB;">Details anzeigen</summary><ul style="margin:6px 0 0 16px;">';
+              html += '<details style="margin-top:8px;font-size:.83em;"><summary style="cursor:pointer;color:#00A0FB;">{{ _("entra_card_sync_details") }}</summary><ul style="margin:6px 0 0 16px;">';
               d.synced.forEach(function(s){ html += '<li>' + _escHtml(s.user||s.entra) + ' → <code>' + _escHtml(s.uid) + '</code>' + (s.dry_run?' (dry-run)':'') + '</li>'; });
               html += '</ul></details>';
             }
             if ((d.skipped||[]).length) {
-              html += '<details style="margin-top:4px;font-size:.83em;"><summary style="cursor:pointer;color:#6b7280;">Übersprungen</summary><ul style="margin:6px 0 0 16px;">';
+              html += '<details style="margin-top:4px;font-size:.83em;"><summary style="cursor:pointer;color:#6b7280;">{{ _("entra_card_sync_skipped_hdr") }}</summary><ul style="margin:6px 0 0 16px;">';
               d.skipped.forEach(function(s){ html += '<li>' + _escHtml(s.entra) + ': ' + _escHtml(s.reason) + '</li>'; });
               html += '</ul></details>';
             }
             if ((d.errors||[]).length) {
-              html += '<details style="margin-top:4px;font-size:.83em;"><summary style="cursor:pointer;color:#dc2626;">Fehler</summary><ul style="margin:6px 0 0 16px;">';
+              html += '<details style="margin-top:4px;font-size:.83em;"><summary style="cursor:pointer;color:#dc2626;">{{ _("entra_card_sync_errors_hdr") }}</summary><ul style="margin:6px 0 0 16px;">';
               d.errors.forEach(function(e){ html += '<li>' + _escHtml(e.user||e.entra) + ': ' + _escHtml(e.error) + '</li>'; });
               html += '</ul></details>';
             }

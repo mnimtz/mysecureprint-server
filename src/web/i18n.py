@@ -36717,3 +36717,156 @@ for _lang, _keys in _V0741_MISSING.items():
 for _lang in list(TRANSLATIONS.keys()):
     if _lang not in _V0741_MISSING:
         TRANSLATIONS[_lang].update(_V0741_MISSING["en"])
+
+
+# v0.7.6x: Entra card UID sync + transform rules + auto card sync
+_V076_CARD_SYNC_KEYS: dict[str, dict[str, str]] = {
+    "de": {
+        "entra_card_uid_attr_label":       "Karten-UID Attribut",
+        "entra_card_uid_attr_sub":         "Entra-Attribut das die NFC-Karten-ID enthält",
+        "entra_card_uid_attr_placeholder": "z.B. extensionAttribute3 oder employeeId",
+        "entra_card_uid_attr_hint":
+            "Standardattribute: extensionAttribute1–extensionAttribute15 "
+            "(on-prem AD → Entra Sync). Benutzerdefinierte Schema-Extensions ebenfalls möglich.",
+        "entra_card_transform_label":      "Transform-Regeln",
+        "entra_card_transform_sub":        "optional — UID vor Registrierung umformen",
+        "entra_card_transform_strip":      "Führende Nullen entfernen",
+        "entra_card_transform_force_one":  "Führende Null hinzufügen",
+        "entra_card_transform_hex_dec":    "Hex → Dezimal",
+        "entra_card_transform_dec_hex":    "Dezimal → Hex",
+        "entra_card_transform_reverse":    "Bytes umkehren",
+        "entra_card_transform_clear":      "Leeren",
+        "entra_card_transform_hint":
+            "JSON-Regelwerk — gleiche Parameter wie die Card-Profile-Transforms "
+            "(leading_zero_mode, input_mode, submit_mode, trim_prefix, prepend_text, …). "
+            "Regeln können kombiniert werden.",
+        "entra_card_transform_preview_ph": "Beispiel-UID eingeben…",
+        "entra_card_transform_preview_btn":"Vorschau",
+        "entra_card_transform_invalid_json":"✗ Ungültiges JSON",
+        "entra_card_sync_title":           "Karten-UIDs synchronisieren",
+        "entra_card_sync_preview_btn":     "Vorschau (dry-run)",
+        "entra_card_sync_now_btn":         "Jetzt synchronisieren",
+        "entra_card_sync_attr_missing":
+            "Trage ein Entra-Attribut ein und speichere, um den Karten-Sync zu aktivieren.",
+        "entra_card_sync_syncing":         "Wird synchronisiert…",
+        "entra_card_sync_preview_title":   "Vorschau",
+        "entra_card_sync_preview_note":    "keine Änderungen gespeichert",
+        "entra_card_sync_success":         "✓ Sync abgeschlossen",
+        "entra_card_sync_synced":          "synchronisiert",
+        "entra_card_sync_skipped":         "übersprungen",
+        "entra_card_sync_errors":          "Fehler",
+        "entra_card_sync_details":         "Details anzeigen",
+        "entra_card_sync_skipped_hdr":     "Übersprungen",
+        "entra_card_sync_errors_hdr":      "Fehler",
+        "entra_perm_card_sync_label":      "Karten-UID Sync aus Entra aktivieren",
+        "entra_perm_card_sync_help":
+            "Erlaubt MySecurePrint, Karten-UIDs aus einem konfigurierbaren "
+            "Entra-Attribut (z.B. extensionAttribute1) zu lesen "
+            "und automatisch in Printix zu registrieren. Benötigt "
+            "Admin-Consent — wird direkt beim Setup erteilt.",
+        "printix_sync_auto_card_sync_label": "Karte automatisch aus Entra registrieren",
+        "printix_sync_auto_card_sync_help":
+            "Sobald ein neuer Printix-User bei uns ankommt, wird sofort sein "
+            "Karten-UID-Attribut aus Entra gelesen und die Karte in Printix "
+            "registriert. Setzt Entra-Karten-Attribut und User.Read.All-Permission voraus.",
+    },
+    "en": {
+        "entra_card_uid_attr_label":       "Card UID Attribute",
+        "entra_card_uid_attr_sub":         "Entra attribute that holds the NFC card UID",
+        "entra_card_uid_attr_placeholder": "e.g. extensionAttribute3 or employeeId",
+        "entra_card_uid_attr_hint":
+            "Standard attributes: extensionAttribute1–extensionAttribute15 "
+            "(on-prem AD → Entra sync). Custom schema extensions also supported.",
+        "entra_card_transform_label":      "Transform Rules",
+        "entra_card_transform_sub":        "optional — reformat UID before registering",
+        "entra_card_transform_strip":      "Strip leading zeros",
+        "entra_card_transform_force_one":  "Add leading zero",
+        "entra_card_transform_hex_dec":    "Hex → Decimal",
+        "entra_card_transform_dec_hex":    "Decimal → Hex",
+        "entra_card_transform_reverse":    "Reverse bytes",
+        "entra_card_transform_clear":      "Clear",
+        "entra_card_transform_hint":
+            "JSON rule set — same parameters as card-profile transforms "
+            "(leading_zero_mode, input_mode, submit_mode, trim_prefix, prepend_text, …). "
+            "Rules can be combined.",
+        "entra_card_transform_preview_ph": "Enter a sample UID…",
+        "entra_card_transform_preview_btn":"Preview",
+        "entra_card_transform_invalid_json":"✗ Invalid JSON",
+        "entra_card_sync_title":           "Sync Card UIDs",
+        "entra_card_sync_preview_btn":     "Preview (dry-run)",
+        "entra_card_sync_now_btn":         "Sync now",
+        "entra_card_sync_attr_missing":
+            "Enter an Entra attribute and save to enable card sync.",
+        "entra_card_sync_syncing":         "Syncing…",
+        "entra_card_sync_preview_title":   "Preview",
+        "entra_card_sync_preview_note":    "no changes saved",
+        "entra_card_sync_success":         "✓ Sync complete",
+        "entra_card_sync_synced":          "synced",
+        "entra_card_sync_skipped":         "skipped",
+        "entra_card_sync_errors":          "errors",
+        "entra_card_sync_details":         "Show details",
+        "entra_card_sync_skipped_hdr":     "Skipped",
+        "entra_card_sync_errors_hdr":      "Errors",
+        "entra_perm_card_sync_label":      "Enable card UID sync from Entra",
+        "entra_perm_card_sync_help":
+            "Allows MySecurePrint to read card UIDs from a configurable "
+            "Entra attribute (e.g. extensionAttribute1) and automatically "
+            "register them in Printix. Requires admin consent — granted "
+            "directly during setup.",
+        "printix_sync_auto_card_sync_label": "Auto-register card from Entra",
+        "printix_sync_auto_card_sync_help":
+            "When a new Printix user is imported, their card UID attribute "
+            "is immediately read from Entra and the card is registered in Printix. "
+            "Requires Entra card attribute and User.Read.All permission.",
+    },
+    "fr": {
+        "entra_card_uid_attr_label":       "Attribut UID de carte",
+        "entra_card_uid_attr_sub":         "Attribut Entra contenant l'UID NFC",
+        "entra_card_uid_attr_placeholder": "ex. extensionAttribute3 ou employeeId",
+        "entra_card_uid_attr_hint":
+            "Attributs standards : extensionAttribute1–extensionAttribute15 "
+            "(sync AD on-prem → Entra). Extensions de schéma personnalisées également supportées.",
+        "entra_card_transform_label":      "Règles de transformation",
+        "entra_card_transform_sub":        "optionnel — reformater l'UID avant enregistrement",
+        "entra_card_transform_strip":      "Supprimer les zéros initiaux",
+        "entra_card_transform_force_one":  "Ajouter un zéro initial",
+        "entra_card_transform_hex_dec":    "Hex → Décimal",
+        "entra_card_transform_dec_hex":    "Décimal → Hex",
+        "entra_card_transform_reverse":    "Inverser les octets",
+        "entra_card_transform_clear":      "Effacer",
+        "entra_card_transform_hint":
+            "Ensemble de règles JSON — mêmes paramètres que les transformations "
+            "de profil de carte (leading_zero_mode, input_mode, submit_mode, …).",
+        "entra_card_transform_preview_ph": "Saisir un exemple d'UID…",
+        "entra_card_transform_preview_btn":"Aperçu",
+        "entra_card_transform_invalid_json":"✗ JSON invalide",
+        "entra_card_sync_title":           "Synchroniser les UID de carte",
+        "entra_card_sync_preview_btn":     "Aperçu (dry-run)",
+        "entra_card_sync_now_btn":         "Synchroniser maintenant",
+        "entra_card_sync_attr_missing":
+            "Saisissez un attribut Entra et enregistrez pour activer la synchronisation.",
+        "entra_card_sync_syncing":         "Synchronisation…",
+        "entra_card_sync_preview_title":   "Aperçu",
+        "entra_card_sync_preview_note":    "aucune modification enregistrée",
+        "entra_card_sync_success":         "✓ Synchronisation terminée",
+        "entra_card_sync_synced":          "synchronisés",
+        "entra_card_sync_skipped":         "ignorés",
+        "entra_card_sync_errors":          "erreurs",
+        "entra_card_sync_details":         "Afficher les détails",
+        "entra_card_sync_skipped_hdr":     "Ignorés",
+        "entra_card_sync_errors_hdr":      "Erreurs",
+        "entra_perm_card_sync_label":      "Activer la sync UID de carte depuis Entra",
+        "entra_perm_card_sync_help":
+            "Permet à MySecurePrint de lire les UID de carte depuis un attribut "
+            "Entra configurable et de les enregistrer automatiquement dans Printix.",
+        "printix_sync_auto_card_sync_label": "Enregistrer automatiquement la carte depuis Entra",
+        "printix_sync_auto_card_sync_help":
+            "Quand un nouvel utilisateur Printix est importé, son UID de carte est "
+            "immédiatement lu depuis Entra et la carte enregistrée dans Printix.",
+    },
+}
+for _lang, _keys in _V076_CARD_SYNC_KEYS.items():
+    TRANSLATIONS.setdefault(_lang, {}).update(_keys)
+for _lang in list(TRANSLATIONS.keys()):
+    if _lang not in _V076_CARD_SYNC_KEYS:
+        TRANSLATIONS[_lang].update(_V076_CARD_SYNC_KEYS["en"])

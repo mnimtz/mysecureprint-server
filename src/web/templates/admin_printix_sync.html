@@ -54,11 +54,9 @@
           <input type="checkbox" name="auto_card_sync" value="1"
                  style="margin-top:3px;"
                  {% if cfg.auto_card_sync %}checked{% endif %}>
-          <span>Karte automatisch aus Entra registrieren
+          <span>{{ _('printix_sync_auto_card_sync_label') }}
             <small style="font-weight:400;color:#6b7280;display:block;margin-top:2px;">
-              Sobald ein neuer Printix-User bei uns ankommt, wird sofort sein
-              Karten-UID-Attribut aus Entra gelesen und die Karte in Printix
-              registriert. Setzt Entra-Karten-Attribut und User.Read.All-Permission voraus.
+              {{ _('printix_sync_auto_card_sync_help') }}
             </small>
           </span>
         </label>
