@@ -167,17 +167,22 @@ def set_localization(token: str, version_id: str, locale: str, data: dict) -> No
         loc_id = r.json()["data"]["id"]
         print(f"  ✓ Localization {locale} angelegt: {loc_id}")
     # PATCH attributes
+    patch_attrs = {
+        "description": data["description"],
+        "keywords": data["keywords"],
+        "promotionalText": data["promotionalText"],
+        "supportUrl": data["supportUrl"],
+        "marketingUrl": data["marketingUrl"],
+    }
+    if data.get("whatsNew"):
+        patch_attrs["whatsNew"] = data["whatsNew"]
+    if data.get("privacyPolicyUrl"):
+        patch_attrs["privacyPolicyUrl"] = data["privacyPolicyUrl"]
     r = api("PATCH", f"/v1/appStoreVersionLocalizations/{loc_id}", token, json={
         "data": {
             "type": "appStoreVersionLocalizations",
             "id": loc_id,
-            "attributes": {
-                "description": data["description"],
-                "keywords": data["keywords"],
-                "promotionalText": data["promotionalText"],
-                "supportUrl": data["supportUrl"],
-                "marketingUrl": data["marketingUrl"],
-            },
+            "attributes": patch_attrs,
         }
     })
     if r.ok:
