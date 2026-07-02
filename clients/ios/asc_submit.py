@@ -73,7 +73,7 @@ LISTING_DE = {
         "Markenzeichen von Tungsten Automation Corp. und wird hier "
         "ausschliesslich zur Beschreibung der API-Kompatibilitaet genannt."
     ),
-    "whatsNew": "Erstveroeffentlichung.",
+    "whatsNew": "Verbesserungen: neues App-Icon, NFC-Karten-Fehlermeldungen jetzt als Alert sichtbar, Server-Tenant-Erkennung stabiler.",
     "supportUrl": "https://github.com/mnimtz/mysecureprint-server/issues",
     "marketingUrl": "https://github.com/mnimtz/mysecureprint-server",
     "privacyPolicyUrl": "https://printix-sp.azurewebsites.net/privacy",
