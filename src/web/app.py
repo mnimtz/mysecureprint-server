@@ -4924,10 +4924,39 @@ def create_app(session_secret: str) -> FastAPI:
             target = None
         if not target:
             return RedirectResponse("/admin/users", status_code=302)
+        card_mappings = []
+        try:
+            from db import get_tenant_full_by_user_id as _gt
+            from cards.store import list_mappings_for_user as _lm
+            _tenant = _gt(admin["id"])
+            if _tenant and target.get("printix_user_id"):
+                card_mappings = _lm(_tenant["id"], target["printix_user_id"])
+        except Exception:
+            pass
         return templates.TemplateResponse("admin_user_edit.html", {
             "request": request, "user": admin, "target": target,
-            "saved": False, "error": None, **t_ctx(request),
+            "saved": False, "error": None,
+            "card_mappings": card_mappings, **t_ctx(request),
         })
+
+    @app.post("/admin/users/{user_id}/sync-card-entra")
+    async def admin_sync_card_entra(user_id: str, request: Request):
+        admin = get_session_user(request)
+        if not admin or not admin.get("is_admin"):
+            return JSONResponse({"error": "Unauthorized"}, status_code=403)
+        try:
+            from db import get_user_by_id
+            target = get_user_by_id(user_id)
+        except Exception:
+            target = None
+        if not target or not target.get("email"):
+            return JSONResponse({"error": "User nicht gefunden oder keine E-Mail."})
+        import asyncio as _aio
+        from entra import sync_card_uids_from_entra
+        result = await _aio.to_thread(
+            sync_card_uids_from_entra, False, target["email"]
+        )
+        return JSONResponse(result)
 
     @app.post("/admin/users/{user_id}/edit", response_class=HTMLResponse)
     async def admin_edit_user_post(

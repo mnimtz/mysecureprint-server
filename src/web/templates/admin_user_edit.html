@@ -120,6 +120,70 @@
 
     <div class="divider"></div>
 
+    <!-- Karten-ID -->
+    <h3 class="section-title" style="margin-bottom:8px;">🪪 {{ _('admin_card_id_title') }}</h3>
+    {% if card_mappings %}
+    <div style="margin-bottom:12px;">
+      {% for cm in card_mappings %}
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:6px;font-size:.88em;">
+        <code style="flex:1;font-size:.95em;letter-spacing:.03em;">{{ cm.normalized_value or cm.final_value }}</code>
+        <span style="color:#6b7280;font-size:.82em;">{{ cm.source or '' }}</span>
+        <span style="color:#9ca3af;font-size:.78em;">{{ (cm.updated_at or '')[:10] }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p style="font-size:.88em;color:#6b7280;margin-bottom:12px;">{{ _('admin_card_id_none') }}</p>
+    {% endif %}
+
+    {% if target and target.email and target.printix_user_id %}
+    <button type="button" class="btn btn-secondary btn-sm" onclick="syncCardEntra()">
+      🔄 {{ _('admin_card_id_sync_btn') }}
+    </button>
+    <div id="card-sync-msg" style="margin-top:8px;font-size:.85em;"></div>
+    <script>
+    async function syncCardEntra() {
+      const btn = event.target;
+      const msg = document.getElementById('card-sync-msg');
+      btn.disabled = true;
+      btn.textContent = '⏳ {{ _("admin_card_id_syncing") }}';
+      msg.textContent = '';
+      try {
+        const r = await fetch('/admin/users/{{ target.id }}/sync-card-entra', {
+          method: 'POST', credentials: 'same-origin'
+        });
+        const d = await r.json();
+        if (d.error) {
+          msg.style.color = '#b91c1c';
+          msg.textContent = '✗ ' + d.error;
+        } else if ((d.synced||[]).length) {
+          msg.style.color = '#059669';
+          msg.textContent = '✓ {{ _("admin_card_id_synced") }}: ' + d.synced.map(s => s.uid).join(', ');
+          setTimeout(function(){ location.reload(); }, 1500);
+        } else if ((d.skipped||[]).length) {
+          msg.style.color = '#6b7280';
+          msg.textContent = '{{ _("admin_card_id_already") }}';
+        } else {
+          msg.style.color = '#b91c1c';
+          msg.textContent = '{{ _("admin_card_id_not_found") }}';
+        }
+      } catch(e) {
+        msg.style.color = '#b91c1c';
+        msg.textContent = '✗ ' + e.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🔄 {{ _("admin_card_id_sync_btn") }}';
+      }
+    }
+    </script>
+    {% elif target and target.printix_user_id %}
+    <p style="font-size:.82em;color:#6b7280;">{{ _('admin_card_id_no_email') }}</p>
+    {% else %}
+    <p style="font-size:.82em;color:#6b7280;">{{ _('admin_card_id_no_pxid') }}</p>
+    {% endif %}
+
+    <div class="divider"></div>
+
     <!-- Passwort zurücksetzen -->
     <h3 class="section-title" style="margin-bottom:12px;">{{ _('admin_reset_pw') }}</h3>
     <form method="post" action="/admin/users/{{ target.id }}/reset-password"

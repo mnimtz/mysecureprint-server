@@ -36870,3 +36870,46 @@ for _lang, _keys in _V076_CARD_SYNC_KEYS.items():
 for _lang in list(TRANSLATIONS.keys()):
     if _lang not in _V076_CARD_SYNC_KEYS:
         TRANSLATIONS[_lang].update(_V076_CARD_SYNC_KEYS["en"])
+
+
+# v0.7.67: KartenID im User-Edit (Anzeige + Entra-Sync-Button)
+_V0767_CARD_USER_KEYS: dict[str, dict[str, str]] = {
+    "de": {
+        "admin_card_id_title":     "Karten-ID",
+        "admin_card_id_none":      "Noch keine Karte registriert.",
+        "admin_card_id_sync_btn":  "Jetzt aus Entra synchronisieren",
+        "admin_card_id_syncing":   "Synchronisiere…",
+        "admin_card_id_synced":    "Karte registriert",
+        "admin_card_id_already":   "Karte bereits registriert — kein Update nötig.",
+        "admin_card_id_not_found": "Kein Karten-Attribut in Entra für diesen User gefunden.",
+        "admin_card_id_no_email":  "Kein Entra-Sync möglich — User hat keine E-Mail-Adresse.",
+        "admin_card_id_no_pxid":   "Kein Entra-Sync möglich — Printix User-ID nicht gesetzt.",
+    },
+    "en": {
+        "admin_card_id_title":     "Card ID",
+        "admin_card_id_none":      "No card registered yet.",
+        "admin_card_id_sync_btn":  "Sync from Entra now",
+        "admin_card_id_syncing":   "Syncing…",
+        "admin_card_id_synced":    "Card registered",
+        "admin_card_id_already":   "Card already registered — no update needed.",
+        "admin_card_id_not_found": "No card attribute found in Entra for this user.",
+        "admin_card_id_no_email":  "Entra sync not possible — user has no email address.",
+        "admin_card_id_no_pxid":   "Entra sync not possible — Printix user ID not set.",
+    },
+    "fr": {
+        "admin_card_id_title":     "ID de carte",
+        "admin_card_id_none":      "Aucune carte enregistrée.",
+        "admin_card_id_sync_btn":  "Synchroniser depuis Entra maintenant",
+        "admin_card_id_syncing":   "Synchronisation…",
+        "admin_card_id_synced":    "Carte enregistrée",
+        "admin_card_id_already":   "Carte déjà enregistrée — aucune mise à jour nécessaire.",
+        "admin_card_id_not_found": "Aucun attribut de carte trouvé dans Entra pour cet utilisateur.",
+        "admin_card_id_no_email":  "Sync Entra impossible — l'utilisateur n'a pas d'adresse e-mail.",
+        "admin_card_id_no_pxid":   "Sync Entra impossible — ID utilisateur Printix non défini.",
+    },
+}
+for _lang, _keys in _V0767_CARD_USER_KEYS.items():
+    TRANSLATIONS.setdefault(_lang, {}).update(_keys)
+for _lang in list(TRANSLATIONS.keys()):
+    if _lang not in _V0767_CARD_USER_KEYS:
+        TRANSLATIONS[_lang].update(_V0767_CARD_USER_KEYS["en"])
