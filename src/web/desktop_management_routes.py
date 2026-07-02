@@ -59,18 +59,19 @@ def _require_mgmt_user(authorization: Optional[str]) -> tuple[Optional[dict], Op
 
 
 def _load_tenant_for_user(user: dict) -> Optional[dict]:
-    """Tenant-Full-Record mit Secrets für den aktuellen User (oder Parent)."""
+    """Tenant-Full-Record mit Secrets für den aktuellen User (oder Parent).
+
+    Nutzt _resolve_tenant_owner_for statt get_parent_user_id, damit auch im
+    Single-Tenant-Setup mit fehlenden parent_user_id-Einträgen zuverlässig
+    der einzige vorhandene Tenant gefunden wird.
+    """
     import sys, os
     src_dir = os.path.dirname(os.path.dirname(__file__))
     if src_dir not in sys.path:
         sys.path.insert(0, src_dir)
-    from db import get_tenant_full_by_user_id
-    try:
-        from cloudprint.db_extensions import get_parent_user_id
-        parent_id = get_parent_user_id(user["user_id"])
-    except Exception:
-        parent_id = user["user_id"]
-    return get_tenant_full_by_user_id(parent_id or user["user_id"])
+    from db import get_tenant_full_by_user_id, _resolve_tenant_owner_for
+    owner_id = _resolve_tenant_owner_for(user["user_id"])
+    return get_tenant_full_by_user_id(owner_id) if owner_id else None
 
 
 def _make_client(tenant: dict):
