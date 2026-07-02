@@ -10,33 +10,38 @@ Tabelle `push_tokens` (SQLite):
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import datetime, timezone
 
 logger = logging.getLogger("printix.push_tokens")
 
 _schema_ready = False
+_schema_lock = threading.Lock()
 
 
 def _ensure_schema() -> None:
     global _schema_ready
     if _schema_ready:
         return
-    from db import _conn
-    with _conn() as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS push_tokens (
-                device_token   TEXT PRIMARY KEY,
-                user_id        TEXT NOT NULL,
-                environment    TEXT NOT NULL DEFAULT 'production',
-                created_at     TEXT NOT NULL,
-                updated_at     TEXT NOT NULL
-            )
-        """)
-        conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_push_tokens_user
-            ON push_tokens (user_id)
-        """)
-    _schema_ready = True
+    with _schema_lock:
+        if _schema_ready:
+            return
+        from db import _conn
+        with _conn() as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS push_tokens (
+                    device_token   TEXT PRIMARY KEY,
+                    user_id        TEXT NOT NULL,
+                    environment    TEXT NOT NULL DEFAULT 'production',
+                    created_at     TEXT NOT NULL,
+                    updated_at     TEXT NOT NULL
+                )
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_push_tokens_user
+                ON push_tokens (user_id)
+            """)
+        _schema_ready = True
 
 
 def init_push_schema() -> None:

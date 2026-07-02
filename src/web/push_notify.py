@@ -12,6 +12,10 @@ logger = logging.getLogger("printix.push_notify")
 
 DEFAULT_RELAY_URL = "https://msp-push-relay.azurewebsites.net"
 
+# Keep strong references to fire-and-forget tasks so the GC can't collect
+# them before they finish (asyncio only holds a weak ref internally).
+_PUSH_TASKS: set = set()
+
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
@@ -25,7 +29,9 @@ def notify_user(
     """Fire-and-forget push. Safe to call from sync or async context."""
     try:
         loop = asyncio.get_running_loop()
-        loop.create_task(_send(user_id, title, body, extra, collapse_id))
+        task = loop.create_task(_send(user_id, title, body, extra, collapse_id))
+        _PUSH_TASKS.add(task)
+        task.add_done_callback(_PUSH_TASKS.discard)
     except RuntimeError:
         asyncio.run(_send(user_id, title, body, extra, collapse_id))
 
@@ -97,7 +103,7 @@ async def _send(
     collapse_id: str | None = None,
 ) -> None:
     try:
-        from db import _get_setting as gs
+        from db import get_setting as gs
         from push_tokens import get_tokens_for_user
 
         if gs("push_enabled", "0") != "1":

@@ -7518,7 +7518,7 @@ def create_app(session_secret: str) -> FastAPI:
         if not user or not user.get("is_admin"):
             return RedirectResponse("/login", status_code=302)
         try:
-            from db import _get_setting as gs, set_setting, audit
+            from db import get_setting as gs, set_setting, audit
             from push_notify import auto_register, DEFAULT_RELAY_URL
             relay_url = gs("push_relay_url", "").strip() or DEFAULT_RELAY_URL
             instance_url = _get_base_url(request)
@@ -7557,7 +7557,7 @@ def create_app(session_secret: str) -> FastAPI:
         if not user or not user.get("is_admin"):
             return JSONResponse({"ok": False, "error": "Unauthorized"}, status_code=401)
         try:
-            from db import _get_setting as gs
+            from db import get_setting as gs
             from push_notify import send_test_push
             relay_url = gs("push_relay_url", "")
             relay_token = gs("push_relay_token", "")
