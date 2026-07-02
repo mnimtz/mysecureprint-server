@@ -203,6 +203,36 @@ async def _process_desktop_send_bg(
             update_cloudprint_job_status,
         )
         from cloudprint.printix_cache_db import find_printix_user_by_identity
+        from db import _conn as _dconn
+
+        # v0.7.80: Failsafe INSERT OR IGNORE — stellt sicher dass der
+        # cloudprint_jobs-Eintrag existiert, bevor die ersten UPDATEs kommen.
+        # _bg_create_tracking() legt ihn normalerweise vorher an; schlägt das
+        # lautlos fehl (Exception → logger.debug), ist UPDATE ein No-op und
+        # der Job taucht nie im iOS-Jobs-Tab auf. INSERT OR IGNORE hier ist
+        # idempotent: existiert die Zeile schon, passiert nichts.
+        try:
+            import datetime as _dt
+            _now_iso = _dt.datetime.now(_dt.timezone.utc).isoformat()
+            _user_email = (user.get("email") or "")[:120]
+            with _dconn() as _c:
+                _c.execute(
+                    """INSERT OR IGNORE INTO cloudprint_jobs
+                       (job_id, tenant_id, queue_name, username, hostname, job_name,
+                        data_size, data_format, control_lines_json, payload_preview,
+                        detected_identity, identity_source, parent_job_id, delegated_from,
+                        status, received_at, created_at)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (internal_id, "", "", _user_email,
+                     f"desktop:{user.get('device_name', '')}"[:80],
+                     filename or "",
+                     len(data) if isinstance(data, (bytes, bytearray)) else 0,
+                     "application/octet-stream", "", "",
+                     _user_email[:255], "desktop-send", "", "",
+                     "queued", _now_iso, _now_iso),
+                )
+        except Exception as _ins_e:
+            logger.warning("cloudprint_jobs ensure-row failed: %s", _ins_e)
 
         def _fail(msg: str, code: str = "error") -> None:
             try:
@@ -1559,7 +1589,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                         status="queued",
                     )
                 except Exception as _cj:
-                    logger.debug("initial cloudprint_job insert failed: %s", _cj)
+                    logger.warning("initial cloudprint_job insert failed: %s", _cj)
             try:
                 await asyncio.to_thread(_do)
             except Exception:
