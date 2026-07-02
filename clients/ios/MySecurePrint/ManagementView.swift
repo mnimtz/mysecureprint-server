@@ -290,7 +290,13 @@ struct ManagementView: View {
         if let f = uR.failure { failures.append(f) }
         if let f = wR.failure { failures.append(f) }
         if !failures.isEmpty {
-            errorMessage = failures.joined(separator: "\n")
+            // no_tenant → freundlicher Hinweis statt rohem HTTP-String
+            if failures.first?.contains("no_tenant") == true
+                || failures.first?.contains("no tenant") == true {
+                errorMessage = String(localized: "Printix-API nicht konfiguriert. Bitte im Admin-Portal unter Einstellungen → Printix die API-Zugangsdaten eintragen.")
+            } else {
+                errorMessage = failures.joined(separator: "\n")
+            }
         }
     }
 
