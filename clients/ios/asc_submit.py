@@ -191,22 +191,28 @@ def set_localization(token: str, version_id: str, locale: str, data: dict) -> No
 
 def wait_for_valid_build(token: str, app_id: str, version: str,
                           timeout_min: int = 30) -> str:
+    """Wait for a VALID build whose marketing version (preReleaseVersion) matches."""
     deadline = time.time() + timeout_min * 60
-    print(f"  ⏳ Warte auf VALID-Build (timeout {timeout_min} min)…")
+    print(f"  ⏳ Warte auf VALID-Build marketing={version} (timeout {timeout_min} min)…")
     while time.time() < deadline:
+        # filter[preReleaseVersion.version] matches the marketing version (CFBundleShortVersionString)
         r = api("GET", "/v1/builds", token, params={
             "filter[app]": app_id,
+            "filter[preReleaseVersion.version]": version,
             "fields[builds]": "version,processingState,uploadedDate",
             "sort": "-uploadedDate", "limit": 5,
         })
         r.raise_for_status()
         for b in r.json().get("data", []):
             att = b["attributes"]
-            print(f"    Build {att.get('version','?')} state={att.get('processingState')}")
-            if att.get("processingState") == "VALID":
+            bver = att.get("version", "")
+            bstate = att.get("processingState", "")
+            print(f"    Build {bver} state={bstate}")
+            if bstate == "VALID":
+                print(f"  ✓ build_id={b['id']}")
                 return b["id"]
         time.sleep(30)
-    raise SystemExit("Kein VALID-Build innerhalb Timeout.")
+    raise SystemExit(f"Kein VALID-Build mit marketing={version} innerhalb Timeout.")
 
 
 def attach_build(token: str, version_id: str, build_id: str) -> None:
