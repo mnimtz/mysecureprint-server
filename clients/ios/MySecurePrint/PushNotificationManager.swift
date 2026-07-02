@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import UserNotifications
 
 /// Verwaltet APNs-Registrierung und Token-Upload zum MySecurePrint-Server.
