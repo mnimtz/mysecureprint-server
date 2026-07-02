@@ -53,17 +53,17 @@ struct UploadView: View {
             ScrollView {
                 VStack(spacing: 20) {
 
-                    CardSection(String(localized: “Datei”)) {
+                    CardSection(String(localized: "Datei")) {
                         CardRow {
                             Button { showImporter = true } label: {
                                 HStack(spacing: 12) {
-                                    Image(systemName: “folder.fill”)
+                                    Image(systemName: "folder.fill")
                                         .foregroundColor(MSP.cyan)
                                         .frame(width: 22)
-                                    Text(String(localized: “Aus Dateien wählen”))
+                                    Text(String(localized: "Aus Dateien wählen"))
                                         .foregroundColor(.primary)
                                     Spacer()
-                                    Image(systemName: “chevron.right”)
+                                    Image(systemName: "chevron.right")
                                         .foregroundColor(Color(.tertiaryLabel))
                                         .font(.system(size: 13, weight: .semibold))
                                 }
@@ -74,13 +74,13 @@ struct UploadView: View {
                                      photoLibrary: .shared()) {
                             CardRow {
                                 HStack(spacing: 12) {
-                                    Image(systemName: “photo.fill”)
+                                    Image(systemName: "photo.fill")
                                         .foregroundColor(MSP.cyan)
                                         .frame(width: 22)
-                                    Text(String(localized: “Aus Fotos wählen”))
+                                    Text(String(localized: "Aus Fotos wählen"))
                                         .foregroundColor(.primary)
                                     Spacer()
-                                    Image(systemName: “chevron.right”)
+                                    Image(systemName: "chevron.right")
                                         .foregroundColor(Color(.tertiaryLabel))
                                         .font(.system(size: 13, weight: .semibold))
                                 }
@@ -88,7 +88,7 @@ struct UploadView: View {
                         }
                         CardRow(divider: false) {
                             HStack(spacing: 12) {
-                                Image(systemName: pickedURL != nil ? “doc.fill” : “doc”)
+                                Image(systemName: pickedURL != nil ? "doc.fill" : "doc")
                                     .foregroundColor(pickedURL != nil ? MSP.cyan : Color(.tertiaryLabel))
                                     .frame(width: 22)
                                 if let name = pickedURL?.lastPathComponent {
@@ -96,32 +96,32 @@ struct UploadView: View {
                                         .foregroundColor(.primary)
                                         .lineLimit(1)
                                 } else {
-                                    Text(String(localized: “Noch nichts ausgewählt”))
+                                    Text(String(localized: "Noch nichts ausgewählt"))
                                         .foregroundColor(Color(.tertiaryLabel))
                                 }
                             }
                         }
                     }
 
-                    CardSection(String(localized: “Optionen”)) {
+                    CardSection(String(localized: "Optionen")) {
                         CardRow {
                             HStack {
-                                Image(systemName: “doc.on.doc”)
+                                Image(systemName: "doc.on.doc")
                                     .foregroundColor(MSP.cyan).frame(width: 22)
-                                Text(String(format: String(localized: “Kopien: %d”), copies))
+                                Text(String(format: String(localized: "Kopien: %d"), copies))
                                 Spacer()
                                 HStack(spacing: 0) {
                                     Button { if copies > 1 { copies -= 1 } } label: {
-                                        Image(systemName: “minus.circle.fill”)
+                                        Image(systemName: "minus.circle.fill")
                                             .font(.title3)
                                             .foregroundColor(copies > 1 ? MSP.cyan : Color(.tertiaryLabel))
                                     }
-                                    Text(“\(copies)”)
+                                    Text("\(copies)")
                                         .frame(width: 32)
                                         .font(.system(size: 15, weight: .semibold))
                                         .monospacedDigit()
                                     Button { if copies < 50 { copies += 1 } } label: {
-                                        Image(systemName: “plus.circle.fill”)
+                                        Image(systemName: "plus.circle.fill")
                                             .font(.title3)
                                             .foregroundColor(MSP.cyan)
                                     }
@@ -130,25 +130,25 @@ struct UploadView: View {
                         }
                         CardRow {
                             HStack(spacing: 12) {
-                                Image(systemName: “paintpalette.fill”)
+                                Image(systemName: "paintpalette.fill")
                                     .foregroundColor(MSP.cyan).frame(width: 22)
-                                Toggle(String(localized: “Farbe”), isOn: $color)
+                                Toggle(String(localized: "Farbe"), isOn: $color)
                                     .tint(MSP.cyan)
                             }
                         }
                         CardRow {
                             HStack(spacing: 12) {
-                                Image(systemName: “doc.text.below.ecg”)
+                                Image(systemName: "doc.text.below.ecg")
                                     .foregroundColor(MSP.cyan).frame(width: 22)
-                                Toggle(String(localized: “Duplex”), isOn: $duplex)
+                                Toggle(String(localized: "Duplex"), isOn: $duplex)
                                     .tint(MSP.cyan)
                             }
                         }
                         CardRow(divider: false) {
                             HStack(spacing: 12) {
-                                Image(systemName: “text.bubble”)
+                                Image(systemName: "text.bubble")
                                     .foregroundColor(Color(.tertiaryLabel)).frame(width: 22)
-                                TextField(String(localized: “Kommentar (optional)”), text: $comment)
+                                TextField(String(localized: "Kommentar (optional)"), text: $comment)
                                     .autocorrectionDisabled()
                             }
                         }
@@ -158,15 +158,15 @@ struct UploadView: View {
                         CardSection {
                             CardRow(divider: settings.selectionExpiresAt != nil) {
                                 HStack(spacing: 12) {
-                                    Image(systemName: “printer.fill”)
+                                    Image(systemName: "printer.fill")
                                         .foregroundColor(MSP.cyan).frame(width: 22)
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(String(format: String(localized: “%d Ziel(e) ausgewählt”),
+                                        Text(String(format: String(localized: "%d Ziel(e) ausgewählt"),
                                                     settings.selectedTargetIds.count))
                                             .font(.system(size: 14, weight: .semibold))
                                         let labels = settings.selectedTargetIds.prefix(2)
                                             .map { settings.targetLabels[$0] ?? $0 }
-                                        Text(labels.joined(separator: “, “))
+                                        Text(labels.joined(separator: ", "))
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                             .lineLimit(1)
@@ -185,9 +185,9 @@ struct UploadView: View {
                         CardSection {
                             CardRow(divider: false) {
                                 HStack(spacing: 12) {
-                                    Image(systemName: “exclamationmark.triangle”)
+                                    Image(systemName: "exclamationmark.triangle")
                                         .foregroundColor(.orange).frame(width: 22)
-                                    Text(String(localized: “Kein Ziel gewählt — unter „Ziele” auswählen.”))
+                                    Text(String(localized: "Kein Ziel gewählt — unter „Ziele" auswählen."))
                                         .font(.system(size: 14))
                                         .foregroundColor(.secondary)
                                 }
@@ -202,16 +202,16 @@ struct UploadView: View {
                             if isSending {
                                 ProgressView().tint(MSP.navy).scaleEffect(0.85)
                             } else {
-                                Image(systemName: “paperplane.fill”)
+                                Image(systemName: "paperplane.fill")
                             }
-                            Text(String(localized: “An Printix senden”))
+                            Text(String(localized: "An Printix senden"))
                         }
                     }
                     .buttonStyle(GoldButtonStyle())
                     .disabled(isSending || pickedURL == nil || settings.selectedTargetIds.isEmpty)
 
                     if !errorText.isEmpty {
-                        CardSection(String(localized: “Fehler”)) {
+                        CardSection(String(localized: "Fehler")) {
                             CardRow(divider: false) {
                                 Text(errorText)
                                     .foregroundColor(.red)
@@ -222,13 +222,13 @@ struct UploadView: View {
                     }
 
                     if !sendResults.isEmpty {
-                        CardSection(String(localized: “Ergebnis”)) {
+                        CardSection(String(localized: "Ergebnis")) {
                             ForEach(Array(sendResults.enumerated()), id: \.element.id) { idx, r in
                                 CardRow(divider: idx < sendResults.count - 1) {
                                     HStack(alignment: .top, spacing: 12) {
                                         Image(systemName: r.ok
-                                              ? “checkmark.circle.fill”
-                                              : “exclamationmark.triangle.fill”)
+                                              ? "checkmark.circle.fill"
+                                              : "exclamationmark.triangle.fill")
                                             .foregroundColor(r.ok ? .green : .orange)
                                             .font(.title3)
                                             .frame(width: 22)
@@ -249,7 +249,7 @@ struct UploadView: View {
                 .padding(.vertical, 20)
             }
             .background(Color(.systemGroupedBackground))
-            .brandNavStyle(title: “Upload”)
+            .brandNavStyle(title: "Upload")
             .fileImporter(isPresented: $showImporter,
                           allowedContentTypes: allowedTypes,
                           allowsMultipleSelection: false) { result in
@@ -266,13 +266,13 @@ struct UploadView: View {
                 settings.resetToDefaultIfExpired()
                 readShareExtensionError()
             }
-            .alert(String(localized: “Share-Fehler”),
+            .alert(String(localized: "Share-Fehler"),
                    isPresented: Binding(
                     get: { shareErrorAlert != nil },
                     set: { if !$0 { shareErrorAlert = nil } })) {
-                Button(“OK”, role: .cancel) { shareErrorAlert = nil }
+                Button("OK", role: .cancel) { shareErrorAlert = nil }
             } message: {
-                Text(shareErrorAlert ?? “”)
+                Text(shareErrorAlert ?? "")
             }
             .onReceive(resetTick) { _ in
                 settings.resetToDefaultIfExpired()
