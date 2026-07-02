@@ -895,9 +895,55 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
             </small>
           </div>
 
+          <!-- ── Karten-UID Sync ──────────────────────────────────────── -->
+          <div class="divider" style="margin:16px 0;"></div>
+          <div class="form-group">
+            <label style="font-weight:600;">Karten-UID Attribut
+              <small style="color:#6b7280;font-weight:400;">(Entra-Attribut das die NFC-Karten-ID enthält)</small>
+            </label>
+            <input type="text" name="entra_card_uid_attribute"
+                   value="{{ entra.card_uid_attribute }}"
+                   list="entra-card-attr-suggestions"
+                   placeholder="z.B. extensionAttribute3 oder employeeId"
+                   style="font-family:monospace;">
+            <datalist id="entra-card-attr-suggestions">
+              {% for i in range(1, 16) %}
+              <option value="extensionAttribute{{ i }}">
+              {% endfor %}
+              <option value="employeeId">
+              <option value="onPremisesImmutableId">
+            </datalist>
+            <small class="hint">
+              Standardattribute: <code>extensionAttribute1</code>–<code>extensionAttribute15</code>
+              (on-prem AD → Entra Sync). Benutzerdefinierte Schema-Extensions ebenfalls möglich.
+            </small>
+          </div>
+
+          {% if entra.enabled and entra.client_id and entra.has_secret and entra.card_uid_attribute %}
+          <div style="margin-top:12px;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+            <div style="font-weight:600;margin-bottom:8px;font-size:.95em;">
+              Karten-UIDs synchronisieren
+              <span style="font-weight:400;color:#6b7280;">
+                — Attribut: <code>{{ entra.card_uid_attribute }}</code>
+              </span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+              <button type="button" class="btn btn-secondary"
+                      onclick="entraCardSync(true)">Vorschau (dry-run)</button>
+              <button type="button" class="btn btn-primary"
+                      onclick="entraCardSync(false)">Jetzt synchronisieren</button>
+            </div>
+            <div id="entra-sync-result" style="display:none;"></div>
+          </div>
+          {% elif entra.enabled and entra.client_id and entra.has_secret %}
+          <div class="alert alert-info" style="font-size:.88em;margin-top:8px;">
+            Trage ein Entra-Attribut ein und speichere, um den Karten-Sync zu aktivieren.
+          </div>
+          {% endif %}
+
           <!-- Status -->
           {% if entra.enabled and entra.client_id and entra.has_secret %}
-          <div class="alert alert-success" style="font-size:.88em;">
+          <div class="alert alert-success" style="font-size:.88em;margin-top:12px;">
             ✓ <strong>{{ _('entra_status_active') }}</strong>
             {{ _('entra_status_active_sub') }}
           </div>
@@ -909,6 +955,44 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
         </div>
       </div>
       {% endif %}{# end of Entra section gate #}
+
+      <script>
+      function entraCardSync(dryRun) {
+        var box = document.getElementById('entra-sync-result');
+        box.style.display = 'block';
+        box.innerHTML = '<span style="color:#6b7280;">Wird synchronisiert…</span>';
+        fetch('/admin/entra/sync-cards?dry_run=' + (dryRun ? '1' : '0'), {method:'POST'})
+          .then(function(r){ return r.json(); })
+          .then(function(d) {
+            if (d.error) {
+              box.innerHTML = '<div class="alert alert-danger" style="font-size:.85em;">'
+                + '✗ ' + d.error + '</div>';
+              return;
+            }
+            var html = dryRun
+              ? '<div class="alert alert-info" style="font-size:.85em;"><strong>Vorschau</strong> — keine Änderungen gespeichert</div>'
+              : '<div class="alert alert-success" style="font-size:.85em;">✓ Sync abgeschlossen</div>';
+            html += '<div style="font-size:.85em;margin-top:8px;">';
+            html += '<strong>' + (d.synced||[]).length + '</strong> synchronisiert, ';
+            html += '<strong>' + (d.skipped||[]).length + '</strong> übersprungen, ';
+            html += '<strong>' + (d.errors||[]).length + '</strong> Fehler';
+            html += ' (von ' + (d.total_entra||0) + ' Entra-Usern)';
+            html += '</div>';
+            if ((d.synced||[]).length) {
+              html += '<details style="margin-top:8px;font-size:.83em;"><summary style="cursor:pointer;color:#00A0FB;">Details anzeigen</summary><ul style="margin:6px 0 0 16px;">';
+              d.synced.forEach(function(s){ html += '<li>' + (s.user||s.entra) + ' → <code>' + s.uid + '</code>' + (s.dry_run?' (dry-run)':'') + '</li>'; });
+              html += '</ul></details>';
+            }
+            if ((d.errors||[]).length) {
+              html += '<details style="margin-top:4px;font-size:.83em;"><summary style="cursor:pointer;color:#dc2626;">Fehler</summary><ul style="margin:6px 0 0 16px;">';
+              d.errors.forEach(function(e){ html += '<li>' + (e.user||e.entra) + ': ' + e.error + '</li>'; });
+              html += '</ul></details>';
+            }
+            box.innerHTML = html;
+          })
+          .catch(function(e){ box.innerHTML = '<div class="alert alert-danger" style="font-size:.85em;">Netzwerkfehler: ' + e + '</div>'; });
+      }
+      </script>
 
       <div class="divider"></div>
 

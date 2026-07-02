@@ -5822,11 +5822,12 @@ def create_app(session_secret: str) -> FastAPI:
         try:
             from db import get_setting as gs
             entra_cfg = {
-                "enabled":      gs("entra_enabled", "0") == "1",
-                "tenant_id":    gs("entra_tenant_id", ""),
-                "client_id":    gs("entra_client_id", ""),
-                "has_secret":   bool(gs("entra_client_secret", "")),
-                "auto_approve": gs("entra_auto_approve", "0") == "1",
+                "enabled":            gs("entra_enabled", "0") == "1",
+                "tenant_id":          gs("entra_tenant_id", ""),
+                "client_id":          gs("entra_client_id", ""),
+                "has_secret":         bool(gs("entra_client_secret", "")),
+                "auto_approve":       gs("entra_auto_approve", "0") == "1",
+                "card_uid_attribute": gs("entra_card_uid_attribute", ""),
             }
         except Exception:
             entra_cfg = {"enabled": False, "tenant_id": "", "client_id": "",
@@ -6050,6 +6051,9 @@ def create_app(session_secret: str) -> FastAPI:
                 if has("entra_redirect_uri") and val("entra_redirect_uri"):
                     set_setting("entra_redirect_uri",
                                   val("entra_redirect_uri").rstrip("/"))
+                if has("entra_card_uid_attribute"):
+                    set_setting("entra_card_uid_attribute",
+                                  val("entra_card_uid_attribute"))
                 changes.append("entra=" +
                                  ("aktiviert" if val("entra_enabled") else "deaktiviert"))
 
@@ -6063,6 +6067,32 @@ def create_app(session_secret: str) -> FastAPI:
 
         return templates.TemplateResponse("admin_settings.html",
             _admin_settings_ctx(request, user, saved=True))
+
+    @app.post("/admin/entra/sync-cards")
+    async def admin_entra_sync_cards(request: Request):
+        """Karten-UIDs aus Entra-Attribut lesen und in Printix registrieren.
+
+        Query-Param dry_run=1 → nur Vorschau, keine echte Registrierung.
+        """
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return JSONResponse({"error": "Nicht autorisiert"}, status_code=401)
+        dry_run = request.query_params.get("dry_run", "0") in ("1", "true", "yes")
+        try:
+            import sys, os
+            sys.path.insert(0, os.path.dirname(os.path.dirname(
+                os.path.abspath(__file__))))
+            from entra import sync_card_uids_from_entra
+            result = sync_card_uids_from_entra(dry_run=dry_run)
+            if not dry_run and "error" not in result:
+                from db import audit
+                n = len(result.get("synced", []))
+                audit(user["id"], "entra_card_sync",
+                      f"{n} Karten aus Entra synchronisiert")
+            return JSONResponse(result)
+        except Exception as e:
+            logger.error("Entra card sync endpoint error: %s", e)
+            return JSONResponse({"error": str(e)}, status_code=500)
 
     # v0.4.5: Printix-Zugangsdaten editieren. Vorher nur ueber den
     # Register-Wizard setzbar — Rotation/Update der API-Secrets im

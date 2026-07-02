@@ -4963,6 +4963,49 @@ class DualTransportApp:
             await self.sse_app(scope, receive, send)
 
 
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=True))
+def printix_sync_entra_card_uids(
+    dry_run: bool = True,
+) -> str:
+    """
+        Liest Karten-UIDs aus einem konfigurierten Entra-ID-Attribut und
+        registriert sie automatisch in Printix (einem Benutzer zugeordnet).
+
+        Voraussetzungen:
+          - Entra ID muss im Admin-Portal konfiguriert sein.
+          - Setting 'entra_card_uid_attribute' muss gesetzt sein
+            (z.B. 'extensionAttribute3').
+          - User müssen per entra_oid oder E-Mail gematchet werden können.
+          - App braucht Graph-Berechtigung: User.Read.All (Application).
+
+        Matching-Reihenfolge: entra_oid → E-Mail → userPrincipalName.
+
+        Wann nutzen — typische Prompts:
+          • "Synchronisiere alle Karten-UIDs aus Entra"
+          • "Welche Karten würden aus Entra importiert?" (→ dry_run=True)
+          • "Entra card sync"
+          • "Import badge IDs from Azure AD"
+
+        Parameters:
+          dry_run: True = nur Vorschau (Standard), False = wirklich registrieren
+
+        Returns dict mit:
+          - synced:       Liste synchronisierter Einträge {user, uid, entra}
+          - skipped:      Übersprungene Einträge mit Grund
+          - errors:       Fehlerhafte Einträge
+          - dry_run:      ob nur Vorschau
+          - total_entra:  Gesamtzahl abgerufener Entra-User
+    """
+    try:
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from entra import sync_card_uids_from_entra
+        result = sync_card_uids_from_entra(dry_run=dry_run)
+        return _ok(result)
+    except Exception as e:
+        return _ok({"error": str(e)})
+
+
 # ─── Entry Point ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

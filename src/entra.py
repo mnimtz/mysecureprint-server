@@ -1380,3 +1380,236 @@ def rotate_client_secret(app_object_id: str,
         "client_secret":     data.get("secretText", ""),
         "secret_expires_at": data.get("endDateTime", ""),
     }
+
+
+# ─── Karten-UID Sync aus Entra ID ───────────────────────────────────────────
+
+def _get_graph_client_token(cfg: dict) -> str:
+    """Graph-Token via Client-Credentials-Flow (kein User-Kontext nötig)."""
+    tenant = (cfg.get("tenant_id") or "").strip()
+    if not tenant or not cfg.get("client_id") or not cfg.get("client_secret"):
+        return ""
+    try:
+        resp = _requests.post(
+            _TOKEN_URL.format(tenant=tenant),
+            data={
+                "client_id":     cfg["client_id"],
+                "client_secret": cfg["client_secret"],
+                "grant_type":    "client_credentials",
+                "scope":         "https://graph.microsoft.com/.default",
+            },
+            timeout=15,
+        )
+        return resp.json().get("access_token", "")
+    except Exception as e:
+        logger.error("Graph client-credentials token error: %s", e)
+        return ""
+
+
+def _fetch_entra_users_paged(token: str, url: str) -> list:
+    """Liest alle Entra-User mit @odata.nextLink-Pagination."""
+    results = []
+    headers = {"Authorization": f"Bearer {token}"}
+    while url:
+        try:
+            resp = _requests.get(url, headers=headers, timeout=20)
+        except Exception as e:
+            logger.error("Graph user-fetch network error: %s", e)
+            break
+        if resp.status_code != 200:
+            logger.error("Graph user-fetch HTTP %s: %s", resp.status_code, resp.text[:300])
+            break
+        data = resp.json()
+        results.extend(data.get("value", []))
+        url = data.get("@odata.nextLink", "")
+    return results
+
+
+def _register_card_via_printix(tenant: dict, px_uid: str, card_uid: str) -> str:
+    """Registriert eine Karte in Printix, speichert Mapping lokal.
+
+    Gibt printix_card_id zurück oder '' wenn Karte schon vorhanden war.
+    """
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from printix_client import PrintixClient, PrintixAPIError
+    from cards.store import save_mapping, list_mappings_for_user, init_cards_tables
+
+    client = PrintixClient(
+        tenant_id=tenant.get("printix_tenant_id", ""),
+        card_client_id=tenant.get("card_client_id", ""),
+        card_client_secret=tenant.get("card_client_secret", ""),
+    )
+    init_cards_tables()
+
+    uid_upper = card_uid.strip().upper()
+
+    # Idempotenz: bereits registriert?
+    existing = list_mappings_for_user(tenant["id"], px_uid)
+    for m in existing:
+        if (m.get("final_value") or "").upper() == uid_upper:
+            return ""  # bereits vorhanden, kein Doppel-Sync
+
+    # Karten-Liste vorher merken, um neue card_id nach Register zu erkennen
+    before_ids: set = set()
+    try:
+        before = client.list_user_cards(px_uid)
+        for c in before.get("cards", before.get("content", [])) or []:
+            cid = (c.get("id") or c.get("cardId") or "")
+            if cid:
+                before_ids.add(cid)
+    except Exception:
+        pass
+
+    # In Printix registrieren
+    try:
+        client.register_card(px_uid, uid_upper)
+    except PrintixAPIError as e:
+        msg = (e.message or "").lower()
+        is_dup = (e.status_code == 409
+                  or "already exist" in msg
+                  or "already registered" in msg)
+        if not is_dup:
+            raise
+
+    # Neue card_id ermitteln (Diff vor/nach)
+    new_card_id = ""
+    try:
+        after = client.list_user_cards(px_uid)
+        for c in after.get("cards", after.get("content", [])) or []:
+            cid = (c.get("id") or c.get("cardId") or "")
+            if cid and cid not in before_ids:
+                new_card_id = cid
+                break
+    except Exception:
+        pass
+
+    if new_card_id:
+        save_mapping(
+            tenant_id=tenant["id"],
+            printix_user_id=px_uid,
+            printix_card_id=new_card_id,
+            local_value=uid_upper,
+            final_value=uid_upper,
+            normalized_value=uid_upper,
+            source="entra_sync",
+            notes="Entra-Attribut-Sync",
+            profile_id="",
+            printix_secret_value=uid_upper,
+        )
+    return new_card_id
+
+
+def sync_card_uids_from_entra(dry_run: bool = True) -> dict:
+    """Liest Karten-UIDs aus einem konfigurierten Entra-Attribut und
+    registriert sie automatisch in Printix.
+
+    Admin-Setting 'entra_card_uid_attribute' legt fest welches Attribut
+    die UID enthält, z.B. 'extensionAttribute3' oder 'employeeId'.
+
+    Matching-Priorität: entra_oid → email → userPrincipalName.
+
+    Returns: {synced, skipped, errors, dry_run, total_entra}
+    """
+    from db import (get_setting, get_all_users, get_tenant_full_by_user_id,
+                    _find_tenant_owner_user_id)
+
+    cfg = get_config()
+    if not cfg.get("enabled") or not cfg.get("client_id") or not cfg.get("client_secret"):
+        return {"error": "Entra ID nicht konfiguriert oder unvollständig"}
+
+    attribute = (get_setting("entra_card_uid_attribute", "") or "").strip()
+    if not attribute:
+        return {"error": "Kein Entra-Attribut für Karten-UID konfiguriert (Admin → Entra)"}
+
+    token = _get_graph_client_token(cfg)
+    if not token:
+        return {"error": ("Graph-Token konnte nicht abgerufen werden. "
+                          "Prüfe App-Berechtigungen: User.Read.All (Application).")}
+
+    # extensionAttribute1..15 stecken in onPremisesExtensionAttributes
+    attr_lower = attribute.lower()
+    is_ext_attr = (attr_lower.startswith("extensionattribute")
+                   and attr_lower[len("extensionattribute"):].isdigit())
+    select_extra = "onPremisesExtensionAttributes" if is_ext_attr else attribute
+    url = f"{_GRAPH_URL}/users?$select=id,mail,userPrincipalName,{select_extra}&$top=200"
+
+    entra_users = _fetch_entra_users_paged(token, url)
+    if not entra_users:
+        return {"error": ("Keine Entra-User abgerufen — prüfe Graph-Berechtigung "
+                          "User.Read.All und ob das Attribut existiert.")}
+
+    local_users = get_all_users()
+    by_oid   = {u.get("entra_oid", ""): u
+                for u in local_users if u.get("entra_oid")}
+    by_email = {(u.get("email") or "").strip().lower(): u
+                for u in local_users if u.get("email")}
+
+    owner_id   = _find_tenant_owner_user_id()
+    tenant_rec = get_tenant_full_by_user_id(owner_id) if owner_id else None
+    if not tenant_rec:
+        return {"error": "Kein Printix-Tenant konfiguriert"}
+
+    synced: list  = []
+    skipped: list = []
+    errors: list  = []
+
+    for eu in entra_users:
+        # Karten-UID lesen
+        if is_ext_attr:
+            ext      = eu.get("onPremisesExtensionAttributes") or {}
+            card_uid = (ext.get(attribute) or ext.get(attr_lower) or "").strip()
+        else:
+            card_uid = (eu.get(attribute) or "").strip()
+
+        if not card_uid:
+            continue
+
+        eu_mail = (eu.get("mail") or eu.get("userPrincipalName") or eu.get("id") or "")
+
+        # User matchen
+        local = by_oid.get((eu.get("id") or "").strip())
+        if not local:
+            mail  = ((eu.get("mail") or eu.get("userPrincipalName") or "")
+                     .strip().lower())
+            local = by_email.get(mail)
+
+        if not local:
+            skipped.append({"entra": eu_mail, "uid": card_uid,
+                             "reason": "Kein passender lokaler User"})
+            continue
+
+        px_uid = (local.get("printix_user_id") or "").strip()
+        if not px_uid or px_uid.startswith("mgr:") or ":" in px_uid:
+            skipped.append({"entra": eu_mail, "user": local.get("email"),
+                             "uid": card_uid,
+                             "reason": "printix_user_id nicht gesetzt oder Platzhalter"})
+            continue
+
+        entry = {"entra": eu_mail, "user": local.get("email"), "uid": card_uid}
+
+        if dry_run:
+            synced.append({**entry, "dry_run": True})
+            continue
+
+        try:
+            new_id = _register_card_via_printix(tenant_rec, px_uid, card_uid)
+            if new_id:
+                synced.append(entry)
+                logger.info("Entra card sync: registered uid=%s user=%s",
+                            card_uid, local.get("email"))
+            else:
+                skipped.append({**entry, "reason": "Karte bereits registriert"})
+        except Exception as exc:
+            logger.error("Entra card sync error user=%s uid=%s: %s",
+                         local.get("email"), card_uid, exc)
+            errors.append({**entry, "error": str(exc)})
+
+    return {
+        "synced":       synced,
+        "skipped":      skipped,
+        "errors":       errors,
+        "dry_run":      dry_run,
+        "total_entra":  len(entra_users),
+    }
