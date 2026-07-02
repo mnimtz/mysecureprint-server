@@ -5957,6 +5957,25 @@ def create_app(session_secret: str) -> FastAPI:
         if not saved_redirect:
             base = _get_base_url(request)
             saved_redirect = f"{base}/auth/entra/callback"
+        # Push Notifications — v0.7.74
+        try:
+            push_enabled   = gs("push_enabled", "0") == "1"
+            apns_key_id    = gs("apns_key_id", "")
+            apns_team_id   = gs("apns_team_id", "")
+            apns_bundle_id = gs("apns_bundle_id", "de.nimtz.mysecureprint")
+            apns_has_key   = bool(gs("apns_private_key", ""))
+            apns_sandbox   = gs("apns_sandbox", "0") == "1"
+        except Exception:
+            push_enabled = False
+            apns_key_id = apns_team_id = ""
+            apns_bundle_id = "de.nimtz.mysecureprint"
+            apns_has_key = False
+            apns_sandbox = False
+        try:
+            from push_tokens import _get_push_token_count
+            push_token_count = _get_push_token_count()
+        except Exception:
+            push_token_count = None
         return {
             "request": request, "user": user,
             "public_url": public_url,
@@ -5983,6 +6002,15 @@ def create_app(session_secret: str) -> FastAPI:
             "email_to_print_enabled":  email_to_print_enabled,
             "entra": entra_cfg,
             "entra_redirect_uri": saved_redirect,
+            # v0.7.74: Push Notifications
+            "push_enabled":   push_enabled,
+            "apns_key_id":    apns_key_id,
+            "apns_team_id":   apns_team_id,
+            "apns_bundle_id": apns_bundle_id,
+            "apns_has_key":   apns_has_key,
+            "apns_private_key_display": "••••••• (gespeichert)" if apns_has_key else "",
+            "apns_sandbox":   apns_sandbox,
+            "push_token_count": push_token_count,
             "auto_setup_success": auto_setup_success,
             "backups": backups,
             "backup_success": backup_success,
@@ -6176,6 +6204,24 @@ def create_app(session_secret: str) -> FastAPI:
                                   val("entra_card_uid_transform_rules").strip())
                 changes.append("entra=" +
                                  ("aktiviert" if val("entra_enabled") else "deaktiviert"))
+
+            # v0.7.74: Push Notifications
+            if has("push_enabled_present"):
+                set_setting("push_enabled",
+                              "1" if has("push_enabled") and val("push_enabled") else "0")
+                if has("apns_key_id"):
+                    set_setting("apns_key_id", val("apns_key_id"))
+                if has("apns_team_id"):
+                    set_setting("apns_team_id", val("apns_team_id"))
+                if has("apns_bundle_id"):
+                    set_setting("apns_bundle_id", val("apns_bundle_id"))
+                if has("apns_private_key") and val("apns_private_key"):
+                    set_setting("apns_private_key", _enc(val("apns_private_key")))
+                if has("apns_sandbox_present"):
+                    set_setting("apns_sandbox",
+                                  "1" if has("apns_sandbox") and val("apns_sandbox") else "0")
+                changes.append("push=" +
+                                 ("aktiviert" if has("push_enabled") and val("push_enabled") else "deaktiviert"))
 
             if not changes:
                 changes.append("keine Änderungen erkannt")

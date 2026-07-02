@@ -113,3 +113,15 @@ def get_push_tokens_for_user(user_id: str) -> list[str]:
             "SELECT device_token FROM push_tokens WHERE user_id = ?", (user_id,)
         ).fetchall()
     return [r[0] for r in rows]
+
+
+def _get_push_token_count() -> int:
+    """Anzahl registrierter Push-Tokens für die Admin-UI."""
+    try:
+        _ensure_schema()
+        from db import _conn
+        with _conn() as conn:
+            row = conn.execute("SELECT COUNT(*) FROM push_tokens").fetchone()
+        return row[0] if row else 0
+    except Exception:
+        return 0
