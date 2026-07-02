@@ -54,7 +54,7 @@ struct UploadView: View {
                 VStack(spacing: 20) {
 
                     CardSection(String(localized: "Datei")) {
-                        CardRow {
+                        CardFormRow {
                             Button { showImporter = true } label: {
                                 HStack(spacing: 12) {
                                     Image(systemName: "folder.fill")
@@ -72,7 +72,7 @@ struct UploadView: View {
                         PhotosPicker(selection: $photoItem,
                                      matching: .any(of: [.images, .screenshots]),
                                      photoLibrary: .shared()) {
-                            CardRow {
+                            CardFormRow {
                                 HStack(spacing: 12) {
                                     Image(systemName: "photo.fill")
                                         .foregroundColor(MSP.cyan)
@@ -86,7 +86,7 @@ struct UploadView: View {
                                 }
                             }
                         }
-                        CardRow(divider: false) {
+                        CardFormRow(divider: false) {
                             HStack(spacing: 12) {
                                 Image(systemName: pickedURL != nil ? "doc.fill" : "doc")
                                     .foregroundColor(pickedURL != nil ? MSP.cyan : Color(.tertiaryLabel))
@@ -104,7 +104,7 @@ struct UploadView: View {
                     }
 
                     CardSection(String(localized: "Optionen")) {
-                        CardRow {
+                        CardFormRow {
                             HStack {
                                 Image(systemName: "doc.on.doc")
                                     .foregroundColor(MSP.cyan).frame(width: 22)
@@ -128,7 +128,7 @@ struct UploadView: View {
                                 }
                             }
                         }
-                        CardRow {
+                        CardFormRow {
                             HStack(spacing: 12) {
                                 Image(systemName: "paintpalette.fill")
                                     .foregroundColor(MSP.cyan).frame(width: 22)
@@ -136,7 +136,7 @@ struct UploadView: View {
                                     .tint(MSP.cyan)
                             }
                         }
-                        CardRow {
+                        CardFormRow {
                             HStack(spacing: 12) {
                                 Image(systemName: "doc.text.below.ecg")
                                     .foregroundColor(MSP.cyan).frame(width: 22)
@@ -144,7 +144,7 @@ struct UploadView: View {
                                     .tint(MSP.cyan)
                             }
                         }
-                        CardRow(divider: false) {
+                        CardFormRow(divider: false) {
                             HStack(spacing: 12) {
                                 Image(systemName: "text.bubble")
                                     .foregroundColor(Color(.tertiaryLabel)).frame(width: 22)
@@ -156,7 +156,7 @@ struct UploadView: View {
 
                     if !settings.selectedTargetIds.isEmpty {
                         CardSection {
-                            CardRow(divider: settings.selectionExpiresAt != nil) {
+                            CardFormRow(divider: settings.selectionExpiresAt != nil) {
                                 HStack(spacing: 12) {
                                     Image(systemName: "printer.fill")
                                         .foregroundColor(MSP.cyan).frame(width: 22)
@@ -174,7 +174,7 @@ struct UploadView: View {
                                 }
                             }
                             if settings.selectionExpiresAt != nil {
-                                CardRow(divider: false) {
+                                CardFormRow(divider: false) {
                                     TimelineView(.periodic(from: .now, by: 1)) { ctx in
                                         autoResetBanner(now: ctx.date)
                                     }
@@ -183,11 +183,11 @@ struct UploadView: View {
                         }
                     } else {
                         CardSection {
-                            CardRow(divider: false) {
+                            CardFormRow(divider: false) {
                                 HStack(spacing: 12) {
                                     Image(systemName: "exclamationmark.triangle")
                                         .foregroundColor(.orange).frame(width: 22)
-                                    Text(String(localized: "Kein Ziel gewählt — unter „Ziele" auswählen."))
+                                    Text(String(localized: "Kein Ziel gewählt — Tab \u{201E}Ziele\u{201C} auswählen."))
                                         .font(.system(size: 14))
                                         .foregroundColor(.secondary)
                                 }
@@ -212,7 +212,7 @@ struct UploadView: View {
 
                     if !errorText.isEmpty {
                         CardSection(String(localized: "Fehler")) {
-                            CardRow(divider: false) {
+                            CardFormRow(divider: false) {
                                 Text(errorText)
                                     .foregroundColor(.red)
                                     .textSelection(.enabled)
@@ -224,7 +224,7 @@ struct UploadView: View {
                     if !sendResults.isEmpty {
                         CardSection(String(localized: "Ergebnis")) {
                             ForEach(Array(sendResults.enumerated()), id: \.element.id) { idx, r in
-                                CardRow(divider: idx < sendResults.count - 1) {
+                                CardFormRow(divider: idx < sendResults.count - 1) {
                                     HStack(alignment: .top, spacing: 12) {
                                         Image(systemName: r.ok
                                               ? "checkmark.circle.fill"

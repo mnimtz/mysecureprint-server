@@ -188,7 +188,7 @@ struct CardSection<Content: View>: View {
 }
 
 // MARK: - Card Row (row inside a CardSection, with optional divider)
-struct CardRow<Content: View>: View {
+struct CardFormRow<Content: View>: View {
     var divider: Bool = true
     @ViewBuilder let content: () -> Content
     var body: some View {
