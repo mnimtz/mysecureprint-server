@@ -29,6 +29,8 @@ struct CardsView: View {
                 }
             }
             .brandNavStyle(title: "Karten")
+            .tint(MSP.cyan)
+            .listStyle(.insetGrouped)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {

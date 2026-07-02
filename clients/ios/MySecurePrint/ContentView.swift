@@ -87,6 +87,9 @@ private struct MainTabs: View {
                 .tabItem { Label("Konto", systemImage: "person.crop.circle") }
         }
         .tint(MSP.cyan)
+        .toolbarBackground(MSP.navy, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
+        .toolbarColorScheme(.dark, for: .tabBar)
         // Auf /desktop/me synchronisieren — deckt auch bestehende Sessions
         // ab, fuer die beim urspruenglichen Login der roleType noch nicht
         // gespeichert wurde (App-Update von einer Vorversion).

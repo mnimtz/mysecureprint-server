@@ -157,8 +157,46 @@ extension View {
     func brandNavStyle(title: String) -> some View {
         self
             .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(MSP.navy, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
+    }
+}
+
+// MARK: - Card Section (for non-Form layouts)
+struct CardSection<Content: View>: View {
+    let title: String?
+    @ViewBuilder let content: () -> Content
+    init(_ title: String? = nil, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title; self.content = content
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            if let t = title {
+                Text(t.uppercased())
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Color(.secondaryLabel))
+                    .tracking(0.5)
+                    .padding(.horizontal, 4)
+            }
+            VStack(spacing: 0) { content() }
+                .background(Color(.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+    }
+}
+
+// MARK: - Card Row (row inside a CardSection, with optional divider)
+struct CardRow<Content: View>: View {
+    var divider: Bool = true
+    @ViewBuilder let content: () -> Content
+    var body: some View {
+        VStack(spacing: 0) {
+            content()
+                .padding(.horizontal, 16)
+                .padding(.vertical, 13)
+            if divider { Divider().padding(.leading, 16) }
+        }
     }
 }

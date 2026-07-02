@@ -44,6 +44,8 @@ struct JobsView: View {
                 }
             }
             .brandNavStyle(title: String(localized: "Meine Jobs"))
+            .tint(MSP.cyan)
+            .listStyle(.insetGrouped)
             .refreshable { await reload() }
             .task { await reload() }
         }

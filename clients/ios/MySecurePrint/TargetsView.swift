@@ -82,7 +82,7 @@ struct TargetsView: View {
                                     // Ziele gleichzeitig anvisieren.
                                     if settings.selectedTargetIds.contains(t.id) {
                                         Image(systemName: "checkmark.circle.fill")
-                                            .foregroundColor(.accentColor)
+                                            .foregroundColor(MSP.cyan)
                                     } else {
                                         Image(systemName: "circle")
                                             .foregroundColor(.secondary)
@@ -109,6 +109,8 @@ struct TargetsView: View {
 
             }
             .brandNavStyle(title: String(localized: "targets_nav_title"))
+            .tint(MSP.cyan)
+            .listStyle(.insetGrouped)
             .refreshable {
                 await reload()
                 if settings.delegateEnabled { await reloadMgmtUsers() }
@@ -184,7 +186,7 @@ struct TargetsView: View {
             ForEach(selectedQueueTargetIds, id: \.self) { id in
                 HStack {
                     Image(systemName: "printer.dotmatrix")
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(MSP.cyan)
                     Text(settings.targetLabels[id] ?? id)
                         .font(.body)
                     Spacer()
@@ -262,7 +264,7 @@ struct TargetsView: View {
                                 }
                                 Spacer()
                                 Image(systemName: "plus.circle")
-                                    .foregroundColor(.accentColor)
+                                    .foregroundColor(MSP.cyan)
                             }
                         }
                     }
@@ -323,7 +325,7 @@ struct TargetsView: View {
             ForEach(selectedUserDelegationIds, id: \.self) { id in
                 HStack {
                     Image(systemName: "person.crop.circle.badge.checkmark")
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(MSP.cyan)
                     Text(settings.targetLabels[id] ?? id)
                         .font(.body)
                     Spacer()
@@ -379,7 +381,7 @@ struct TargetsView: View {
                             }
                             Spacer()
                             Image(systemName: "plus.circle")
-                                .foregroundColor(.accentColor)
+                                .foregroundColor(MSP.cyan)
                         }
                     }
                 }

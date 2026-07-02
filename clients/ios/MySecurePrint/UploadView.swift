@@ -50,131 +50,206 @@ struct UploadView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section(String(localized: "Datei")) {
-                    // Datei aus der Files-App (PDF, Office, Textdateien etc.)
-                    Button {
-                        showImporter = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "folder.fill")
-                            Text(String(localized: "Aus Dateien wählen"))
-                            Spacer()
-                        }
-                    }
-                    // Foto aus der Fotos-Mediathek — nutzt PhotosPicker,
-                    // damit der User wirklich an seine Fotos/Screenshots
-                    // rankommt ohne Umweg ueber "In Dateien speichern".
-                    PhotosPicker(selection: $photoItem,
-                                 matching: .any(of: [.images, .screenshots]),
-                                 photoLibrary: .shared()) {
-                        HStack {
-                            Image(systemName: "photo.fill")
-                            Text(String(localized: "Aus Fotos wählen"))
-                            Spacer()
-                        }
-                    }
-                    // Anzeige der aktuell gewaehlten Quelle
-                    HStack {
-                        Image(systemName: "doc.text")
-                            .foregroundColor(.secondary)
-                        if let name = pickedURL?.lastPathComponent {
-                            Text(name)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                        } else {
-                            Text(String(localized: "Noch nichts ausgewählt"))
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                        }
-                    }
-                }
+            ScrollView {
+                VStack(spacing: 20) {
 
-                Section(String(localized: "Optionen")) {
-                    Stepper(String(format: String(localized: "Kopien: %d"), copies), value: $copies, in: 1...50)
-                    Toggle(String(localized: "Farbe"), isOn: $color)
-                    Toggle(String(localized: "Duplex"), isOn: $duplex)
-                    TextField(String(localized: "Kommentar (optional)"), text: $comment)
-                        .autocorrectionDisabled()
-                }
-
-                // Senden-Button zuerst — kuerzerer Weg vom Datei-
-                // Picker zum Absenden. Der User will in der Regel nur
-                // drucken; die Ziel-Liste steht informativ drunter.
-                Section {
-                    Button {
-                        Task { await sendNow() }
-                    } label: {
-                        HStack {
-                            Spacer()
-                            if isSending { ProgressView() }
-                            else {
-                                Image(systemName: "paperplane.fill")
-                                Text(String(localized: "An Printix senden")).fontWeight(.semibold)
+                    CardSection(String(localized: “Datei”)) {
+                        CardRow {
+                            Button { showImporter = true } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: “folder.fill”)
+                                        .foregroundColor(MSP.cyan)
+                                        .frame(width: 22)
+                                    Text(String(localized: “Aus Dateien wählen”))
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                    Image(systemName: “chevron.right”)
+                                        .foregroundColor(Color(.tertiaryLabel))
+                                        .font(.system(size: 13, weight: .semibold))
+                                }
                             }
-                            Spacer()
+                        }
+                        PhotosPicker(selection: $photoItem,
+                                     matching: .any(of: [.images, .screenshots]),
+                                     photoLibrary: .shared()) {
+                            CardRow {
+                                HStack(spacing: 12) {
+                                    Image(systemName: “photo.fill”)
+                                        .foregroundColor(MSP.cyan)
+                                        .frame(width: 22)
+                                    Text(String(localized: “Aus Fotos wählen”))
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                    Image(systemName: “chevron.right”)
+                                        .foregroundColor(Color(.tertiaryLabel))
+                                        .font(.system(size: 13, weight: .semibold))
+                                }
+                            }
+                        }
+                        CardRow(divider: false) {
+                            HStack(spacing: 12) {
+                                Image(systemName: pickedURL != nil ? “doc.fill” : “doc”)
+                                    .foregroundColor(pickedURL != nil ? MSP.cyan : Color(.tertiaryLabel))
+                                    .frame(width: 22)
+                                if let name = pickedURL?.lastPathComponent {
+                                    Text(name)
+                                        .foregroundColor(.primary)
+                                        .lineLimit(1)
+                                } else {
+                                    Text(String(localized: “Noch nichts ausgewählt”))
+                                        .foregroundColor(Color(.tertiaryLabel))
+                                }
+                            }
                         }
                     }
-                    .disabled(isSending || pickedURL == nil || settings.selectedTargetIds.isEmpty)
-                }
 
-                Section(String(localized: "Ziele")) {
-                    if settings.selectedTargetIds.isEmpty {
-                        Text(String(localized: "Kein Ziel gewählt — unter „Ziele“ auswählen."))
-                            .foregroundColor(.secondary)
-                    } else {
-                        Text(String(format: String(localized: "%d Ziel(e) ausgewählt"), settings.selectedTargetIds.count))
-                            .font(.footnote)
-                            .foregroundColor(.secondary)
-                        ForEach(settings.selectedTargetIds, id: \.self) { id in
+                    CardSection(String(localized: “Optionen”)) {
+                        CardRow {
                             HStack {
-                                Image(systemName: "printer.fill")
-                                    .foregroundColor(.secondary)
-                                Text(settings.targetLabels[id] ?? id)
-                                    .lineLimit(1)
+                                Image(systemName: “doc.on.doc”)
+                                    .foregroundColor(MSP.cyan).frame(width: 22)
+                                Text(String(format: String(localized: “Kopien: %d”), copies))
+                                Spacer()
+                                HStack(spacing: 0) {
+                                    Button { if copies > 1 { copies -= 1 } } label: {
+                                        Image(systemName: “minus.circle.fill”)
+                                            .font(.title3)
+                                            .foregroundColor(copies > 1 ? MSP.cyan : Color(.tertiaryLabel))
+                                    }
+                                    Text(“\(copies)”)
+                                        .frame(width: 32)
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .monospacedDigit()
+                                    Button { if copies < 50 { copies += 1 } } label: {
+                                        Image(systemName: “plus.circle.fill”)
+                                            .font(.title3)
+                                            .foregroundColor(MSP.cyan)
+                                    }
+                                }
                             }
                         }
-                        // Countdown-Banner: laeuft live mit (TimelineView
-                        // tickt sekuendlich) und ruft den Reset-Check auf,
-                        // damit bei Ablauf auf SecurePrint zurueckgeschaltet
-                        // wird — ohne dass der User aktiv was tun muss.
-                        if settings.selectionExpiresAt != nil {
-                            TimelineView(.periodic(from: .now, by: 1)) { ctx in
-                                autoResetBanner(now: ctx.date)
+                        CardRow {
+                            HStack(spacing: 12) {
+                                Image(systemName: “paintpalette.fill”)
+                                    .foregroundColor(MSP.cyan).frame(width: 22)
+                                Toggle(String(localized: “Farbe”), isOn: $color)
+                                    .tint(MSP.cyan)
+                            }
+                        }
+                        CardRow {
+                            HStack(spacing: 12) {
+                                Image(systemName: “doc.text.below.ecg”)
+                                    .foregroundColor(MSP.cyan).frame(width: 22)
+                                Toggle(String(localized: “Duplex”), isOn: $duplex)
+                                    .tint(MSP.cyan)
+                            }
+                        }
+                        CardRow(divider: false) {
+                            HStack(spacing: 12) {
+                                Image(systemName: “text.bubble”)
+                                    .foregroundColor(Color(.tertiaryLabel)).frame(width: 22)
+                                TextField(String(localized: “Kommentar (optional)”), text: $comment)
+                                    .autocorrectionDisabled()
                             }
                         }
                     }
-                }
 
-                if !errorText.isEmpty {
-                    Section(String(localized: "Fehler")) {
-                        Text(errorText).foregroundColor(.red).textSelection(.enabled)
-                    }
-                }
-
-                if !sendResults.isEmpty {
-                    Section(String(localized: "Ergebnis")) {
-                        ForEach(sendResults) { r in
-                            HStack(alignment: .top, spacing: 10) {
-                                Image(systemName: r.ok
-                                      ? "checkmark.circle.fill"
-                                      : "exclamationmark.triangle.fill")
-                                    .foregroundColor(r.ok ? .green : .orange)
-                                    .font(.title3)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(r.targetDisplay)
-                                        .fontWeight(.medium)
-                                    Text(r.detail)
-                                        .font(.caption)
+                    if !settings.selectedTargetIds.isEmpty {
+                        CardSection {
+                            CardRow(divider: settings.selectionExpiresAt != nil) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: “printer.fill”)
+                                        .foregroundColor(MSP.cyan).frame(width: 22)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(String(format: String(localized: “%d Ziel(e) ausgewählt”),
+                                                    settings.selectedTargetIds.count))
+                                            .font(.system(size: 14, weight: .semibold))
+                                        let labels = settings.selectedTargetIds.prefix(2)
+                                            .map { settings.targetLabels[$0] ?? $0 }
+                                        Text(labels.joined(separator: “, “))
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                }
+                            }
+                            if settings.selectionExpiresAt != nil {
+                                CardRow(divider: false) {
+                                    TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                                        autoResetBanner(now: ctx.date)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        CardSection {
+                            CardRow(divider: false) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: “exclamationmark.triangle”)
+                                        .foregroundColor(.orange).frame(width: 22)
+                                    Text(String(localized: “Kein Ziel gewählt — unter „Ziele” auswählen.”))
+                                        .font(.system(size: 14))
                                         .foregroundColor(.secondary)
                                 }
                             }
-                            .padding(.vertical, 2)
                         }
                     }
+
+                    Button {
+                        Task { await sendNow() }
+                    } label: {
+                        HStack(spacing: 10) {
+                            if isSending {
+                                ProgressView().tint(MSP.navy).scaleEffect(0.85)
+                            } else {
+                                Image(systemName: “paperplane.fill”)
+                            }
+                            Text(String(localized: “An Printix senden”))
+                        }
+                    }
+                    .buttonStyle(GoldButtonStyle())
+                    .disabled(isSending || pickedURL == nil || settings.selectedTargetIds.isEmpty)
+
+                    if !errorText.isEmpty {
+                        CardSection(String(localized: “Fehler”)) {
+                            CardRow(divider: false) {
+                                Text(errorText)
+                                    .foregroundColor(.red)
+                                    .textSelection(.enabled)
+                                    .font(.system(size: 14))
+                            }
+                        }
+                    }
+
+                    if !sendResults.isEmpty {
+                        CardSection(String(localized: “Ergebnis”)) {
+                            ForEach(Array(sendResults.enumerated()), id: \.element.id) { idx, r in
+                                CardRow(divider: idx < sendResults.count - 1) {
+                                    HStack(alignment: .top, spacing: 12) {
+                                        Image(systemName: r.ok
+                                              ? “checkmark.circle.fill”
+                                              : “exclamationmark.triangle.fill”)
+                                            .foregroundColor(r.ok ? .green : .orange)
+                                            .font(.title3)
+                                            .frame(width: 22)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(r.targetDisplay).fontWeight(.medium)
+                                            Text(r.detail)
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 20)
             }
-            .brandNavStyle(title: "Upload")
+            .background(Color(.systemGroupedBackground))
+            .brandNavStyle(title: “Upload”)
             .fileImporter(isPresented: $showImporter,
                           allowedContentTypes: allowedTypes,
                           allowsMultipleSelection: false) { result in
@@ -191,13 +266,13 @@ struct UploadView: View {
                 settings.resetToDefaultIfExpired()
                 readShareExtensionError()
             }
-            .alert(String(localized: "Share-Fehler"),
+            .alert(String(localized: “Share-Fehler”),
                    isPresented: Binding(
                     get: { shareErrorAlert != nil },
                     set: { if !$0 { shareErrorAlert = nil } })) {
-                Button("OK", role: .cancel) { shareErrorAlert = nil }
+                Button(“OK”, role: .cancel) { shareErrorAlert = nil }
             } message: {
-                Text(shareErrorAlert ?? "")
+                Text(shareErrorAlert ?? “”)
             }
             .onReceive(resetTick) { _ in
                 settings.resetToDefaultIfExpired()

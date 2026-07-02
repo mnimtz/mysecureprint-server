@@ -62,6 +62,8 @@ struct ManagementView: View {
             }
             .refreshable { await reload() }
             .brandNavStyle(title: String(localized: "mgmt_nav_title"))
+            .tint(MSP.cyan)
+            .listStyle(.insetGrouped)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
