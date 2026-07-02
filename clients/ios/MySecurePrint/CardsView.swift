@@ -28,7 +28,7 @@ struct CardsView: View {
                     cardList
                 }
             }
-            .navigationTitle("Karten")
+            .brandNavStyle(title: "Karten")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {

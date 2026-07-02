@@ -1,0 +1,164 @@
+import SwiftUI
+
+// MARK: - Brand Colors
+
+enum MSP {
+
+    // Core palette
+    static let navy     = Color(brandHex: "#002854")
+    static let navyDeep = Color(brandHex: "#00123B")
+    static let cyan     = Color(brandHex: "#00A0FB")
+    static let gold     = Color(brandHex: "#FFC600")
+    static let green    = Color(brandHex: "#00EB86")
+
+    // Surfaces
+    static let glass    = Color.white.opacity(0.10)
+    static let glassBorder = Color.white.opacity(0.20)
+
+    // Gradient
+    static let navyGradient = LinearGradient(
+        colors: [navyDeep, navy],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+}
+
+extension Color {
+    init(brandHex hex: String) {
+        var s = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        if s.count == 3 {
+            s = s.flatMap { ["\($0)", "\($0)"] }.joined()
+        }
+        var n: UInt64 = 0
+        Scanner(string: s).scanHexInt64(&n)
+        self.init(
+            .sRGB,
+            red:     Double((n >> 16) & 0xFF) / 255,
+            green:   Double((n >>  8) & 0xFF) / 255,
+            blue:    Double( n        & 0xFF) / 255,
+            opacity: 1
+        )
+    }
+}
+
+// MARK: - Button Styles
+
+struct GoldButtonStyle: ButtonStyle {
+    var isLoading: Bool = false
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 16, weight: .bold))
+            .foregroundColor(MSP.navy)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+                MSP.gold.opacity(configuration.isPressed ? 0.85 : 1)
+            )
+            .cornerRadius(14)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.spring(response: 0.2), value: configuration.isPressed)
+    }
+}
+
+struct CyanButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(MSP.glass)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(MSP.glassBorder, lineWidth: 1)
+                    )
+                    .opacity(configuration.isPressed ? 0.7 : 1)
+            )
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.spring(response: 0.2), value: configuration.isPressed)
+    }
+}
+
+// MARK: - Glass Text Field
+
+struct BrandTextField: View {
+    let label: String
+    let icon: String
+    @Binding var text: String
+    var isSecure: Bool = false
+    var keyboardType: UIKeyboardType = .default
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundColor(MSP.cyan)
+                .frame(width: 20)
+            if isSecure {
+                SecureField(label, text: $text)
+                    .foregroundColor(.white)
+                    .tint(MSP.cyan)
+            } else {
+                TextField(label, text: $text)
+                    .foregroundColor(.white)
+                    .tint(MSP.cyan)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(keyboardType)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(MSP.glass)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(MSP.glassBorder, lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Brand Header (Logo + App Name)
+
+struct BrandHeader: View {
+    var subtitle: String? = nil
+    var body: some View {
+        VStack(spacing: 12) {
+            // Shield icon as logo placeholder (actual icon via xcassets)
+            ZStack {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(MSP.cyan.opacity(0.15))
+                    .frame(width: 80, height: 80)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .stroke(MSP.cyan.opacity(0.3), lineWidth: 1.5)
+                    )
+                Image(systemName: "shield.lefthalf.filled.badge.checkmark")
+                    .font(.system(size: 36, weight: .medium))
+                    .foregroundStyle(MSP.cyan, MSP.gold)
+            }
+            Text("MySecurePrint")
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+            if let sub = subtitle {
+                Text(sub)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundColor(.white.opacity(0.6))
+                    .multilineTextAlignment(.center)
+            }
+        }
+    }
+}
+
+// MARK: - Branded Navigation Title modifier
+
+extension View {
+    func brandNavStyle(title: String) -> some View {
+        self
+            .navigationTitle(title)
+            .toolbarBackground(MSP.navy, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+    }
+}

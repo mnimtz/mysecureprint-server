@@ -108,7 +108,7 @@ struct TargetsView: View {
                 }
 
             }
-            .navigationTitle(String(localized: "targets_nav_title"))
+            .brandNavStyle(title: String(localized: "targets_nav_title"))
             .refreshable {
                 await reload()
                 if settings.delegateEnabled { await reloadMgmtUsers() }

@@ -43,7 +43,7 @@ struct JobsView: View {
                     }
                 }
             }
-            .navigationTitle(String(localized: "Meine Jobs"))
+            .brandNavStyle(title: String(localized: "Meine Jobs"))
             .refreshable { await reload() }
             .task { await reload() }
         }

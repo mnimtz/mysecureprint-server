@@ -61,7 +61,7 @@ struct ManagementView: View {
                 }
             }
             .refreshable { await reload() }
-            .navigationTitle(String(localized: "mgmt_nav_title"))
+            .brandNavStyle(title: String(localized: "mgmt_nav_title"))
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {

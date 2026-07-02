@@ -66,13 +66,11 @@ private struct MainTabs: View {
             JobsView()
                 .tabItem { Label("Jobs", systemImage: "clock.arrow.circlepath") }
 
-            // Management nur fuer Admin/User.
             if settings.hasManagementAccess {
                 ManagementView()
                     .tabItem { Label("Management", systemImage: "building.2.fill") }
             }
 
-            // Karten: Admin/User immer; Employee wenn Server-Setting aktiv.
             if settings.hasCardsAccess {
                 CardsView()
                     .tabItem { Label("Karten", systemImage: "creditcard.fill") }
@@ -81,6 +79,7 @@ private struct MainTabs: View {
             AccountView()
                 .tabItem { Label("Konto", systemImage: "person.crop.circle") }
         }
+        .tint(MSP.cyan)
         // Auf /desktop/me synchronisieren — deckt auch bestehende Sessions
         // ab, fuer die beim urspruenglichen Login der roleType noch nicht
         // gespeichert wurde (App-Update von einer Vorversion).
@@ -159,113 +158,158 @@ private struct MainTabs: View {
     }
 }
 
-/// Kleiner Einstellungs-/Konto-Tab. Login-Daten, Server-URL,
-/// Abmelde-Button. Hier kommt in Runde 2 auch der QR-Scanner rein.
 private struct AccountView: View {
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var l10n: L10n
 
-    /// "1.5.0 (2)" — Marketing-Version + Build-Nummer. Bundle-Keys sind
-    /// bei iOS fix, deshalb ohne Localized-Lookup.
     private var appVersionString: String {
-        let info = Bundle.main.infoDictionary
+        let info    = Bundle.main.infoDictionary
         let version = info?["CFBundleShortVersionString"] as? String ?? "?"
-        let build   = info?["CFBundleVersion"] as? String ?? "?"
+        let build   = info?["CFBundleVersion"]            as? String ?? "?"
         return "\(version) (\(build))"
+    }
+
+    private var initials: String {
+        let name = settings.userFullName.isEmpty ? settings.userEmail : settings.userFullName
+        return name.split(separator: " ")
+            .prefix(2)
+            .compactMap { $0.first.map(String.init) }
+            .joined()
+            .uppercased()
     }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Angemeldet als") {
-                    if !settings.userFullName.isEmpty {
-                        Text(settings.userFullName)
-                    }
-                    if !settings.userEmail.isEmpty {
-                        Text(settings.userEmail).font(.footnote).foregroundColor(.secondary)
-                    }
-                }
-                Section("Server") {
-                    Text(settings.serverURL).font(.footnote).foregroundColor(.secondary)
-                }
-                Section("Gerät") {
-                    TextField("Gerätename", text: $settings.deviceName)
-                        .autocorrectionDisabled()
-                }
-                // v1.0.2: Delegation-Toggle nur wenn Admin server-seitig
-                // erlaubt. Sonst ausgegrauter Info-Block.
-                if settings.delegationAllowedByAdmin {
-                    Section {
-                        Toggle(isOn: $settings.delegateEnabled) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(String(localized: "Delegation-Druck erlauben"))
-                                Text(String(localized: "Zeigt Delegate-Ziele in der Ziele-Liste und erlaubt das Senden an andere Printix-Benutzer. Standardmäßig aus."))
-                                    .font(.caption)
+            List {
+                // ── Avatar header ───────────────────────────────────────
+                Section {
+                    HStack(spacing: 16) {
+                        ZStack {
+                            Circle()
+                                .fill(MSP.navyGradient)
+                                .frame(width: 56, height: 56)
+                            Text(initials.isEmpty ? "?" : initials)
+                                .font(.system(size: 20, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                        }
+                        VStack(alignment: .leading, spacing: 3) {
+                            if !settings.userFullName.isEmpty {
+                                Text(settings.userFullName)
+                                    .font(.system(size: 16, weight: .semibold))
+                            }
+                            if !settings.userEmail.isEmpty {
+                                Text(settings.userEmail)
+                                    .font(.system(size: 13))
                                     .foregroundColor(.secondary)
                             }
                         }
                     }
-                } else {
-                    Section {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Image(systemName: "lock.fill")
-                                    .foregroundColor(.secondary)
-                                Text(String(localized: "Delegation-Druck erlauben"))
-                                    .foregroundColor(.secondary)
+                    .padding(.vertical, 6)
+                }
+
+                // ── Server ──────────────────────────────────────────────
+                Section(String(localized: "Server")) {
+                    HStack {
+                        Image(systemName: "server.rack")
+                            .foregroundColor(MSP.cyan)
+                            .frame(width: 24)
+                        Text(settings.serverURL)
+                            .font(.system(size: 13))
+                            .foregroundColor(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+
+                // ── Gerät ───────────────────────────────────────────────
+                Section(String(localized: "Gerät")) {
+                    HStack {
+                        Image(systemName: "iphone")
+                            .foregroundColor(MSP.cyan)
+                            .frame(width: 24)
+                        TextField(String(localized: "Gerätename"), text: $settings.deviceName)
+                            .autocorrectionDisabled()
+                    }
+                }
+
+                // ── Delegation ──────────────────────────────────────────
+                Section(String(localized: "Funktionen")) {
+                    if settings.delegationAllowedByAdmin {
+                        HStack(alignment: .top) {
+                            Image(systemName: "person.2.fill")
+                                .foregroundColor(MSP.cyan)
+                                .frame(width: 24)
+                                .padding(.top, 2)
+                            Toggle(isOn: $settings.delegateEnabled) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(String(localized: "Delegation-Druck"))
+                                        .font(.system(size: 15))
+                                    Text(String(localized: "Senden an andere Printix-Benutzer erlauben."))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
                             }
-                            Text(String(localized: "Der Admin hat Delegation-Druck für diesen Server deaktiviert. Frage in der Server-Verwaltung nach, wenn du diese Funktion brauchst."))
-                                .font(.caption)
+                            .tint(MSP.cyan)
+                        }
+                    } else {
+                        HStack {
+                            Image(systemName: "lock.fill")
+                                .foregroundColor(.secondary)
+                                .frame(width: 24)
+                            Text(String(localized: "Delegation-Druck vom Admin deaktiviert."))
+                                .font(.system(size: 14))
                                 .foregroundColor(.secondary)
                         }
                     }
                 }
-                Section("Sprache") {
-                    Picker("Sprache", selection: Binding(
-                        get: { l10n.pendingLanguage },
-                        set: { newLang in
-                            l10n.apply(newLang)
-                            settings.appLanguage = newLang
-                        }
-                    )) {
-                        ForEach(L10n.supportedLanguages, id: \.code) { lang in
-                            // Display-Text bleibt in der jeweiligen Muttersprache
-                            // — niemals uebersetzt, damit man "Deutsch" auch
-                            // als Englisch-Sprecher findet.
-                            Text(verbatim: lang.display).tag(lang.code)
+
+                // ── Sprache ─────────────────────────────────────────────
+                Section(String(localized: "Sprache")) {
+                    HStack {
+                        Image(systemName: "globe")
+                            .foregroundColor(MSP.cyan)
+                            .frame(width: 24)
+                        Picker(String(localized: "Sprache"), selection: Binding(
+                            get: { l10n.pendingLanguage },
+                            set: { newLang in
+                                l10n.apply(newLang)
+                                settings.appLanguage = newLang
+                            }
+                        )) {
+                            ForEach(L10n.supportedLanguages, id: \.code) { lang in
+                                Text(verbatim: lang.display).tag(lang.code)
+                            }
                         }
                     }
                     if l10n.restartRequired {
-                        // Hinweis dass die Aenderung erst nach App-Restart greift.
-                        // Bewusst in der ZIEL-Sprache (aus dem jeweiligen lproj)
-                        // gefallen — sonst liest der User einen deutschen Hinweis
-                        // waehrend er gerade auf Englisch umgestellt hat.
                         Label {
-                            Text("Zum Wechseln die App neu starten.")
+                            Text(String(localized: "App neu starten zum Wechseln."))
                                 .font(.footnote)
+                                .foregroundColor(.secondary)
                         } icon: {
                             Image(systemName: "arrow.clockwise.circle")
                                 .foregroundColor(.orange)
                         }
                     }
                 }
+
+                // ── Abmelden ────────────────────────────────────────────
                 Section {
                     Button(role: .destructive) {
                         settings.clearSession()
                     } label: {
                         HStack {
                             Image(systemName: "rectangle.portrait.and.arrow.right")
-                            Text("Abmelden")
+                            Text(String(localized: "Abmelden"))
                         }
                     }
                 }
 
-                // Version-Footer: zieht MARKETING_VERSION und Build aus
-                // dem Bundle — so sieht man sofort, welcher Stand auf dem
-                // Geraet laeuft (wichtig bei TestFlight-Rollouts).
                 Section {
                     HStack {
-                        Text("Version")
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.secondary)
+                            .frame(width: 24)
+                        Text(String(localized: "Version"))
                         Spacer()
                         Text(appVersionString)
                             .font(.footnote)
@@ -273,7 +317,7 @@ private struct AccountView: View {
                     }
                 }
             }
-            .navigationTitle("Konto")
+            .brandNavStyle(title: String(localized: "Konto"))
         }
     }
 }

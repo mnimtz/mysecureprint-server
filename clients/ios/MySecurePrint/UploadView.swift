@@ -174,7 +174,7 @@ struct UploadView: View {
                     }
                 }
             }
-            .navigationTitle("Upload")
+            .brandNavStyle(title: "Upload")
             .fileImporter(isPresented: $showImporter,
                           allowedContentTypes: allowedTypes,
                           allowsMultipleSelection: false) { result in
