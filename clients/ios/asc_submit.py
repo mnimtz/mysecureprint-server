@@ -176,8 +176,6 @@ def set_localization(token: str, version_id: str, locale: str, data: dict) -> No
     }
     if data.get("whatsNew"):
         patch_attrs["whatsNew"] = data["whatsNew"]
-    if data.get("privacyPolicyUrl"):
-        patch_attrs["privacyPolicyUrl"] = data["privacyPolicyUrl"]
     r = api("PATCH", f"/v1/appStoreVersionLocalizations/{loc_id}", token, json={
         "data": {
             "type": "appStoreVersionLocalizations",
