@@ -1576,7 +1576,8 @@ def sync_card_uids_from_entra(dry_run: bool = True) -> dict:
         # Karten-UID lesen
         if is_ext_attr:
             ext      = eu.get("onPremisesExtensionAttributes") or {}
-            card_uid = (ext.get(attribute) or ext.get(attr_lower) or "").strip()
+            ext_ci   = {k.lower(): v for k, v in ext.items()}
+            card_uid = (ext_ci.get(attr_lower) or "").strip()
         else:
             card_uid = (eu.get(attribute) or "").strip()
 

@@ -5837,7 +5837,8 @@ def create_app(session_secret: str) -> FastAPI:
             }
         except Exception:
             entra_cfg = {"enabled": False, "tenant_id": "", "client_id": "",
-                         "has_secret": False, "auto_approve": False}
+                         "has_secret": False, "auto_approve": False,
+                         "card_uid_attribute": ""}
         # Gespeicherte Redirect URI (aus Auto-Setup oder manuell gesetzt)
         try:
             saved_redirect = gs("entra_redirect_uri", "")
@@ -6089,7 +6090,8 @@ def create_app(session_secret: str) -> FastAPI:
             sys.path.insert(0, os.path.dirname(os.path.dirname(
                 os.path.abspath(__file__))))
             from entra import sync_card_uids_from_entra
-            result = sync_card_uids_from_entra(dry_run=dry_run)
+            import asyncio as _aio_cs
+            result = await _aio_cs.to_thread(sync_card_uids_from_entra, dry_run)
             if not dry_run and "error" not in result:
                 from db import audit
                 n = len(result.get("synced", []))

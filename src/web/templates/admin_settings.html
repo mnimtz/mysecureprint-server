@@ -970,6 +970,10 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
       {% endif %}{# end of Entra section gate #}
 
       <script>
+      function _escHtml(s) {
+        return String(s == null ? '' : s)
+          .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
       function entraCardSync(dryRun) {
         var box = document.getElementById('entra-sync-result');
         box.style.display = 'block';
@@ -978,8 +982,8 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
           .then(function(r){ return r.json(); })
           .then(function(d) {
             if (d.error) {
-              box.innerHTML = '<div class="alert alert-danger" style="font-size:.85em;">'
-                + '✗ ' + d.error + '</div>';
+              box.innerHTML = '<div class="alert alert-danger" style="font-size:.85em;">✗ '
+                + _escHtml(d.error) + '</div>';
               return;
             }
             var html = dryRun
@@ -993,17 +997,22 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
             html += '</div>';
             if ((d.synced||[]).length) {
               html += '<details style="margin-top:8px;font-size:.83em;"><summary style="cursor:pointer;color:#00A0FB;">Details anzeigen</summary><ul style="margin:6px 0 0 16px;">';
-              d.synced.forEach(function(s){ html += '<li>' + (s.user||s.entra) + ' → <code>' + s.uid + '</code>' + (s.dry_run?' (dry-run)':'') + '</li>'; });
+              d.synced.forEach(function(s){ html += '<li>' + _escHtml(s.user||s.entra) + ' → <code>' + _escHtml(s.uid) + '</code>' + (s.dry_run?' (dry-run)':'') + '</li>'; });
+              html += '</ul></details>';
+            }
+            if ((d.skipped||[]).length) {
+              html += '<details style="margin-top:4px;font-size:.83em;"><summary style="cursor:pointer;color:#6b7280;">Übersprungen</summary><ul style="margin:6px 0 0 16px;">';
+              d.skipped.forEach(function(s){ html += '<li>' + _escHtml(s.entra) + ': ' + _escHtml(s.reason) + '</li>'; });
               html += '</ul></details>';
             }
             if ((d.errors||[]).length) {
               html += '<details style="margin-top:4px;font-size:.83em;"><summary style="cursor:pointer;color:#dc2626;">Fehler</summary><ul style="margin:6px 0 0 16px;">';
-              d.errors.forEach(function(e){ html += '<li>' + (e.user||e.entra) + ': ' + e.error + '</li>'; });
+              d.errors.forEach(function(e){ html += '<li>' + _escHtml(e.user||e.entra) + ': ' + _escHtml(e.error) + '</li>'; });
               html += '</ul></details>';
             }
             box.innerHTML = html;
           })
-          .catch(function(e){ box.innerHTML = '<div class="alert alert-danger" style="font-size:.85em;">Netzwerkfehler: ' + e + '</div>'; });
+          .catch(function(e){ box.innerHTML = '<div class="alert alert-danger" style="font-size:.85em;">Netzwerkfehler: ' + _escHtml(e) + '</div>'; });
       }
       </script>
 
