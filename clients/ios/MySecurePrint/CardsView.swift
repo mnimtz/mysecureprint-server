@@ -366,6 +366,7 @@ private struct AddCardView: View {
     @State private var isSaving = false
     @State private var isScanning = false
     @State private var errorMessage: String?
+    @State private var showError = false
 
     var body: some View {
         NavigationStack {
@@ -456,13 +457,11 @@ private struct AddCardView: View {
                     }
                 }
 
-                if let err = errorMessage {
-                    Section {
-                        Label(err, systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
-                            .font(.footnote)
-                    }
-                }
+            }
+            .alert("Fehler beim Speichern", isPresented: $showError, presenting: errorMessage) { _ in
+                Button("OK", role: .cancel) {}
+            } message: { err in
+                Text(err)
             }
             .navigationTitle("Neue Karte")
             .navigationBarTitleDisplayMode(.inline)
@@ -571,6 +570,7 @@ private struct AddCardView: View {
               let client = ApiClientFactory.make(baseURL: base.absoluteString,
                                                  token: settings.bearerToken) else {
             errorMessage = String(localized: "Kein Server konfiguriert.")
+            showError = true
             return
         }
         await MainActor.run {
@@ -591,6 +591,7 @@ private struct AddCardView: View {
         } catch {
             await MainActor.run {
                 errorMessage = error.localizedDescription
+                showError = true
                 isSaving = false
             }
         }
