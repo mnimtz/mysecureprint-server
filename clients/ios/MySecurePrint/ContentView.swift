@@ -18,7 +18,7 @@ struct ContentView: View {
         }
         .environmentObject(settings)
         // v0.7.72: Push-Permission anfordern sobald der User eingeloggt ist.
-        .onChange(of: settings.isLoggedIn) { loggedIn in
+        .onChange(of: settings.isLoggedIn) { _, loggedIn in
             if loggedIn {
                 PushNotificationManager.shared.requestPermissionAndRegister()
                 PushNotificationManager.shared.uploadCachedTokenIfNeeded(settings: settings)

@@ -27,8 +27,8 @@ final class ShareViewController: UIViewController {
     private static let keychainAccount     = "bearerToken"
     private static let keychainAccessGroup = "group.de.nimtz.mysecureprint"
 
-    nonisolated(unsafe) private static let log = OSLog(subsystem: "de.nimtz.mysecureprint.share",
-                                                        category: "ShareExtension")
+    private static let log = OSLog(subsystem: "de.nimtz.mysecureprint.share",
+                                    category: "ShareExtension")
 
     private enum DefaultsKey {
         static let serverURL          = "serverURL"
