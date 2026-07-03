@@ -15,6 +15,8 @@ struct UploadView: View {
     @State private var color: Bool = false   // wird in .onAppear aus settings.printBW gesetzt
     @State private var duplex: Bool = false
     @State private var colorInitialized = false
+    @State private var imageSize: String = "full"
+    @State private var showSizePicker: Bool = false
     @State private var comment: String = ""
 
     @State private var isSending: Bool = false
@@ -85,6 +87,50 @@ struct UploadView: View {
                                         .foregroundColor(Color(.tertiaryLabel))
                                         .font(.system(size: 13, weight: .semibold))
                                 }
+                            }
+                        }
+                        CardFormRow {
+                            HStack(spacing: 8) {
+                                Button { color.toggle() } label: {
+                                    HStack(spacing: 5) {
+                                        Image(systemName: color ? "paintpalette.fill" : "circle.lefthalf.filled")
+                                            .font(.system(size: 11))
+                                        Text(color ? String(localized: "Farbe") : "S/W")
+                                            .font(.system(size: 12, weight: .medium))
+                                    }
+                                    .padding(.horizontal, 10).padding(.vertical, 5)
+                                    .background(color ? MSP.cyan.opacity(0.12) : Color(.secondarySystemFill))
+                                    .foregroundColor(color ? MSP.cyan : .secondary)
+                                    .clipShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+
+                                Button { showSizePicker = true } label: {
+                                    HStack(spacing: 5) {
+                                        Image(systemName: "photo.fill")
+                                            .font(.system(size: 11))
+                                        Text(imageSizeLabel(imageSize))
+                                            .font(.system(size: 12, weight: .medium))
+                                        Image(systemName: "chevron.up.chevron.down")
+                                            .font(.system(size: 9))
+                                    }
+                                    .padding(.horizontal, 10).padding(.vertical, 5)
+                                    .background(Color(.secondarySystemFill))
+                                    .foregroundColor(imageSize != "full" ? MSP.cyan : .secondary)
+                                    .clipShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+                                .confirmationDialog(String(localized: "Bildgröße"),
+                                                    isPresented: $showSizePicker,
+                                                    titleVisibility: .visible) {
+                                    Button(String(localized: "Volle Seite"))    { imageSize = "full" }
+                                    Button(String(localized: "Foto 10×13 cm")) { imageSize = "10x13" }
+                                    Button(String(localized: "Foto 13×18 cm")) { imageSize = "13x18" }
+                                    Button(String(localized: "Originalgröße")) { imageSize = "original" }
+                                    Button(String(localized: "Abbrechen"), role: .cancel) { }
+                                }
+
+                                Spacer()
                             }
                         }
                         CardFormRow(divider: false) {
@@ -268,6 +314,7 @@ struct UploadView: View {
                 readShareExtensionError()
                 if !colorInitialized {
                     color = !settings.printBW
+                    imageSize = settings.printImageSize
                     colorInitialized = true
                 }
             }
@@ -356,6 +403,15 @@ struct UploadView: View {
         return type.preferredFilenameExtension
     }
 
+    private func imageSizeLabel(_ size: String) -> String {
+        switch size {
+        case "10x13":    return "10×13 cm"
+        case "13x18":    return "13×18 cm"
+        case "original": return String(localized: "Originalgröße")
+        default:         return String(localized: "Volle Seite")
+        }
+    }
+
     @MainActor
     private func sendNow() async {
         errorText = ""
@@ -403,7 +459,7 @@ struct UploadView: View {
                                                            copies: copies,
                                                            color: color,
                                                            duplex: duplex,
-                                                           printImageSize: settings.printImageSize)
+                                                           printImageSize: imageSize)
                     if result.ok == true || result.status?.lowercased() == "queued" {
                         outcomes.append(SendOutcome(targetDisplay: display,
                                                     ok: true,
