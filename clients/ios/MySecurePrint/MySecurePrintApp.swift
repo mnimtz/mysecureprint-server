@@ -31,6 +31,20 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        // Konsistente Navy-Navigationsleiste über alle Tabs hinweg — ohne
+        // globale UIAppearance-Override kann SwiftUI's toolbarBackground
+        // auf bestimmten Tabs (z.B. List ohne Scroll-Inhalt) fehlerhaft
+        // transparent bleiben bis der User scrollt.
+        let navyColor = UIColor(red: 0/255, green: 40/255, blue: 84/255, alpha: 1)
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = navyColor
+        appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
+        appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+        UINavigationBar.appearance().standardAppearance   = appearance
+        UINavigationBar.appearance().scrollEdgeAppearance = appearance
+        UINavigationBar.appearance().compactAppearance    = appearance
+        UINavigationBar.appearance().tintColor = UIColor(red: 0/255, green: 160/255, blue: 251/255, alpha: 1)
         return true
     }
 

@@ -50,6 +50,17 @@ struct UploadView: View {
         return t
     }
 
+    // Bildgröße-Skalierung nur für Fotos sinnvoll — bei Office-Dokumenten
+    // oder PDF übernimmt der Server die eigene Seitenformatierung.
+    private var pickedFileIsImage: Bool {
+        guard let ext = pickedURL?.pathExtension.lowercased() else { return false }
+        return ["jpg","jpeg","png","heic","heif","gif","tiff","tif","bmp","webp"].contains(ext)
+    }
+
+    private var effectiveImageSize: String {
+        pickedFileIsImage ? imageSize : "original"
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -146,15 +157,17 @@ struct UploadView: View {
                                     .tint(MSP.cyan)
                             }
                         }
-                        CardFormRow {
-                            HStack(spacing: 12) {
-                                Image(systemName: "photo.fill")
-                                    .foregroundColor(MSP.cyan).frame(width: 22)
-                                Picker(String(localized: "Bildgröße"), selection: $imageSize) {
-                                    Text(String(localized: "Volle Seite")).tag("full")
-                                    Text(String(localized: "Foto 10×13 cm")).tag("10x13")
-                                    Text(String(localized: "Foto 13×18 cm")).tag("13x18")
-                                    Text(String(localized: "Originalgröße")).tag("original")
+                        if pickedFileIsImage {
+                            CardFormRow {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "photo.fill")
+                                        .foregroundColor(MSP.cyan).frame(width: 22)
+                                    Picker(String(localized: "Bildgröße"), selection: $imageSize) {
+                                        Text(String(localized: "Volle Seite")).tag("full")
+                                        Text(String(localized: "Foto 10×13 cm")).tag("10x13")
+                                        Text(String(localized: "Foto 13×18 cm")).tag("13x18")
+                                        Text(String(localized: "Originalgröße")).tag("original")
+                                    }
                                 }
                             }
                         }
@@ -426,7 +439,7 @@ struct UploadView: View {
                                                            copies: copies,
                                                            color: color,
                                                            duplex: duplex,
-                                                           printImageSize: imageSize)
+                                                           printImageSize: effectiveImageSize)
                     if result.ok == true || result.status?.lowercased() == "queued" {
                         outcomes.append(SendOutcome(targetDisplay: display,
                                                     ok: true,
