@@ -422,21 +422,7 @@ struct JobDetailView: View {
             }
             .buttonStyle(.plain)
             .fullScreenCover(isPresented: $previewFullscreen) {
-                ZStack(alignment: .topTrailing) {
-                    Color.black.ignoresSafeArea()
-                    Image(uiImage: img)
-                        .resizable()
-                        .scaledToFit()
-                        .ignoresSafeArea()
-                    Button {
-                        previewFullscreen = false
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title)
-                            .foregroundColor(.white)
-                            .padding()
-                    }
-                }
+                FullscreenImagePreview(image: img)
             }
         }
     }
@@ -466,6 +452,31 @@ struct JobDetailView: View {
         if b < 1_024 { return "\(bytes) B" }
         if b < 1_024 * 1_024 { return String(format: "%.1f KB", b / 1_024) }
         return String(format: "%.1f MB", b / (1_024 * 1_024))
+    }
+}
+
+// MARK: - Fullscreen Preview
+
+private struct FullscreenImagePreview: View {
+    let image: UIImage
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+        }
+        .overlay(alignment: .topTrailing) {
+            Button { dismiss() } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title)
+                    .foregroundColor(.white)
+                    .shadow(color: .black.opacity(0.6), radius: 3)
+                    .padding()
+            }
+        }
     }
 }
 
