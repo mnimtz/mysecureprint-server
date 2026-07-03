@@ -84,13 +84,26 @@ private struct MainTabs: View {
                     .tabItem { Label("Management", systemImage: "building.2.fill") }
             }
 
-            if settings.hasCardsAccess {
-                CardsView()
-                    .tabItem { Label("Karten", systemImage: "creditcard.fill") }
+            // Tab-Limit: iOS bündelt Tabs 6+ automatisch in ein system-
+            // generiertes "More"-Menü, das die eigenen NavigationStacks
+            // der Views in einen weiteren NavigationStack pusht →
+            // doppelte/überhöhte Navigationsleiste. Daher immer ≤ 5 Tabs:
+            //
+            // management + cards  → 5. Tab = eigenes MoreView (Cards + Konto)
+            // management + !cards → 5. Tab = Konto direkt
+            // !management + cards → 4+5. Tab = Cards + Konto direkt
+            // !management + !cards→ 4. Tab = Konto direkt
+            if settings.hasManagementAccess && settings.hasCardsAccess {
+                MoreView()
+                    .tabItem { Label(String(localized: "Mehr"), systemImage: "ellipsis") }
+            } else {
+                if settings.hasCardsAccess {
+                    CardsView()
+                        .tabItem { Label("Karten", systemImage: "creditcard.fill") }
+                }
+                AccountView()
+                    .tabItem { Label("Konto", systemImage: "person.crop.circle") }
             }
-
-            AccountView()
-                .tabItem { Label("Konto", systemImage: "person.crop.circle") }
         }
         .tint(MSP.cyan)
         .toolbarBackground(MSP.navy, for: .tabBar)
@@ -143,18 +156,22 @@ private struct MainTabs: View {
     }
 }
 
-private struct AccountView: View {
+/// AccountContent — der eigentliche Konto-Inhalt ohne NavigationStack-Wrapper.
+/// Wird sowohl von AccountView (direkter Tab) als auch von MoreView
+/// (NavigationLink-Destination) genutzt, damit keine nested NavigationStacks
+/// entstehen.
+struct AccountContent: View {
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var l10n: L10n
 
-    private var appVersionString: String {
+    var appVersionString: String {
         let info    = Bundle.main.infoDictionary
         let version = info?["CFBundleShortVersionString"] as? String ?? "?"
         let build   = info?["CFBundleVersion"]            as? String ?? "?"
         return "\(version) (\(build))"
     }
 
-    private var initials: String {
+    var initials: String {
         let name = settings.userFullName.isEmpty ? settings.userEmail : settings.userFullName
         return name.split(separator: " ")
             .prefix(2)
@@ -164,8 +181,7 @@ private struct AccountView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            List {
+        List {
                 // ── Avatar header ───────────────────────────────────────
                 Section {
                     HStack(spacing: 16) {
@@ -335,6 +351,11 @@ private struct AccountView: View {
             }
             .listStyle(.insetGrouped)
             .brandNavStyle(title: String(localized: "Konto"))
-        }
+    }
+}
+
+private struct AccountView: View {
+    var body: some View {
+        NavigationStack { AccountContent() }
     }
 }

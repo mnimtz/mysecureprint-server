@@ -9,7 +9,18 @@ import PrintixSendCore
 ///
 /// Sichtbarkeit: nur Rollen admin/user, analog zum Management-Tab. Das
 /// Gate sitzt in ContentView → MainTabs, nicht hier.
+///
+/// CardsView = NavigationStack-Wrapper fuer den direkten Tab-Einsatz.
+/// CardsContent = der eigentliche Inhalt, ohne NavigationStack — wird
+/// auch von MoreView (NavigationLink-Destination) direkt genutzt, damit
+/// keine nested NavigationStacks entstehen.
 struct CardsView: View {
+    var body: some View {
+        NavigationStack { CardsContent() }
+    }
+}
+
+struct CardsContent: View {
     @EnvironmentObject private var settings: SettingsStore
 
     @State private var cards: [Card] = []
@@ -20,36 +31,34 @@ struct CardsView: View {
     @State private var showAdd = false
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if cards.isEmpty && !isLoading && errorMessage == nil {
-                    ScrollView { emptyState }
-                } else {
-                    cardList
-                }
+        Group {
+            if cards.isEmpty && !isLoading && errorMessage == nil {
+                emptyState
+            } else {
+                cardList
             }
-            .brandNavStyle(title: "Karten")
-            .tint(MSP.cyan)
-            .listStyle(.insetGrouped)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showAdd = true
-                    } label: {
-                        Label("Neue Karte", systemImage: "plus.circle.fill")
-                    }
-                    .disabled(isLoading)
+        }
+        .brandNavStyle(title: "Karten")
+        .tint(MSP.cyan)
+        .listStyle(.insetGrouped)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showAdd = true
+                } label: {
+                    Label("Neue Karte", systemImage: "plus.circle.fill")
                 }
+                .disabled(isLoading)
             }
-            .refreshable { await reload() }
-            .task { await reload() }
-            .sheet(isPresented: $showAdd) {
-                AddCardView(
-                    profiles: profiles,
-                    defaultProfileId: defaultProfileId
-                ) { newCard in
-                    cards.insert(newCard, at: 0)
-                }
+        }
+        .refreshable { await reload() }
+        .task { await reload() }
+        .sheet(isPresented: $showAdd) {
+            AddCardView(
+                profiles: profiles,
+                defaultProfileId: defaultProfileId
+            ) { newCard in
+                cards.insert(newCard, at: 0)
             }
         }
     }
