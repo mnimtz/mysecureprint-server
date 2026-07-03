@@ -311,7 +311,15 @@ struct ManagementView: View {
         printers     = pR.value?.printers ?? []
         users        = uR.value?.users ?? []
         workstations = wR.value?.workstations ?? []
-        lastUpdated  = Date()
+
+        var failures: [String] = []
+        if let f = sR.failure { failures.append(f) }
+        if let f = pR.failure { failures.append(f) }
+        if let f = uR.failure { failures.append(f) }
+        if let f = wR.failure { failures.append(f) }
+
+        // Only mark data as fresh when at least one endpoint succeeded.
+        if failures.count < 4 { lastUpdated = Date() }
 
         if updateCache {
             cache.mgmtStats        = stats
@@ -321,11 +329,6 @@ struct ManagementView: View {
             cache.mgmtLastSyncedAt = lastUpdated
         }
 
-        var failures: [String] = []
-        if let f = sR.failure { failures.append(f) }
-        if let f = pR.failure { failures.append(f) }
-        if let f = uR.failure { failures.append(f) }
-        if let f = wR.failure { failures.append(f) }
         if !failures.isEmpty {
             if failures.first?.contains("no_tenant") == true
                 || failures.first?.contains("no tenant") == true {
