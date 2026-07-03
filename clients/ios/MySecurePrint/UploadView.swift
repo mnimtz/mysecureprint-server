@@ -95,7 +95,7 @@ struct UploadView: View {
                                     HStack(spacing: 5) {
                                         Image(systemName: color ? "paintpalette.fill" : "circle.lefthalf.filled")
                                             .font(.system(size: 11))
-                                        Text(color ? String(localized: "Farbe") : "S/W")
+                                        Text(color ? String(localized: "Farbe") : String(localized: "S/W"))
                                             .font(.system(size: 12, weight: .medium))
                                     }
                                     .padding(.horizontal, 10).padding(.vertical, 5)
