@@ -274,9 +274,16 @@ struct UserDetailView: View {
 struct WorkstationDetailView: View {
     let workstation: MgmtWorkstation
     @EnvironmentObject private var settings: SettingsStore
+    @EnvironmentObject private var cache: AppCache
 
     @State private var detail: MgmtWorkstationDetail? = nil
     @State private var isLoadingDetail = false
+
+    private var linkedUser: MgmtUser? {
+        let email = detail?.userEmail ?? workstation.userEmail ?? ""
+        guard !email.isEmpty else { return nil }
+        return cache.mgmtUsers.first { ($0.email ?? "").lowercased() == email.lowercased() }
+    }
 
     var body: some View {
         List {
@@ -303,7 +310,25 @@ struct WorkstationDetailView: View {
             Section(String(localized: "Informationen")) {
                 let email = detail?.userEmail ?? workstation.userEmail
                 if let e = email, !e.isEmpty {
-                    infoRow(icon: "person", label: String(localized: "Benutzer"), value: e)
+                    if let u = linkedUser {
+                        NavigationLink(value: u) {
+                            HStack {
+                                Image(systemName: "person.fill")
+                                    .foregroundStyle(Color.accentColor)
+                                    .frame(width: 26)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    if let name = u.name, !name.isEmpty, name != e {
+                                        Text(name).font(.subheadline)
+                                        Text(e).font(.caption).foregroundStyle(.secondary)
+                                    } else {
+                                        Text(e).font(.subheadline)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        infoRow(icon: "person", label: String(localized: "Benutzer"), value: e)
+                    }
                 }
                 let lastSeen = detail?.lastSeen ?? workstation.lastSeen
                 if let ls = lastSeen, !ls.isEmpty {
