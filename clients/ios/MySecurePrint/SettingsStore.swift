@@ -35,6 +35,7 @@ final class SettingsStore: ObservableObject {
         static let deviceName        = "deviceName"
         static let appLanguage       = "appLanguage"
         static let delegateEnabled   = "delegateEnabled"
+        static let recentQueueIds    = "recentQueueIds"    // Phase B: zuletzt genutzte Queues
     }
 
     /// Default-Ziel, auf das der Auto-Reset-Timer zurueckfaellt.
@@ -178,6 +179,17 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(delegateEnabled, forKey: Keys.delegateEnabled) }
     }
 
+    /// Phase B: Zuletzt genutzte Queue-IDs (max 5), neueste zuerst.
+    /// Wird vom Queue-Picker beim Auswählen einer Queue befüllt und
+    /// im Quick-Access als "Zuletzt verwendet" angezeigt.
+    @Published var recentQueueIds: [String] {
+        didSet {
+            if let data = try? JSONEncoder().encode(recentQueueIds) {
+                defaults.set(data, forKey: Keys.recentQueueIds)
+            }
+        }
+    }
+
     /// Einmal-Token aus einem Admin-Mobile-Invite-QR
     /// (`mysecureprint://setup?server=...&token=...`). Wird beim Deep-
     /// Link in ContentView.onOpenURL gesetzt und dann in SetupView /
@@ -243,6 +255,12 @@ final class SettingsStore: ObservableObject {
         // explizit eingeschaltet hat (UserDefaults.bool gibt false fuer
         // den nicht-gesetzten Key — genau das Verhalten was wir wollen).
         self.delegateEnabled = defaults.bool(forKey: Keys.delegateEnabled)
+        if let data = defaults.data(forKey: Keys.recentQueueIds),
+           let arr  = try? JSONDecoder().decode([String].self, from: data) {
+            self.recentQueueIds = arr
+        } else {
+            self.recentQueueIds = []
+        }
     }
 
     // MARK: - Auto-Reset
@@ -295,6 +313,13 @@ final class SettingsStore: ObservableObject {
 
     var isLoggedIn: Bool {
         !bearerToken.isEmpty && serverBaseURL != nil
+    }
+
+    /// Phase B: Queue als "zuletzt verwendet" registrieren (max 5, neueste zuerst).
+    func addRecentQueue(id: String) {
+        var recent = recentQueueIds.filter { $0 != id }
+        recent.insert(id, at: 0)
+        recentQueueIds = Array(recent.prefix(5))
     }
 
     func clearSession() {

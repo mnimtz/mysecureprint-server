@@ -28,17 +28,13 @@ struct TargetsView: View {
     @State private var mgmtUsersError: String = ""
     @State private var userQuery: String = ""
 
-    // v0.6.7: Queue-Picker — wenn der Server-Admin "User darf Queue waehlen"
-    // aktiviert hat (Feld user_can_choose in /desktop/targets), bietet
-    // dieser Tab zusaetzlich einen Button "Andere Queue waehlen" der
-    // /desktop/queues laedt und einen Picker zeigt. Selection landet als
-    // "print:queue:<queue_id>" in settings.selectedTargetIds.
+    // Phase B: 2-Ebenen Queue-Picker
     @State private var userCanChoose: Bool = false
-    @State private var showQueuePicker: Bool = false
+    @State private var showQueueSearchSheet: Bool = false
     @State private var allQueues: [QueueItem] = []
     @State private var queuesLoading: Bool = false
     @State private var queuesError: String = ""
-    @State private var queueQuery: String = ""
+    @State private var anywhereOnly: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -153,36 +149,50 @@ struct TargetsView: View {
         }
     }
 
-    /// v0.6.7: Aktuell ausgewaehlte "print:queue:…"-Ziele (Queue-Picker).
     private var selectedQueueTargetIds: [String] {
         settings.selectedTargetIds.filter { $0.hasPrefix("print:queue:") }
     }
 
-    private var filteredQueues: [QueueItem] {
-        let q = queueQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    // Phase B: Quick-Access — zuletzt genutzte Queues die noch in allQueues vorhanden sind
+    private var recentQueues: [QueueItem] {
         let selected = Set(selectedQueueTargetIds)
-        return allQueues.filter { item in
-            if selected.contains(item.id) { return false }
-            if q.isEmpty { return true }
-            let name = item.queueName.lowercased()
-            let printer = (item.printerName ?? "").lowercased()
-            let loc = (item.location ?? "").lowercased()
-            return name.contains(q) || printer.contains(q) || loc.contains(q)
+        return settings.recentQueueIds.compactMap { id in
+            guard !selected.contains(id) else { return nil }
+            return allQueues.first { $0.id == id }
         }
     }
 
     @ViewBuilder
     private var queuePickerSection: some View {
         Section {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(String(localized: "queue_picker_title"))
-                    .font(.headline)
-                Text(String(localized: "queue_picker_sub"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            // Header: Titel + Anywhere-Toggle
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "queue_picker_title"))
+                        .font(.headline)
+                    Text(String(localized: "queue_picker_sub"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                // Anywhere-Filter-Chip
+                Button {
+                    anywhereOnly.toggle()
+                } label: {
+                    Text("Anywhere")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(anywhereOnly ? MSP.cyan : Color(.tertiarySystemFill))
+                        .foregroundColor(anywhereOnly ? .white : .secondary)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
             }
+            .padding(.vertical, 2)
 
-            // Bereits ausgewaehlte Queue-Picks mit Entfernen-X.
+            // Bereits ausgewählte Queues mit Entfernen-X
             ForEach(selectedQueueTargetIds, id: \.self) { id in
                 HStack {
                     Image(systemName: "printer.dotmatrix")
@@ -190,9 +200,7 @@ struct TargetsView: View {
                     Text(settings.targetLabels[id] ?? id)
                         .font(.body)
                     Spacer()
-                    Button {
-                        removeQueueSelection(id)
-                    } label: {
+                    Button { removeQueueSelection(id) } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.secondary)
                     }
@@ -200,76 +208,84 @@ struct TargetsView: View {
                 }
             }
 
-            if !showQueuePicker {
-                Button {
-                    showQueuePicker = true
-                    if allQueues.isEmpty { Task { await reloadQueues() } }
-                } label: {
-                    Label("Queue suchen", systemImage: "magnifyingglass")
-                }
-            } else {
-                HStack {
-                    Image(systemName: "magnifyingglass").foregroundColor(.secondary)
-                    TextField("Queue suchen (Name, Drucker, Standort)", text: $queueQuery)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    if !queueQuery.isEmpty {
-                        Button { queueQuery = "" } label: {
-                            Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                if queuesLoading && allQueues.isEmpty {
-                    HStack { ProgressView(); Text(String(localized: "queues_loading")) }
-                } else if !queuesError.isEmpty {
-                    Text(queuesError)
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                } else if allQueues.isEmpty {
-                    Text(String(localized: "queues_empty"))
+            // Zuletzt verwendet (Ebene 1)
+            if !recentQueues.isEmpty {
+                let visibleRecent = anywhereOnly
+                    ? recentQueues.filter { $0.isAnywhere == true }
+                    : recentQueues
+                if !visibleRecent.isEmpty {
+                    Text(String(localized: "Zuletzt verwendet"))
                         .font(.caption)
                         .foregroundColor(.secondary)
-                } else {
-                    let visible = filteredQueues.prefix(20)
-                    if visible.isEmpty && !queueQuery.isEmpty {
-                        Text("Keine Treffer.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    ForEach(Array(visible), id: \.id) { q in
+                        .padding(.top, 4)
+                    ForEach(visibleRecent, id: \.id) { q in
                         Button { addQueueSelection(q) } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    HStack(spacing: 4) {
-                                        Text(q.queueName).foregroundColor(.primary)
-                                        if q.isAnywhere == true {
-                                            Text("Anywhere")
-                                                .font(.caption2)
-                                                .padding(.horizontal, 6)
-                                                .padding(.vertical, 1)
-                                                .background(Color.accentColor.opacity(0.15))
-                                                .foregroundColor(.accentColor)
-                                                .clipShape(Capsule())
-                                        }
-                                    }
-                                    let sub = [q.printerName, q.location]
-                                        .compactMap { $0?.trimmingCharacters(in: .whitespaces) }
-                                        .filter { !$0.isEmpty }
-                                        .joined(separator: " · ")
-                                    if !sub.isEmpty {
-                                        Text(sub).font(.caption).foregroundColor(.secondary)
-                                    }
-                                }
-                                Spacer()
-                                Image(systemName: "plus.circle")
-                                    .foregroundColor(MSP.cyan)
-                            }
+                            queueRow(q, icon: "clock")
                         }
                     }
                 }
             }
+
+            // Alle durchsuchen → Sub-Sheet (Ebene 2)
+            Button {
+                showQueueSearchSheet = true
+                if allQueues.isEmpty { Task { await reloadQueues() } }
+            } label: {
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(MSP.cyan)
+                        .frame(width: 22)
+                    Text(String(localized: "Alle Queues durchsuchen"))
+                        .foregroundColor(.primary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Color(.tertiaryLabel))
+                }
+            }
+        }
+        .sheet(isPresented: $showQueueSearchSheet) {
+            QueueSearchSheet(
+                allQueues: allQueues,
+                selectedIds: Set(selectedQueueTargetIds),
+                loading: queuesLoading,
+                error: queuesError,
+                anywhereOnly: $anywhereOnly
+            ) { q in
+                addQueueSelection(q)
+                showQueueSearchSheet = false
+            }
+            .environmentObject(settings)
+        }
+    }
+
+    @ViewBuilder
+    private func queueRow(_ q: QueueItem, icon: String = "printer.dotmatrix") -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(q.queueName).foregroundColor(.primary)
+                    if q.isAnywhere == true {
+                        Text("Anywhere")
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(MSP.cyan.opacity(0.15))
+                            .foregroundColor(MSP.cyan)
+                            .clipShape(Capsule())
+                    }
+                }
+                let sub = [q.printerName, q.location]
+                    .compactMap { $0?.trimmingCharacters(in: .whitespaces) }
+                    .filter { !$0.isEmpty }
+                    .joined(separator: " · ")
+                if !sub.isEmpty {
+                    Text(sub).font(.caption).foregroundColor(.secondary)
+                }
+            }
+            Spacer()
+            Image(systemName: "plus.circle")
+                .foregroundColor(MSP.cyan)
         }
     }
 
@@ -283,8 +299,8 @@ struct TargetsView: View {
         }()
         settings.targetLabels[q.id] = label
         settings.selectedTargetIds.append(q.id)
+        settings.addRecentQueue(id: q.id)
         settings.applyAutoResetPolicy()
-        queueQuery = ""
     }
 
     private func removeQueueSelection(_ id: String) {
@@ -548,6 +564,122 @@ struct TargetsView: View {
             }
         } catch {
             self.error = error.localizedDescription
+        }
+    }
+}
+
+// MARK: - Phase B: Queue-Suche Sub-Sheet (Ebene 2)
+
+private struct QueueSearchSheet: View {
+    let allQueues: [QueueItem]
+    let selectedIds: Set<String>
+    let loading: Bool
+    let error: String
+    @Binding var anywhereOnly: Bool
+    let onSelect: (QueueItem) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var query: String = ""
+    @FocusState private var searchFocused: Bool
+
+    private var filtered: [QueueItem] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return allQueues.filter { item in
+            if selectedIds.contains(item.id) { return false }
+            if anywhereOnly && item.isAnywhere != true { return false }
+            if q.isEmpty { return true }
+            let name    = item.queueName.lowercased()
+            let printer = (item.printerName ?? "").lowercased()
+            let loc     = (item.location ?? "").lowercased()
+            return name.contains(q) || printer.contains(q) || loc.contains(q)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                // Anywhere-Filter-Chip
+                Section {
+                    Button {
+                        anywhereOnly.toggle()
+                    } label: {
+                        HStack {
+                            Text("Nur Anywhere-Queues")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            if anywhereOnly {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(MSP.cyan)
+                            }
+                        }
+                    }
+                }
+
+                if loading && allQueues.isEmpty {
+                    Section {
+                        HStack { ProgressView(); Text(String(localized: "queues_loading")) }
+                    }
+                } else if !error.isEmpty {
+                    Section {
+                        Text(error).font(.caption).foregroundColor(.orange)
+                    }
+                } else if filtered.isEmpty {
+                    Section {
+                        Text(query.isEmpty
+                             ? String(localized: "queues_empty")
+                             : String(localized: "Keine Treffer."))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                } else {
+                    Section {
+                        ForEach(filtered.prefix(50), id: \.id) { q in
+                            Button {
+                                onSelect(q)
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        HStack(spacing: 4) {
+                                            Text(q.queueName).foregroundColor(.primary)
+                                            if q.isAnywhere == true {
+                                                Text("Anywhere")
+                                                    .font(.caption2)
+                                                    .padding(.horizontal, 6)
+                                                    .padding(.vertical, 1)
+                                                    .background(MSP.cyan.opacity(0.15))
+                                                    .foregroundColor(MSP.cyan)
+                                                    .clipShape(Capsule())
+                                            }
+                                        }
+                                        let sub = [q.printerName, q.location]
+                                            .compactMap { $0?.trimmingCharacters(in: .whitespaces) }
+                                            .filter { !$0.isEmpty }
+                                            .joined(separator: " · ")
+                                        if !sub.isEmpty {
+                                            Text(sub).font(.caption).foregroundColor(.secondary)
+                                        }
+                                    }
+                                    Spacer()
+                                    Image(systemName: "plus.circle")
+                                        .foregroundColor(MSP.cyan)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .searchable(text: $query,
+                        placement: .navigationBarDrawer(displayMode: .always),
+                        prompt: String(localized: "Queue suchen (Name, Drucker, Standort)"))
+            .navigationTitle(String(localized: "Queue wählen"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "Abbrechen")) { dismiss() }
+                }
+            }
+            .onAppear { searchFocused = true }
         }
     }
 }
