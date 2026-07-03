@@ -5,9 +5,14 @@ import PrintixSendCore
 
 struct PrinterDetailView: View {
     let printer: MgmtPrinter
+    @EnvironmentObject private var settings: SettingsStore
+
+    @State private var detail: MgmtPrinterDetail? = nil
+    @State private var isLoadingDetail = false
 
     var body: some View {
         List {
+            // ── Header ──────────────────────────────────────────────────────
             Section {
                 HStack(spacing: 16) {
                     ZStack {
@@ -19,17 +24,26 @@ struct PrinterDetailView: View {
                             .foregroundColor(.white)
                     }
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(printer.name)
-                            .font(.headline)
+                        Text(printer.name).font(.headline)
                         onlineChip(online: printer.isOnline == true)
                     }
                 }
                 .padding(.vertical, 4)
             }
 
+            // ── Toner / Verbrauchsmaterialien ────────────────────────────────
+            tonerSection
+
+            // ── Informationen ────────────────────────────────────────────────
             Section(String(localized: "Informationen")) {
                 if let model = printer.model, !model.isEmpty {
                     infoRow(icon: "cpu", label: String(localized: "Modell"), value: model)
+                }
+                if let vendor = detail?.printer?.vendor, !vendor.isEmpty {
+                    infoRow(icon: "building", label: String(localized: "Hersteller"), value: vendor)
+                }
+                if let serial = detail?.printer?.serialNo, !serial.isEmpty {
+                    infoRow(icon: "barcode", label: String(localized: "Seriennummer"), value: serial)
                 }
                 if let loc = printer.location, !loc.isEmpty {
                     infoRow(icon: "mappin", label: String(localized: "Standort"), value: loc)
@@ -43,11 +57,93 @@ struct PrinterDetailView: View {
                             value: s,
                             valueColor: printer.isOnline == true ? .green : .secondary)
                 }
+                if let caps = detail?.printer?.capabilities {
+                    infoRow(icon: caps.color == true ? "paintpalette.fill" : "circle.fill",
+                            label: String(localized: "Farbdruck"),
+                            value: caps.color == true
+                                ? String(localized: "Ja")
+                                : String(localized: "Nein"))
+                }
             }
         }
         .listStyle(.insetGrouped)
         .brandNavStyle(title: printer.name)
         .tint(MSP.cyan)
+        .task { await loadDetail() }
+    }
+
+    // MARK: - Toner Section
+
+    @ViewBuilder
+    private var tonerSection: some View {
+        let supplies = detail?.printer?.supplies ?? []
+        let isColor  = detail?.printer?.capabilities?.color
+
+        Section {
+            if !supplies.isEmpty {
+                // Echtdaten von Printix
+                ForEach(Array(supplies.enumerated()), id: \.offset) { _, supply in
+                    TonerBar(
+                        label: tonerLabel(supply.color),
+                        color: tonerColor(supply.color),
+                        percent: supply.percent
+                    )
+                }
+            } else if isLoadingDetail {
+                HStack { Spacer(); ProgressView().controlSize(.small); Spacer() }
+            } else {
+                // Printix liefert keine Toner-Level — hübsche Platzhalter zeigen
+                let channels: [(String, Color)] = isColor == false
+                    ? [("K", .init(white: 0.2))]
+                    : [("K", .init(white: 0.2)),
+                       ("C", Color(red: 0.0, green: 0.7, blue: 0.9)),
+                       ("M", Color(red: 0.85, green: 0.15, blue: 0.5)),
+                       ("Y", Color(red: 0.95, green: 0.82, blue: 0.1))]
+                ForEach(channels, id: \.0) { label, color in
+                    TonerBar(label: label, color: color, percent: nil)
+                }
+            }
+        } header: {
+            Text(String(localized: "Verbrauchsmaterialien"))
+        } footer: {
+            if detail != nil && (detail?.printer?.supplies ?? []).isEmpty {
+                Text(String(localized: "Toner-Level werden von Printix nicht bereitgestellt."))
+            }
+        }
+    }
+
+    // MARK: - Detail Fetch
+
+    private func loadDetail() async {
+        guard let base = settings.serverBaseURL,
+              let client = ApiClientFactory.make(baseURL: base.absoluteString,
+                                                 token: settings.bearerToken) else { return }
+        isLoadingDetail = true
+        defer { isLoadingDetail = false }
+        detail = try? await client.managementPrinterDetail(
+            printerId: printer.id,
+            queueId: printer.queueId ?? ""
+        )
+    }
+
+    // MARK: - Helpers
+
+    private func tonerLabel(_ color: String?) -> String {
+        switch color?.lowercased() {
+        case "cyan":    return "C"
+        case "magenta": return "M"
+        case "yellow":  return "Y"
+        default:        return "K"
+        }
+    }
+
+    private func tonerColor(_ color: String?) -> Color {
+        switch color?.lowercased() {
+        case "cyan":    return Color(red: 0.0, green: 0.7, blue: 0.9)
+        case "magenta": return Color(red: 0.85, green: 0.15, blue: 0.5)
+        case "yellow":  return Color(red: 0.95, green: 0.82, blue: 0.1)
+        default:        return Color(white: 0.2)
+        }
     }
 }
 
@@ -178,6 +274,61 @@ struct WorkstationDetailView: View {
             }
         }
         return raw
+    }
+}
+
+// MARK: - Toner Bar Component
+
+private struct TonerBar: View {
+    let label: String
+    let color: Color
+    let percent: Double?   // nil = no data
+
+    private var fillColor: Color {
+        guard let pct = percent else { return color.opacity(0.35) }
+        if pct < 10 { return .red }
+        if pct < 20 { return .orange }
+        return color
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            // Kanal-Kürzel (K / C / M / Y)
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.18))
+                    .frame(width: 28, height: 28)
+                Text(label)
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(color)
+            }
+
+            // Fortschrittsbalken
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    // Hintergrund-Track
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color(.systemFill))
+                        .frame(height: 10)
+                    // Füllstand
+                    if let pct = percent {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(fillColor)
+                            .frame(width: max(8, geo.size.width * pct / 100), height: 10)
+                            .animation(.easeOut(duration: 0.5), value: pct)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .frame(height: 10)
+
+            // Prozentangabe
+            Text(percent.map { "\(Int($0.rounded()))%" } ?? "–")
+                .font(.system(size: 13, weight: .medium).monospacedDigit())
+                .foregroundStyle(percent == nil ? Color.secondary : fillColor)
+                .frame(width: 38, alignment: .trailing)
+        }
+        .padding(.vertical, 3)
     }
 }
 

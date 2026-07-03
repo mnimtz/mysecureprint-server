@@ -270,6 +270,52 @@ public struct MgmtWorkstationsResponse: Codable, Sendable {
     public let available: Bool?
 }
 
+// MARK: - Printer Detail (GET /desktop/management/printers/{id})
+//
+// Wraps the raw Printix API response. `supplies` is future-proof:
+// Printix currently does not expose toner levels via its REST API.
+// The field is decoded from the response if it ever appears, otherwise nil.
+
+public struct MgmtPrinterDetail: Codable, Sendable {
+    public let id: String
+    public let queueId: String
+    public let printer: PrinterRawData?
+
+    enum CodingKeys: String, CodingKey {
+        case id, printer
+        case queueId = "queue_id"
+    }
+}
+
+public struct PrinterRawData: Codable, Sendable {
+    public let serialNo: String?
+    public let vendor: String?
+    public let connectionStatus: String?
+    public let capabilities: PrinterCapabilities?
+    public let supplies: [PrinterSupply]?
+}
+
+public struct PrinterCapabilities: Codable, Sendable {
+    public let color: Bool?
+    public let paperSizes: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case color
+        case paperSizes = "paperSizes"
+    }
+}
+
+public struct PrinterSupply: Codable, Sendable {
+    public let color: String?    // "black" | "cyan" | "magenta" | "yellow"
+    public let level: Int?
+    public let maxLevel: Int?
+
+    public var percent: Double? {
+        guard let l = level, let m = maxLevel, m > 0 else { return nil }
+        return Double(l) / Double(m) * 100
+    }
+}
+
 // MARK: - Cards (iOS-Tab "Karten", Server v6.7.90+)
 //
 // Eigenverwaltung der RFID-Karten des angemeldeten Users. Backend-

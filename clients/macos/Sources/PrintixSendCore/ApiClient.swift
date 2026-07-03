@@ -84,8 +84,15 @@ public final class ApiClient: @unchecked Sendable {
 
     public func setToken(_ t: String?) { self.token = t }
 
-    private func buildRequest(_ path: String, method: String = "GET") -> URLRequest {
-        var req = URLRequest(url: baseUrl.appendingPathComponent(path))
+    private func buildRequest(_ path: String, method: String = "GET",
+                             queryItems: [URLQueryItem] = []) -> URLRequest {
+        var url = baseUrl.appendingPathComponent(path)
+        if !queryItems.isEmpty,
+           var comps = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            comps.queryItems = queryItems
+            url = comps.url ?? url
+        }
+        var req = URLRequest(url: url)
         req.httpMethod = method
         if let token = token, !token.isEmpty {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -504,6 +511,15 @@ public final class ApiClient: @unchecked Sendable {
         let (data, resp) = try await session.data(for: req)
         try ensureOk(resp, data)
         return try JSONDecoder().decode(MgmtWorkstationsResponse.self, from: data)
+    }
+
+    public func managementPrinterDetail(printerId: String, queueId: String) async throws -> MgmtPrinterDetail {
+        log.info("GET /desktop/management/printers/<id>")
+        let req = buildRequest("desktop/management/printers/\(printerId)",
+                               queryItems: queueId.isEmpty ? [] : [URLQueryItem(name: "queue_id", value: queueId)])
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
+        return try JSONDecoder().decode(MgmtPrinterDetail.self, from: data)
     }
 
     // MARK: - Version
