@@ -1270,6 +1270,8 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     (*_params, limit_int, offset_int),
                 ).fetchall()
             items = [dict(r) for r in rows]
+            for item in items:
+                item["has_preview"] = bool(item.get("has_preview") or 0)
             return JSONResponse({"jobs": items, "count": len(items), "offset": offset_int})
         except Exception as e:
             logger.warning("desktop_me_jobs: %s", e)
