@@ -312,8 +312,8 @@ struct UploadView: View {
     }
 
     /// PhotosPickerItem → temporaere Datei im Tmp-Verzeichnis.
-    /// Der Rest von sendNow() kann dann ueber pickedURL wie gewohnt
-    /// arbeiten (security-scoped entfaellt, weil /tmp uns gehoert).
+    /// HEIC/HEIF wird via UIImage zu JPEG transkodiert — Pillow auf dem
+    /// Server kann HEIC ohne pillow-heif nicht lesen, JPEG ist universal.
     @MainActor
     private func importPhoto(_ item: PhotosPickerItem) async {
         errorText = ""
@@ -322,12 +322,20 @@ struct UploadView: View {
                 errorText = String(localized: "Konnte das Foto nicht laden.")
                 return
             }
-            // Dateiendung bestmoeglich raten — bei HEIC/JPEG steht das
-            // im ersten Content-Type-Eintrag, sonst Fallback auf .jpg.
-            let ext = fileExtension(for: item.supportedContentTypes.first) ?? "jpg"
+            let rawExt = fileExtension(for: item.supportedContentTypes.first) ?? "jpg"
+            let (finalData, ext): (Data, String)
+            if (rawExt == "heic" || rawExt == "heif"),
+               let img = UIImage(data: data),
+               let jpeg = img.jpegData(compressionQuality: 0.88) {
+                finalData = jpeg
+                ext = "jpg"
+            } else {
+                finalData = data
+                ext = rawExt
+            }
             let name = "photo-\(Int(Date().timeIntervalSince1970)).\(ext)"
             let url  = FileManager.default.temporaryDirectory.appendingPathComponent(name)
-            try data.write(to: url, options: .atomic)
+            try finalData.write(to: url, options: .atomic)
             pickedURL = url
         } catch {
             errorText = String(localized: "Foto-Import: \(error.localizedDescription)")
