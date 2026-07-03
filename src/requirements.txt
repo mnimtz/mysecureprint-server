@@ -34,10 +34,13 @@ fpdf2>=2.7.0
 openpyxl>=3.1.0
 
 # QR-Code-Generator (Mobile-App-Onboarding, /my/mobile-app/qr.png).
-# segno ist pure-python und zieht kein Pillow mit rein — sonst würden
-# wir für einen popeligen QR-Code ~10 MB Image-Lib in den Container
-# schleppen.
+# segno ist pure-python — kein Pillow-Dependency für QR-Codes.
 segno>=1.6.0
+
+# Bild- und Text-nach-PDF-Konvertierung (upload_converter.py).
+# Wird für PNG/JPG/GIF/BMP/TIFF-Upload sowie TXT-Dateien benötigt.
+# v0.7.82: fehlte bisher → Bild-Uploads schlugen mit ImportError fehl.
+pillow>=10.0.0
 
 # v0.3.0: Azure Blob Storage — täglicher Auto-Backup-Upload damit die
 # Backups einen Verlust des Azure-Files-Mounts überleben.
