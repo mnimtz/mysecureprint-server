@@ -1,5 +1,5 @@
 """
-Upload-Konverter (v6.7.28)
+Upload-Konverter (v6.7.29)
 ===========================
 Konvertiert verschiedene Dokument-Formate zu PDF, damit der Web-Upload
 nicht nur PDFs akzeptiert sondern auch Office-Dateien, Bilder und Text.
@@ -222,8 +222,10 @@ def _apply_spreadsheet_print_settings(data: bytes, src_ext: str) -> bytes:
 
         wb = load_workbook(filename=io.BytesIO(data))
         for ws in wb.worksheets:
+            # Print-Area löschen — sonst rendert LibreOffice nur den im xlsx
+            # deklarierten Bereich (häufig z.B. nur A:C statt aller Spalten).
+            ws.print_area = None
             ws.page_setup.paperSize  = ws.PAPERSIZE_A4
-            ws.page_setup.fitToPage  = True
             ws.page_setup.fitToWidth = 1
             ws.page_setup.fitToHeight = 0
             # Automatisch Landscape wenn Sheet deutlich breiter als hoch
@@ -236,6 +238,10 @@ def _apply_spreadsheet_print_settings(data: bytes, src_ext: str) -> bytes:
             if ws.sheet_properties.pageSetUpPr is None:
                 ws.sheet_properties.pageSetUpPr = PageSetupProperties()
             ws.sheet_properties.pageSetUpPr.fitToPage = True
+            # Breaks löschen damit keine künstlichen Seitenumbrüche
+            # den Druckbereich einschränken
+            ws.col_breaks.brk.clear() if hasattr(ws.col_breaks, 'brk') else None
+            ws.row_breaks.brk.clear() if hasattr(ws.row_breaks, 'brk') else None
         out = io.BytesIO()
         wb.save(out)
         logger.debug("_apply_spreadsheet_print_settings: %d sheets angepasst", len(wb.worksheets))
