@@ -109,7 +109,13 @@ def _convert_image_to_pdf(data: bytes, bw: bool = False, image_size: str = "full
     PX_PER_CM = 150 / 2.54  # ≈ 59.06 px/cm
 
     img = Image.open(io.BytesIO(data))
-    if img.mode in ("RGBA", "LA", "P"):
+    if img.mode in ("RGBA", "LA"):
+        bg = Image.new("RGB", img.size, "white")
+        bg.paste(img, mask=img.split()[-1])
+        img = bg
+    elif img.mode == "P":
+        img = img.convert("RGB")
+    elif img.mode != "RGB":
         img = img.convert("RGB")
     if bw:
         img = img.convert("L").convert("RGB")

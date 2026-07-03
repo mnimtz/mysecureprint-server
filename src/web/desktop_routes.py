@@ -168,6 +168,10 @@ def _user_descr(user: dict) -> str:
 
 # ─── Registrierung ───────────────────────────────────────────────────────────
 
+def _truthy(s) -> bool:
+    return str(s).strip().lower() in ("1", "true", "yes", "on")
+
+
 async def _process_desktop_send_bg(
     user: dict,
     target_id: str,
@@ -178,6 +182,7 @@ async def _process_desktop_send_bg(
     duplex: str,
     internal_id: str,
     t_start: float,
+    print_image_size: str = "full",
 ) -> None:
     """
     Background-Worker für /desktop/send (v6.7.43).
@@ -1725,6 +1730,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                         filename=file.filename, copies=copies,
                         color=color, duplex=duplex,
                         internal_id=internal_id, t_start=t_start,
+                        print_image_size=print_image_size,
                     ),
                     timeout=300,
                 )
