@@ -30,8 +30,6 @@ struct TargetsView: View {
     // Phase B: 2-Ebenen Queue-Picker
     @State private var userCanChoose: Bool = false
     @State private var showQueueSearchSheet: Bool = false
-    @State private var allQueues: [QueueItem] = []
-    @State private var queuesLoading: Bool = false
     @State private var queuesError: String = ""
     @State private var anywhereOnly: Bool = false
 
@@ -322,23 +320,6 @@ struct TargetsView: View {
         settings.selectedTargetIds.removeAll { $0 == id }
         settings.targetLabels.removeValue(forKey: id)
         settings.applyAutoResetPolicy()
-    }
-
-    @MainActor
-    private func reloadQueues() async {
-        guard let client = ApiClientFactory.make(baseURL: settings.serverURL,
-                                                 token: settings.bearerToken) else {
-            return
-        }
-        queuesLoading = true
-        queuesError = ""
-        defer { queuesLoading = false }
-        do {
-            let resp = try await client.listQueues()
-            allQueues = resp.queues
-        } catch {
-            queuesError = String(localized: "Queues konnten nicht geladen werden.")
-        }
     }
 
     @ViewBuilder
