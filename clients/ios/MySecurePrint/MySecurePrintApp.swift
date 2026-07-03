@@ -45,6 +45,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         UINavigationBar.appearance().scrollEdgeAppearance = appearance
         UINavigationBar.appearance().compactAppearance    = appearance
         UINavigationBar.appearance().tintColor = UIColor(red: 0/255, green: 160/255, blue: 251/255, alpha: 1)
+        UINavigationBar.appearance().prefersLargeTitles = false
         return true
     }
 

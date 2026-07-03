@@ -333,6 +333,7 @@ private struct AccountView: View {
                     }
                 }
             }
+            .listStyle(.insetGrouped)
             .brandNavStyle(title: String(localized: "Konto"))
         }
     }

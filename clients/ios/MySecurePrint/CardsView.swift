@@ -23,7 +23,7 @@ struct CardsView: View {
         NavigationStack {
             Group {
                 if cards.isEmpty && !isLoading && errorMessage == nil {
-                    emptyState
+                    ScrollView { emptyState }
                 } else {
                     cardList
                 }
