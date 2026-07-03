@@ -143,6 +143,38 @@ def _convert_text_to_pdf(data: bytes) -> bytes:
     return out.getvalue()
 
 
+def _apply_spreadsheet_print_settings(data: bytes, src_ext: str) -> bytes:
+    """Setzt Fit-to-page + A4 auf allen Sheets bevor LibreOffice konvertiert.
+
+    Ohne diese Einstellung rendert LibreOffice Excel-Tabellen auf endlos-
+    breiten Seiten (kein Auto-Scale). Mit fitToPage=True + fitToWidth=1
+    passt jedes Sheet auf eine A4-Seite in der Breite; die Höhe wächst
+    in Seiten. xls-Dateien werden als xlsx neu gespeichert (openpyxl
+    unterstützt kein altes .xls-Format direkt — Fallback: unverändert).
+    """
+    try:
+        import io
+        from openpyxl import load_workbook
+        from openpyxl.worksheet.page import PageSetupProperties
+
+        wb = load_workbook(filename=io.BytesIO(data))
+        for ws in wb.worksheets:
+            ws.page_setup.paperSize  = ws.PAPERSIZE_A4   # 9 = A4
+            ws.page_setup.fitToPage  = True
+            ws.page_setup.fitToWidth = 1   # auf 1 Seite Breite skalieren
+            ws.page_setup.fitToHeight = 0  # Höhe: so viele Seiten wie nötig
+            if ws.sheet_properties.pageSetUpPr is None:
+                ws.sheet_properties.pageSetUpPr = PageSetupProperties()
+            ws.sheet_properties.pageSetUpPr.fitToPage = True
+        out = io.BytesIO()
+        wb.save(out)
+        logger.debug("_apply_spreadsheet_print_settings: %d sheets angepasst", len(wb.worksheets))
+        return out.getvalue()
+    except Exception as exc:
+        logger.debug("_apply_spreadsheet_print_settings fehlgeschlagen, Original behalten: %s", exc)
+        return data
+
+
 def _convert_libreoffice(data: bytes, src_ext: str) -> bytes:
     """Office-Formate → PDF via `libreoffice --headless`.
 
@@ -158,6 +190,11 @@ def _convert_libreoffice(data: bytes, src_ext: str) -> bytes:
             "dieses Format kann nicht konvertiert werden."
         )
     binary = shutil.which("libreoffice") or shutil.which("soffice")
+
+    # Spreadsheets (xlsx/xls/ods): Fit-to-1-page-wide + A4 via openpyxl setzen,
+    # sonst druckt LibreOffice das Sheet auf endlos-breiten Seiten.
+    if src_ext in ("xlsx", "xls", "ods"):
+        data = _apply_spreadsheet_print_settings(data, src_ext)
 
     import uuid
     work = tempfile.mkdtemp(prefix="printix-conv-")
