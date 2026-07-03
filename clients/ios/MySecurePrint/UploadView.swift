@@ -12,8 +12,9 @@ struct UploadView: View {
 
     @State private var pickedURL: URL?
     @State private var copies: Int = 1
-    @State private var color: Bool = false
+    @State private var color: Bool = false   // wird in .onAppear aus settings.printBW gesetzt
     @State private var duplex: Bool = false
+    @State private var colorInitialized = false
     @State private var comment: String = ""
 
     @State private var isSending: Bool = false
@@ -265,6 +266,10 @@ struct UploadView: View {
             .onAppear {
                 settings.resetToDefaultIfExpired()
                 readShareExtensionError()
+                if !colorInitialized {
+                    color = !settings.printBW
+                    colorInitialized = true
+                }
             }
             .alert(String(localized: "Share-Fehler"),
                    isPresented: Binding(
@@ -397,7 +402,8 @@ struct UploadView: View {
                                                            comment: comment.isEmpty ? nil : comment,
                                                            copies: copies,
                                                            color: color,
-                                                           duplex: duplex)
+                                                           duplex: duplex,
+                                                           printImageSize: settings.printImageSize)
                     if result.ok == true || result.status?.lowercased() == "queued" {
                         outcomes.append(SendOutcome(targetDisplay: display,
                                                     ok: true,

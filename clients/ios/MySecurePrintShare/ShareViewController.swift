@@ -41,6 +41,9 @@ final class ShareViewController: UIViewController {
         static let lastTargetId       = "lastTargetId"
         // Wird bei Fehlern fuer die Haupt-App geschrieben.
         static let lastShareError     = "lastShareError"
+        // Druckeinstellungen (werden in der Haupt-App konfiguriert).
+        static let printBW            = "printBW"
+        static let printImageSize     = "printImageSize"
     }
 
     /// Sentinel fuer "Mein SecurePrint-Konto" — funktioniert immer,
@@ -269,6 +272,10 @@ final class ShareViewController: UIViewController {
 
         statusLabel.text = String(format: String(localized: "Sende %@ …"), filename)
 
+        // Druckeinstellungen aus App-Group lesen (von Haupt-App konfiguriert).
+        let printBW        = defaults?.bool(forKey: DefaultsKey.printBW) ?? false
+        let printImageSize = defaults?.string(forKey: DefaultsKey.printImageSize) ?? "full"
+
         Task.detached { [weak self] in
             guard let self else { return }
             do {
@@ -278,8 +285,9 @@ final class ShareViewController: UIViewController {
                     targetId: targetId,
                     comment: nil,
                     copies: 1,
-                    color: false,
-                    duplex: false
+                    color: !printBW,
+                    duplex: false,
+                    printImageSize: printImageSize
                 )
                 os_log("Upload OK: target=%{public}@ result=%{public}@",
                        log: Self.log, type: .info, targetId, String(describing: result))

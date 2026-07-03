@@ -247,6 +247,37 @@ private struct AccountView: View {
                     }
                 }
 
+                // ── Druckeinstellungen ──────────────────────────────────
+                Section(String(localized: "Druckeinstellungen")) {
+                    HStack(alignment: .top) {
+                        Image(systemName: "paintpalette.fill")
+                            .foregroundColor(MSP.cyan)
+                            .frame(width: 24)
+                            .padding(.top, 2)
+                        Toggle(isOn: $settings.printBW) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(String(localized: "Schwarzweiß drucken"))
+                                    .font(.system(size: 15))
+                                Text(String(localized: "Bilder werden graustufen-konvertiert. Für Dokumente gilt die Drucker-Einstellung."))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .tint(MSP.cyan)
+                    }
+                    HStack {
+                        Image(systemName: "photo.fill")
+                            .foregroundColor(MSP.cyan)
+                            .frame(width: 24)
+                        Picker(String(localized: "Bildgröße"), selection: $settings.printImageSize) {
+                            Text(String(localized: "Volle Seite")).tag("full")
+                            Text(String(localized: "Foto 10×13 cm")).tag("10x13")
+                            Text(String(localized: "Foto 13×18 cm")).tag("13x18")
+                            Text(String(localized: "Originalgröße")).tag("original")
+                        }
+                    }
+                }
+
                 // ── Sprache ─────────────────────────────────────────────
                 Section(String(localized: "Sprache")) {
                     HStack {

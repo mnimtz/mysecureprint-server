@@ -38,6 +38,8 @@ final class SettingsStore: ObservableObject {
         static let recentQueueIds    = "recentQueueIds"    // Phase B: zuletzt genutzte Queues
         static let recentDelegateIds = "recentDelegateIds" // Phase C: zuletzt genutzte Delegates
         static let anywhereOnly      = "anywhereOnly"      // Phase B: Anywhere-Filter
+        static let printBW           = "printBW"           // Druckeinstellungen: Schwarzweiß
+        static let printImageSize    = "printImageSize"    // Druckeinstellungen: Bildgröße
     }
 
     /// Default-Ziel, auf das der Auto-Reset-Timer zurueckfaellt.
@@ -188,6 +190,18 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(anywhereOnly, forKey: Keys.anywhereOnly) }
     }
 
+    /// Druckeinstellung: Schwarzweiß (true) statt Farbe (false).
+    /// Gilt als Default für Upload-Tab und Share-Extension.
+    @Published var printBW: Bool {
+        didSet { defaults.set(printBW, forKey: Keys.printBW) }
+    }
+
+    /// Druckeinstellung: Bildgröße beim Druck.
+    /// "full" | "10x13" | "13x18" | "original"
+    @Published var printImageSize: String {
+        didSet { defaults.set(printImageSize, forKey: Keys.printImageSize) }
+    }
+
     @Published var recentDelegateIds: [String] {
         didSet {
             if let data = try? JSONEncoder().encode(recentDelegateIds) {
@@ -269,7 +283,9 @@ final class SettingsStore: ObservableObject {
         // explizit eingeschaltet hat (UserDefaults.bool gibt false fuer
         // den nicht-gesetzten Key — genau das Verhalten was wir wollen).
         self.delegateEnabled = defaults.bool(forKey: Keys.delegateEnabled)
-        self.anywhereOnly = defaults.bool(forKey: Keys.anywhereOnly)
+        self.anywhereOnly     = defaults.bool(forKey: Keys.anywhereOnly)
+        self.printBW          = defaults.bool(forKey: Keys.printBW)
+        self.printImageSize   = defaults.string(forKey: Keys.printImageSize) ?? "full"
         if let data = defaults.data(forKey: Keys.recentQueueIds),
            let arr  = try? JSONDecoder().decode([String].self, from: data) {
             self.recentQueueIds = arr

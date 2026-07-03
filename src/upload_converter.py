@@ -87,13 +87,15 @@ def detect_format(data: bytes, filename_hint: str = "") -> tuple[str, str]:
 
 # ─── Konverter-Implementierungen ─────────────────────────────────────────────
 
-def _convert_image_to_pdf(data: bytes) -> bytes:
-    """PNG/JPG/GIF/BMP/TIFF → PDF via Pillow, auf A4 skaliert und zentriert.
+def _convert_image_to_pdf(data: bytes, bw: bool = False, image_size: str = "full") -> bytes:
+    """PNG/JPG/GIF/BMP/TIFF → PDF via Pillow, auf A4 platziert.
 
-    Ohne explizite Seitengröße würde Pillow die Pixeldimensionen des Bildes
-    direkt als PDF-Seitenmaß verwenden — ein 4000×3000px-Foto ergibt dann
-    eine riesige Seite (~67×50 cm). Stattdessen: Bild proportional auf A4
-    skalieren und auf weißem Hintergrund zentrieren.
+    bw=True:         Bild in Graustufen konvertieren.
+    image_size:
+      "full"     Bild proportional auf gesamte A4-Seite skalieren (Default).
+      "10x13"    Fotodruck-Format 10×13 cm, zentriert auf A4.
+      "13x18"    Fotodruck-Format 13×18 cm, zentriert auf A4.
+      "original" Originalgröße beibehalten (nur verkleinern wenn größer als A4).
     """
     try:
         from PIL import Image
@@ -103,22 +105,36 @@ def _convert_image_to_pdf(data: bytes) -> bytes:
 
     # A4 bei 150 dpi: 1240 × 1754 px (Portrait)
     A4_W, A4_H = 1240, 1754
-    MARGIN = 40  # px Rand auf jeder Seite
+    MARGIN = 40  # px Rand für "full" und "original"
+    PX_PER_CM = 150 / 2.54  # ≈ 59.06 px/cm
 
     img = Image.open(io.BytesIO(data))
     if img.mode in ("RGBA", "LA", "P"):
         img = img.convert("RGB")
+    if bw:
+        img = img.convert("L").convert("RGB")
 
-    # Bild proportional in den nutzbaren Bereich einpassen
-    max_w = A4_W - 2 * MARGIN
-    max_h = A4_H - 2 * MARGIN
-    img.thumbnail((max_w, max_h), Image.LANCZOS)
+    size = image_size.strip().lower()
+    if size == "10x13":
+        box_w = int(10 * PX_PER_CM)  # 591 px
+        box_h = int(13 * PX_PER_CM)  # 768 px
+        img.thumbnail((box_w, box_h), Image.LANCZOS)
+    elif size == "13x18":
+        box_w = int(13 * PX_PER_CM)  # 768 px
+        box_h = int(18 * PX_PER_CM)  # 1063 px
+        img.thumbnail((box_w, box_h), Image.LANCZOS)
+    elif size == "original":
+        # Nur verkleinern wenn größer als A4 minus Rand; niemals hochskalieren
+        max_w = A4_W - 2 * MARGIN
+        max_h = A4_H - 2 * MARGIN
+        if img.width > max_w or img.height > max_h:
+            img.thumbnail((max_w, max_h), Image.LANCZOS)
+    else:
+        # "full": Bild proportional auf gesamte nutzbare Fläche skalieren
+        img.thumbnail((A4_W - 2 * MARGIN, A4_H - 2 * MARGIN), Image.LANCZOS)
 
-    # Auf weißer A4-Seite zentrieren
     page = Image.new("RGB", (A4_W, A4_H), "white")
-    x = (A4_W - img.width)  // 2
-    y = (A4_H - img.height) // 2
-    page.paste(img, (x, y))
+    page.paste(img, ((A4_W - img.width) // 2, (A4_H - img.height) // 2))
 
     out = io.BytesIO()
     page.save(out, format="PDF", resolution=150.0)
@@ -285,21 +301,25 @@ def _convert_libreoffice(data: bytes, src_ext: str) -> bytes:
 
 # ─── Orchestrierung ──────────────────────────────────────────────────────────
 
-def convert_to_pdf(data: bytes, filename: str = "") -> tuple[bytes, str]:
+def convert_to_pdf(data: bytes, filename: str = "",
+                   bw: bool = False, image_size: str = "full") -> tuple[bytes, str]:
     """Haupt-Entry: erkennt Format, ruft passenden Konverter auf.
+
+    bw=True        Bild in Graustufen konvertieren (nur für image/*).
+    image_size     Druckgröße: "full" | "10x13" | "13x18" | "original".
 
     Returns: (pdf_bytes, source_format_label)
     Raises: ConversionError falls das Format nicht konvertierbar ist
     """
     mime, ext = detect_format(data, filename)
-    logger.info("Upload-Konverter: Input erkannt — mime=%s ext=%s size=%d",
-                mime, ext, len(data))
+    logger.info("Upload-Konverter: Input erkannt — mime=%s ext=%s size=%d bw=%s img_size=%s",
+                mime, ext, len(data), bw, image_size)
 
     if mime == "application/pdf":
         return data, "pdf (passthrough)"
 
     if mime.startswith("image/"):
-        pdf = _convert_image_to_pdf(data)
+        pdf = _convert_image_to_pdf(data, bw=bw, image_size=image_size)
         return pdf, f"image ({ext}) → pdf"
 
     if mime == "text/plain":

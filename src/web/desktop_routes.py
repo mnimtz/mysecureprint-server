@@ -285,7 +285,11 @@ async def _process_desktop_send_bg(
         raw_data = data  # Original-Bytes für Bild-Preview (vor PDF-Konvertierung)
         t_convert_start = _t.monotonic()
         try:
-            pdf_data, conv_label = convert_to_pdf(data, filename)
+            pdf_data, conv_label = convert_to_pdf(
+                data, filename,
+                bw=not _truthy(color),
+                image_size=print_image_size or "full",
+            )
             if pdf_data is not data:
                 base = filename.rsplit(".", 1)[0] if "." in filename else filename
                 display_filename = f"{base}.pdf"
@@ -1588,6 +1592,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         copies: int = Form(1),
         color: str = Form(""),
         duplex: str = Form(""),
+        print_image_size: str = Form("full"),
     ):
         import time as _t
         t_start = _t.monotonic()

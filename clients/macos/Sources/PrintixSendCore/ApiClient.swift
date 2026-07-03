@@ -225,12 +225,14 @@ public final class ApiClient: @unchecked Sendable {
                      comment: String? = nil,
                      copies: Int = 1,
                      color: Bool = false,
-                     duplex: Bool = false) async throws -> SendResult {
+                     duplex: Bool = false,
+                     printImageSize: String = "full") async throws -> SendResult {
         let url = URL(fileURLWithPath: filePath)
         let fileData = try Data(contentsOf: url)
         let filename = url.lastPathComponent
         return try await sendData(fileData, filename: filename, targetId: targetId,
-                                  comment: comment, copies: copies, color: color, duplex: duplex)
+                                  comment: comment, copies: copies, color: color, duplex: duplex,
+                                  printImageSize: printImageSize)
     }
 
     /// In-Memory-Variante: nötig für den iOS-Share-Extension-Pfad, der oft
@@ -240,7 +242,8 @@ public final class ApiClient: @unchecked Sendable {
                          comment: String? = nil,
                          copies: Int = 1,
                          color: Bool = false,
-                         duplex: Bool = false) async throws -> SendResult {
+                         duplex: Bool = false,
+                         printImageSize: String = "full") async throws -> SendResult {
         log.info("POST /desktop/send — target=\(targetId) file=\(filename) size=\(fileData.count)")
 
         let boundary = "Boundary-\(UUID().uuidString)"
@@ -266,6 +269,10 @@ public final class ApiClient: @unchecked Sendable {
         append("--\(boundary)\r\n")
         append("Content-Disposition: form-data; name=\"duplex\"\r\n\r\n")
         append(duplex ? "1\r\n" : "\r\n")
+
+        append("--\(boundary)\r\n")
+        append("Content-Disposition: form-data; name=\"print_image_size\"\r\n\r\n")
+        append("\(printImageSize)\r\n")
 
         if let c = comment, !c.isEmpty {
             append("--\(boundary)\r\n")
