@@ -11,7 +11,9 @@ Endpoints (alle Bearer-Token via Authorization-Header):
   GET /desktop/management/printers     — Druckerliste (id, name, status …)
   GET /desktop/management/printers/{id}— Details einzelner Drucker/Queue
   GET /desktop/management/users        — Benutzerliste
+  GET /desktop/management/users/{id}   — Benutzer-Detail (Sprache, Rollen, Auth, Timestamps)
   GET /desktop/management/workstations — Workstation-Liste
+  GET /desktop/management/workstations/{id} — Workstation-Detail (Connect/Disconnect-Zeiten)
 
 Rollen:
   - admin / user → Zugriff erlaubt
@@ -468,4 +470,86 @@ def register_desktop_management_routes(app: FastAPI) -> None:
             return JSONResponse({"workstations": items, "available": True})
         except Exception as e:
             logger.warning("mgmt workstations: %s", e)
+            return _json_error(str(e)[:200], code="printix_error", status=502)
+
+    @app.get("/desktop/management/workstations/{workstation_id}")
+    async def mgmt_workstation_detail(workstation_id: str, request: Request,
+                                      authorization: str = Header(default="")):
+        _log_req(request, f"GET /management/workstations/{workstation_id}")
+        user, err = _require_mgmt_user(authorization)
+        if err:
+            return err
+        tenant = _load_tenant_for_user(user)
+        if not tenant:
+            return _json_error("no tenant configured", code="no_tenant", status=404)
+        if not _api_enabled(tenant, "ws"):
+            return _json_error("Workstation API not configured", code="not_configured", status=404)
+        try:
+            client = _make_client(tenant)
+            raw = await asyncio.to_thread(lambda: client.get_workstation(workstation_id))
+            if not isinstance(raw, dict):
+                return _json_error("unexpected response", code="parse_error", status=502)
+            hostname = (raw.get("hostname") or raw.get("computerName") or raw.get("name") or "").strip()
+            user_email = (raw.get("userEmail") or raw.get("lastUserEmail") or "").strip()
+            online = bool(raw.get("active") or raw.get("online"))
+            last_seen = raw.get("lastActiveTime") or raw.get("lastSeen") or ""
+            last_connect = raw.get("lastConnectTime") or ""
+            last_disconnect = raw.get("lastDisconnectTime") or ""
+            return JSONResponse({
+                "id": workstation_id,
+                "hostname": hostname or workstation_id,
+                "user_email": user_email,
+                "is_online": online,
+                "last_seen": last_seen,
+                "last_connect_time": last_connect,
+                "last_disconnect_time": last_disconnect,
+            })
+        except Exception as e:
+            logger.warning("mgmt workstation detail: %s", e)
+            return _json_error(str(e)[:200], code="printix_error", status=502)
+
+    @app.get("/desktop/management/users/{user_id}")
+    async def mgmt_user_detail(user_id: str, request: Request,
+                               authorization: str = Header(default="")):
+        _log_req(request, f"GET /management/users/{user_id}")
+        user, err = _require_mgmt_user(authorization)
+        if err:
+            return err
+        tenant = _load_tenant_for_user(user)
+        if not tenant:
+            return _json_error("no tenant configured", code="no_tenant", status=404)
+        if not _api_enabled(tenant, "card"):
+            return _json_error("Card API not configured", code="not_configured", status=404)
+        try:
+            client = _make_client(tenant)
+            raw = await asyncio.to_thread(lambda: client.get_user(user_id))
+            if not isinstance(raw, dict):
+                return _json_error("unexpected response", code="parse_error", status=502)
+            email = (raw.get("email") or raw.get("username") or "").strip()
+            name  = (raw.get("fullName") or raw.get("name") or raw.get("displayName") or "").strip()
+            role  = (raw.get("role") or "").strip()
+            language = (raw.get("language") or "").strip()
+            roles_raw = raw.get("roles") or []
+            roles = [str(r) for r in roles_raw] if isinstance(roles_raw, list) else []
+            auth_raw = raw.get("authenticationMethods") or []
+            auth_methods = [str(m) for m in auth_raw] if isinstance(auth_raw, list) else []
+            created  = raw.get("created") or raw.get("createdAt") or ""
+            modified = raw.get("modified") or raw.get("updatedAt") or ""
+            if isinstance(created, (int, float)):
+                created = str(created)
+            if isinstance(modified, (int, float)):
+                modified = str(modified)
+            return JSONResponse({
+                "id": user_id,
+                "email": email,
+                "name": name or email,
+                "role": role,
+                "language": language,
+                "roles": roles,
+                "auth_methods": auth_methods,
+                "created": created,
+                "modified": modified,
+            })
+        except Exception as e:
+            logger.warning("mgmt user detail: %s", e)
             return _json_error(str(e)[:200], code="printix_error", status=502)

@@ -316,6 +316,46 @@ public struct PrinterSupply: Codable, Sendable {
     }
 }
 
+// MARK: - Workstation Detail (GET /desktop/management/workstations/{id})
+
+public struct MgmtWorkstationDetail: Codable, Sendable {
+    public let id: String
+    public let hostname: String
+    public let userEmail: String?
+    public let isOnline: Bool
+    public let lastSeen: String?
+    public let lastConnectTime: String?
+    public let lastDisconnectTime: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, hostname
+        case userEmail = "user_email"
+        case isOnline = "is_online"
+        case lastSeen = "last_seen"
+        case lastConnectTime = "last_connect_time"
+        case lastDisconnectTime = "last_disconnect_time"
+    }
+}
+
+// MARK: - User Detail (GET /desktop/management/users/{id})
+
+public struct MgmtUserDetail: Codable, Sendable {
+    public let id: String
+    public let email: String?
+    public let name: String?
+    public let role: String?
+    public let language: String?
+    public let roles: [String]?
+    public let authMethods: [String]?
+    public let created: String?
+    public let modified: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, email, name, role, language, roles, created, modified
+        case authMethods = "auth_methods"
+    }
+}
+
 // MARK: - Cards (iOS-Tab "Karten", Server v6.7.90+)
 //
 // Eigenverwaltung der RFID-Karten des angemeldeten Users. Backend-

@@ -151,6 +151,10 @@ struct PrinterDetailView: View {
 
 struct UserDetailView: View {
     let user: MgmtUser
+    @EnvironmentObject private var settings: SettingsStore
+
+    @State private var detail: MgmtUserDetail? = nil
+    @State private var isLoadingDetail = false
 
     private var initials: String {
         let n = user.name ?? user.email ?? "?"
@@ -182,7 +186,8 @@ struct UserDetailView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
-                        if let role = user.role, !role.isEmpty {
+                        let displayRole = detail?.role ?? user.role
+                        if let role = displayRole, !role.isEmpty {
                             roleChip(role: role)
                         }
                     }
@@ -194,14 +199,62 @@ struct UserDetailView: View {
                 if let e = user.email, !e.isEmpty {
                     infoRow(icon: "envelope", label: String(localized: "E-Mail"), value: e)
                 }
-                if let role = user.role, !role.isEmpty {
+                let displayRole = detail?.role ?? user.role
+                if let role = displayRole, !role.isEmpty {
                     infoRow(icon: "person.badge.key", label: String(localized: "Rolle"), value: role.capitalized)
+                }
+                if let lang = detail?.language, !lang.isEmpty {
+                    infoRow(icon: "globe", label: String(localized: "Sprache"), value: lang.uppercased())
+                }
+                if let methods = detail?.authMethods, !methods.isEmpty {
+                    infoRow(icon: "key.fill",
+                            label: String(localized: "Anmeldung"),
+                            value: methods.map { $0.capitalized }.joined(separator: ", "))
+                }
+                if let created = detail?.created, !created.isEmpty {
+                    infoRow(icon: "calendar",
+                            label: String(localized: "Erstellt"),
+                            value: formatTimestamp(created))
+                }
+                if let modified = detail?.modified, !modified.isEmpty {
+                    infoRow(icon: "pencil.circle",
+                            label: String(localized: "Geändert"),
+                            value: formatTimestamp(modified))
+                }
+            }
+
+            if let roles = detail?.roles, !roles.isEmpty {
+                Section(String(localized: "Rollen")) {
+                    ForEach(roles, id: \.self) { r in
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(MSP.cyan)
+                                .frame(width: 26)
+                            Text(r.capitalized)
+                        }
+                    }
+                }
+            }
+
+            if isLoadingDetail {
+                Section {
+                    HStack { Spacer(); ProgressView().controlSize(.small); Spacer() }
                 }
             }
         }
         .listStyle(.insetGrouped)
         .brandNavStyle(title: user.name ?? user.email ?? user.id)
         .tint(MSP.cyan)
+        .task { await loadDetail() }
+    }
+
+    private func loadDetail() async {
+        guard let base = settings.serverBaseURL,
+              let client = ApiClientFactory.make(baseURL: base.absoluteString,
+                                                 token: settings.bearerToken) else { return }
+        isLoadingDetail = true
+        defer { isLoadingDetail = false }
+        detail = try? await client.managementUserDetail(userId: user.id)
     }
 
     private func roleChip(role: String) -> some View {
@@ -220,6 +273,10 @@ struct UserDetailView: View {
 
 struct WorkstationDetailView: View {
     let workstation: MgmtWorkstation
+    @EnvironmentObject private var settings: SettingsStore
+
+    @State private var detail: MgmtWorkstationDetail? = nil
+    @State private var isLoadingDetail = false
 
     var body: some View {
         List {
@@ -236,44 +293,52 @@ struct WorkstationDetailView: View {
                     VStack(alignment: .leading, spacing: 5) {
                         Text(workstation.hostname)
                             .font(.headline)
-                        onlineChip(online: workstation.isOnline == true)
+                        let online = detail?.isOnline ?? (workstation.isOnline == true)
+                        onlineChip(online: online)
                     }
                 }
                 .padding(.vertical, 4)
             }
 
             Section(String(localized: "Informationen")) {
-                if let email = workstation.userEmail, !email.isEmpty {
-                    infoRow(icon: "person", label: String(localized: "Benutzer"), value: email)
+                let email = detail?.userEmail ?? workstation.userEmail
+                if let e = email, !e.isEmpty {
+                    infoRow(icon: "person", label: String(localized: "Benutzer"), value: e)
                 }
-                if let ls = workstation.lastSeen, !ls.isEmpty {
-                    infoRow(icon: "clock", label: String(localized: "Zuletzt gesehen"),
-                            value: formatLastSeen(ls))
+                let lastSeen = detail?.lastSeen ?? workstation.lastSeen
+                if let ls = lastSeen, !ls.isEmpty {
+                    infoRow(icon: "clock", label: String(localized: "Zuletzt aktiv"),
+                            value: formatTimestamp(ls))
+                }
+                if let lc = detail?.lastConnectTime, !lc.isEmpty {
+                    infoRow(icon: "network", label: String(localized: "Verbunden"),
+                            value: formatTimestamp(lc))
+                }
+                if let ld = detail?.lastDisconnectTime, !ld.isEmpty {
+                    infoRow(icon: "network.slash", label: String(localized: "Getrennt"),
+                            value: formatTimestamp(ld))
+                }
+            }
+
+            if isLoadingDetail {
+                Section {
+                    HStack { Spacer(); ProgressView().controlSize(.small); Spacer() }
                 }
             }
         }
         .listStyle(.insetGrouped)
         .brandNavStyle(title: workstation.hostname)
         .tint(MSP.cyan)
+        .task { await loadDetail() }
     }
 
-    private func formatLastSeen(_ raw: String) -> String {
-        let formats = [
-            "yyyy-MM-dd'T'HH:mm:ssZ",
-            "yyyy-MM-dd'T'HH:mm:ss.SSSZ",
-            "yyyy-MM-dd HH:mm:ss",
-        ]
-        let df = DateFormatter()
-        for fmt in formats {
-            df.dateFormat = fmt
-            if let d = df.date(from: raw) {
-                let out = DateFormatter()
-                out.dateStyle = .short
-                out.timeStyle = .short
-                return out.string(from: d)
-            }
-        }
-        return raw
+    private func loadDetail() async {
+        guard let base = settings.serverBaseURL,
+              let client = ApiClientFactory.make(baseURL: base.absoluteString,
+                                                 token: settings.bearerToken) else { return }
+        isLoadingDetail = true
+        defer { isLoadingDetail = false }
+        detail = try? await client.managementWorkstationDetail(workstationId: workstation.id)
     }
 }
 
@@ -333,6 +398,35 @@ private struct TonerBar: View {
 }
 
 // MARK: - Shared Helpers
+
+private func formatTimestamp(_ raw: String) -> String {
+    // ISO 8601 variants
+    let formats = [
+        "yyyy-MM-dd'T'HH:mm:ssZ",
+        "yyyy-MM-dd'T'HH:mm:ss.SSSZ",
+        "yyyy-MM-dd'T'HH:mm:ssXXXXX",
+        "yyyy-MM-dd HH:mm:ss",
+    ]
+    let df = DateFormatter()
+    for fmt in formats {
+        df.dateFormat = fmt
+        if let d = df.date(from: raw) {
+            let out = DateFormatter()
+            out.dateStyle = .short
+            out.timeStyle = .short
+            return out.string(from: d)
+        }
+    }
+    // Unix epoch (milliseconds)
+    if let ms = Double(raw) {
+        let d = Date(timeIntervalSince1970: ms / 1000)
+        let out = DateFormatter()
+        out.dateStyle = .short
+        out.timeStyle = .short
+        return out.string(from: d)
+    }
+    return raw
+}
 
 private func onlineChip(online: Bool) -> some View {
     Text(online ? String(localized: "Online") : String(localized: "Offline"))

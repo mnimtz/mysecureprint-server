@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "de",
   "strings" : {
+    "–" : {
+
+    },
     "—" : {
       "localizations" : {
         "en" : {
@@ -417,6 +420,9 @@
           }
         }
       }
+    },
+    "%lld%%" : {
+
     },
     "Abbrechen" : {
       "localizations" : {
@@ -3421,6 +3427,9 @@
         }
       }
     },
+    "E-Mail" : {
+
+    },
     "E-Mail / Benutzername" : {
       "localizations" : {
         "en" : {
@@ -3842,6 +3851,9 @@
           }
         }
       }
+    },
+    "Farbdruck" : {
+
     },
     "Farbe" : {
       "localizations" : {
@@ -5005,6 +5017,12 @@
           }
         }
       }
+    },
+    "Informationen" : {
+
+    },
+    "Ja" : {
+
     },
     "Job-Details" : {
       "localizations" : {
@@ -7929,6 +7947,9 @@
         }
       }
     },
+    "Modell" : {
+
+    },
     "MySecurePrint" : {
       "localizations" : {
         "en" : {
@@ -8073,6 +8094,9 @@
           }
         }
       }
+    },
+    "Nein" : {
+
     },
     "Neue Karte" : {
       "localizations" : {
@@ -8733,6 +8757,9 @@
         }
       }
     },
+    "Offline" : {
+
+    },
     "Öffne auf deinem Rechner:" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -8917,6 +8944,9 @@
           }
         }
       }
+    },
+    "Online" : {
+
     },
     "Optionen" : {
       "localizations" : {
@@ -9858,6 +9888,9 @@
         }
       }
     },
+    "Queue-ID" : {
+
+    },
     "Queues konnten nicht geladen werden." : {
       "localizations" : {
         "en" : {
@@ -10055,6 +10088,9 @@
           }
         }
       }
+    },
+    "Rolle" : {
+
     },
     "S/W" : {
       "extractionState" : "stale",
@@ -10427,6 +10463,9 @@
           }
         }
       }
+    },
+    "Seriennummer" : {
+
     },
     "Server" : {
       "localizations" : {
@@ -11076,6 +11115,9 @@
         }
       }
     },
+    "Standort" : {
+
+    },
     "Status" : {
       "localizations" : {
         "en" : {
@@ -11427,6 +11469,9 @@
         }
       }
     },
+    "Toner-Level werden von Printix nicht bereitgestellt." : {
+
+    },
     "Transformation" : {
       "localizations" : {
         "en" : {
@@ -11757,6 +11802,9 @@
           }
         }
       }
+    },
+    "Verbrauchsmaterialien" : {
+
     },
     "Verlauf löschen" : {
       "localizations" : {
@@ -12543,6 +12591,9 @@
           }
         }
       }
+    },
+    "Zuletzt gesehen" : {
+
     },
     "Zuletzt verwendet" : {
       "localizations" : {

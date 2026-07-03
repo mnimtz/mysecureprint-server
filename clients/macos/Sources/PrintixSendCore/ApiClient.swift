@@ -522,6 +522,22 @@ public final class ApiClient: @unchecked Sendable {
         return try JSONDecoder().decode(MgmtPrinterDetail.self, from: data)
     }
 
+    public func managementWorkstationDetail(workstationId: String) async throws -> MgmtWorkstationDetail {
+        log.info("GET /desktop/management/workstations/<id>")
+        let req = buildRequest("desktop/management/workstations/\(workstationId)")
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
+        return try JSONDecoder().decode(MgmtWorkstationDetail.self, from: data)
+    }
+
+    public func managementUserDetail(userId: String) async throws -> MgmtUserDetail {
+        log.info("GET /desktop/management/users/<id>")
+        let req = buildRequest("desktop/management/users/\(userId)")
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
+        return try JSONDecoder().decode(MgmtUserDetail.self, from: data)
+    }
+
     // MARK: - Version
 
     public func latestVersion() async -> VersionResponse? {
