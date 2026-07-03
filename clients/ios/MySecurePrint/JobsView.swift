@@ -171,6 +171,8 @@ struct JobsView: View {
             let result = try await fetchJobs(offset: 0)
             jobs = result.jobs
             hasMore = result.jobs.count >= pageSize
+            cache.jobs = result.jobs
+            cache.jobsHasMore = hasMore
         } catch {
             self.error = error.localizedDescription
         }
