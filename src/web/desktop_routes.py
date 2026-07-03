@@ -282,6 +282,7 @@ async def _process_desktop_send_bg(
                 logger.debug("push(print_job_failed) failed: %s", _pfe)
 
         # === Stage 1: Format-Erkennung + Konvertierung =====================
+        raw_data = data  # Original-Bytes für Bild-Preview (vor PDF-Konvertierung)
         t_convert_start = _t.monotonic()
         try:
             pdf_data, conv_label = convert_to_pdf(data, filename)
@@ -314,8 +315,12 @@ async def _process_desktop_send_bg(
 
         # === Stage 1b: Vorschau-Thumbnail (Seite 1 → PNG, 48h TTL) ===========
         try:
-            from upload_converter import render_preview_png as _render_prev
-            _prev_png = _render_prev(data)
+            from upload_converter import (
+                render_image_preview_png as _render_img_prev,
+                render_preview_png as _render_prev,
+            )
+            # Bilder direkt via Pillow (kein Ghostscript nötig); PDF-Fallback via gs
+            _prev_png = _render_img_prev(raw_data) or _render_prev(data)
             if _prev_png:
                 with _dconn() as _c:
                     _c.execute(

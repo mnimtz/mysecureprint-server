@@ -249,6 +249,29 @@ def is_libreoffice_available() -> bool:
     return bool(shutil.which("libreoffice") or shutil.which("soffice"))
 
 
+def render_image_preview_png(img_bytes: bytes, max_size: int = 900) -> Optional[bytes]:
+    """Rendert ein Bild (JPEG/PNG/GIF/BMP/TIFF) als PNG-Thumbnail via Pillow.
+
+    Gibt None zurück wenn die Daten kein unterstütztes Bildformat sind oder
+    Pillow nicht verfügbar ist.
+    """
+    if not img_bytes or img_bytes[:4] == b"%PDF":
+        return None
+    try:
+        from PIL import Image
+        import io
+        img = Image.open(io.BytesIO(img_bytes))
+        if img.mode in ("RGBA", "LA", "P"):
+            img = img.convert("RGB")
+        img.thumbnail((max_size, max_size), Image.LANCZOS)
+        out = io.BytesIO()
+        img.save(out, format="PNG")
+        return out.getvalue()
+    except Exception as exc:
+        logger.debug("render_image_preview_png failed: %s", exc)
+    return None
+
+
 def render_preview_png(pdf_bytes: bytes, dpi: int = 96) -> Optional[bytes]:
     """Rendert Seite 1 eines PDFs als PNG via Ghostscript.
 
