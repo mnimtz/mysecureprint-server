@@ -50,17 +50,17 @@
     {% endif %}
 
     <table style="width:100%; font-size:.92em;">
-      <tr><td style="padding:4px 12px; font-weight:600; color:#003366; vertical-align:top; width:160px;">{{ _('atls_field_hostname') }}</td>
+      <tr><td style="padding:4px 12px; font-weight:600; color:var(--primary); vertical-align:top; width:160px;">{{ _('atls_field_hostname') }}</td>
           <td style="padding:4px 12px;"><a href="https://{{ st.hostname }}" target="_blank" rel="noopener"><code>https://{{ st.hostname }}</code></a></td></tr>
-      <tr><td style="padding:4px 12px; font-weight:600; color:#003366;">{{ _('atls_field_public_ip') }}</td>
+      <tr><td style="padding:4px 12px; font-weight:600; color:var(--primary);">{{ _('atls_field_public_ip') }}</td>
           <td style="padding:4px 12px;"><code>{{ st.public_ip }}</code></td></tr>
-      <tr><td style="padding:4px 12px; font-weight:600; color:#003366;">{{ _('atls_field_email') }}</td>
+      <tr><td style="padding:4px 12px; font-weight:600; color:var(--primary);">{{ _('atls_field_email') }}</td>
           <td style="padding:4px 12px;">{{ st.email }}</td></tr>
-      <tr><td style="padding:4px 12px; font-weight:600; color:#003366;">{{ _('atls_field_expires') }}</td>
+      <tr><td style="padding:4px 12px; font-weight:600; color:var(--primary);">{{ _('atls_field_expires') }}</td>
           <td style="padding:4px 12px;">{{ st.cert.expires }}</td></tr>
-      <tr><td style="padding:4px 12px; font-weight:600; color:#003366;">{{ _('atls_field_last_run') }}</td>
+      <tr><td style="padding:4px 12px; font-weight:600; color:var(--primary);">{{ _('atls_field_last_run') }}</td>
           <td style="padding:4px 12px;">{{ st.last_run or "—" }}</td></tr>
-      <tr><td style="padding:4px 12px; font-weight:600; color:#003366;">{{ _('atls_field_auto_renew') }}</td>
+      <tr><td style="padding:4px 12px; font-weight:600; color:var(--primary);">{{ _('atls_field_auto_renew') }}</td>
           <td style="padding:4px 12px; color:#166534;">{{ _('atls_auto_renew_active') }}</td></tr>
     </table>
 
@@ -76,12 +76,12 @@
   <div class="card" style="margin-bottom:20px;">
     <div class="section-title" style="margin-bottom:14px;">⚡ {{ _('atls_setup_title') }}</div>
 
-    <div style="margin-bottom:18px; display:flex; gap:14px; padding:14px; background:#f7f9fb; border-radius:8px;">
+    <div style="margin-bottom:18px; display:flex; gap:14px; padding:14px; background:var(--bg); border-radius:8px;">
       <div style="font-size:1.4em;">🔍</div>
       <div style="flex:1;">
-        <div style="font-weight:600; color:#003366; margin-bottom:4px;">{{ _('atls_detected_title') }}</div>
+        <div style="font-weight:600; color:var(--primary); margin-bottom:4px;">{{ _('atls_detected_title') }}</div>
         {% if suggested_ip %}
-        <div style="font-size:.92em; color:#444;">
+        <div style="font-size:.92em; color:var(--text);">
           {{ _('atls_detected_ip') }} <code>{{ suggested_ip }}</code><br>
           {{ _('atls_detected_host') }} <code>{{ suggested_host }}</code>
         </div>
@@ -100,7 +100,7 @@
                value="{{ user.email or '' }}"
                placeholder="du@firma.de"
                class="form-control" style="width:100%;">
-        <div style="font-size:.78em; color:#666; margin-top:4px;">{{ _('atls_email_hint') }}</div>
+        <div style="font-size:.78em; color:var(--text-muted); margin-top:4px;">{{ _('atls_email_hint') }}</div>
       </div>
 
       <div style="padding:12px 14px; background:#fef3c7; border-left:3px solid #f59e0b; border-radius:4px; font-size:.86em; color:#78350f;">
@@ -118,8 +118,8 @@
 
   <!-- ── How it works ──────────────────────────────────────────────────── -->
   <details class="card" style="margin-bottom:20px;">
-    <summary style="cursor:pointer; font-weight:600; color:#003366;">📚 {{ _('atls_how_title') }}</summary>
-    <div style="margin-top:14px; font-size:.92em; line-height:1.65; color:#444;">
+    <summary style="cursor:pointer; font-weight:600; color:var(--primary);">📚 {{ _('atls_how_title') }}</summary>
+    <div style="margin-top:14px; font-size:.92em; line-height:1.65; color:var(--text);">
       {{ _('atls_how_body') | safe }}
     </div>
   </details>

@@ -42,14 +42,14 @@
 
       <!-- Drag & Drop Zone -->
       <label for="file-input" id="drop-zone"
-             style="display:block;padding:40px 20px;border:2px dashed #9ca3af;
-                    border-radius:12px;background:#f9fafb;text-align:center;
+             style="display:block;padding:40px 20px;border:2px dashed var(--text-faint);
+                    border-radius:12px;background:var(--bg);text-align:center;
                     cursor:pointer;transition:all .2s ease;">
         <div style="font-size:3em;line-height:1;margin-bottom:10px;">📄</div>
-        <div style="font-size:1.1em;font-weight:600;color:#374151;" id="drop-zone-label">
+        <div style="font-size:1.1em;font-weight:600;color:var(--text-muted);" id="drop-zone-label">
           {{ _('emp_upload_dropzone_text') }}
         </div>
-        <div style="color:#6b7280;font-size:.88em;margin-top:6px;">
+        <div style="color:var(--text-muted);font-size:.88em;margin-top:6px;">
           {{ _('emp_upload_supported_formats') }}
         </div>
         <div id="file-chosen" style="margin-top:14px;color:#059669;font-weight:600;display:none;"></div>
@@ -71,7 +71,7 @@
         <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
           <label style="font-size:.9em;">{{ _('emp_upload_copies') }}:</label>
           <input type="number" name="copies" value="1" min="1" max="99"
-                 style="width:70px;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;">
+                 style="width:70px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;">
         </div>
       </div>
 

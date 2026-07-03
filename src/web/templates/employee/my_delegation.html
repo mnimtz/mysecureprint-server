@@ -38,7 +38,7 @@
       <button type="submit" class="btn btn-primary">{{ _('emp_delegation_add_btn') }}</button>
     </form>
     {% else %}
-    <p style="margin-top:10px;color:#64748b;">{{ _('emp_delegation_no_candidates') }}</p>
+    <p style="margin-top:10px;color:var(--text-muted);">{{ _('emp_delegation_no_candidates') }}</p>
     {% endif %}
   </div>
 
@@ -74,7 +74,7 @@
       </table>
     </div>
     {% else %}
-    <p style="margin-top:10px;color:#64748b;">{{ _('emp_delegation_no_out') }}</p>
+    <p style="margin-top:10px;color:var(--text-muted);">{{ _('emp_delegation_no_out') }}</p>
     {% endif %}
   </div>
 
@@ -88,7 +88,7 @@
       {% endfor %}
     </ul>
     {% else %}
-    <p style="margin-top:10px;color:#64748b;">{{ _('emp_delegation_no_in') }}</p>
+    <p style="margin-top:10px;color:var(--text-muted);">{{ _('emp_delegation_no_in') }}</p>
     {% endif %}
   </div>
 </div>

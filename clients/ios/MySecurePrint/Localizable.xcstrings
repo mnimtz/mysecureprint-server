@@ -464,6 +464,9 @@
         }
       }
     },
+    "Abgelaufen" : {
+
+    },
     "Abmelden" : {
       "localizations" : {
         "en" : {
@@ -509,6 +512,9 @@
           }
         }
       }
+    },
+    "Absender" : {
+
     },
     "Account" : {
       "localizations" : {
@@ -835,6 +841,7 @@
       }
     },
     "Angemeldet als" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -881,6 +888,7 @@
       }
     },
     "Anmeldung" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1018,6 +1026,9 @@
           }
         }
       }
+    },
+    "App neu starten zum Wechseln." : {
+
     },
     "Arbeitsplätze" : {
       "localizations" : {
@@ -2119,6 +2130,9 @@
         }
       }
     },
+    "Delegation-Druck" : {
+
+    },
     "Delegation-Druck an andere User" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2213,6 +2227,9 @@
         }
       }
     },
+    "Delegation-Druck vom Admin deaktiviert." : {
+
+    },
     "Delegation: %@" : {
       "localizations" : {
         "en" : {
@@ -2259,7 +2276,11 @@
         }
       }
     },
+    "Delegiert an" : {
+
+    },
     "Den QR-Code für die schnelle Einrichtung findest du im Self-Service-Bereich des Management-Portals unter „Mobile App“." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2305,7 +2326,11 @@
         }
       }
     },
+    "Den QR-Code für die schnelle Einrichtung findest du im Self-Service-Bereich des Management-Portals." : {
+
+    },
     "Der Admin hat Delegation-Druck für diesen Server deaktiviert. Frage in der Server-Verwaltung nach, wenn du diese Funktion brauchst." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2397,6 +2422,9 @@
           }
         }
       }
+    },
+    "Details" : {
+
     },
     "Dezimal" : {
       "localizations" : {
@@ -2774,6 +2802,7 @@
       }
     },
     "Einladung" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2910,6 +2939,9 @@
           }
         }
       }
+    },
+    "Erfolgreich gedruckt ✓" : {
+
     },
     "Ergebnis" : {
       "localizations" : {
@@ -3056,6 +3088,9 @@
         }
       }
     },
+    "Erstellt" : {
+
+    },
     "Farbe" : {
       "localizations" : {
         "en" : {
@@ -3148,6 +3183,12 @@
         }
       }
     },
+    "Fehler beim Drucken" : {
+
+    },
+    "Fehler beim Speichern" : {
+
+    },
     "Fehlgeschlagen" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3195,6 +3236,9 @@
         }
       }
     },
+    "Fertig" : {
+
+    },
     "Foto-Import: %@" : {
       "localizations" : {
         "en" : {
@@ -3240,6 +3284,9 @@
           }
         }
       }
+    },
+    "Funktionen" : {
+
     },
     "Geaendert" : {
       "localizations" : {
@@ -3525,6 +3572,9 @@
         }
       }
     },
+    "Größe" : {
+
+    },
     "Hersteller" : {
       "localizations" : {
         "en" : {
@@ -3663,6 +3713,9 @@
         }
       }
     },
+    "Hier landen deine Aufträge nach dem Senden — inkl. Status (an Printix gesendet, gedruckt, Fehler)." : {
+
+    },
     "Hier landen deine Aufträge nach dem Senden — inkl. Status (bereit zur Abholung, fehlgeschlagen)." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3758,6 +3811,7 @@
       }
     },
     "https://mysecureprint.example.com" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3804,6 +3858,15 @@
       },
       "shouldTranslate" : false
     },
+    "In Warteschlange" : {
+
+    },
+    "Job-Details" : {
+
+    },
+    "Job-ID" : {
+
+    },
     "Jobs" : {
       "localizations" : {
         "en" : {
@@ -3849,6 +3912,9 @@
           }
         }
       }
+    },
+    "Jobs durchsuchen …" : {
+
     },
     "Karte an die Oberseite des iPhones halten." : {
       "localizations" : {
@@ -4508,7 +4574,11 @@
         }
       }
     },
+    "Kein Ziel gewählt — Tab „Ziele“ auswählen." : {
+
+    },
     "Kein Ziel gewählt — unter „Ziele“ auswählen." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4740,6 +4810,9 @@
           }
         }
       }
+    },
+    "Keine Treffer" : {
+
     },
     "Keine Treffer." : {
       "localizations" : {
@@ -5456,6 +5529,7 @@
       }
     },
     "Login" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5685,6 +5759,9 @@
           }
         }
       }
+    },
+    "Mehr laden" : {
+
     },
     "Mein Secure Print" : {
       "extractionState" : "manual",
@@ -6354,6 +6431,12 @@
         }
       }
     },
+    "Mit Microsoft anmelden" : {
+
+    },
+    "MySecurePrint" : {
+
+    },
     "n/v" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6973,7 +7056,11 @@
         }
       }
     },
+    "oder" : {
+
+    },
     "Oder mit Microsoft" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7391,6 +7478,7 @@
       }
     },
     "Per Microsoft-Konto einloggen" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7625,6 +7713,7 @@
       }
     },
     "QR scannen" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7669,6 +7758,9 @@
           }
         }
       }
+    },
+    "QR-Code scannen" : {
+
     },
     "Quelle" : {
       "localizations" : {
@@ -7715,6 +7807,9 @@
           }
         }
       }
+    },
+    "Queue" : {
+
     },
     "Queue suchen" : {
       "localizations" : {
@@ -8113,6 +8208,7 @@
       }
     },
     "Scan abgebrochen oder Kamera nicht verfügbar." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8157,6 +8253,9 @@
           }
         }
       }
+    },
+    "Scan abgebrochen." : {
+
     },
     "Scanne…" : {
       "localizations" : {
@@ -8298,6 +8397,9 @@
         }
       }
     },
+    "Senden an andere Printix-Benutzer erlauben." : {
+
+    },
     "Server" : {
       "localizations" : {
         "en" : {
@@ -8343,6 +8445,9 @@
           }
         }
       }
+    },
+    "Server einrichten" : {
+
     },
     "Server lieferte keine gültige Microsoft-Login-URL." : {
       "localizations" : {
@@ -8390,7 +8495,11 @@
         }
       }
     },
+    "Server-URL" : {
+
+    },
     "Server-URL aus QR übernommen." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8483,7 +8592,11 @@
         }
       }
     },
+    "Server-URL übernommen ✓" : {
+
+    },
     "Setup" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8529,7 +8642,11 @@
         }
       }
     },
+    "Setup-Einladung erkannt" : {
+
+    },
     "Setup-Einladung erkannt — wir versuchen sie automatisch einzulösen." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8620,6 +8737,9 @@
           }
         }
       }
+    },
+    "Sicher drucken. Überall." : {
+
     },
     "Speichern" : {
       "localizations" : {
@@ -8712,6 +8832,9 @@
           }
         }
       }
+    },
+    "Status" : {
+
     },
     "Tag-Typ %@ gefunden, aber keine UID lesbar." : {
       "localizations" : {
@@ -9395,6 +9518,9 @@
         }
       }
     },
+    "Versuche einen anderen Suchbegriff." : {
+
+    },
     "Vorschau" : {
       "localizations" : {
         "en" : {
@@ -9534,6 +9660,9 @@
         }
       }
     },
+    "Weitergeleitet" : {
+
+    },
     "Werte" : {
       "localizations" : {
         "en" : {
@@ -9579,6 +9708,12 @@
           }
         }
       }
+    },
+    "Wird automatisch eingelöst." : {
+
+    },
+    "Wird gedruckt…" : {
+
     },
     "Wird verarbeitet…" : {
       "extractionState" : "manual",
@@ -9720,6 +9855,9 @@
         }
       }
     },
+    "Ziel" : {
+
+    },
     "Ziele" : {
       "localizations" : {
         "en" : {
@@ -9814,6 +9952,7 @@
       }
     },
     "Zum Wechseln die App neu starten." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

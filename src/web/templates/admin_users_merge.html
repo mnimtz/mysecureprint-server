@@ -22,14 +22,14 @@
 
     {% if duplicates %}
       {% for group in duplicates %}
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;
                     padding:18px;margin-bottom:20px;">
           <div style="display:flex;justify-content:space-between;
                       align-items:center;margin-bottom:12px;gap:12px;">
             <div>
-              <div style="font-size:.78em;color:#64748b;text-transform:uppercase;
+              <div style="font-size:.78em;color:var(--text-muted);text-transform:uppercase;
                           letter-spacing:.5px;">Email-Gruppe</div>
-              <code style="font-size:1.05em;color:#1e293b;">{{ group.email }}</code>
+              <code style="font-size:1.05em;color:var(--text);">{{ group.email }}</code>
             </div>
             <span class="badge badge-yellow">
               {{ group.users | length }} {{ _('merge_users') }}
@@ -39,7 +39,7 @@
           <table style="width:100%;font-size:.9em;border-collapse:collapse;
                         margin-bottom:14px;">
             <thead>
-              <tr style="text-align:left;color:#64748b;font-size:.8em;">
+              <tr style="text-align:left;color:var(--text-muted);font-size:.8em;">
                 <th style="padding:6px 8px;">User-ID</th>
                 <th style="padding:6px 8px;">{{ _('common_name') }}</th>
                 <th style="padding:6px 8px;">Login-Weg</th>
@@ -49,9 +49,9 @@
             </thead>
             <tbody>
               {% for u in group.users %}
-                <tr style="border-top:1px solid #eee;">
+                <tr style="border-top:1px solid var(--border-subtle);">
                   <td style="padding:6px 8px;">
-                    <code style="font-size:.78em;color:#666;">{{ u.id[:8] }}…</code>
+                    <code style="font-size:.78em;color:var(--text-muted);">{{ u.id[:8] }}…</code>
                   </td>
                   <td style="padding:6px 8px;">
                     {{ u.full_name or u.username or '—' }}
@@ -66,7 +66,7 @@
                   <td style="padding:6px 8px;">
                     {% if u.is_admin %}Admin{% else %}{{ u.role_type or 'employee' }}{% endif %}
                   </td>
-                  <td style="padding:6px 8px;font-size:.82em;color:#888;">
+                  <td style="padding:6px 8px;font-size:.82em;color:var(--text-muted);">
                     {{ (u.created_at or '')[:10] }}
                   </td>
                 </tr>
@@ -80,12 +80,12 @@
                 style="display:grid;grid-template-columns:1fr 1fr auto;
                        gap:10px;align-items:end;">
             <div>
-              <label style="font-size:.82em;color:#475569;display:block;
+              <label style="font-size:.82em;color:var(--text-muted);display:block;
                             margin-bottom:4px;">
                 {{ _('merge_source_label') }}
               </label>
               <select name="source_id" required
-                      style="width:100%;padding:8px;border:1px solid #cbd5e1;
+                      style="width:100%;padding:8px;border:1px solid var(--border);
                              border-radius:6px;">
                 <option value="">— {{ _('merge_pick_source') }} —</option>
                 {% for u in group.users %}
@@ -101,12 +101,12 @@
               </div>
             </div>
             <div>
-              <label style="font-size:.82em;color:#475569;display:block;
+              <label style="font-size:.82em;color:var(--text-muted);display:block;
                             margin-bottom:4px;">
                 {{ _('merge_target_label') }}
               </label>
               <select name="target_id" required
-                      style="width:100%;padding:8px;border:1px solid #cbd5e1;
+                      style="width:100%;padding:8px;border:1px solid var(--border);
                              border-radius:6px;">
                 <option value="">— {{ _('merge_pick_target') }} —</option>
                 {% for u in group.users %}
@@ -122,7 +122,7 @@
               </div>
             </div>
             <button type="submit"
-                    style="padding:10px 18px;background:#2563eb;color:white;
+                    style="padding:10px 18px;background:var(--accent);color:white;
                            border:none;border-radius:6px;cursor:pointer;
                            font-weight:600;white-space:nowrap;">
               🔗 {{ _('merge_go') }}
@@ -136,7 +136,7 @@
         <div style="font-size:1.1em;color:#166534;">
           ✓ {{ _('merge_no_duplicates') }}
         </div>
-        <p style="color:#4b5563;font-size:.88em;margin-top:6px;">
+        <p style="color:var(--text-muted);font-size:.88em;margin-top:6px;">
           {{ _('merge_no_duplicates_hint') }}
         </p>
       </div>

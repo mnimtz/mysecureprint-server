@@ -7,7 +7,7 @@
       <div style="font-size:1.4em;">🔄</div>
       <div>
         <div class="section-title" style="margin:0;">{{ _('printix_sync_title') }}</div>
-        <div style="font-size:.85em; color:#666;">{{ _('printix_sync_sub') }}</div>
+        <div style="font-size:.85em; color:var(--text-muted);">{{ _('printix_sync_sub') }}</div>
       </div>
     </div>
 
@@ -55,7 +55,7 @@
                  style="margin-top:3px;"
                  {% if cfg.auto_card_sync %}checked{% endif %}>
           <span>{{ _('printix_sync_auto_card_sync_label') }}
-            <small style="font-weight:400;color:#6b7280;display:block;margin-top:2px;">
+            <small style="font-weight:400;color:var(--text-muted);display:block;margin-top:2px;">
               {{ _('printix_sync_auto_card_sync_help') }}
             </small>
           </span>
@@ -67,14 +67,14 @@
       </div>
     </form>
 
-    <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;">
+    <hr style="border:none;border-top:1px solid var(--border);margin:24px 0;">
 
     <form method="post" action="/admin/printix-sync/run-now" style="margin-bottom:12px;">
       <button type="submit" class="btn btn-secondary">▶ {{ _('printix_sync_run_now') }}</button>
       <small class="hint">{{ _('printix_sync_run_now_help') }}</small>
     </form>
 
-    <div style="background:#f8fafc;border-radius:8px;padding:12px 14px;font-size:.9em;">
+    <div style="background:var(--bg);border-radius:8px;padding:12px 14px;font-size:.9em;">
       <div><strong>{{ _('printix_sync_last_run_at') }}:</strong>
         {{ cfg.last_run_at or '—' }}
       </div>
@@ -83,7 +83,7 @@
         <summary style="cursor:pointer;color:#dc2626;font-weight:600;">
           {{ _('printix_sync_errors') }} ({{ run_result.errors | length }})
         </summary>
-        <ul style="margin:6px 0 0 18px;font-size:.85em;color:#475569;">
+        <ul style="margin:6px 0 0 18px;font-size:.85em;color:var(--text-muted);">
           {% for e in run_result.errors %}<li>{{ e }}</li>{% endfor %}
         </ul>
       </details>

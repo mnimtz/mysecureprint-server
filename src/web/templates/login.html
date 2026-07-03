@@ -1,112 +1,386 @@
 {% extends "base.html" %}
 {% set show_nav = false %}
 {% block title %}{{ _('login_title') }} — {{ _('brand_console_name') }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ── Login page: override body background to deep navy ── */
+  body {
+    background: linear-gradient(135deg, #00123B 0%, #002854 60%, #003A6E 100%) !important;
+    min-height: 100vh;
+  }
+
+  /* ── Full-page stage ── */
+  .login-stage {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px 60px;
+    /* Diagonal stripe texture */
+    background-image: repeating-linear-gradient(
+      65deg,
+      rgba(255,255,255,0.025) 0px,
+      rgba(255,255,255,0.025) 1px,
+      transparent 1px,
+      transparent 40px
+    );
+  }
+
+  /* ── Brand lockup above the card ── */
+  .login-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .login-brand-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .login-brand-icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+  .login-brand-name {
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+  .login-brand-accent {
+    width: 40px;
+    height: 3px;
+    background: #00EB86;
+    border-radius: 2px;
+  }
+  .login-brand-sub {
+    font-size: 0.78rem;
+    color: #9DDDF9;
+    letter-spacing: 0.04em;
+    font-weight: 500;
+    text-align: center;
+  }
+
+  /* ── Login card ── */
+  .login-card {
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.30);
+    padding: 36px 32px 28px;
+    width: 100%;
+    max-width: 420px;
+  }
+  .login-card-heading {
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #002854;
+    letter-spacing: -0.01em;
+    margin-bottom: 22px;
+  }
+
+  /* ── Alerts inside card ── */
+  .login-card .alert {
+    margin-bottom: 18px;
+    border-radius: 8px;
+  }
+
+  /* ── Microsoft SSO button ── */
+  .login-ms-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 11px 16px;
+    border: 1.5px solid #D9DFE6;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #374151;
+    font-size: 0.92rem;
+    font-weight: 600;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s, border-color 0.15s;
+    margin-bottom: 20px;
+  }
+  .login-ms-btn:hover {
+    background: #f8fafc;
+    border-color: #00A0FB;
+    box-shadow: 0 2px 10px rgba(0,160,251,0.12);
+  }
+
+  /* ── Divider ── */
+  .login-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .login-divider-line {
+    flex: 1;
+    height: 1px;
+    background: #D9DFE6;
+  }
+  .login-divider-text {
+    font-size: 0.80rem;
+    color: #8094AA;
+    white-space: nowrap;
+  }
+
+  /* ── Form inside login card ── */
+  .login-card .form-group {
+    margin-bottom: 18px;
+  }
+  .login-card label {
+    display: block;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #002854;
+    margin-bottom: 6px;
+  }
+  .login-card input[type="text"],
+  .login-card input[type="password"] {
+    width: 100%;
+    padding: 10px 13px;
+    border: 1.5px solid #D9DFE6;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    color: #231F20;
+    background: #ffffff;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .login-card input[type="text"]:focus,
+  .login-card input[type="password"]:focus {
+    outline: none;
+    border-color: #00A0FB;
+    box-shadow: 0 0 0 3px rgba(0,160,251,0.15);
+  }
+
+  /* ── Submit button ── */
+  .login-submit-btn {
+    display: block;
+    width: 100%;
+    padding: 11px 18px;
+    background: #002854;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+    text-align: center;
+    letter-spacing: 0.01em;
+  }
+  .login-submit-btn:hover {
+    background: #003A6E;
+    box-shadow: 0 4px 14px rgba(0,40,84,0.25);
+  }
+
+  /* ── Register link row ── */
+  .login-register-row {
+    margin-top: 18px;
+    text-align: center;
+    font-size: 0.84rem;
+    color: #8094AA;
+  }
+  .login-register-row a {
+    color: #00A0FB;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.15s;
+  }
+  .login-register-row a:hover {
+    color: #0090E0;
+    text-decoration: underline;
+  }
+
+  /* ── Legal disclaimer ── */
+  .login-disclaimer {
+    margin-top: 20px;
+    padding: 12px 14px;
+    border: 1px dashed #D9DFE6;
+    border-radius: 8px;
+    background: #f8fafc;
+    font-size: 0.73rem;
+    line-height: 1.55;
+    color: #8094AA;
+  }
+  .login-disclaimer-heading {
+    font-weight: 700;
+    color: #8094AA;
+    margin-bottom: 6px;
+  }
+  .login-disclaimer p + p {
+    margin-top: 5px;
+  }
+
+  /* ── Version pill ── */
+  .login-version {
+    margin-top: 10px;
+    text-align: center;
+    font-size: 0.70rem;
+    color: #b0b5bc;
+  }
+
+  /* ── Language switcher (below card, on dark bg) ── */
+  .login-lang-row {
+    margin-top: 24px;
+    text-align: center;
+    font-size: 0.82rem;
+  }
+  .login-lang-row a {
+    text-decoration: none;
+    margin: 0 5px;
+    transition: color 0.15s, opacity 0.15s;
+  }
+  .login-lang-row a.lang-active {
+    color: #00EB86;
+    font-weight: 700;
+  }
+  .login-lang-row a:not(.lang-active) {
+    color: rgba(255,255,255,0.55);
+    font-weight: 400;
+  }
+  .login-lang-row a:not(.lang-active):hover {
+    color: rgba(255,255,255,0.85);
+  }
+
+  /* ── Footer links on dark bg ── */
+  body footer {
+    background: transparent !important;
+    border-top-color: rgba(255,255,255,0.08) !important;
+    color: rgba(255,255,255,0.35) !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 20px !important;
+  }
+  body footer a {
+    color: rgba(255,255,255,0.45) !important;
+  }
+  body footer a:hover {
+    color: rgba(255,255,255,0.75) !important;
+  }
+
+  /* ── Mobile tweaks ── */
+  @media (max-width: 480px) {
+    .login-card {
+      padding: 28px 20px 22px;
+    }
+    .login-brand-name {
+      font-size: 1.25rem;
+    }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div style="display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px;">
-  <div style="width:100%; max-width:380px;">
-    <div style="text-align:center; margin-bottom:28px;">
-      <img src="/logo/brand.png" alt="MySecurePrint"
-           style="max-width:280px; width:100%; height:auto; margin-bottom:4px;">
+<div class="login-stage">
+
+  <!-- Brand lockup -->
+  <div class="login-brand">
+    <div class="login-brand-row">
+      <img src="/logo/icon.png" alt="MySecurePrint" class="login-brand-icon">
+      <span class="login-brand-name">MySecurePrint</span>
     </div>
-
-    <div class="card">
-      {% if error %}
-      <div class="alert alert-error">{{ error }}</div>
-      {% endif %}
-
-      {% if info %}
-      <div class="alert alert-info">{{ info }}</div>
-      {% endif %}
-
-      {% if entra_enabled | default(false) %}
-      <a href="/auth/entra/login"
-         style="display:flex;align-items:center;justify-content:center;gap:10px;
-                width:100%;padding:10px 16px;border:1px solid #d1d5db;border-radius:8px;
-                background:#fff;color:#374151;font-size:.95em;font-weight:600;
-                text-decoration:none;transition:background .15s,box-shadow .15s;
-                margin-bottom:20px;"
-         onmouseover="this.style.background='#f8fafc';this.style.boxShadow='0 2px 8px rgba(0,0,0,.08)'"
-         onmouseout="this.style.background='#fff';this.style.boxShadow='none'">
-        <svg width="20" height="20" viewBox="0 0 21 21">
-          <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-          <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-          <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-          <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-        </svg>
-        {{ _('login_microsoft') }}
-      </a>
-
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-        <div style="flex:1;height:1px;background:#e5e7eb;"></div>
-        <span style="font-size:.82em;color:#9ca3af;white-space:nowrap;">{{ _('login_or') }}</span>
-        <div style="flex:1;height:1px;background:#e5e7eb;"></div>
-      </div>
-      {% endif %}
-
-      <form method="post" action="/login">
-        <div class="form-group">
-          <label for="username">{{ _('login_username') }}</label>
-          <input type="text" id="username" name="username"
-                 value="{{ username | default('') }}"
-                 autocomplete="username" autofocus required>
-        </div>
-        <div class="form-group">
-          <label for="password">{{ _('login_password') }}</label>
-          <input type="password" id="password" name="password"
-                 autocomplete="current-password" required>
-        </div>
-        <button type="submit" class="btn btn-primary" style="width:100%;">
-          {{ _('login_submit') }}
-        </button>
-      </form>
-
-      <div style="margin-top:20px; text-align:center; font-size:.85em; color:#6b7280;">
-        {{ _('login_no_account') }}
-        <a href="/register" style="color:#00A0FB;">{{ _('login_register_link') }}</a>
-      </div>
-
-      <!-- Rechtlicher Hinweis / Legal disclaimer -->
-      <div style="margin-top:22px; padding:12px 14px; border:1px dashed #d1d5db;
-                  border-radius:8px; background:#fafafa;
-                  font-size:.75em; line-height:1.5; color:#6b7280;">
-        <div style="font-weight:600; color:#4b5563; margin-bottom:4px;">
-          ⚠️ Hinweis · Disclaimer
-        </div>
-        <div style="margin-bottom:6px;">
-          <strong>DE:</strong> Dies ist ein <u>privates Entwicklungsprojekt</u> und
-          <u>keine offizielle Seite von Printix</u> oder Tungsten Automation. Es dient ausschließlich
-          als Beispiel dafür, was mit der öffentlichen Printix-API umgesetzt werden kann.
-          Nutzung auf eigene Gefahr — keine Gewährleistung, kein Support, keine Haftung
-          für Datenverluste oder Schäden jeglicher Art.
-        </div>
-        <div>
-          <strong>EN:</strong> This is a <u>private development project</u> and
-          <u>not an official Printix</u> or Tungsten Automation site. It is provided solely as an
-          example of what can be built with the public Printix API. Use at your own
-          risk — no warranty, no support, and no liability for data loss or damages
-          of any kind.
-        </div>
-      </div>
-
-      <!-- Version -->
-      <div style="margin-top:10px; text-align:center; font-size:.7em; color:#b0b5bc;">
-        v{{ app_version | default('?') }}
-      </div>
-
-      <!-- Sprach-Switcher auf Login-Seite -->
-      <div style="margin-top:24px; text-align:center; font-size:.82em;">
-        {% if supported_langs and lang_names %}
-          {% for code in supported_langs %}
-            <a href="/lang/{{ code }}"
-               style="color:{% if code == lang %}#00A0FB{% else %}#9ca3af{% endif %};
-                      text-decoration:none; margin:0 4px;
-                      font-weight:{% if code == lang %}700{% else %}400{% endif %};">
-              {{ lang_names[code] }}
-            </a>
-          {% endfor %}
-        {% endif %}
-      </div>
-    </div>
+    <div class="login-brand-accent"></div>
+    <span class="login-brand-sub">Powered by Tungsten Automation</span>
   </div>
+
+  <!-- Login card -->
+  <div class="login-card">
+    <div class="login-card-heading">{{ _('login_title') }}</div>
+
+    {% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+
+    {% if info %}
+    <div class="alert alert-info">{{ info }}</div>
+    {% endif %}
+
+    {% if entra_enabled | default(false) %}
+    <a href="/auth/entra/login" class="login-ms-btn">
+      <svg width="20" height="20" viewBox="0 0 21 21" aria-hidden="true">
+        <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+        <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+        <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+      </svg>
+      {{ _('login_microsoft') }}
+    </a>
+
+    <div class="login-divider">
+      <div class="login-divider-line"></div>
+      <span class="login-divider-text">{{ _('login_or') }}</span>
+      <div class="login-divider-line"></div>
+    </div>
+    {% endif %}
+
+    <form method="post" action="/login">
+      <div class="form-group">
+        <label for="username">{{ _('login_username') }}</label>
+        <input type="text" id="username" name="username"
+               value="{{ username | default('') }}"
+               autocomplete="username" autofocus required>
+      </div>
+      <div class="form-group">
+        <label for="password">{{ _('login_password') }}</label>
+        <input type="password" id="password" name="password"
+               autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="login-submit-btn">
+        {{ _('login_submit') }}
+      </button>
+    </form>
+
+    <div class="login-register-row">
+      {{ _('login_no_account') }}
+      <a href="/register">{{ _('login_register_link') }}</a>
+    </div>
+
+    <!-- Legal disclaimer -->
+    <div class="login-disclaimer">
+      <div class="login-disclaimer-heading">&#9888;&#xFE0E; Hinweis · Disclaimer</div>
+      <p><strong>DE:</strong> Dies ist ein <u>privates Entwicklungsprojekt</u> und
+      <u>keine offizielle Seite von Printix</u> oder Tungsten Automation. Es dient ausschließlich
+      als Beispiel dafür, was mit der öffentlichen Printix-API umgesetzt werden kann.
+      Nutzung auf eigene Gefahr — keine Gewährleistung, kein Support, keine Haftung
+      für Datenverluste oder Schäden jeglicher Art.</p>
+      <p><strong>EN:</strong> This is a <u>private development project</u> and
+      <u>not an official Printix</u> or Tungsten Automation site. It is provided solely as an
+      example of what can be built with the public Printix API. Use at your own
+      risk — no warranty, no support, and no liability for data loss or damages
+      of any kind.</p>
+    </div>
+
+    <!-- Version -->
+    <div class="login-version">v{{ app_version | default('?') }}</div>
+  </div>
+
+  <!-- Language switcher -->
+  <div class="login-lang-row">
+    {% if supported_langs and lang_names %}
+      {% for code in supported_langs %}
+        <a href="/lang/{{ code }}"
+           class="{% if code == lang %}lang-active{% endif %}">
+          {{ lang_names[code] }}
+        </a>
+      {% endfor %}
+    {% endif %}
+  </div>
+
 </div>
 {% endblock %}

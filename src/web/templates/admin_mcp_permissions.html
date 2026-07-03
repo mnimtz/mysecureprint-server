@@ -81,17 +81,17 @@
        Gruppen vergleichen. Default off (GDPR/Mitarbeiter-Datenschutz).
        Andere Mitglieder werden anonymisiert ("Colleague AB12CD") außer
        der Caller setzt anonymize_others=false explizit. #}
-    <div class="card" style="margin-bottom:18px; background:{% if group_peer_reports_enabled %}#dcfce7{% else %}#f7f9fb{% endif %};
-                              border-left:4px solid {% if group_peer_reports_enabled %}#16a34a{% else %}#9ca3af{% endif %};">
+    <div class="card" style="margin-bottom:18px; background:{% if group_peer_reports_enabled %}#dcfce7{% else %}var(--bg){% endif %};
+                              border-left:4px solid {% if group_peer_reports_enabled %}#16a34a{% else %}var(--text-faint){% endif %};">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;">
         <div style="flex:1; min-width:240px;">
-          <div style="font-weight:700; color:{% if group_peer_reports_enabled %}#14532d{% else %}#374151{% endif %}; margin-bottom:4px;">
+          <div style="font-weight:700; color:{% if group_peer_reports_enabled %}#14532d{% else %}var(--text-muted){% endif %}; margin-bottom:4px;">
             🤝 {{ _('mp_peer_title') }}
             <span style="background:#fff; padding:2px 8px; border-radius:10px; font-size:.78em; margin-left:6px;">
               {% if group_peer_reports_enabled %}{{ _('mp_peer_status_on') }}{% else %}{{ _('mp_peer_status_off') }}{% endif %}
             </span>
           </div>
-          <div style="font-size:.88em; color:#374151; line-height:1.6;">
+          <div style="font-size:.88em; color:var(--text-muted); line-height:1.6;">
             {{ _('mp_peer_body') | safe }}
           </div>
         </div>
@@ -107,13 +107,13 @@
     </div>
 
     <details style="margin-bottom:8px;">
-      <summary style="cursor:pointer; font-weight:600; color:#003366;">
+      <summary style="cursor:pointer; font-weight:600; color:var(--primary);">
         ℹ️ {{ _('mp_legend_summary') }}
       </summary>
-      <div style="margin-top:12px; padding:14px; background:#f7f9fb; border-radius:8px;">
+      <div style="margin-top:12px; padding:14px; background:var(--bg); border-radius:8px;">
         <table style="width:100%; font-size:.92em;">
           <thead>
-            <tr style="background:#003366; color:#fff;">
+            <tr style="background:var(--primary); color:#fff;">
               <th style="text-align:left; padding:6px 10px;">{{ _('mp_legend_role') }}</th>
               <th style="text-align:left; padding:6px 10px;">{{ _('mp_legend_desc') }}</th>
             </tr>
@@ -123,14 +123,14 @@
             <tr>
               <td style="padding:6px 10px; font-weight:600; vertical-align:top; white-space:nowrap;">
                 {{ role_labels[r] }}
-                <div style="font-size:.78em; color:#888; font-weight:400;"><code>{{ r }}</code></div>
+                <div style="font-size:.78em; color:var(--text-muted); font-weight:400;"><code>{{ r }}</code></div>
               </td>
               <td style="padding:6px 10px;">{{ role_descriptions[r] }}</td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
-        <div style="margin-top:10px; font-size:.85em; color:#555;">
+        <div style="margin-top:10px; font-size:.85em; color:var(--text-muted);">
           {{ _('mp_legend_note') | safe }}
         </div>
       </div>
@@ -142,15 +142,15 @@
     <div class="section-title" style="margin-bottom:6px;">📁 {{ _('mp_groups_title') }}</div>
     <div class="section-sub" style="margin-bottom:12px;">{{ _('mp_groups_sub') }}</div>
 
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; padding:8px 12px; background:#f7f9fb; border-radius:6px; font-size:.88em;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; padding:8px 12px; background:var(--bg); border-radius:6px; font-size:.88em;">
       <div>
         {% if show_all_groups %}
           <strong>{{ _('mp_filter_all') }}</strong>
-          {% if live_groups %}<span style="color:#666;">— {{ live_groups | length }}.</span>{% endif %}
+          {% if live_groups %}<span style="color:var(--text-muted);">— {{ live_groups | length }}.</span>{% endif %}
         {% else %}
           <strong>{{ _('mp_filter_active') }}</strong>
           {% if hidden_inactive_count and hidden_inactive_count > 0 %}
-            <span style="color:#666;">— {{ hidden_inactive_count }} {{ _('mp_hidden_count') }}</span>
+            <span style="color:var(--text-muted);">— {{ hidden_inactive_count }} {{ _('mp_hidden_count') }}</span>
           {% endif %}
         {% endif %}
       </div>
@@ -173,19 +173,19 @@
     <div style="overflow-x:auto;">
     <table style="width:100%; border-collapse:collapse;">
       <thead>
-        <tr style="background:#f0f4f8;">
-          <th style="text-align:left; padding:8px 10px; border-bottom:1px solid #ccc;">{{ _('mp_th_group') }}</th>
-          <th style="text-align:left; padding:8px 10px; border-bottom:1px solid #ccc; width:140px;">{{ _('mp_th_members') }}</th>
-          <th style="text-align:left; padding:8px 10px; border-bottom:1px solid #ccc; width:280px;">{{ _('mp_th_role') }}</th>
-          <th style="padding:8px 10px; border-bottom:1px solid #ccc; width:100px;"></th>
+        <tr style="background:var(--border-subtle);">
+          <th style="text-align:left; padding:8px 10px; border-bottom:1px solid var(--border);">{{ _('mp_th_group') }}</th>
+          <th style="text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); width:140px;">{{ _('mp_th_members') }}</th>
+          <th style="text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); width:280px;">{{ _('mp_th_role') }}</th>
+          <th style="padding:8px 10px; border-bottom:1px solid var(--border); width:100px;"></th>
         </tr>
       </thead>
       <tbody>
         {% for g in live_groups %}
-        <tr style="border-bottom:1px solid #eee;">
+        <tr style="border-bottom:1px solid var(--border-subtle);">
           <td style="padding:8px 10px;">
             <div style="font-weight:500;">{{ g.name }}</div>
-            <div style="font-size:.78em; color:#888;"><code>{{ g.id }}</code></div>
+            <div style="font-size:.78em; color:var(--text-muted);"><code>{{ g.id }}</code></div>
           </td>
           <td style="padding:8px 10px;">
             {% if g.member_count == 0 %}—
@@ -210,7 +210,7 @@
             {% if g.current_role %}
               <span style="display:inline-block; padding:2px 8px; border-radius:10px; background:#dcfce7; color:#166534; font-size:.78em; font-weight:600;">{{ _('mp_status_active') }}</span>
             {% else %}
-              <span style="color:#aaa; font-size:.78em;">—</span>
+              <span style="color:var(--text-faint); font-size:.78em;">—</span>
             {% endif %}
           </td>
         </tr>
@@ -220,19 +220,19 @@
     </div>
     {% else %}
       {% if not groups_error %}
-        <div style="padding:30px; text-align:center; color:#888;">{{ _('mp_no_groups') }}</div>
+        <div style="padding:30px; text-align:center; color:var(--text-muted);">{{ _('mp_no_groups') }}</div>
       {% endif %}
     {% endif %}
 
     {% if orphan_groups %}
     <div style="margin-top:24px;">
       <div style="font-weight:600; color:#92400e; margin-bottom:8px;">⚠ {{ _('mp_orphans_title') }}</div>
-      <div style="font-size:.88em; color:#666; margin-bottom:8px;">{{ _('mp_orphans_sub') }}</div>
+      <div style="font-size:.88em; color:var(--text-muted); margin-bottom:8px;">{{ _('mp_orphans_sub') }}</div>
       <table style="width:100%; border-collapse:collapse; font-size:.92em;">
         <tbody>
           {% for g in orphan_groups %}
-          <tr style="border-bottom:1px solid #eee; background:#fffbeb;">
-            <td style="padding:6px 10px;">{{ g.name }} <code style="font-size:.8em; color:#888;">{{ g.id }}</code></td>
+          <tr style="border-bottom:1px solid var(--border-subtle); background:#fffbeb;">
+            <td style="padding:6px 10px;">{{ g.name }} <code style="font-size:.8em; color:var(--text-muted);">{{ g.id }}</code></td>
             <td style="padding:6px 10px;">{{ role_labels[g.current_role] }}</td>
             <td style="padding:6px 10px; text-align:right;">
               <form method="post" action="/admin/mcp-permissions/group-role" style="display:inline;">
@@ -257,25 +257,25 @@
     <div style="overflow-x:auto;">
     <table style="width:100%; border-collapse:collapse;">
       <thead>
-        <tr style="background:#f0f4f8;">
-          <th style="text-align:left; padding:8px 10px; border-bottom:1px solid #ccc;">{{ _('mp_th_user') }}</th>
-          <th style="text-align:left; padding:8px 10px; border-bottom:1px solid #ccc; width:200px;">{{ _('mp_th_email') }}</th>
-          <th style="text-align:left; padding:8px 10px; border-bottom:1px solid #ccc; width:140px;">{{ _('mp_th_status') }}</th>
-          <th style="text-align:left; padding:8px 10px; border-bottom:1px solid #ccc; width:300px;">{{ _('mp_th_user_role') }}</th>
+        <tr style="background:var(--border-subtle);">
+          <th style="text-align:left; padding:8px 10px; border-bottom:1px solid var(--border);">{{ _('mp_th_user') }}</th>
+          <th style="text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); width:200px;">{{ _('mp_th_email') }}</th>
+          <th style="text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); width:140px;">{{ _('mp_th_status') }}</th>
+          <th style="text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); width:300px;">{{ _('mp_th_user_role') }}</th>
         </tr>
       </thead>
       <tbody>
         {% for u in users %}
-        <tr style="border-bottom:1px solid #eee;">
+        <tr style="border-bottom:1px solid var(--border-subtle);">
           <td style="padding:8px 10px;">
             <div style="font-weight:500;">{{ u.full_name or u.username }}</div>
-            <div style="font-size:.78em; color:#888;">{{ u.username }}{% if u.is_admin %} · <span style="color:#7c3aed;">{{ _('mp_global_admin') }}</span>{% endif %}</div>
+            <div style="font-size:.78em; color:var(--text-muted);">{{ u.username }}{% if u.is_admin %} · <span style="color:#7c3aed;">{{ _('mp_global_admin') }}</span>{% endif %}</div>
           </td>
           <td style="padding:8px 10px; font-size:.9em;">{{ u.email or "—" }}</td>
           <td style="padding:8px 10px;">
             {% if u.status == "approved" %}<span style="color:#166534;">{{ _('mp_status_approved') }}</span>
             {% elif u.status == "pending" %}<span style="color:#92400e;">{{ _('mp_status_pending') }}</span>
-            {% else %}<span style="color:#888;">{{ u.status or "—" }}</span>{% endif %}
+            {% else %}<span style="color:var(--text-muted);">{{ u.status or "—" }}</span>{% endif %}
           </td>
           <td style="padding:8px 10px;">
             <form method="post" action="/admin/mcp-permissions/user-role" style="display:flex; gap:6px; align-items:center;">
@@ -296,7 +296,7 @@
     </div>
   </div>
 
-  <div style="margin-top:16px; padding:12px 14px; background:#eff6ff; border-left:3px solid #3b82f6; border-radius:4px; font-size:.88em; color:#1e3a8a;">
+  <div style="margin-top:16px; padding:12px 14px; background:var(--border-subtle); border-left:3px solid var(--accent); border-radius:4px; font-size:.88em; color:var(--text);">
     {{ _('mp_pr1_note') | safe }}
   </div>
 

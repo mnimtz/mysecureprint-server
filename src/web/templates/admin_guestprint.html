@@ -8,13 +8,13 @@
                   gap:16px;margin-bottom:20px;">
     <div>
       <h1 style="font-size:1.6em;margin-bottom:4px;">📧 Guest-Print / Email-to-Print</h1>
-      <p style="color:#666;font-size:.9em;">{{ _('guest_intro') }}</p>
+      <p style="color:var(--text-muted);font-size:.9em;">{{ _('guest_intro') }}</p>
     </div>
     <form id="gp-toggle-form" method="post"
           action="/admin/guestprint/toggle"
           style="display:flex;align-items:center;gap:8px;">
       <label style="cursor:pointer;display:flex;align-items:center;gap:8px;
-                    font-weight:600;color:{% if enabled %}#0a7a3a{% else %}#888{% endif %};">
+                    font-weight:600;color:{% if enabled %}#0a7a3a{% else %}var(--text-muted){% endif %};">
         <input type="checkbox" name="enabled" value="1"
                {% if enabled %}checked{% endif %}
                onchange="toggleGlobal(this)">
@@ -33,25 +33,25 @@
   <!-- Mailbox-Liste -->
   <div style="display:grid;grid-template-columns:280px 1fr;gap:24px;">
 
-    <aside style="background:#f8f9fb;border:1px solid #e5e7eb;
+    <aside style="background:var(--bg);border:1px solid var(--border);
                     border-radius:12px;padding:16px;">
-      <h3 style="font-size:.95em;color:#666;text-transform:uppercase;
+      <h3 style="font-size:.95em;color:var(--text-muted);text-transform:uppercase;
                  margin-bottom:12px;">{{ _('guest_mailboxes') }}</h3>
       <ul style="list-style:none;padding:0;margin:0 0 16px 0;">
         {% for m in mboxes %}
           <li style="padding:8px 10px;border-radius:6px;margin-bottom:4px;
                      background:{% if selected and selected.id == m.id %}#dbeafe{% else %}transparent{% endif %};">
             <a href="/admin/guestprint/mailbox/{{ m.id }}"
-               style="text-decoration:none;color:#1e3a5f;">
+               style="text-decoration:none;color:var(--text);">
               <div style="font-weight:600;font-size:.92em;
                           {% if not m.enabled %}opacity:.5;{% endif %}">
                 {{ m.name or m.upn }}
               </div>
-              <div style="font-size:.78em;color:#888;">{{ m.upn }}</div>
+              <div style="font-size:.78em;color:var(--text-muted);">{{ m.upn }}</div>
             </a>
           </li>
         {% else %}
-          <li style="font-size:.85em;color:#999;font-style:italic;
+          <li style="font-size:.85em;color:var(--text-faint);font-style:italic;
                      padding:8px 4px;">
             {{ _('guest_no_mailboxes') }}
           </li>
@@ -59,25 +59,25 @@
       </ul>
 
       <details style="margin-top:8px;">
-        <summary style="cursor:pointer;font-weight:600;color:#2563eb;
+        <summary style="cursor:pointer;font-weight:600;color:var(--accent);
                         font-size:.9em;">+ {{ _('guest_new_mailbox') | replace('+ ', '') }}</summary>
         <form method="post" action="/admin/guestprint/mailbox"
               style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
           <input type="email" name="upn" placeholder="postfach@firma.com"
-                 required style="padding:8px;border:1px solid #d1d5db;
+                 required style="padding:8px;border:1px solid var(--border);
                                   border-radius:6px;">
           <input type="text" name="name" placeholder="Anzeigename (optional)"
-                 style="padding:8px;border:1px solid #d1d5db;border-radius:6px;">
+                 style="padding:8px;border:1px solid var(--border);border-radius:6px;">
           <input type="number" name="poll_interval_sec" value="60" min="15" max="3600"
-                 style="padding:8px;border:1px solid #d1d5db;border-radius:6px;">
+                 style="padding:8px;border:1px solid var(--border);border-radius:6px;">
           <select name="on_success"
-                  style="padding:8px;border:1px solid #d1d5db;border-radius:6px;">
+                  style="padding:8px;border:1px solid var(--border);border-radius:6px;">
             <option value="move">Bei Erfolg: in Processed-Ordner verschieben</option>
             <option value="keep">Behalten (nur als gelesen markieren)</option>
             <option value="delete">Löschen</option>
           </select>
           <button type="submit"
-                  style="background:#2563eb;color:white;padding:8px;
+                  style="background:var(--accent);color:white;padding:8px;
                          border:none;border-radius:6px;cursor:pointer;
                          font-weight:600;">{{ _('guest_create') }}</button>
         </form>
@@ -87,13 +87,13 @@
     <main>
       {% if selected %}
         <!-- Mailbox-Detail -->
-        <div style="background:white;border:1px solid #e5e7eb;
+        <div style="background:white;border:1px solid var(--border);
                     border-radius:12px;padding:20px;margin-bottom:20px;">
           <div style="display:flex;justify-content:space-between;
                       align-items:center;margin-bottom:16px;">
             <div>
               <h2 style="font-size:1.2em;margin-bottom:4px;">{{ selected.name or selected.upn }}</h2>
-              <code style="color:#888;font-size:.85em;">{{ selected.upn }}</code>
+              <code style="color:var(--text-muted);font-size:.85em;">{{ selected.upn }}</code>
             </div>
             <div style="display:flex;gap:8px;">
               <button type="button" onclick="pollNow('{{ selected.id }}')"
@@ -122,40 +122,40 @@
           {% endif %}
 
           <details>
-            <summary style="cursor:pointer;font-weight:600;color:#2563eb;">{{ _('guest_settings') }}</summary>
+            <summary style="cursor:pointer;font-weight:600;color:var(--accent);">{{ _('guest_settings') }}</summary>
             <form method="post"
                   action="/admin/guestprint/mailbox/{{ selected.id }}/update"
                   style="display:grid;grid-template-columns:1fr 1fr;gap:12px;
                          margin-top:12px;">
               <label>Anzeigename
                 <input type="text" name="name" value="{{ selected.name }}"
-                       style="width:100%;padding:6px;border:1px solid #d1d5db;
+                       style="width:100%;padding:6px;border:1px solid var(--border);
                               border-radius:4px;"></label>
               <label>Poll-Intervall (Sek)
                 <input type="number" name="poll_interval_sec"
                        value="{{ selected.poll_interval_sec }}"
                        min="15" max="3600"
-                       style="width:100%;padding:6px;border:1px solid #d1d5db;
+                       style="width:100%;padding:6px;border:1px solid var(--border);
                               border-radius:4px;"></label>
               <label>Processed-Ordner
                 <input type="text" name="folder_processed"
                        value="{{ selected.folder_processed }}"
-                       style="width:100%;padding:6px;border:1px solid #d1d5db;
+                       style="width:100%;padding:6px;border:1px solid var(--border);
                               border-radius:4px;"></label>
               <label>Skipped-Ordner
                 <input type="text" name="folder_skipped"
                        value="{{ selected.folder_skipped }}"
-                       style="width:100%;padding:6px;border:1px solid #d1d5db;
+                       style="width:100%;padding:6px;border:1px solid var(--border);
                               border-radius:4px;"></label>
               <label>{{ _('guest_max_size') }}
                 <input type="number" name="max_attachment_bytes"
                        value="{{ selected.max_attachment_bytes }}"
                        min="1024" max="104857600"
-                       style="width:100%;padding:6px;border:1px solid #d1d5db;
+                       style="width:100%;padding:6px;border:1px solid var(--border);
                               border-radius:4px;"></label>
               <label>Bei Erfolg
                 <select name="on_success"
-                        style="width:100%;padding:6px;border:1px solid #d1d5db;
+                        style="width:100%;padding:6px;border:1px solid var(--border);
                                border-radius:4px;">
                   <option value="move" {% if selected.on_success == 'move' %}selected{% endif %}>Verschieben</option>
                   <option value="keep" {% if selected.on_success == 'keep' %}selected{% endif %}>Behalten</option>
@@ -168,7 +168,7 @@
                 {{ _('guest_enabled') }}
               </label>
               <button type="submit"
-                      style="grid-column:1/-1;padding:8px;background:#2563eb;
+                      style="grid-column:1/-1;padding:8px;background:var(--accent);
                              color:white;border:none;border-radius:6px;
                              cursor:pointer;font-weight:600;">{{ _('guest_save') }}</button>
             </form>
@@ -176,17 +176,17 @@
         </div>
 
         <!-- Whitelist -->
-        <div style="background:white;border:1px solid #e5e7eb;
+        <div style="background:white;border:1px solid var(--border);
                     border-radius:12px;padding:20px;margin-bottom:20px;">
           <h3 style="font-size:1.05em;margin-bottom:12px;">
             🛡️ Gast-Whitelist
           </h3>
-          <p style="font-size:.85em;color:#666;margin-bottom:14px;">{{ _('guest_whitelist_intro') }}</p>
+          <p style="font-size:.85em;color:var(--text-muted);margin-bottom:14px;">{{ _('guest_whitelist_intro') }}</p>
           {% if guests %}
             <table style="width:100%;font-size:.88em;border-collapse:collapse;
                           margin-bottom:14px;">
               <thead>
-                <tr style="background:#f3f4f6;text-align:left;">
+                <tr style="background:var(--bg);text-align:left;">
                   <th style="padding:8px;">Email</th>
                   <th style="padding:8px;">Name</th>
                   <th style="padding:8px;">Drucker</th>
@@ -197,20 +197,20 @@
               </thead>
               <tbody>
                 {% for g in guests %}
-                  <tr style="border-bottom:1px solid #eee;">
+                  <tr style="border-bottom:1px solid var(--border-subtle);">
                     <td style="padding:8px;"><code>{{ g.sender_email }}</code></td>
                     <td style="padding:8px;">{{ g.full_name or '—' }}</td>
-                    <td style="padding:8px;font-size:.82em;color:#666;">
+                    <td style="padding:8px;font-size:.82em;color:var(--text-muted);">
                       {{ g.printer_id or 'Standard' }}
                     </td>
-                    <td style="padding:8px;font-size:.82em;color:#666;">
+                    <td style="padding:8px;font-size:.82em;color:var(--text-muted);">
                       {{ g.expires_at[:10] if g.expires_at else 'unbegrenzt' }}
                     </td>
                     <td style="padding:8px;">
                       {% if g.enabled %}
                         <span style="color:#0a7a3a;">●</span> aktiv
                       {% else %}
-                        <span style="color:#999;">●</span> aus
+                        <span style="color:var(--text-faint);">●</span> aus
                       {% endif %}
                     </td>
                     <td style="padding:8px;">
@@ -232,7 +232,7 @@
           {% endif %}
 
           <details>
-            <summary style="cursor:pointer;font-weight:600;color:#2563eb;">
+            <summary style="cursor:pointer;font-weight:600;color:var(--accent);">
               + Neuen Gast freischalten
             </summary>
             <form method="post"
@@ -241,16 +241,16 @@
                          margin-top:12px;">
               <input type="email" name="sender_email"
                      placeholder="gast@firma.com" required
-                     style="padding:8px;border:1px solid #d1d5db;
+                     style="padding:8px;border:1px solid var(--border);
                             border-radius:6px;">
               <input type="text" name="full_name" placeholder="{{ _('guest_full_name') }}"
-                     style="padding:8px;border:1px solid #d1d5db;border-radius:6px;">
+                     style="padding:8px;border:1px solid var(--border);border-radius:6px;">
               <input type="text" name="printer_id" placeholder="Drucker-ID (optional)"
-                     style="padding:8px;border:1px solid #d1d5db;border-radius:6px;">
+                     style="padding:8px;border:1px solid var(--border);border-radius:6px;">
               <input type="number" name="expiration_days" value="7"
                      min="0" max="3650"
                      placeholder="Gültig für Tage (0 = unbegrenzt)"
-                     style="padding:8px;border:1px solid #d1d5db;border-radius:6px;">
+                     style="padding:8px;border:1px solid var(--border);border-radius:6px;">
               <button type="submit"
                       style="grid-column:1/-1;padding:8px;background:#16a34a;
                              color:white;border:none;border-radius:6px;
@@ -262,7 +262,7 @@
         </div>
 
         <!-- Job-Log -->
-        <div style="background:white;border:1px solid #e5e7eb;
+        <div style="background:white;border:1px solid var(--border);
                     border-radius:12px;padding:20px;">
           <h3 style="font-size:1.05em;margin-bottom:12px;">
             📋 Letzte 50 Jobs
@@ -270,7 +270,7 @@
           {% if jobs %}
             <table style="width:100%;font-size:.85em;border-collapse:collapse;">
               <thead>
-                <tr style="background:#f3f4f6;text-align:left;">
+                <tr style="background:var(--bg);text-align:left;">
                   <th style="padding:6px;">Zeit</th>
                   <th style="padding:6px;">Sender</th>
                   <th style="padding:6px;">Betreff</th>
@@ -280,13 +280,13 @@
               </thead>
               <tbody>
                 {% for j in jobs %}
-                  <tr style="border-bottom:1px solid #f0f0f0;">
-                    <td style="padding:6px;color:#888;font-size:.78em;">
+                  <tr style="border-bottom:1px solid var(--border-subtle);">
+                    <td style="padding:6px;color:var(--text-muted);font-size:.78em;">
                       {{ j.created_at[:16].replace('T', ' ') }}
                     </td>
                     <td style="padding:6px;"><code>{{ j.sender_email }}</code></td>
-                    <td style="padding:6px;color:#444;">{{ j.subject[:40] }}</td>
-                    <td style="padding:6px;font-size:.8em;color:#666;">
+                    <td style="padding:6px;color:var(--text);">{{ j.subject[:40] }}</td>
+                    <td style="padding:6px;font-size:.8em;color:var(--text-muted);">
                       {{ j.attachment_name }}
                     </td>
                     <td style="padding:6px;">
@@ -297,7 +297,7 @@
                       {% elif j.status == 'error' %}
                         <span style="color:#dc2626;">⚠ {{ j.error or 'fehler' }}</span>
                       {% else %}
-                        <span style="color:#888;">{{ j.status }}</span>
+                        <span style="color:var(--text-muted);">{{ j.status }}</span>
                       {% endif %}
                     </td>
                   </tr>
@@ -305,17 +305,17 @@
               </tbody>
             </table>
           {% else %}
-            <p style="color:#999;font-style:italic;font-size:.9em;">
+            <p style="color:var(--text-faint);font-style:italic;font-size:.9em;">
               Noch keine Jobs.
             </p>
           {% endif %}
         </div>
 
       {% else %}
-        <div style="background:#f8f9fb;border:1px solid #e5e7eb;
+        <div style="background:var(--bg);border:1px solid var(--border);
                     border-radius:12px;padding:40px;text-align:center;">
-          <h2 style="font-size:1.2em;color:#666;margin-bottom:8px;">{{ _('guest_pick_mailbox') }}</h2>
-          <p style="color:#888;font-size:.9em;">{{ _('guest_pick_or_new') }}</p>
+          <h2 style="font-size:1.2em;color:var(--text-muted);margin-bottom:8px;">{{ _('guest_pick_mailbox') }}</h2>
+          <p style="color:var(--text-muted);font-size:.9em;">{{ _('guest_pick_or_new') }}</p>
         </div>
       {% endif %}
     </main>

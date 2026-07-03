@@ -7,7 +7,7 @@
       <div>
         <div class="section-title">{{ _('mobile_invite_title') }}</div>
         <div class="section-sub">{{ _('mobile_invite_sub') }}</div>
-        <p style="margin-top:8px;font-size:.92em;color:#475569;">
+        <p style="margin-top:8px;font-size:.92em;color:var(--text-muted);">
           <strong>{{ target_user.username }}</strong>
           {% if target_user.email %}· {{ target_user.email }}{% endif %}
         </p>
@@ -25,9 +25,9 @@
     {% if fresh_invite_url %}
     <div class="alert alert-info" style="margin-top:18px;">
       <div style="font-weight:600;margin-bottom:8px;">{{ _('mobile_invite_url_label') }}</div>
-      <div style="font-size:.78em;color:#475569;margin-bottom:8px;">{{ _('mobile_invite_url_hint') }}</div>
+      <div style="font-size:.78em;color:var(--text-muted);margin-bottom:8px;">{{ _('mobile_invite_url_hint') }}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <code id="freshInviteUrl" style="background:#0f172a;color:#e2e8f0;padding:8px 12px;border-radius:6px;font-size:.82em;word-break:break-all;flex:1;min-width:240px;">{{ fresh_invite_url }}</code>
+        <code id="freshInviteUrl" style="background:var(--text-strong);color:var(--border);padding:8px 12px;border-radius:6px;font-size:.82em;word-break:break-all;flex:1;min-width:240px;">{{ fresh_invite_url }}</code>
         <button type="button" class="btn btn-secondary btn-sm"
                 onclick="(function(){var t=document.getElementById('freshInviteUrl').textContent;navigator.clipboard&&navigator.clipboard.writeText(t);})()">
           📋 {{ _('mobile_invite_copy_url') }}

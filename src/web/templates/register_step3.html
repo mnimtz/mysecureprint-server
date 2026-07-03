@@ -1,34 +1,195 @@
 {% extends "base.html" %}
+{% set show_nav = false %}
 {% block title %}{{ _('reg_title') }} — {{ _('reg_step3') }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  body {
+    background: linear-gradient(135deg, #00123B 0%, #002854 100%) !important;
+    min-height: 100vh;
+  }
+  .reg-stage {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px 60px;
+    background-image: repeating-linear-gradient(
+      65deg,
+      rgba(255,255,255,0.025) 0px,
+      rgba(255,255,255,0.025) 1px,
+      transparent 1px,
+      transparent 40px
+    );
+  }
+  .reg-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .reg-brand-row { display: flex; align-items: center; gap: 10px; }
+  .reg-brand-icon { width: 32px; height: 32px; flex-shrink: 0; }
+  .reg-brand-name {
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+  .reg-brand-accent { width: 40px; height: 3px; background: #00EB86; border-radius: 2px; }
+  .reg-card {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.30);
+    padding: 36px 32px 28px;
+    width: 100%;
+    max-width: 540px;
+  }
+  .steps { display: flex; align-items: center; margin-bottom: 28px; }
+  .step-item { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 0 0 auto; }
+  .step-circle {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.82rem; font-weight: 700;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+  }
+  .step-circle.active  { background: #00A0FB; color: #ffffff; }
+  .step-circle.done    { background: #00EB86; color: #00123B; }
+  .step-circle.pending { background: #D9DFE6; color: #8094AA; }
+  .step-label { font-size: 0.72rem; color: #8094AA; white-space: nowrap; font-family: 'Red Hat Display', Arial, sans-serif; }
+  .step-label.active { color: #002854; font-weight: 700; }
+  .step-connector { flex: 1; height: 2px; background: #D9DFE6; margin: 0 8px; align-self: center; margin-bottom: 22px; }
+  .reg-heading {
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    font-size: 1.1rem; font-weight: 700; color: #002854;
+    letter-spacing: -0.01em; margin-bottom: 4px;
+  }
+  .reg-sub { font-size: 0.84rem; color: #8094AA; margin-bottom: 22px; line-height: 1.5; }
+  .reg-card .alert { margin-bottom: 18px; border-radius: 8px; }
+  .reg-card .form-group { margin-bottom: 16px; }
+  .reg-card label {
+    display: block; font-size: 0.84rem; font-weight: 600;
+    color: #002854; margin-bottom: 6px;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+  }
+  .reg-card input[type="text"],
+  .reg-card input[type="email"],
+  .reg-card input[type="password"] {
+    width: 100%; padding: 10px 13px;
+    border: 1.5px solid #D9DFE6; border-radius: 8px;
+    font-size: 0.95rem; font-family: 'Red Hat Display', Arial, sans-serif;
+    color: #231F20; background: #ffffff;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+  }
+  .reg-card input:focus {
+    outline: none; border-color: #00A0FB;
+    box-shadow: 0 0 0 3px rgba(0,160,251,0.15);
+  }
+  .reg-divider { height: 1px; background: #D9DFE6; margin: 20px 0; }
+  .reg-section-heading {
+    font-size: 0.88rem; font-weight: 700;
+    color: #002854; margin-bottom: 4px;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+  }
+  .reg-section-desc { font-size: 0.80rem; color: #8094AA; margin-bottom: 16px; line-height: 1.5; }
+  .reg-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .reg-btn-primary {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 11px 20px; background: #002854; color: #ffffff;
+    border: none; border-radius: 8px; font-size: 0.92rem; font-weight: 700;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    cursor: pointer; transition: background 0.15s, box-shadow 0.15s; text-decoration: none;
+  }
+  .reg-btn-primary:hover { background: #003A6E; box-shadow: 0 4px 14px rgba(0,40,84,0.25); }
+  .reg-btn-secondary {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 11px 20px; background: #f4f6f9; color: #002854;
+    border: 1.5px solid #D9DFE6; border-radius: 8px;
+    font-size: 0.92rem; font-weight: 600;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    cursor: pointer; transition: background 0.15s, border-color 0.15s; text-decoration: none;
+  }
+  .reg-btn-secondary:hover { background: #e8ecf2; border-color: #b0b8c8; }
+  .reg-btn-ghost {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 11px 20px; background: transparent; color: #8094AA;
+    border: 1.5px solid #D9DFE6; border-radius: 8px;
+    font-size: 0.92rem; font-weight: 600;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    cursor: pointer; transition: background 0.15s, color 0.15s; text-decoration: none;
+  }
+  .reg-btn-ghost:hover { background: #f4f6f9; color: #002854; }
+  body footer {
+    background: transparent !important;
+    border-top-color: rgba(255,255,255,0.08) !important;
+    color: rgba(255,255,255,0.35) !important;
+    margin-top: 0 !important; padding-top: 0 !important; padding-bottom: 20px !important;
+  }
+  body footer a { color: rgba(255,255,255,0.45) !important; }
+  body footer a:hover { color: rgba(255,255,255,0.75) !important; }
+  @media (max-width: 560px) {
+    .reg-card { padding: 28px 20px 22px; }
+    .reg-brand-name { font-size: 1.25rem; }
+    .step-label { display: none; }
+    .reg-grid-2 { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container">
-  <div class="card">
+<div class="reg-stage">
+
+  <div class="reg-brand">
+    <div class="reg-brand-row">
+      <img src="/logo/icon.png" alt="MySecurePrint" class="reg-brand-icon">
+      <span class="reg-brand-name">MySecurePrint</span>
+    </div>
+    <div class="reg-brand-accent"></div>
+  </div>
+
+  <div class="reg-card">
+
     <div class="steps">
-      <div class="step-item"><div class="step-circle done">✓</div><span class="step-label">{{ _('reg_step1') }}</span></div>
+      <div class="step-item">
+        <div class="step-circle done">✓</div>
+        <span class="step-label">{{ _('reg_step1') }}</span>
+      </div>
       <div class="step-connector"></div>
-      <div class="step-item"><div class="step-circle done">✓</div><span class="step-label">{{ _('reg_step2') }}</span></div>
+      <div class="step-item">
+        <div class="step-circle done">✓</div>
+        <span class="step-label">{{ _('reg_step2') }}</span>
+      </div>
       <div class="step-connector"></div>
-      <div class="step-item"><div class="step-circle active">3</div><span class="step-label active">{{ _('reg_step3') }}</span></div>
+      <div class="step-item">
+        <div class="step-circle active">3</div>
+        <span class="step-label active">{{ _('reg_step3') }}</span>
+      </div>
       <div class="step-connector"></div>
-      <div class="step-item"><div class="step-circle pending">4</div><span class="step-label">{{ _('reg_step4') }}</span></div>
+      <div class="step-item">
+        <div class="step-circle pending">4</div>
+        <span class="step-label">{{ _('reg_step4') }}</span>
+      </div>
     </div>
 
-    <div class="section-title">{{ _('reg_optional_title') }}</div>
-    <div class="section-sub">{{ _('reg_optional_subtitle') }}</div>
+    <div class="reg-heading">{{ _('reg_optional_title') }}</div>
+    <div class="reg-sub">{{ _('reg_optional_subtitle') }}</div>
 
     {% if error %}
     <div class="alert alert-error">{{ error }}</div>
     {% endif %}
 
     <form method="post" action="/register/optional">
+
       <!-- SQL Reporting -->
-      <div style="font-size:.9em; font-weight:700; color:#002854; margin-bottom:4px;">
-        📊 {{ _('reg_sql_reporting_title') }}
-      </div>
-      <div style="font-size:.83em; color:#6b7280; margin-bottom:16px;">
-        {{ _('reg_sql_reporting_subtitle') }}
-      </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <div class="reg-section-heading">&#128202; {{ _('reg_sql_reporting_title') }}</div>
+      <div class="reg-section-desc">{{ _('reg_sql_reporting_subtitle') }}</div>
+      <div class="reg-grid-2">
         <div class="form-group" style="grid-column: 1 / -1;">
           <label>SQL Server</label>
           <input type="text" name="sql_server"
@@ -48,18 +209,14 @@
         </div>
       </div>
 
-      <div class="divider"></div>
+      <div class="reg-divider"></div>
 
       <!-- Mail -->
-      <div style="font-size:.9em; font-weight:700; color:#002854; margin-bottom:4px;">
-        📧 {{ _('reg_mail_title') }}
-      </div>
-      <div style="font-size:.83em; color:#6b7280; margin-bottom:16px;">
-        {{ _('reg_mail_subtitle') | safe }}
-      </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <div class="reg-section-heading">&#128231; {{ _('reg_mail_title') }}</div>
+      <div class="reg-section-desc">{{ _('reg_mail_subtitle') | safe }}</div>
+      <div class="reg-grid-2">
         <div class="form-group">
-          <label>Resend API-Key</label>
+          <label>Resend API key</label>
           <input type="password" name="mail_api_key" placeholder="re_...">
         </div>
         <div class="form-group">
@@ -68,22 +225,23 @@
         </div>
       </div>
 
-      <div style="display:flex; gap:12px; margin-top:8px;">
-        <a href="/register/api" class="btn btn-secondary">← {{ _('reg_back') }}</a>
-        <button type="submit" class="btn btn-primary">{{ _('reg_next') }} →</button>
-        <a href="/register/optional" onclick="skipOptional(event)" class="btn btn-secondary" style="color:#6b7280;">
+      <div style="display:flex; gap:12px; margin-top:16px; flex-wrap:wrap;">
+        <a href="/register/api" class="reg-btn-secondary">← {{ _('reg_back') }}</a>
+        <button type="submit" class="reg-btn-primary">{{ _('reg_next') }} →</button>
+        <a href="/register/optional" onclick="skipOptional(event)" class="reg-btn-ghost">
           {{ _('reg_skip_optional') }} →
         </a>
       </div>
     </form>
+
   </div>
 </div>
 {% endblock %}
+
 {% block extra_scripts %}
 <script>
   function skipOptional(e) {
     e.preventDefault();
-    // Submit form with empty optional fields
     document.querySelector('form').submit();
   }
 </script>

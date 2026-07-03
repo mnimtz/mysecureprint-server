@@ -37,7 +37,7 @@
               onclick="return confirm('{{ _('bulk_mobile_invite_confirm') }}')">
         📨 {{ _('bulk_mobile_invite_btn') }}
       </button>
-      <span style="color:#6b7280;font-size:.85em;">
+      <span style="color:var(--text-muted);font-size:.85em;">
         <span id="bulkSelectedCount">0</span> {{ _('bulk_selected_suffix') }}
       </span>
     </div>
@@ -79,7 +79,7 @@
               <div style="display:flex; flex-direction:column; gap:2px;">
                 <strong style="font-size:.92em;">{{ u.relationship_name or '—' }}</strong>
                 {% if u.relationship_email %}
-                <span style="font-size:.8em; color:#6b7280;">{{ u.relationship_email }}</span>
+                <span style="font-size:.8em; color:var(--text-muted);">{{ u.relationship_email }}</span>
                 {% endif %}
               </div>
             {% else %}
@@ -87,7 +87,7 @@
                 <span class="badge badge-green">{{ _('admin_assignment_tenant_admin') }}</span>
                 <strong style="font-size:.92em;">{{ u.relationship_name or u.username }}</strong>
                 {% if u.relationship_email %}
-                <span style="font-size:.8em; color:#6b7280;">{{ u.relationship_email }}</span>
+                <span style="font-size:.8em; color:var(--text-muted);">{{ u.relationship_email }}</span>
                 {% endif %}
               </div>
             {% endif %}
@@ -98,7 +98,7 @@
                 🔷 Entra
               </span>
               {% if u.username %}
-                <div style="font-size:.78em;color:#6b7280;margin-top:2px;">
+                <div style="font-size:.78em;color:var(--text-muted);margin-top:2px;">
                   + {{ _('admin_login_pw') }}
                 </div>
               {% endif %}
@@ -121,17 +121,17 @@
             {% elif u.invitation_sent_at %}
               <span class="badge badge-yellow">✉️ {{ _('admin_invitation_open') }}</span>
             {% else %}
-              <span style="color:#6b7280; font-size:.85em;">—</span>
+              <span style="color:var(--text-muted); font-size:.85em;">—</span>
             {% endif %}
           </td>
-          <td style="font-size:.85em; color:#6b7280;">
+          <td style="font-size:.85em; color:var(--text-muted);">
             {{ u.created_at[:10] if u.created_at else '—' }}
           </td>
-          <td style="font-size:.85em;color:#6b7280;white-space:nowrap;">
+          <td style="font-size:.85em;color:var(--text-muted);white-space:nowrap;">
             {% if u.last_login_at %}
               {{ u.last_login_at[:16].replace('T', ' ') }}
               {% if u.last_login_method %}
-                <div style="font-size:.78em;color:#9ca3af;">
+                <div style="font-size:.78em;color:var(--text-faint);">
                   via {{ u.last_login_method }}
                 </div>
               {% endif %}
@@ -170,7 +170,7 @@
               </form>
               {% endif %}
             {% else %}
-              <span style="font-size:.78em; color:#9ca3af;">{{ _('admin_self') }}</span>
+              <span style="font-size:.78em; color:var(--text-faint);">{{ _('admin_self') }}</span>
             {% endif %}
           </td>
         </tr>

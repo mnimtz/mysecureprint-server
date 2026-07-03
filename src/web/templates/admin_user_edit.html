@@ -125,15 +125,15 @@
     {% if card_mappings %}
     <div style="margin-bottom:12px;">
       {% for cm in card_mappings %}
-      <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:6px;font-size:.88em;">
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;margin-bottom:6px;font-size:.88em;">
         <code style="flex:1;font-size:.95em;letter-spacing:.03em;">{{ cm.normalized_value or cm.final_value }}</code>
-        <span style="color:#6b7280;font-size:.82em;">{{ cm.source or '' }}</span>
-        <span style="color:#9ca3af;font-size:.78em;">{{ (cm.updated_at or '')[:10] }}</span>
+        <span style="color:var(--text-muted);font-size:.82em;">{{ cm.source or '' }}</span>
+        <span style="color:var(--text-faint);font-size:.78em;">{{ (cm.updated_at or '')[:10] }}</span>
       </div>
       {% endfor %}
     </div>
     {% else %}
-    <p style="font-size:.88em;color:#6b7280;margin-bottom:12px;">{{ _('admin_card_id_none') }}</p>
+    <p style="font-size:.88em;color:var(--text-muted);margin-bottom:12px;">{{ _('admin_card_id_none') }}</p>
     {% endif %}
 
     {% if target and target.email and target.printix_user_id %}
@@ -177,9 +177,9 @@
     }
     </script>
     {% elif target and target.printix_user_id %}
-    <p style="font-size:.82em;color:#6b7280;">{{ _('admin_card_id_no_email') }}</p>
+    <p style="font-size:.82em;color:var(--text-muted);">{{ _('admin_card_id_no_email') }}</p>
     {% else %}
-    <p style="font-size:.82em;color:#6b7280;">{{ _('admin_card_id_no_pxid') }}</p>
+    <p style="font-size:.82em;color:var(--text-muted);">{{ _('admin_card_id_no_pxid') }}</p>
     {% endif %}
 
     <div class="divider"></div>

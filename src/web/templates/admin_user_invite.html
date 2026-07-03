@@ -18,8 +18,8 @@
     {% if mobile_invite_url %}
     <div class="alert alert-info" style="margin-top:10px;">
       <div style="font-weight:600;margin-bottom:6px;">📱 {{ _('mobile_invite_url_label') }}</div>
-      <div style="font-size:.78em;color:#475569;margin-bottom:6px;">{{ _('mobile_invite_url_hint') }}</div>
-      <code style="display:block;background:#0f172a;color:#e2e8f0;padding:8px 12px;border-radius:6px;font-size:.78em;word-break:break-all;">{{ mobile_invite_url }}</code>
+      <div style="font-size:.78em;color:var(--text-muted);margin-bottom:6px;">{{ _('mobile_invite_url_hint') }}</div>
+      <code style="display:block;background:var(--text-strong);color:var(--border);padding:8px 12px;border-radius:6px;font-size:.78em;word-break:break-all;">{{ mobile_invite_url }}</code>
     </div>
     {% endif %}
     {% endif %}
@@ -62,12 +62,12 @@
         </select>
         <small class="hint">{{ _('admin_role_hint') }}</small>
       </div>
-      <div class="form-group" style="background:#f1f5f9;padding:12px;border-radius:8px;margin-bottom:14px;">
+      <div class="form-group" style="background:var(--border-subtle);padding:12px;border-radius:8px;margin-bottom:14px;">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
           <input type="checkbox" name="also_create_mobile_invite" value="on" checked>
           <span><strong>📱 {{ _('mobile_invite_also_create_label') }}</strong></span>
         </label>
-        <small class="hint" style="display:block;margin-top:4px;color:#64748b;">{{ _('mobile_invite_also_create_hint') }}</small>
+        <small class="hint" style="display:block;margin-top:4px;color:var(--text-muted);">{{ _('mobile_invite_also_create_hint') }}</small>
       </div>
       <div class="alert alert-info" style="margin-bottom:18px;">
         {{ _('admin_invite_info') }}

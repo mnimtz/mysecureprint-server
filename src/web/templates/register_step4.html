@@ -1,36 +1,219 @@
 {% extends "base.html" %}
+{% set show_nav = false %}
 {% block title %}{{ _('reg_title') }} — {{ _('reg_step4') }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  body {
+    background: linear-gradient(135deg, #00123B 0%, #002854 100%) !important;
+    min-height: 100vh;
+  }
+  .reg-stage {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px 60px;
+    background-image: repeating-linear-gradient(
+      65deg,
+      rgba(255,255,255,0.025) 0px,
+      rgba(255,255,255,0.025) 1px,
+      transparent 1px,
+      transparent 40px
+    );
+  }
+  .reg-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .reg-brand-row { display: flex; align-items: center; gap: 10px; }
+  .reg-brand-icon { width: 32px; height: 32px; flex-shrink: 0; }
+  .reg-brand-name {
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    font-size: 1.45rem; font-weight: 700; color: #ffffff;
+    letter-spacing: -0.02em; white-space: nowrap;
+  }
+  .reg-brand-accent { width: 40px; height: 3px; background: #00EB86; border-radius: 2px; }
+  .reg-card {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.30);
+    padding: 36px 32px 28px;
+    width: 100%;
+    max-width: 520px;
+  }
+  .steps { display: flex; align-items: center; margin-bottom: 28px; }
+  .step-item { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 0 0 auto; }
+  .step-circle {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.82rem; font-weight: 700;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+  }
+  .step-circle.active  { background: #00A0FB; color: #ffffff; }
+  .step-circle.done    { background: #00EB86; color: #00123B; }
+  .step-circle.pending { background: #D9DFE6; color: #8094AA; }
+  .step-label { font-size: 0.72rem; color: #8094AA; white-space: nowrap; font-family: 'Red Hat Display', Arial, sans-serif; }
+  .step-label.active { color: #002854; font-weight: 700; }
+  .step-connector { flex: 1; height: 2px; background: #D9DFE6; margin: 0 8px; align-self: center; margin-bottom: 22px; }
+  .reg-heading {
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    font-size: 1.1rem; font-weight: 700; color: #002854;
+    letter-spacing: -0.01em; margin-bottom: 4px;
+  }
+  .reg-sub { font-size: 0.84rem; color: #8094AA; margin-bottom: 22px; line-height: 1.5; }
+  .reg-card .alert { margin-bottom: 18px; border-radius: 8px; }
+
+  /* Summary table */
+  .reg-summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    font-size: 0.88rem;
+  }
+  .reg-summary-table tr {
+    border-bottom: 1px solid #eef1f5;
+  }
+  .reg-summary-table tr:last-child {
+    border-bottom: none;
+  }
+  .reg-summary-table th {
+    text-align: left;
+    padding: 10px 12px 10px 0;
+    font-weight: 600;
+    color: #8094AA;
+    width: 160px;
+    vertical-align: top;
+    white-space: nowrap;
+  }
+  .reg-summary-table td {
+    padding: 10px 0;
+    color: #231F20;
+    word-break: break-all;
+  }
+  .reg-summary-table code {
+    font-size: 0.82rem;
+    background: #f4f6f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #002854;
+  }
+
+  /* Badges */
+  .badge-green {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 10px; border-radius: 20px;
+    background: #e6faf3; color: #007a45;
+    font-size: 0.78rem; font-weight: 600;
+  }
+  .badge-yellow {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 10px; border-radius: 20px;
+    background: #fff8e1; color: #8a6200;
+    font-size: 0.78rem; font-weight: 600;
+  }
+
+  .reg-btn-primary {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 11px 20px; background: #002854; color: #ffffff;
+    border: none; border-radius: 8px; font-size: 0.92rem; font-weight: 700;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    cursor: pointer; transition: background 0.15s, box-shadow 0.15s; text-decoration: none;
+  }
+  .reg-btn-primary:hover { background: #003A6E; box-shadow: 0 4px 14px rgba(0,40,84,0.25); }
+  .reg-btn-secondary {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 11px 20px; background: #f4f6f9; color: #002854;
+    border: 1.5px solid #D9DFE6; border-radius: 8px;
+    font-size: 0.92rem; font-weight: 600;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    cursor: pointer; transition: background 0.15s, border-color 0.15s; text-decoration: none;
+  }
+  .reg-btn-secondary:hover { background: #e8ecf2; border-color: #b0b8c8; }
+  body footer {
+    background: transparent !important;
+    border-top-color: rgba(255,255,255,0.08) !important;
+    color: rgba(255,255,255,0.35) !important;
+    margin-top: 0 !important; padding-top: 0 !important; padding-bottom: 20px !important;
+  }
+  body footer a { color: rgba(255,255,255,0.45) !important; }
+  body footer a:hover { color: rgba(255,255,255,0.75) !important; }
+  @media (max-width: 560px) {
+    .reg-card { padding: 28px 20px 22px; }
+    .reg-brand-name { font-size: 1.25rem; }
+    .step-label { display: none; }
+    .reg-summary-table th { width: 120px; }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container">
-  <div class="card">
+<div class="reg-stage">
+
+  <div class="reg-brand">
+    <div class="reg-brand-row">
+      <img src="/logo/icon.png" alt="MySecurePrint" class="reg-brand-icon">
+      <span class="reg-brand-name">MySecurePrint</span>
+    </div>
+    <div class="reg-brand-accent"></div>
+  </div>
+
+  <div class="reg-card">
+
     <div class="steps">
-      <div class="step-item"><div class="step-circle done">✓</div><span class="step-label">{{ _('reg_step1') }}</span></div>
+      <div class="step-item">
+        <div class="step-circle done">✓</div>
+        <span class="step-label">{{ _('reg_step1') }}</span>
+      </div>
       <div class="step-connector"></div>
-      <div class="step-item"><div class="step-circle done">✓</div><span class="step-label">{{ _('reg_step2') }}</span></div>
+      <div class="step-item">
+        <div class="step-circle done">✓</div>
+        <span class="step-label">{{ _('reg_step2') }}</span>
+      </div>
       <div class="step-connector"></div>
-      <div class="step-item"><div class="step-circle done">✓</div><span class="step-label">{{ _('reg_step3') }}</span></div>
+      <div class="step-item">
+        <div class="step-circle done">✓</div>
+        <span class="step-label">{{ _('reg_step3') }}</span>
+      </div>
       <div class="step-connector"></div>
-      <div class="step-item"><div class="step-circle active">4</div><span class="step-label active">{{ _('reg_step4') }}</span></div>
+      <div class="step-item">
+        <div class="step-circle active">4</div>
+        <span class="step-label active">{{ _('reg_step4') }}</span>
+      </div>
     </div>
 
-    <div class="section-title">{{ _('reg_summary_title') }}</div>
-    <div class="section-sub">{{ _('reg_summary_subtitle') }}</div>
+    <div class="reg-heading">{{ _('reg_summary_title') }}</div>
+    <div class="reg-sub">{{ _('reg_summary_subtitle') }}</div>
 
     {% if error %}
     <div class="alert alert-error">{{ error }}</div>
     {% endif %}
 
-    <table style="margin-bottom:24px;">
-      <tr><th style="width:180px;">{{ _('reg_username') }}</th><td>{{ username }}</td></tr>
-      <tr><th>{{ _('reg_summary_tenant') }}</th><td>{{ tenant_name or tenant_id }}</td></tr>
-      <tr><th>Printix Tenant-ID</th><td><code>{{ tenant_id }}</code></td></tr>
+    <table class="reg-summary-table">
+      <tr>
+        <th>{{ _('reg_username') }}</th>
+        <td>{{ username }}</td>
+      </tr>
+      <tr>
+        <th>{{ _('reg_summary_tenant') }}</th>
+        <td>{{ tenant_name or tenant_id }}</td>
+      </tr>
+      <tr>
+        <th>Printix Tenant-ID</th>
+        <td><code>{{ tenant_id }}</code></td>
+      </tr>
       <tr>
         <th>{{ _('reg_summary_sql') }}</th>
         <td>
           {% if sql_configured %}
-          <span class="badge badge-green">✓ {{ _('common_configured') }}</span>
+          <span class="badge-green">✓ {{ _('common_configured') }}</span>
           {% else %}
-          <span class="badge badge-yellow">{{ _('common_not_configured') }}</span>
+          <span class="badge-yellow">{{ _('common_not_configured') }}</span>
           {% endif %}
         </td>
       </tr>
@@ -38,25 +221,29 @@
         <th>{{ _('reg_summary_mail') }}</th>
         <td>
           {% if mail_configured %}
-          <span class="badge badge-green">✓ {{ _('common_configured') }}</span>
+          <span class="badge-green">✓ {{ _('common_configured') }}</span>
           {% else %}
-          <span class="badge badge-yellow">{{ _('common_not_configured') }}</span>
+          <span class="badge-yellow">{{ _('common_not_configured') }}</span>
           {% endif %}
         </td>
       </tr>
-      <tr><th>{{ _('reg_summary_server_url') }}</th><td><code>{{ base_url }}</code></td></tr>
+      <tr>
+        <th>{{ _('reg_summary_server_url') }}</th>
+        <td><code>{{ base_url }}</code></td>
+      </tr>
     </table>
 
-    <div class="alert alert-info">
+    <div class="alert alert-info" style="margin-bottom: 24px;">
       {{ _('reg_summary_complete_hint') | safe }}
     </div>
 
     <form method="post" action="/register/summary">
       <div style="display:flex; gap:12px;">
-        <a href="/register/optional" class="btn btn-secondary">← {{ _('reg_back') }}</a>
-        <button type="submit" class="btn btn-primary">🚀 {{ _('reg_summary_finish') }}</button>
+        <a href="/register/optional" class="reg-btn-secondary">← {{ _('reg_back') }}</a>
+        <button type="submit" class="reg-btn-primary">{{ _('reg_summary_finish') }}</button>
       </div>
     </form>
+
   </div>
 </div>
 {% endblock %}

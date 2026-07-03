@@ -11,73 +11,73 @@
     </div>
     {% endif %}
 
-    <p style="margin: 16px 0 24px; color: #334155;">{{ _('legal_priv_intro') | safe }}</p>
+    <p style="margin: 16px 0 24px; color: var(--text);">{{ _('legal_priv_intro') | safe }}</p>
 
     {# 1 — Controller #}
     <h2 style="color: var(--ta-navy); margin-top: 28px; font-size: 1.15em;">{{ _('legal_priv_section_who') }}</h2>
-    <p style="color: #334155;">{{ _('legal_priv_who_body') | safe }}</p>
-    <div style="background: #f8fafc; padding: 14px 18px; border-radius: 8px; border-left: 3px solid var(--ta-navy); margin-top: 10px;">
+    <p style="color: var(--text);">{{ _('legal_priv_who_body') | safe }}</p>
+    <div style="background: var(--bg); padding: 14px 18px; border-radius: 8px; border-left: 3px solid var(--ta-navy); margin-top: 10px;">
       <div style="font-weight: 700; color: var(--ta-navy);">{{ legal.operator_name or _('legal_not_configured') }}</div>
-      {% if legal.operator_address %}<div style="white-space: pre-line; color: #475569; margin-top: 4px;">{{ legal.operator_address }}</div>{% endif %}
+      {% if legal.operator_address %}<div style="white-space: pre-line; color: var(--text-muted); margin-top: 4px;">{{ legal.operator_address }}</div>{% endif %}
       {% if legal.operator_email %}<div style="margin-top: 6px;"><strong>{{ _('legal_imp_email') }}:</strong> <a href="mailto:{{ legal.operator_email }}">{{ legal.operator_email }}</a></div>{% endif %}
       {% if legal.operator_phone %}<div><strong>{{ _('legal_imp_phone') }}:</strong> {{ legal.operator_phone }}</div>{% endif %}
     </div>
 
     {# 2 — Data we collect #}
     <h2 style="color: var(--ta-navy); margin-top: 28px; font-size: 1.15em;">{{ _('legal_priv_section_what') }}</h2>
-    <div style="color: #334155;">{{ _('legal_priv_what_body') | safe }}</div>
+    <div style="color: var(--text);">{{ _('legal_priv_what_body') | safe }}</div>
 
     {# 3 — Use #}
     <h2 style="color: var(--ta-navy); margin-top: 28px; font-size: 1.15em;">{{ _('legal_priv_section_use') }}</h2>
-    <p style="color: #334155;">{{ _('legal_priv_use_body') | safe }}</p>
+    <p style="color: var(--text);">{{ _('legal_priv_use_body') | safe }}</p>
 
     {# 4 — Storage #}
     <h2 style="color: var(--ta-navy); margin-top: 28px; font-size: 1.15em;">{{ _('legal_priv_section_storage') }}</h2>
-    <p style="color: #334155;">{{ _('legal_priv_storage_body') | safe }}</p>
+    <p style="color: var(--text);">{{ _('legal_priv_storage_body') | safe }}</p>
 
     {# 5 — Sharing #}
     <h2 style="color: var(--ta-navy); margin-top: 28px; font-size: 1.15em;">{{ _('legal_priv_section_sharing') }}</h2>
-    <div style="color: #334155;">{{ _('legal_priv_sharing_body') | safe }}</div>
+    <div style="color: var(--text);">{{ _('legal_priv_sharing_body') | safe }}</div>
 
     {# 6 — Retention #}
     <h2 style="color: var(--ta-navy); margin-top: 28px; font-size: 1.15em;">{{ _('legal_priv_section_retention') }}</h2>
-    <p style="color: #334155;">{{ _('legal_priv_retention_body') | safe }}</p>
+    <p style="color: var(--text);">{{ _('legal_priv_retention_body') | safe }}</p>
 
     {# 7 — Rights #}
     <h2 style="color: var(--ta-navy); margin-top: 28px; font-size: 1.15em;">{{ _('legal_priv_section_rights') }}</h2>
-    <div style="color: #334155;">{{ _('legal_priv_rights_body') | safe }}</div>
+    <div style="color: var(--text);">{{ _('legal_priv_rights_body') | safe }}</div>
 
     {# 8 — Contact #}
     <h2 style="color: var(--ta-navy); margin-top: 28px; font-size: 1.15em;">{{ _('legal_priv_section_contact') }}</h2>
-    <p style="color: #334155;">{{ _('legal_priv_contact_body') | safe }}</p>
+    <p style="color: var(--text);">{{ _('legal_priv_contact_body') | safe }}</p>
     {% if legal.operator_email %}
-    <p style="color: #334155;"><strong>{{ _('legal_imp_email') }}:</strong> <a href="mailto:{{ legal.operator_email }}">{{ legal.operator_email }}</a></p>
+    <p style="color: var(--text);"><strong>{{ _('legal_imp_email') }}:</strong> <a href="mailto:{{ legal.operator_email }}">{{ legal.operator_email }}</a></p>
     {% endif %}
     {% if legal.data_protection_officer %}
-    <p style="color: #334155;"><strong>{{ _('legal_imp_dpo') }}:</strong> {{ legal.data_protection_officer }}</p>
+    <p style="color: var(--text);"><strong>{{ _('legal_imp_dpo') }}:</strong> {{ legal.data_protection_officer }}</p>
     {% endif %}
 
     {# 9 — Supervisory authority #}
     <h2 style="color: var(--ta-navy); margin-top: 28px; font-size: 1.15em;">{{ _('legal_priv_section_authority') }}</h2>
-    <p style="color: #334155;">{{ _('legal_priv_authority_body') | safe }}</p>
+    <p style="color: var(--text);">{{ _('legal_priv_authority_body') | safe }}</p>
     {% if legal.supervisory_authority %}
-    <div style="background: #f8fafc; padding: 12px 16px; border-radius: 8px; margin-top: 8px; color: #334155;">
+    <div style="background: var(--bg); padding: 12px 16px; border-radius: 8px; margin-top: 8px; color: var(--text);">
       {{ legal.supervisory_authority }}
     </div>
     {% else %}
-    <p style="color: #475569; font-size: .9em;">{{ _('legal_priv_authority_default') | safe }}</p>
+    <p style="color: var(--text-muted); font-size: .9em;">{{ _('legal_priv_authority_default') | safe }}</p>
     {% endif %}
 
     {# 10 — Changes #}
     <h2 style="color: var(--ta-navy); margin-top: 28px; font-size: 1.15em;">{{ _('legal_priv_section_changes') }}</h2>
-    <p style="color: #334155;">{{ _('legal_priv_changes_body') | safe }}</p>
+    <p style="color: var(--text);">{{ _('legal_priv_changes_body') | safe }}</p>
 
     {# 11 — iOS app #}
     <h2 style="color: var(--ta-navy); margin-top: 28px; font-size: 1.15em;">{{ _('legal_priv_section_ios') }}</h2>
-    <div style="color: #334155;">{{ _('legal_priv_ios_body') | safe }}</div>
+    <div style="color: var(--text);">{{ _('legal_priv_ios_body') | safe }}</div>
 
     <div class="divider"></div>
-    <p style="color: #6b7280; font-size: .85em; text-align: right;">
+    <p style="color: var(--text-muted); font-size: .85em; text-align: right;">
       {{ _('legal_last_updated') }}: <strong>{{ legal_last_updated }}</strong> · v{{ app_version }}
     </p>
   </div>

@@ -87,7 +87,7 @@
           <div style="background: var(--code-bg); color: var(--code-text); border-radius: var(--radius-sm); padding:10px; font-family: var(--font-mono); font-size:.85em; word-break:break-all; margin-top:4px;">
             <span id="oauth-secret-mask">••••••••••••••••</span>
             <span id="oauth-secret-real" style="display:none;">{{ tenant.oauth_client_secret }}</span>
-            <button type="button" onclick="toggleOauthSecret()" style="float:right; background: transparent; border:1px solid #475569; color: #cbd5e1; padding:2px 8px; border-radius:4px; font-size:.75em; cursor:pointer;">
+            <button type="button" onclick="toggleOauthSecret()" style="float:right; background: transparent; border:1px solid var(--text-muted); color: var(--border); padding:2px 8px; border-radius:4px; font-size:.75em; cursor:pointer;">
               {{ _('account_show_hide') }}
             </button>
           </div>
@@ -126,7 +126,7 @@
         <td style="padding:8px 10px;">
           {% if user.is_admin %}<span style="background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:999px; font-size:.78em; font-weight:700;">Admin</span>
           {% elif user.role_type == 'employee' %}<span style="background:#e0f2fe; color:#075985; padding:2px 8px; border-radius:999px; font-size:.78em; font-weight:700;">Employee</span>
-          {% else %}<span style="background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:999px; font-size:.78em; font-weight:700;">User</span>
+          {% else %}<span style="background:var(--border-subtle); color:var(--text-muted); padding:2px 8px; border-radius:999px; font-size:.78em; font-weight:700;">User</span>
           {% endif %}
         </td>
       </tr>

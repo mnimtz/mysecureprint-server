@@ -6,7 +6,7 @@
   <h1 style="color: var(--ta-navy); font-size: 1.8em; font-weight: 800; margin-bottom: 4px;">
     👥 {{ _('groups_title') }}
   </h1>
-  <p style="color: #64748b; margin-bottom: 24px;">{{ _('groups_intro') }}</p>
+  <p style="color: var(--text-muted); margin-bottom: 24px;">{{ _('groups_intro') }}</p>
 
   {% if request.query_params.get('ok') == 'saved' %}
     <div class="alert alert-success" style="margin-bottom: 16px;">✓ {{ _('groups_saved') }}</div>
@@ -27,7 +27,7 @@
 
   <div class="card">
     <h2 class="section-title">{{ _('groups_table_title') }}</h2>
-    <p style="color:#64748b; margin-bottom: 16px;">{{ _('groups_table_intro') }}</p>
+    <p style="color:var(--text-muted); margin-bottom: 16px;">{{ _('groups_table_intro') }}</p>
 
     <table style="width:100%; border-collapse:collapse;">
       <thead>
@@ -43,13 +43,13 @@
         <tr style="border-top:1px solid var(--ta-gray-200);">
           <td style="padding:12px 10px;">
             <strong>{{ g.name }}</strong>
-            {% if g.description %}<br><small style="color:#64748b;">{{ g.description }}</small>{% endif %}
+            {% if g.description %}<br><small style="color:var(--text-muted);">{{ g.description }}</small>{% endif %}
           </td>
           <td style="padding:12px 10px; font-family:monospace; font-size:.88em;">
             {% if current %}
               <span style="color:#16a34a;">●</span> {{ current.queue_label or current.queue_id }}
             {% else %}
-              <span style="color:#94a3b8;">{{ _('groups_no_override') }}</span>
+              <span style="color:var(--text-faint);">{{ _('groups_no_override') }}</span>
             {% endif %}
           </td>
           <td style="padding:12px 10px; text-align:center;">
@@ -81,8 +81,8 @@
 
   <div class="card" style="margin-top: 24px;">
     <h2 class="section-title">{{ _('groups_hierarchy_title') }}</h2>
-    <p style="color:#64748b; margin-bottom: 12px;">{{ _('groups_hierarchy_intro') }}</p>
-    <ol style="color:#475569; line-height:1.7; padding-left:20px;">
+    <p style="color:var(--text-muted); margin-bottom: 12px;">{{ _('groups_hierarchy_intro') }}</p>
+    <ol style="color:var(--text-muted); line-height:1.7; padding-left:20px;">
       <li><strong>{{ _('groups_tier_user') }}</strong> — {{ _('groups_tier_user_desc') }}</li>
       <li><strong>{{ _('groups_tier_group') }}</strong> — {{ _('groups_tier_group_desc') }}</li>
       <li><strong>{{ _('groups_tier_global') }}</strong> — {{ _('groups_tier_global_desc') }} <a href="/admin/settings#queue">/admin/settings#queue</a>.</li>

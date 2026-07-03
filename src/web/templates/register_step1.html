@@ -1,37 +1,340 @@
 {% extends "base.html" %}
+{% set show_nav = false %}
 {% block title %}{{ _('reg_title') }} — {{ _('reg_step1') }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ── Register pages: deep navy background ── */
+  body {
+    background: linear-gradient(135deg, #00123B 0%, #002854 100%) !important;
+    min-height: 100vh;
+  }
+
+  /* ── Full-page stage ── */
+  .reg-stage {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px 60px;
+    background-image: repeating-linear-gradient(
+      65deg,
+      rgba(255,255,255,0.025) 0px,
+      rgba(255,255,255,0.025) 1px,
+      transparent 1px,
+      transparent 40px
+    );
+  }
+
+  /* ── Brand lockup ── */
+  .reg-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .reg-brand-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .reg-brand-icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+  .reg-brand-name {
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+  .reg-brand-accent {
+    width: 40px;
+    height: 3px;
+    background: #00EB86;
+    border-radius: 2px;
+  }
+
+  /* ── Content card ── */
+  .reg-card {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.30);
+    padding: 36px 32px 28px;
+    width: 100%;
+    max-width: 520px;
+  }
+
+  /* ── Step indicator ── */
+  .steps {
+    display: flex;
+    align-items: center;
+    margin-bottom: 28px;
+  }
+  .step-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+  }
+  .step-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.82rem;
+    font-weight: 700;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+  }
+  .step-circle.active {
+    background: #00A0FB;
+    color: #ffffff;
+  }
+  .step-circle.done {
+    background: #00EB86;
+    color: #00123B;
+  }
+  .step-circle.pending {
+    background: #D9DFE6;
+    color: #8094AA;
+  }
+  .step-label {
+    font-size: 0.72rem;
+    color: #8094AA;
+    white-space: nowrap;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+  }
+  .step-label.active {
+    color: #002854;
+    font-weight: 700;
+  }
+  .step-connector {
+    flex: 1;
+    height: 2px;
+    background: #D9DFE6;
+    margin: 0 8px;
+    align-self: center;
+    margin-bottom: 22px;
+  }
+
+  /* ── Section headings inside card ── */
+  .reg-heading {
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #002854;
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+  .reg-sub {
+    font-size: 0.84rem;
+    color: #8094AA;
+    margin-bottom: 22px;
+    line-height: 1.5;
+  }
+
+  /* ── Disclaimer box ── */
+  .reg-disclaimer {
+    margin-bottom: 18px;
+    padding: 12px 14px;
+    border: 1px dashed #D9DFE6;
+    border-radius: 8px;
+    background: #f8fafc;
+    font-size: 0.73rem;
+    line-height: 1.55;
+    color: #8094AA;
+  }
+  .reg-disclaimer-heading {
+    font-weight: 700;
+    color: #8094AA;
+    margin-bottom: 6px;
+  }
+
+  /* ── Alerts ── */
+  .reg-card .alert {
+    margin-bottom: 18px;
+    border-radius: 8px;
+  }
+
+  /* ── Form ── */
+  .reg-card .form-group {
+    margin-bottom: 16px;
+  }
+  .reg-card label {
+    display: block;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #002854;
+    margin-bottom: 6px;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+  }
+  .reg-card input[type="text"],
+  .reg-card input[type="email"],
+  .reg-card input[type="password"] {
+    width: 100%;
+    padding: 10px 13px;
+    border: 1.5px solid #D9DFE6;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    color: #231F20;
+    background: #ffffff;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+  }
+  .reg-card input:focus {
+    outline: none;
+    border-color: #00A0FB;
+    box-shadow: 0 0 0 3px rgba(0,160,251,0.15);
+  }
+  .reg-card .hint {
+    display: block;
+    font-size: 0.76rem;
+    color: #8094AA;
+    margin-top: 4px;
+  }
+
+  /* ── Buttons ── */
+  .reg-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 11px 20px;
+    background: #002854;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+    text-decoration: none;
+  }
+  .reg-btn-primary:hover {
+    background: #003A6E;
+    box-shadow: 0 4px 14px rgba(0,40,84,0.25);
+  }
+  .reg-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 11px 20px;
+    background: #f4f6f9;
+    color: #002854;
+    border: 1.5px solid #D9DFE6;
+    border-radius: 8px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    text-decoration: none;
+  }
+  .reg-btn-secondary:hover {
+    background: #e8ecf2;
+    border-color: #b0b8c8;
+  }
+
+  /* ── Login link row ── */
+  .reg-login-row {
+    margin-top: 18px;
+    font-size: 0.84rem;
+    color: #8094AA;
+  }
+  .reg-login-row a {
+    color: #00A0FB;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .reg-login-row a:hover {
+    color: #0090E0;
+    text-decoration: underline;
+  }
+
+  /* ── Footer on dark bg ── */
+  body footer {
+    background: transparent !important;
+    border-top-color: rgba(255,255,255,0.08) !important;
+    color: rgba(255,255,255,0.35) !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 20px !important;
+  }
+  body footer a {
+    color: rgba(255,255,255,0.45) !important;
+  }
+  body footer a:hover {
+    color: rgba(255,255,255,0.75) !important;
+  }
+
+  @media (max-width: 560px) {
+    .reg-card { padding: 28px 20px 22px; }
+    .reg-brand-name { font-size: 1.25rem; }
+    .step-label { display: none; }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container">
-  <div class="card">
+<div class="reg-stage">
+
+  <!-- Brand lockup -->
+  <div class="reg-brand">
+    <div class="reg-brand-row">
+      <img src="/logo/icon.png" alt="MySecurePrint" class="reg-brand-icon">
+      <span class="reg-brand-name">MySecurePrint</span>
+    </div>
+    <div class="reg-brand-accent"></div>
+  </div>
+
+  <!-- Content card -->
+  <div class="reg-card">
+
+    <!-- Step indicator -->
     <div class="steps">
-      <div class="step-item"><div class="step-circle active">1</div><span class="step-label active">{{ _('reg_step1') }}</span></div>
+      <div class="step-item">
+        <div class="step-circle active">1</div>
+        <span class="step-label active">{{ _('reg_step1') }}</span>
+      </div>
       <div class="step-connector"></div>
-      <div class="step-item"><div class="step-circle pending">2</div><span class="step-label">{{ _('reg_step2') }}</span></div>
+      <div class="step-item">
+        <div class="step-circle pending">2</div>
+        <span class="step-label">{{ _('reg_step2') }}</span>
+      </div>
       <div class="step-connector"></div>
-      <div class="step-item"><div class="step-circle pending">3</div><span class="step-label">{{ _('reg_step3') }}</span></div>
+      <div class="step-item">
+        <div class="step-circle pending">3</div>
+        <span class="step-label">{{ _('reg_step3') }}</span>
+      </div>
       <div class="step-connector"></div>
-      <div class="step-item"><div class="step-circle pending">4</div><span class="step-label">{{ _('reg_step4') }}</span></div>
+      <div class="step-item">
+        <div class="step-circle pending">4</div>
+        <span class="step-label">{{ _('reg_step4') }}</span>
+      </div>
     </div>
 
-    <div class="section-title">{{ _('reg_account_create') }}</div>
-    <div class="section-sub">{{ _('reg_account_subtitle') }}</div>
+    <div class="reg-heading">{{ _('reg_account_create') }}</div>
+    <div class="reg-sub">{{ _('reg_account_subtitle') }}</div>
 
-    <div style="margin:14px 0 18px; padding:12px 14px; border:1px dashed #d1d5db;
-                border-radius:8px; background:#fafafa;
-                font-size:.78em; line-height:1.5; color:#6b7280;">
-      <div style="font-weight:600; color:#4b5563; margin-bottom:4px;">
-        ⚠️ Hinweis · Disclaimer
-      </div>
-      <div style="margin-bottom:6px;">
-        <strong>DE:</strong> Privates Entwicklungsprojekt — <u>keine offizielle
-        Printix-Seite</u>. Beispielimplementierung der öffentlichen Printix-API.
-        Nutzung auf eigene Gefahr; keine Gewährleistung, kein Support, keine Haftung.
-      </div>
-      <div>
-        <strong>EN:</strong> Private development project — <u>not an official
-        Printix site</u>. Example implementation of the public Printix API.
-        Use at your own risk; no warranty, no support, no liability.
-      </div>
+    <!-- Disclaimer -->
+    <div class="reg-disclaimer">
+      <div class="reg-disclaimer-heading">&#9888;&#xFE0E; Hinweis · Disclaimer</div>
+      <p style="margin-bottom:5px;"><strong>DE:</strong> Privates Entwicklungsprojekt — <u>keine offizielle
+      Printix-Seite</u>. Beispielimplementierung der öffentlichen Printix-API.
+      Nutzung auf eigene Gefahr; keine Gewährleistung, kein Support, keine Haftung.</p>
+      <p><strong>EN:</strong> Private development project — <u>not an official
+      Printix site</u>. Example implementation of the public Printix API.
+      Use at your own risk; no warranty, no support, no liability.</p>
     </div>
 
     {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
@@ -68,11 +371,13 @@
         <input type="password" id="password2" name="password2"
                placeholder="{{ _('reg_password2') }}" required autocomplete="new-password">
       </div>
-      <button type="submit" class="btn btn-primary">{{ _('reg_next') }} →</button>
+      <button type="submit" class="reg-btn-primary">{{ _('reg_next') }} →</button>
     </form>
-    <div style="margin-top: 20px; font-size: .85em; color: #6b7280;">
-      {{ _('reg_already_registered') }} <a href="/login" style="color: #00A0FB;">{{ _('nav_login') }}</a>
+
+    <div class="reg-login-row">
+      {{ _('reg_already_registered') }} <a href="/login">{{ _('nav_login') }}</a>
     </div>
   </div>
+
 </div>
 {% endblock %}

@@ -14,8 +14,8 @@
     font-size: 2.1em; color: var(--ta-navy); margin: 8px 0 6px;
     font-weight: 900; letter-spacing: -0.5px;
   }
-  .welcome-header .subtitle { color: #475569; font-size: 1.05em; margin-bottom: 4px; }
-  .welcome-header .version  { color: #94a3b8; font-size: .85em; font-family: monospace; }
+  .welcome-header .subtitle { color: var(--text-muted); font-size: 1.05em; margin-bottom: 4px; }
+  .welcome-header .version  { color: var(--text-faint); font-size: .85em; font-family: monospace; }
   .welcome-header .brand-mark { display:block; max-width:360px; margin:0 auto; }
 
   .info-grid {
@@ -46,10 +46,10 @@
     padding: 8px; text-align: center;
   }
   .qr-box svg { width: 100%; height: auto; max-width: 200px; display:block; margin:0 auto; }
-  .qr-caption { font-size: .8em; color: #64748b; margin-top: 8px; text-align: center; }
+  .qr-caption { font-size: .8em; color: var(--text-muted); margin-top: 8px; text-align: center; }
   .setup-steps { list-style: none; padding: 0; margin: 0; }
   .setup-steps li {
-    padding: 8px 0 8px 32px; position: relative; color: #334155; font-size: .95em;
+    padding: 8px 0 8px 32px; position: relative; color: var(--text); font-size: .95em;
     counter-increment: step;
   }
   .setup-steps li::before {
@@ -76,7 +76,7 @@
   .status-dot.miss  { background: #ef4444; }
   .status-label { flex: 1; color: var(--ta-navy-dark); font-weight: 600; }
   .status-state {
-    font-size: .85em; color: #64748b; font-family: monospace;
+    font-size: .85em; color: var(--text-muted); font-family: monospace;
     margin-right: 12px;
   }
   .status-link {
@@ -127,7 +127,7 @@
         <div class="url-pill">
           <span id="serverUrl" style="flex:1;">{{ base_url or '—' }}</span>
         </div>
-        <p style="margin-top:14px; font-size:.85em; color:#64748b;">
+        <p style="margin-top:14px; font-size:.85em; color:var(--text-muted);">
           {{ _('welcome_app_link_label') }}:
           <a href="{{ app_store_url }}" target="_blank" rel="noopener"
              style="display:inline-flex;align-items:center;gap:5px;color:var(--ta-cyan-dark);font-weight:500;">
@@ -145,7 +145,7 @@
           {% if qr_svg %}
             {{ qr_svg | safe }}
           {% else %}
-            <div style="padding:60px 10px; color:#94a3b8; font-size:.85em;">
+            <div style="padding:60px 10px; color:var(--text-faint); font-size:.85em;">
               {{ _('welcome_qr_unavailable') }}
             </div>
           {% endif %}

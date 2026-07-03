@@ -34,15 +34,15 @@
       </div>
       {% endif %}
 
-      <div style="background:#f7f9fb; padding:14px; border-radius:8px; font-size:.9em; margin-bottom:16px;">
-        <div style="font-weight:600; color:#003366; margin-bottom:8px;">{{ _('tls_cert_details') }}</div>
+      <div style="background:var(--bg); padding:14px; border-radius:8px; font-size:.9em; margin-bottom:16px;">
+        <div style="font-weight:600; color:var(--primary); margin-bottom:8px;">{{ _('tls_cert_details') }}</div>
         <table style="width:100%;">
-          <tr><td style="padding:4px 12px; font-weight:600; color:#003366; vertical-align:top; width:140px;">{{ _('tls_subject') }}</td><td style="padding:4px 12px; word-break:break-all;"><code>{{ cert_info.subject }}</code></td></tr>
-          <tr><td style="padding:4px 12px; font-weight:600; color:#003366; vertical-align:top;">{{ _('tls_issuer') }}</td><td style="padding:4px 12px; word-break:break-all;"><code>{{ cert_info.issuer }}</code></td></tr>
-          <tr><td style="padding:4px 12px; font-weight:600; color:#003366; vertical-align:top;">{{ _('tls_valid_from') }}</td><td style="padding:4px 12px;">{{ cert_info.not_before }}</td></tr>
-          <tr><td style="padding:4px 12px; font-weight:600; color:#003366; vertical-align:top;">{{ _('tls_valid_until') }}</td><td style="padding:4px 12px;">{{ cert_info.not_after }}</td></tr>
+          <tr><td style="padding:4px 12px; font-weight:600; color:var(--primary); vertical-align:top; width:140px;">{{ _('tls_subject') }}</td><td style="padding:4px 12px; word-break:break-all;"><code>{{ cert_info.subject }}</code></td></tr>
+          <tr><td style="padding:4px 12px; font-weight:600; color:var(--primary); vertical-align:top;">{{ _('tls_issuer') }}</td><td style="padding:4px 12px; word-break:break-all;"><code>{{ cert_info.issuer }}</code></td></tr>
+          <tr><td style="padding:4px 12px; font-weight:600; color:var(--primary); vertical-align:top;">{{ _('tls_valid_from') }}</td><td style="padding:4px 12px;">{{ cert_info.not_before }}</td></tr>
+          <tr><td style="padding:4px 12px; font-weight:600; color:var(--primary); vertical-align:top;">{{ _('tls_valid_until') }}</td><td style="padding:4px 12px;">{{ cert_info.not_after }}</td></tr>
           {% if cert_info.san %}
-          <tr><td style="padding:4px 12px; font-weight:600; color:#003366; vertical-align:top;">{{ _('tls_san') }}</td><td style="padding:4px 12px;">{% for s in cert_info.san %}<code>{{ s }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</td></tr>
+          <tr><td style="padding:4px 12px; font-weight:600; color:var(--primary); vertical-align:top;">{{ _('tls_san') }}</td><td style="padding:4px 12px;">{% for s in cert_info.san %}<code>{{ s }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</td></tr>
           {% endif %}
         </table>
       </div>
@@ -68,9 +68,9 @@
   </div>
 
   <!-- ── Use cases ──────────────────────────────────────────────────────── -->
-  <div class="card" style="margin-bottom:20px; background:#f7f9fb;">
+  <div class="card" style="margin-bottom:20px; background:var(--bg);">
     <div class="section-title" style="margin-bottom:8px; font-size:1em;">📚 {{ _('tls_when_use') }}</div>
-    <div style="font-size:.92em; color:#444; line-height:1.6;">{{ _('tls_when_use_body') | safe }}</div>
+    <div style="font-size:.92em; color:var(--text); line-height:1.6;">{{ _('tls_when_use_body') | safe }}</div>
   </div>
 
   <!-- ── Form ───────────────────────────────────────────────────────────── -->
@@ -80,23 +80,23 @@
 
     <form method="post" action="/admin/tls/save" style="display:flex; flex-direction:column; gap:14px;">
       <div>
-        <label style="display:block; font-weight:600; color:#003366; margin-bottom:4px;">
+        <label style="display:block; font-weight:600; color:var(--primary); margin-bottom:4px;">
           {{ _('tls_cert_label') }}
         </label>
         <textarea name="cert_pem" required rows="10"
                   placeholder="-----BEGIN CERTIFICATE-----&#10;MIIDXTCCAkWgAwIBAgIJAJ...&#10;-----END CERTIFICATE-----"
-                  style="width:100%; font-family:monospace; font-size:.82em; padding:8px; border:1px solid #ccc; border-radius:6px;"></textarea>
-        <div style="font-size:.78em; color:#666; margin-top:4px;">{{ _('tls_cert_hint') | safe }}</div>
+                  style="width:100%; font-family:monospace; font-size:.82em; padding:8px; border:1px solid var(--border); border-radius:6px;"></textarea>
+        <div style="font-size:.78em; color:var(--text-muted); margin-top:4px;">{{ _('tls_cert_hint') | safe }}</div>
       </div>
 
       <div>
-        <label style="display:block; font-weight:600; color:#003366; margin-bottom:4px;">
+        <label style="display:block; font-weight:600; color:var(--primary); margin-bottom:4px;">
           {{ _('tls_key_label') }}
         </label>
         <textarea name="key_pem" required rows="10"
                   placeholder="-----BEGIN PRIVATE KEY-----&#10;MIIEvQIBADANBgkqh...&#10;-----END PRIVATE KEY-----"
-                  style="width:100%; font-family:monospace; font-size:.82em; padding:8px; border:1px solid #ccc; border-radius:6px;"></textarea>
-        <div style="font-size:.78em; color:#666; margin-top:4px;">{{ _('tls_key_hint') | safe }}</div>
+                  style="width:100%; font-family:monospace; font-size:.82em; padding:8px; border:1px solid var(--border); border-radius:6px;"></textarea>
+        <div style="font-size:.78em; color:var(--text-muted); margin-top:4px;">{{ _('tls_key_hint') | safe }}</div>
       </div>
 
       <div style="padding:10px 14px; background:#fef3c7; border-left:3px solid #f59e0b; border-radius:4px; font-size:.86em; color:#78350f;">
@@ -113,8 +113,8 @@
 
   <!-- Important caveats -->
   <details class="card" style="margin-bottom:20px;">
-    <summary style="cursor:pointer; font-weight:600; color:#003366;">📋 {{ _('tls_caveats_title') }}</summary>
-    <div style="margin-top:14px; font-size:.92em; line-height:1.6; color:#444;">
+    <summary style="cursor:pointer; font-weight:600; color:var(--primary);">📋 {{ _('tls_caveats_title') }}</summary>
+    <div style="margin-top:14px; font-size:.92em; line-height:1.6; color:var(--text);">
       {{ _('tls_caveats_body') | safe }}
     </div>
   </details>

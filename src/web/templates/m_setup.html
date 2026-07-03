@@ -19,14 +19,14 @@
           {{ _('m_setup_open_button') }}
         </a>
       </p>
-      <p style="font-size:.88em;color:#475569;margin-top:18px;">
+      <p style="font-size:.88em;color:var(--text-muted);margin-top:18px;">
         {{ _('m_setup_no_app_yet') }}
         <a href="{{ app_store_url }}" target="_blank" rel="noopener">
           {{ _('m_setup_install_label') }} →
         </a>
       </p>
       {% else %}
-      <p style="margin:18px 0;color:#475569;">
+      <p style="margin:18px 0;color:var(--text-muted);">
         {{ _('m_setup_qr_caption') }}
       </p>
       {% endif %}
@@ -35,12 +35,12 @@
       <div style="margin:24px auto;max-width:280px;">{{ qr_svg | safe }}</div>
       {% endif %}
 
-      <div style="margin-top:18px;text-align:left;font-size:.85em;color:#475569;">
+      <div style="margin-top:18px;text-align:left;font-size:.85em;color:var(--text-muted);">
         <div style="font-weight:600;margin-bottom:6px;">{{ _('m_setup_fallback_url_label') }}</div>
-        <code style="display:block;background:#0f172a;color:#e2e8f0;padding:10px 12px;border-radius:6px;word-break:break-all;">{{ deep_link }}</code>
+        <code style="display:block;background:var(--text-strong);color:var(--border);padding:10px 12px;border-radius:6px;word-break:break-all;">{{ deep_link }}</code>
       </div>
 
-      <p style="font-size:.85em;color:#64748b;margin-top:22px;">
+      <p style="font-size:.85em;color:var(--text-muted);margin-top:22px;">
         {{ _('m_setup_ms_signin_note') }}
       </p>
     {% endif %}

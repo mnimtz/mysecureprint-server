@@ -89,7 +89,7 @@
           <div style="flex-shrink:0; width:32px; height:32px; background:#16a34a; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700;">1</div>
           <div style="flex:1;">
             <div style="font-weight:700; color:#14532d; margin-bottom:6px;">{{ _('tn_step1_title') }}</div>
-            <div style="font-size:.92em; color:#444; line-height:1.6; margin-bottom:8px;">{{ _('tn_step1_body') | safe }}</div>
+            <div style="font-size:.92em; color:var(--text); line-height:1.6; margin-bottom:8px;">{{ _('tn_step1_body') | safe }}</div>
             <a href="https://dash.cloudflare.com/sign-up" target="_blank" rel="noopener" class="btn btn-primary btn-sm">→ Cloudflare Sign-up</a>
           </div>
         </div>
@@ -99,7 +99,7 @@
           <div style="flex-shrink:0; width:32px; height:32px; background:#16a34a; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700;">2</div>
           <div style="flex:1;">
             <div style="font-weight:700; color:#14532d; margin-bottom:6px;">{{ _('tn_step2_title') }}</div>
-            <div style="font-size:.92em; color:#444; line-height:1.6;">{{ _('tn_step2_body') | safe }}</div>
+            <div style="font-size:.92em; color:var(--text); line-height:1.6;">{{ _('tn_step2_body') | safe }}</div>
           </div>
         </div>
 
@@ -108,7 +108,7 @@
           <div style="flex-shrink:0; width:32px; height:32px; background:#16a34a; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700;">3</div>
           <div style="flex:1;">
             <div style="font-weight:700; color:#14532d; margin-bottom:6px;">{{ _('tn_step3_title') }}</div>
-            <div style="font-size:.92em; color:#444; line-height:1.6; margin-bottom:8px;">{{ _('tn_step3_body') | safe }}</div>
+            <div style="font-size:.92em; color:var(--text); line-height:1.6; margin-bottom:8px;">{{ _('tn_step3_body') | safe }}</div>
             <a href="https://one.dash.cloudflare.com/" target="_blank" rel="noopener" class="btn btn-primary btn-sm">→ Zero Trust Dashboard</a>
           </div>
         </div>
@@ -118,7 +118,7 @@
           <div style="flex-shrink:0; width:32px; height:32px; background:#16a34a; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700;">4</div>
           <div style="flex:1;">
             <div style="font-weight:700; color:#14532d; margin-bottom:6px;">{{ _('tn_step4_title') }}</div>
-            <div style="font-size:.92em; color:#444; line-height:1.6;">{{ _('tn_step4_body') | safe }}</div>
+            <div style="font-size:.92em; color:var(--text); line-height:1.6;">{{ _('tn_step4_body') | safe }}</div>
           </div>
         </div>
 
@@ -127,7 +127,7 @@
           <div style="flex-shrink:0; width:32px; height:32px; background:#16a34a; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700;">5</div>
           <div style="flex:1;">
             <div style="font-weight:700; color:#14532d; margin-bottom:6px;">{{ _('tn_step5_title') }}</div>
-            <div style="font-size:.92em; color:#444; line-height:1.6;">{{ _('tn_step5_body') | safe }}</div>
+            <div style="font-size:.92em; color:var(--text); line-height:1.6;">{{ _('tn_step5_body') | safe }}</div>
           </div>
         </div>
 
@@ -151,7 +151,7 @@
         <input type="password" name="token" required autocomplete="off"
                placeholder="eyJhIjoiZGVhZGJlZWY..."
                class="form-control" style="width:100%; font-family:monospace; font-size:.88em;">
-        <div style="font-size:.78em; color:#666; margin-top:4px;">{{ _('tn_named_token_hint') | safe }}</div>
+        <div style="font-size:.78em; color:var(--text-muted); margin-top:4px;">{{ _('tn_named_token_hint') | safe }}</div>
       </div>
       <div>
         <label style="display:block; font-weight:700; color:#14532d; margin-bottom:4px; font-size:.92em;">
@@ -161,7 +161,7 @@
                placeholder="mcp.deinedomain.de"
                value="{{ saved_host }}"
                class="form-control" style="width:100%;">
-        <div style="font-size:.78em; color:#666; margin-top:4px;">{{ _('tn_named_host_hint') }}</div>
+        <div style="font-size:.78em; color:var(--text-muted); margin-top:4px;">{{ _('tn_named_host_hint') }}</div>
       </div>
       <div>
         <button type="submit" class="btn btn-success" style="font-size:1em; padding:10px 20px;">
@@ -182,7 +182,7 @@
       <div style="padding:12px 14px; background:#fef3c7; border-left:4px solid #f59e0b; border-radius:4px; font-size:.88em; color:#78350f; margin-bottom:14px;">
         ⚠ <strong>{{ _('tn_quick_warning_title') }}</strong> — {{ _('tn_quick_warning_body') | safe }}
       </div>
-      <div style="margin-bottom:12px; font-size:.92em; color:#444; line-height:1.6;">{{ _('tn_quick_body') | safe }}</div>
+      <div style="margin-bottom:12px; font-size:.92em; color:var(--text); line-height:1.6;">{{ _('tn_quick_body') | safe }}</div>
       <form method="post" action="/admin/tunnel/start-quick">
         <button type="submit" class="btn btn-secondary"
                 {% if status.running and status.mode == 'quick' %}disabled{% endif %}>
@@ -199,10 +199,10 @@
   <!-- Logs (collapsible) -->
   {% if status.logs %}
   <details class="card" style="margin-bottom:20px;">
-    <summary style="cursor:pointer; font-weight:600; color:#003366;">
+    <summary style="cursor:pointer; font-weight:600; color:var(--primary);">
       📋 {{ _('tn_logs') }} ({{ status.logs | length }})
     </summary>
-    <pre style="background:#1a1a2e; color:#e2e8f0; padding:14px; border-radius:6px; margin-top:14px; max-height:300px; overflow:auto; font-size:.78em; line-height:1.4;">{% for line in status.logs %}{{ line }}
+    <pre style="background:var(--primary); color:var(--border); padding:14px; border-radius:6px; margin-top:14px; max-height:300px; overflow:auto; font-size:.78em; line-height:1.4;">{% for line in status.logs %}{{ line }}
 {% endfor %}</pre>
   </details>
   {% endif %}

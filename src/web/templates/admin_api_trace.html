@@ -14,7 +14,7 @@
   }
   .trace-on  { background: rgba(16,185,129,.14); color:#047857;
                border:1px solid rgba(16,185,129,.45); }
-  .trace-off { background: rgba(107,114,128,.14); color:#374151;
+  .trace-off { background: rgba(107,114,128,.14); color:var(--text);
                border:1px solid rgba(107,114,128,.45); }
   .trace-filter-bar {
     display:grid; grid-template-columns:1fr; gap:12px;
@@ -38,7 +38,7 @@
     font-size:.78em; font-weight:600;
   }
   .status-ok    { background: rgba(16,185,129,.14); color:#047857; }
-  .status-info  { background: rgba(59,130,246,.14); color:#1d4ed8; }
+  .status-info  { background: rgba(59,130,246,.14); color:var(--accent); }
   .status-warn  { background: rgba(245,158,11,.16); color:#b45309; }
   .status-err   { background: rgba(220,38,38,.16); color:#b91c1c; font-weight:700; }
   .trace-url {
@@ -79,7 +79,7 @@
     text-transform: uppercase; letter-spacing: .04em;
   }
   .trace-detail-body pre {
-    background: #0f172a; color:#e2e8f0;
+    background: var(--text-strong); color:var(--border);
     padding:12px 14px; border-radius:8px;
     font-size:.78em; max-height:340px; overflow:auto;
     white-space:pre-wrap; word-break: break-word;
@@ -121,7 +121,7 @@
         ✅ API-Trace aktiviert. Alle Outbound-Calls werden ab jetzt gespeichert.
       </div>
     {% elif _ok == 'trace_off' %}
-      <div style="padding:10px 14px;background:rgba(107,114,128,.10);border:1px solid rgba(107,114,128,.45);color:#374151;border-radius:8px;margin-bottom:12px;">
+      <div style="padding:10px 14px;background:rgba(107,114,128,.10);border:1px solid rgba(107,114,128,.45);color:var(--text);border-radius:8px;margin-bottom:12px;">
         ⏸ API-Trace deaktiviert.
       </div>
     {% elif _err == 'save_failed' %}

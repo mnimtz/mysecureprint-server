@@ -1,20 +1,293 @@
 {% extends "base.html" %}
+{% set show_nav = false %}
 {% block title %}{{ _('reg_title') }} — {{ _('reg_step2') }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  body {
+    background: linear-gradient(135deg, #00123B 0%, #002854 100%) !important;
+    min-height: 100vh;
+  }
+  .reg-stage {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px 60px;
+    background-image: repeating-linear-gradient(
+      65deg,
+      rgba(255,255,255,0.025) 0px,
+      rgba(255,255,255,0.025) 1px,
+      transparent 1px,
+      transparent 40px
+    );
+  }
+  .reg-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .reg-brand-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .reg-brand-icon { width: 32px; height: 32px; flex-shrink: 0; }
+  .reg-brand-name {
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+  .reg-brand-accent {
+    width: 40px;
+    height: 3px;
+    background: #00EB86;
+    border-radius: 2px;
+  }
+  .reg-card {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.30);
+    padding: 36px 32px 28px;
+    width: 100%;
+    max-width: 580px;
+  }
+  .steps {
+    display: flex;
+    align-items: center;
+    margin-bottom: 28px;
+  }
+  .step-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+  }
+  .step-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.82rem;
+    font-weight: 700;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+  }
+  .step-circle.active  { background: #00A0FB; color: #ffffff; }
+  .step-circle.done    { background: #00EB86; color: #00123B; }
+  .step-circle.pending { background: #D9DFE6; color: #8094AA; }
+  .step-label {
+    font-size: 0.72rem;
+    color: #8094AA;
+    white-space: nowrap;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+  }
+  .step-label.active { color: #002854; font-weight: 700; }
+  .step-connector {
+    flex: 1;
+    height: 2px;
+    background: #D9DFE6;
+    margin: 0 8px;
+    align-self: center;
+    margin-bottom: 22px;
+  }
+  .reg-heading {
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #002854;
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+  .reg-sub {
+    font-size: 0.84rem;
+    color: #8094AA;
+    margin-bottom: 22px;
+    line-height: 1.5;
+  }
+  .reg-card .alert { margin-bottom: 18px; border-radius: 8px; }
+  .reg-card .form-group { margin-bottom: 16px; }
+  .reg-card label {
+    display: block;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #002854;
+    margin-bottom: 6px;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+  }
+  .reg-card input[type="text"],
+  .reg-card input[type="email"],
+  .reg-card input[type="password"] {
+    width: 100%;
+    padding: 10px 13px;
+    border: 1.5px solid #D9DFE6;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    color: #231F20;
+    background: #ffffff;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+  }
+  .reg-card input:focus {
+    outline: none;
+    border-color: #00A0FB;
+    box-shadow: 0 0 0 3px rgba(0,160,251,0.15);
+  }
+  .reg-divider {
+    height: 1px;
+    background: #D9DFE6;
+    margin: 20px 0;
+  }
+  .reg-section-label {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #8094AA;
+    margin-bottom: 16px;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+  }
+  /* details/summary styling */
+  .reg-card details {
+    margin-bottom: 12px;
+    border: 1.5px solid #D9DFE6;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .reg-card details[open] {
+    border-color: #b8c5d6;
+  }
+  .reg-card summary {
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #002854;
+    padding: 10px 14px;
+    background: #f8fafc;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+  }
+  .reg-card summary::-webkit-details-marker { display: none; }
+  .reg-card summary::before {
+    content: '▸';
+    font-size: 0.75rem;
+    color: #8094AA;
+    transition: transform 0.15s;
+  }
+  .reg-card details[open] summary::before { transform: rotate(90deg); }
+  .reg-card summary small {
+    font-weight: 400;
+    color: #8094AA;
+    margin-left: 2px;
+  }
+  .reg-details-body {
+    padding: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .reg-required { color: #ef4444; }
+  .reg-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 11px 20px;
+    background: #002854;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+    text-decoration: none;
+  }
+  .reg-btn-primary:hover { background: #003A6E; box-shadow: 0 4px 14px rgba(0,40,84,0.25); }
+  .reg-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 11px 20px;
+    background: #f4f6f9;
+    color: #002854;
+    border: 1.5px solid #D9DFE6;
+    border-radius: 8px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    text-decoration: none;
+  }
+  .reg-btn-secondary:hover { background: #e8ecf2; border-color: #b0b8c8; }
+  body footer {
+    background: transparent !important;
+    border-top-color: rgba(255,255,255,0.08) !important;
+    color: rgba(255,255,255,0.35) !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 20px !important;
+  }
+  body footer a { color: rgba(255,255,255,0.45) !important; }
+  body footer a:hover { color: rgba(255,255,255,0.75) !important; }
+  @media (max-width: 560px) {
+    .reg-card { padding: 28px 20px 22px; }
+    .reg-brand-name { font-size: 1.25rem; }
+    .step-label { display: none; }
+    .reg-details-body { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container">
-  <div class="card">
+<div class="reg-stage">
+
+  <div class="reg-brand">
+    <div class="reg-brand-row">
+      <img src="/logo/icon.png" alt="MySecurePrint" class="reg-brand-icon">
+      <span class="reg-brand-name">MySecurePrint</span>
+    </div>
+    <div class="reg-brand-accent"></div>
+  </div>
+
+  <div class="reg-card">
+
     <div class="steps">
-      <div class="step-item"><div class="step-circle done">✓</div><span class="step-label">{{ _('reg_step1') }}</span></div>
+      <div class="step-item">
+        <div class="step-circle done">✓</div>
+        <span class="step-label">{{ _('reg_step1') }}</span>
+      </div>
       <div class="step-connector"></div>
-      <div class="step-item"><div class="step-circle active">2</div><span class="step-label active">{{ _('reg_step2') }}</span></div>
+      <div class="step-item">
+        <div class="step-circle active">2</div>
+        <span class="step-label active">{{ _('reg_step2') }}</span>
+      </div>
       <div class="step-connector"></div>
-      <div class="step-item"><div class="step-circle pending">3</div><span class="step-label">{{ _('reg_step3') }}</span></div>
+      <div class="step-item">
+        <div class="step-circle pending">3</div>
+        <span class="step-label">{{ _('reg_step3') }}</span>
+      </div>
       <div class="step-connector"></div>
-      <div class="step-item"><div class="step-circle pending">4</div><span class="step-label">{{ _('reg_step4') }}</span></div>
+      <div class="step-item">
+        <div class="step-circle pending">4</div>
+        <span class="step-label">{{ _('reg_step4') }}</span>
+      </div>
     </div>
 
-    <div class="section-title">{{ _('reg_api_title') }}</div>
-    <div class="section-sub">{{ _('reg_api_subtitle') | safe }}</div>
+    <div class="reg-heading">{{ _('reg_api_title') }}</div>
+    <div class="reg-sub">{{ _('reg_api_subtitle') | safe }}</div>
 
     {% if error %}
     <div class="alert alert-error">{{ error }}</div>
@@ -26,27 +299,26 @@
         <input type="text" id="tenant_name" name="tenant_name"
                value="{{ tenant_name | default('') }}"
                placeholder="z.B. Firma GmbH oder Standort München">
-        <small class="hint">{{ _('reg_account_label_hint') }}</small>
+        <small class="hint" style="font-size:.76rem; color:#8094AA; margin-top:4px; display:block;">{{ _('reg_account_label_hint') }}</small>
       </div>
       <div class="form-group">
-        <label for="printix_tenant_id">Printix Tenant-ID <span style="color:#ef4444">*</span></label>
+        <label for="printix_tenant_id">Printix Tenant-ID <span class="reg-required">*</span></label>
         <input type="text" id="printix_tenant_id" name="printix_tenant_id"
                value="{{ printix_tenant_id | default('') }}"
                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" required>
-        <small class="hint">{{ _('reg_tenant_id_hint') }}</small>
+        <small style="font-size:.76rem; color:#8094AA; margin-top:4px; display:block;">{{ _('reg_tenant_id_hint') }}</small>
       </div>
 
-      <div class="divider"></div>
-      <div style="font-size:.87em; font-weight:600; color:#374151; margin-bottom:16px;">
-        {{ _('reg_api_pairs_hint') }}
-      </div>
+      <div class="reg-divider"></div>
+      <div class="reg-section-label">{{ _('reg_api_pairs_hint') }}</div>
 
       <!-- Print API -->
-      <details style="margin-bottom:16px;" open>
-        <summary style="cursor:pointer; font-size:.9em; font-weight:600; color:#002854; padding:8px 0;">
-          {{ _('settings_print_api') }} <small style="font-weight:400; color:#6b7280;">({{ _('reg_api_print_summary') }})</small>
+      <details open>
+        <summary>
+          {{ _('settings_print_api') }}
+          <small>({{ _('reg_api_print_summary') }})</small>
         </summary>
-        <div style="padding: 12px 0 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="reg-details-body">
           <div class="form-group">
             <label>{{ _('common_client_id') }}</label>
             <input type="text" name="print_client_id" placeholder="xxxxxxxx-xxxx-...">
@@ -59,11 +331,12 @@
       </details>
 
       <!-- Card Management -->
-      <details style="margin-bottom:16px;">
-        <summary style="cursor:pointer; font-size:.9em; font-weight:600; color:#002854; padding:8px 0;">
-          {{ _('settings_card_api') }} <small style="font-weight:400; color:#6b7280;">({{ _('reg_api_card_summary') }})</small>
+      <details>
+        <summary>
+          {{ _('settings_card_api') }}
+          <small>({{ _('reg_api_card_summary') }})</small>
         </summary>
-        <div style="padding: 12px 0 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="reg-details-body">
           <div class="form-group">
             <label>{{ _('common_client_id') }}</label>
             <input type="text" name="card_client_id" placeholder="xxxxxxxx-xxxx-...">
@@ -76,11 +349,12 @@
       </details>
 
       <!-- Workstation -->
-      <details style="margin-bottom:16px;">
-        <summary style="cursor:pointer; font-size:.9em; font-weight:600; color:#002854; padding:8px 0;">
-          {{ _('settings_workstation_api') }} <small style="font-weight:400; color:#6b7280;">({{ _('reg_api_workstation_summary') }})</small>
+      <details>
+        <summary>
+          {{ _('settings_workstation_api') }}
+          <small>({{ _('reg_api_workstation_summary') }})</small>
         </summary>
-        <div style="padding: 12px 0 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="reg-details-body">
           <div class="form-group">
             <label>{{ _('common_client_id') }}</label>
             <input type="text" name="ws_client_id" placeholder="xxxxxxxx-xxxx-...">
@@ -93,11 +367,12 @@
       </details>
 
       <!-- User Management -->
-      <details style="margin-bottom:16px;">
-        <summary style="cursor:pointer; font-size:.9em; font-weight:600; color:#002854; padding:8px 0;">
-          {{ _('settings_user_management_api') }} <small style="font-weight:400; color:#6b7280;">({{ _('reg_api_user_management_summary') }})</small>
+      <details>
+        <summary>
+          {{ _('settings_user_management_api') }}
+          <small>({{ _('reg_api_user_management_summary') }})</small>
         </summary>
-        <div style="padding: 12px 0 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="reg-details-body">
           <div class="form-group">
             <label>{{ _('common_client_id') }}</label>
             <input type="text" name="um_client_id" placeholder="xxxxxxxx-xxxx-...">
@@ -109,12 +384,13 @@
         </div>
       </details>
 
-      <!-- Shared -->
-      <details style="margin-bottom:24px;">
-        <summary style="cursor:pointer; font-size:.9em; font-weight:600; color:#002854; padding:8px 0;">
-          Shared Credentials (Fallback) <small style="font-weight:400; color:#6b7280;">({{ _('reg_api_shared_summary') }})</small>
+      <!-- Shared credentials -->
+      <details style="margin-bottom: 24px;">
+        <summary>
+          Shared credentials (fallback)
+          <small>({{ _('reg_api_shared_summary') }})</small>
         </summary>
-        <div style="padding: 12px 0 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="reg-details-body">
           <div class="form-group">
             <label>{{ _('reg_shared_client_id') }}</label>
             <input type="text" name="shared_client_id" placeholder="xxxxxxxx-xxxx-...">
@@ -127,10 +403,11 @@
       </details>
 
       <div style="display:flex; gap:12px;">
-        <a href="/register" class="btn btn-secondary">← {{ _('reg_back') }}</a>
-        <button type="submit" class="btn btn-primary">{{ _('reg_next') }} →</button>
+        <a href="/register" class="reg-btn-secondary">← {{ _('reg_back') }}</a>
+        <button type="submit" class="reg-btn-primary">{{ _('reg_next') }} →</button>
       </div>
     </form>
+
   </div>
 </div>
 {% endblock %}
