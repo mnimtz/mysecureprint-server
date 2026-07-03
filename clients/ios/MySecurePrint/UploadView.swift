@@ -157,7 +157,10 @@ struct UploadView: View {
                                     .tint(MSP.cyan)
                             }
                         }
-                        if pickedFileIsImage {
+                        // Bildgrösse nur einblenden wenn noch keine Datei
+                        // gewählt ist (könnte Bild werden) oder eine Bild-Datei
+                        // ausgewählt wurde. Bei PDF/Excel/Word ausblenden.
+                        if pickedURL == nil || pickedFileIsImage {
                             CardFormRow {
                                 HStack(spacing: 12) {
                                     Image(systemName: "photo.fill")
