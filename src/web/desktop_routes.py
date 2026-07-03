@@ -1204,14 +1204,13 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
     @app.get("/desktop/me/jobs")
     async def desktop_me_jobs(request: Request,
                                  limit: int = 20,
+                                 offset: int = 0,
                                  authorization: str = Header(default="")):
-        """v0.5.8: Job-History fuer den eingeloggten User.
+        """v0.7.81: Job-History fuer den eingeloggten User.
         Liefert die letzten N Print-Jobs aus cloudprint_jobs gefiltert
-        nach username / email / printix_user_id (gleiche Logik wie /admin/audit
-        Filter, aber per-User). Pro Job:
-            { id, filename, status, queue, created_at, forwarded_at,
-              error_message, source }
-        Wird vom iOS-App-„Jobs"-Tab benutzt fuer Send-Feedback + History.
+        nach username / email / printix_user_id. Unterstuetzt jetzt
+        Pagination via offset sowie zusaetzliche Felder:
+        delegated_from, hostname, data_size.
         """
         _log_req(request, "GET /me/jobs")
         user = _require_token(authorization)
@@ -1224,34 +1223,36 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             tenant = get_tenant_for_user(parent_id)
             tid = (tenant or {}).get("id", "")
             limit_int = max(1, min(int(limit or 20), 200))
+            offset_int = max(0, int(offset or 0))
             uname = (_user_descr(user) or "").lower()
             uemail = (user.get("email") or "").lower()
             pxid = (user.get("printix_user_id") or "").lower()
-            with _conn() as conn:
-                # v0.7.3: tenant_id-Filter gelockert auf (tenant_id=?
-                # OR tenant_id=''). Vorher waren ALLE iOS-Print-Jobs
-                # unsichtbar weil sie historisch mit tenant_id="" angelegt
-                # wurden (jetzt gefixt, aber alte Daten brauchen den OR).
-                rows = conn.execute(
-                    """SELECT job_id, job_name AS filename, status,
-                              queue_name AS queue,
-                              created_at, forwarded_at, error_message,
-                              detected_identity AS source_identity
-                       FROM cloudprint_jobs
-                       WHERE (tenant_id = ? OR IFNULL(tenant_id,'') = '')
+            _where = """(tenant_id = ? OR IFNULL(tenant_id,'') = '')
                          AND (
                            LOWER(IFNULL(username,'')) = ?
                            OR LOWER(IFNULL(username,'')) = ?
                            OR LOWER(IFNULL(detected_identity,'')) = ?
                            OR LOWER(IFNULL(detected_identity,'')) = ?
                            OR LOWER(IFNULL(detected_identity,'')) = ?
-                         )
+                         )"""
+            _params = (tid, uname, uemail, uname, uemail, pxid)
+            with _conn() as conn:
+                rows = conn.execute(
+                    f"""SELECT job_id, job_name AS filename, status,
+                              queue_name AS queue,
+                              created_at, forwarded_at, error_message,
+                              detected_identity AS source_identity,
+                              IFNULL(delegated_from,'') AS delegated_from,
+                              IFNULL(hostname,'') AS hostname,
+                              IFNULL(data_size,0) AS data_size
+                       FROM cloudprint_jobs
+                       WHERE {_where}
                        ORDER BY COALESCE(forwarded_at, created_at) DESC
-                       LIMIT ?""",
-                    (tid, uname, uemail, uname, uemail, pxid, limit_int),
+                       LIMIT ? OFFSET ?""",
+                    (*_params, limit_int, offset_int),
                 ).fetchall()
             items = [dict(r) for r in rows]
-            return JSONResponse({"jobs": items, "count": len(items)})
+            return JSONResponse({"jobs": items, "count": len(items), "offset": offset_int})
         except Exception as e:
             logger.warning("desktop_me_jobs: %s", e)
             return _json_error(str(e)[:200], code="jobs_query_failed", status=500)

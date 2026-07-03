@@ -313,13 +313,16 @@ public final class ApiClient: @unchecked Sendable {
     /// Letzte Druck-Jobs des angemeldeten Users. Server-Endpoint
     /// `/desktop/me/jobs` seit v0.6.0. `limit` ist optional und wird
     /// als Query-Parameter angehaengt.
-    public func myJobs(limit: Int = 30) async throws -> Data {
-        log.info("GET /desktop/me/jobs — limit=\(limit)")
+    public func myJobs(limit: Int = 30, offset: Int = 0) async throws -> Data {
+        log.info("GET /desktop/me/jobs — limit=\(limit) offset=\(offset)")
         var comps = URLComponents(
             url: baseUrl.appendingPathComponent("desktop/me/jobs"),
             resolvingAgainstBaseURL: false
         )
-        comps?.queryItems = [URLQueryItem(name: "limit", value: String(limit))]
+        comps?.queryItems = [
+            URLQueryItem(name: "limit",  value: String(limit)),
+            URLQueryItem(name: "offset", value: String(offset)),
+        ]
         guard let url = comps?.url else { throw ApiError.invalidUrl }
         var req = URLRequest(url: url)
         if let token = token, !token.isEmpty {
