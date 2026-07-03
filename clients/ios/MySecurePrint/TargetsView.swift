@@ -7,9 +7,8 @@ import PrintixSendCore
 struct TargetsView: View {
 
     @EnvironmentObject private var settings: SettingsStore
+    @EnvironmentObject private var cache: AppCache
 
-    @State private var targets: [Target] = []
-    @State private var loading: Bool = false
     @State private var error: String = ""
 
     // Delegation-User-Picker (Task D, v0.6.x)
@@ -54,13 +53,13 @@ struct TargetsView: View {
                 }
 
                 Section(String(localized: "targets_section_title")) {
-                    if loading && targets.isEmpty {
+                    if cache.isSyncing && cache.targets.isEmpty {
                         HStack { ProgressView(); Text(String(localized: "targets_loading")) }
-                    } else if targets.isEmpty {
+                    } else if cache.targets.isEmpty {
                         Text(String(localized: "targets_empty"))
                             .foregroundColor(.secondary)
                     } else {
-                        ForEach(targets) { t in
+                        ForEach(cache.targets) { t in
                             Button {
                                 toggle(t)
                             } label: {
@@ -89,7 +88,7 @@ struct TargetsView: View {
                     }
                 }
 
-                if userCanChoose {
+                if cache.userCanChoose {
                     queuePickerSection
                 }
 
@@ -107,13 +106,30 @@ struct TargetsView: View {
             .brandNavStyle(title: String(localized: "targets_nav_title"))
             .tint(MSP.cyan)
             .listStyle(.insetGrouped)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        Task {
+                            await cache.refresh(settings: settings)
+                            if settings.delegateEnabled { await reloadMgmtUsers() }
+                        }
+                    } label: {
+                        if cache.isSyncing {
+                            ProgressView().scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                    }
+                    .disabled(cache.isSyncing)
+                }
+            }
             .refreshable {
-                await reload()
+                await cache.refresh(settings: settings)
                 if settings.delegateEnabled { await reloadMgmtUsers() }
             }
             .task {
-                await reload()
-                if settings.delegateEnabled { await reloadMgmtUsers() }
+                await cache.preloadIfNeeded(settings: settings)
+                if settings.delegateEnabled && !mgmtUsersLoaded { await reloadMgmtUsers() }
             }
             .onChange(of: settings.delegateEnabled) { _, enabled in
                 if enabled && !mgmtUsersLoaded {
@@ -153,12 +169,11 @@ struct TargetsView: View {
         settings.selectedTargetIds.filter { $0.hasPrefix("print:queue:") }
     }
 
-    // Phase B: Quick-Access — zuletzt genutzte Queues die noch in allQueues vorhanden sind
     private var recentQueues: [QueueItem] {
         let selected = Set(selectedQueueTargetIds)
         return settings.recentQueueIds.compactMap { id in
             guard !selected.contains(id) else { return nil }
-            return allQueues.first { $0.id == id }
+            return cache.queues.first { $0.id == id }
         }
     }
 
@@ -229,7 +244,7 @@ struct TargetsView: View {
             // Alle durchsuchen → Sub-Sheet (Ebene 2)
             Button {
                 showQueueSearchSheet = true
-                if allQueues.isEmpty { Task { await reloadQueues() } }
+                if cache.queues.isEmpty { Task { await cache.refresh(settings: settings) } }
             } label: {
                 HStack {
                     Image(systemName: "magnifyingglass")
@@ -246,9 +261,9 @@ struct TargetsView: View {
         }
         .sheet(isPresented: $showQueueSearchSheet) {
             QueueSearchSheet(
-                allQueues: allQueues,
+                allQueues: cache.queues,
                 selectedIds: Set(selectedQueueTargetIds),
-                loading: queuesLoading,
+                loading: cache.isSyncing,
                 error: queuesError,
                 anywhereOnly: $anywhereOnly
             ) { q in
@@ -508,62 +523,14 @@ struct TargetsView: View {
     }
 
     @MainActor
-    private func reload() async {
-        error = ""
+    private func reloadQueues() async {
         guard let client = ApiClientFactory.make(baseURL: settings.serverURL,
-                                                 token: settings.bearerToken) else {
-            error = String(localized: "Keine gültige Server-Konfiguration.")
-            return
-        }
-        loading = true
-        defer { loading = false }
+                                                 token: settings.bearerToken) else { return }
         do {
-            let resp = try await client.targetsFull()
-            let all = resp.targets
-            userCanChoose = resp.userCanChoose ?? false
-            // Delegate-Ziele nur zeigen wenn der User das in den
-            // Einstellungen freigeschaltet hat — Default ist OFF, damit
-            // niemand versehentlich an einen anderen User druckt.
-            let visible: [Target]
-            if settings.delegateEnabled {
-                visible = all
-            } else {
-                visible = all.filter { $0.type != "print_delegate" }
-            }
-            targets = visible
-            // Falls eine aktuell ausgewaehlte Ziel-Id durch das Filtern
-            // weggefallen ist (z.B. Delegate-Toggle gerade ausgeschaltet),
-            // entfernen wir sie aus der Auswahl, damit der Upload nicht
-            // ins Leere zielt.
-            let allowedIds = Set(visible.map { $0.id })
-            // v0.6.7: "print:queue:<id>" und "print:user:<id>" sind nicht in
-            // `visible` enthalten (kommen aus dem Queue-/Delegation-Picker)
-            // — die nicht prunen.
-            let pruned = settings.selectedTargetIds.filter {
-                allowedIds.contains($0)
-                    || $0.hasPrefix("print:queue:")
-                    || $0.hasPrefix("print:user:")
-            }
-            if pruned != settings.selectedTargetIds {
-                settings.selectedTargetIds = pruned
-            }
-            // Label-Cache aktualisieren, damit UploadView die
-            // Anzeigenamen statt nur die IDs rendert.
-            // WICHTIG: print:queue: und print:user: Labels erhalten — die
-            // werden vom Queue-/Delegation-Picker geschrieben und sind nicht
-            // in `visible` enthalten. Nur alte Ziel-Labels aktualisieren.
-            var labels: [String: String] = settings.targetLabels.filter {
-                $0.key.hasPrefix("print:queue:") || $0.key.hasPrefix("print:user:")
-            }
-            for t in visible { labels[t.id] = localizedTargetLabel(t) }
-            settings.targetLabels = labels
-            // Falls noch nichts ausgewaehlt ist: erstes Ziel als Default
-            // setzen, damit der Upload-Button nicht sofort disabled ist.
-            if settings.selectedTargetIds.isEmpty, let first = visible.first {
-                settings.selectedTargetIds = [first.id]
-            }
+            let resp = try await client.listQueues()
+            cache.queues = resp.queues
         } catch {
-            self.error = error.localizedDescription
+            queuesError = String(localized: "Queues konnten nicht geladen werden.")
         }
     }
 }

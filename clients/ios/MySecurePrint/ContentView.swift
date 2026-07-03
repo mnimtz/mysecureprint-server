@@ -7,6 +7,7 @@ import PrintixSendCore
 struct ContentView: View {
 
     @StateObject private var settings = SettingsStore()
+    @StateObject private var cache    = AppCache()
 
     var body: some View {
         Group {
@@ -17,11 +18,15 @@ struct ContentView: View {
             }
         }
         .environmentObject(settings)
-        // v0.7.72: Push-Permission anfordern sobald der User eingeloggt ist.
+        .environmentObject(cache)
+        // Push-Permission anfordern + Cache befüllen sobald eingeloggt.
         .onChange(of: settings.isLoggedIn) { _, loggedIn in
             if loggedIn {
                 PushNotificationManager.shared.requestPermissionAndRegister()
                 PushNotificationManager.shared.uploadCachedTokenIfNeeded(settings: settings)
+                Task { await cache.preloadIfNeeded(settings: settings) }
+            } else {
+                cache.invalidate()
             }
         }
         // mysecureprint://setup?server=...&token=...
@@ -61,6 +66,7 @@ struct ContentView: View {
 
 private struct MainTabs: View {
     @EnvironmentObject private var settings: SettingsStore
+    @EnvironmentObject private var cache: AppCache
 
     var body: some View {
         TabView {
@@ -101,38 +107,7 @@ private struct MainTabs: View {
         // App-Start automatisch in den Store geschrieben.
         .task {
             await refreshRole()
-            await prefetchDefaultTarget()
-        }
-    }
-
-    private func prefetchDefaultTarget() async {
-        // Nur wenn der User noch keine Auswahl getroffen hat — sonst
-        // ueberschreiben wir z.B. eine ausgewaehlte Queue oder Delegate.
-        guard settings.selectedTargetIds.isEmpty else { return }
-        guard let base = settings.serverBaseURL,
-              let client = ApiClientFactory.make(baseURL: base.absoluteString,
-                                                 token: settings.bearerToken) else {
-            return
-        }
-        do {
-            let list = try await client.targets()
-            // Default-Target priorisieren (is_default=true), sonst das
-            // erste in der Liste (z.B. wenn print:self fehlt und nur ein
-            // Delegate vorhanden ist).
-            let chosen = list.first(where: { $0.isDefault == true })
-                ?? list.first
-            if let t = chosen {
-                await MainActor.run {
-                    settings.selectedTargetIds = [t.id]
-                    if !t.label.isEmpty {
-                        settings.targetLabels[t.id] = t.label
-                    }
-                    settings.applyAutoResetPolicy()
-                }
-            }
-        } catch {
-            // Silent — beim ersten Upload-Versuch wird der User durch
-            // den disabled-Send-Button auf den Ziele-Tab gelenkt.
+            await cache.preloadIfNeeded(settings: settings)
         }
     }
 

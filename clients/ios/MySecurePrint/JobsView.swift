@@ -6,6 +6,7 @@ import PrintixSendCore
 struct JobsView: View {
 
     @EnvironmentObject private var settings: SettingsStore
+    @EnvironmentObject private var cache: AppCache
 
     @State private var jobs: [PrintJob] = []
     @State private var loading = false
@@ -15,6 +16,7 @@ struct JobsView: View {
     @State private var hasMore = false
     @State private var selectedJob: PrintJob? = nil
     @State private var showClearConfirm = false
+    @State private var initializedFromCache = false
 
     private let pageSize = 30
 
@@ -61,8 +63,31 @@ struct JobsView: View {
             .tint(MSP.cyan)
             .listStyle(.insetGrouped)
             .searchable(text: $searchText, prompt: String(localized: "Jobs durchsuchen …"))
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        Task { await reload() }
+                    } label: {
+                        if loading && !jobs.isEmpty {
+                            ProgressView().scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                    }
+                    .disabled(loading)
+                }
+            }
             .refreshable { await reload() }
-            .task { await reload() }
+            .task {
+                // Sofort Cache-Daten anzeigen, dann ggf. live nachladen
+                if !initializedFromCache && !cache.jobs.isEmpty {
+                    jobs = cache.jobs
+                    hasMore = cache.jobsHasMore
+                    initializedFromCache = true
+                } else if jobs.isEmpty {
+                    await reload()
+                }
+            }
             .sheet(item: $selectedJob) { job in
                 JobDetailView(job: job)
             }
@@ -440,7 +465,7 @@ struct JobDetailView: View {
     }
 }
 
-// MARK: - Data Models
+// MARK: - Data Models  (internal — AppCache liest sie auch)
 
 struct PrintJob: Decodable, Identifiable {
     let job_id: String
@@ -490,7 +515,7 @@ struct PrintJob: Decodable, Identifiable {
     }
 }
 
-private struct JobsResponse: Decodable {
+struct JobsResponse: Decodable {
     let jobs: [PrintJob]
     let count: Int
 }
