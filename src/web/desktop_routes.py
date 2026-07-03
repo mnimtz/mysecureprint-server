@@ -819,8 +819,6 @@ async def _process_desktop_send_bg(
                     release_immediately=False,
                     **extra,
                 )
-            def _truthy(s: str) -> bool:
-                return s.strip().lower() in ("1", "true", "yes", "on")
             _full_kwargs = dict(
                 color=_truthy(color),
                 duplex=("LONG_EDGE" if _truthy(duplex) else "NONE"),
