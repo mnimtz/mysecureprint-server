@@ -296,6 +296,30 @@ def _convert_libreoffice(data: bytes, src_ext: str) -> bytes:
         if not produced:
             raise ConversionError("LibreOffice produzierte keine PDF-Datei")
         out_path = os.path.join(out_dir, produced[0])
+
+        # Spreadsheets: Ghostscript-Pass erzwingt A4-Ausgabe.
+        # LibreOffice ignoriert fitToPage bei headless-Konvertierung und
+        # rendert Sheets auf endlos-breiten Seiten. -dFIXEDMEDIA +
+        # -dPDFFitPage skaliert jede Seite proportional auf A4.
+        if src_ext in ("xlsx", "xls", "ods") and shutil.which("gs"):
+            gs_out = os.path.join(out_dir, "a4.pdf")
+            gs_proc = subprocess.run(
+                ["gs", "-dBATCH", "-dNOPAUSE", "-dSAFER", "-dQUIET",
+                 "-sDEVICE=pdfwrite",
+                 "-dFIXEDMEDIA", "-dPDFFitPage",
+                 "-sPAPERSIZE=a4",
+                 f"-sOutputFile={gs_out}", out_path],
+                timeout=60, capture_output=True,
+            )
+            if gs_proc.returncode == 0 and os.path.exists(gs_out):
+                out_path = gs_out
+            else:
+                logger.warning(
+                    "_convert_libreoffice: gs A4-Pass fehlgeschlagen (%d), "
+                    "Original-PDF wird verwendet",
+                    gs_proc.returncode,
+                )
+
         with open(out_path, "rb") as f:
             return f.read()
     finally:
