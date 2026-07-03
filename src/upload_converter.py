@@ -88,26 +88,48 @@ def detect_format(data: bytes, filename_hint: str = "") -> tuple[str, str]:
 # ─── Konverter-Implementierungen ─────────────────────────────────────────────
 
 def _convert_image_to_pdf(data: bytes) -> bytes:
-    """PNG/JPG/GIF/BMP/TIFF → PDF via Pillow."""
+    """PNG/JPG/GIF/BMP/TIFF → PDF via Pillow, auf A4 skaliert und zentriert.
+
+    Ohne explizite Seitengröße würde Pillow die Pixeldimensionen des Bildes
+    direkt als PDF-Seitenmaß verwenden — ein 4000×3000px-Foto ergibt dann
+    eine riesige Seite (~67×50 cm). Stattdessen: Bild proportional auf A4
+    skalieren und auf weißem Hintergrund zentrieren.
+    """
     try:
         from PIL import Image
     except ImportError as e:
         raise ConversionError("Pillow (python3-pil) nicht installiert") from e
     import io
+
+    # A4 bei 150 dpi: 1240 × 1754 px (Portrait)
+    A4_W, A4_H = 1240, 1754
+    MARGIN = 40  # px Rand auf jeder Seite
+
     img = Image.open(io.BytesIO(data))
-    # Manche Bilder haben Transparenz/Palette → nach RGB
     if img.mode in ("RGBA", "LA", "P"):
         img = img.convert("RGB")
+
+    # Bild proportional in den nutzbaren Bereich einpassen
+    max_w = A4_W - 2 * MARGIN
+    max_h = A4_H - 2 * MARGIN
+    img.thumbnail((max_w, max_h), Image.LANCZOS)
+
+    # Auf weißer A4-Seite zentrieren
+    page = Image.new("RGB", (A4_W, A4_H), "white")
+    x = (A4_W - img.width)  // 2
+    y = (A4_H - img.height) // 2
+    page.paste(img, (x, y))
+
     out = io.BytesIO()
-    img.save(out, format="PDF", resolution=150.0)
+    page.save(out, format="PDF", resolution=150.0)
     return out.getvalue()
 
 
 def _convert_text_to_pdf(data: bytes) -> bytes:
-    """Plaintext → PDF (einfaches Monospaced-Layout via Pillow+Rendering).
+    """Plaintext → mehrseitiges PDF via Pillow (Monospaced-Layout).
 
-    Wir rendern kein echtes typesetting — für lange Texte eignet sich
-    LibreOffice besser. Hier nur für Notizen/TXT-Snippets.
+    Erstellt so viele A4-Seiten wie nötig — vorher wurde der Text nach
+    einer Seite einfach abgeschnitten.
     """
     try:
         from PIL import Image, ImageDraw, ImageFont
@@ -115,31 +137,50 @@ def _convert_text_to_pdf(data: bytes) -> bytes:
         raise ConversionError("Pillow (python3-pil) nicht installiert") from e
     import io
     text = data.decode("utf-8", errors="replace")
-    # A4 @150dpi = ~1240 x 1754 Pixel
-    W, H = 1240, 1754
+    W, H = 1240, 1754  # A4 @150dpi
     margin = 60
-    img = Image.new("RGB", (W, H), "white")
-    draw = ImageDraw.Draw(img)
     try:
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14)
+        line_height = 20
+        max_chars = (W - 2 * margin) // 8
     except Exception:
         font = ImageFont.load_default()
-    y = margin
-    line_height = 20
-    max_chars_per_line = (W - 2 * margin) // 8  # grobe Schätzung
-    for raw_line in text.splitlines() or [""]:
-        # Lange Zeilen umbrechen
-        while raw_line:
-            chunk = raw_line[:max_chars_per_line]
-            raw_line = raw_line[max_chars_per_line:]
-            draw.text((margin, y), chunk, fill="black", font=font)
-            y += line_height
-            if y > H - margin:
-                break
-        if y > H - margin:
-            break
+        line_height = 18
+        max_chars = (W - 2 * margin) // 7
+
+    # Alle zu rendernden Zeilen aufbauen (mit Umbruch)
+    all_lines: list[str] = []
+    for raw in text.splitlines() or [""]:
+        if not raw:
+            all_lines.append("")
+            continue
+        while raw:
+            all_lines.append(raw[:max_chars])
+            raw = raw[max_chars:]
+
+    # Auf mehrere Seiten verteilen
+    lines_per_page = (H - 2 * margin) // line_height
+    pages_data: list[bytes] = []
+    for page_start in range(0, max(1, len(all_lines)), lines_per_page):
+        page_lines = all_lines[page_start:page_start + lines_per_page]
+        img = Image.new("RGB", (W, H), "white")
+        draw = ImageDraw.Draw(img)
+        for i, line in enumerate(page_lines):
+            draw.text((margin, margin + i * line_height), line, fill="black", font=font)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        pages_data.append(buf.getvalue())
+
+    # Alle Seiten in eine mehrseitige PDF zusammenführen
+    if len(pages_data) == 1:
+        buf = io.BytesIO()
+        Image.open(io.BytesIO(pages_data[0])).save(buf, format="PDF", resolution=150.0)
+        return buf.getvalue()
+
+    first = Image.open(io.BytesIO(pages_data[0])).convert("RGB")
+    rest  = [Image.open(io.BytesIO(p)).convert("RGB") for p in pages_data[1:]]
     out = io.BytesIO()
-    img.save(out, format="PDF", resolution=150.0)
+    first.save(out, format="PDF", resolution=150.0, save_all=True, append_images=rest)
     return out.getvalue()
 
 
@@ -159,10 +200,17 @@ def _apply_spreadsheet_print_settings(data: bytes, src_ext: str) -> bytes:
 
         wb = load_workbook(filename=io.BytesIO(data))
         for ws in wb.worksheets:
-            ws.page_setup.paperSize  = ws.PAPERSIZE_A4   # 9 = A4
+            ws.page_setup.paperSize  = ws.PAPERSIZE_A4
             ws.page_setup.fitToPage  = True
-            ws.page_setup.fitToWidth = 1   # auf 1 Seite Breite skalieren
-            ws.page_setup.fitToHeight = 0  # Höhe: so viele Seiten wie nötig
+            ws.page_setup.fitToWidth = 1
+            ws.page_setup.fitToHeight = 0
+            # Automatisch Landscape wenn Sheet deutlich breiter als hoch
+            if ws.max_column and ws.max_row:
+                ratio = ws.max_column / max(ws.max_row, 1)
+                if ratio > 1.5:
+                    ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+                else:
+                    ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
             if ws.sheet_properties.pageSetUpPr is None:
                 ws.sheet_properties.pageSetUpPr = PageSetupProperties()
             ws.sheet_properties.pageSetUpPr.fitToPage = True
