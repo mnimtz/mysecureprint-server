@@ -300,8 +300,10 @@ struct JobDetailView: View {
     var body: some View {
         NavigationStack {
             List {
-                // Vorschau-Bild (falls vorhanden)
-                if job.has_preview == true {
+                // Vorschau-Bild: Section nur sichtbar wenn Bild geladen (oder
+                // noch lädt). Die eigentliche Lade-Task läuft auf View-Ebene
+                // unabhängig von has_preview im gecachten Job-Objekt.
+                if previewImage != nil || previewLoading {
                     Section {
                         previewSection
                     }
@@ -380,59 +382,59 @@ struct JobDetailView: View {
                     Button(String(localized: "Fertig")) { dismiss() }
                 }
             }
+            // Preview immer laden — unabhängig von has_preview im gecachten
+            // Job-Objekt (Background-Worker kann nach dem Listen-Fetch fertig werden).
+            .task {
+                guard previewImage == nil, !previewLoading,
+                      let client = ApiClientFactory.make(
+                        baseURL: settings.serverURL, token: settings.bearerToken) else { return }
+                previewLoading = true
+                defer { previewLoading = false }
+                if let data = try? await client.jobPreview(jobId: job.job_id),
+                   let img = UIImage(data: data) {
+                    previewImage = img
+                }
+            }
         }
     }
 
     @ViewBuilder
     private var previewSection: some View {
-        Group {
-            if previewLoading {
-                HStack {
-                    Spacer()
-                    ProgressView()
-                    Spacer()
-                }
-                .padding(.vertical, 24)
-            } else if let img = previewImage {
-                Button {
-                    previewFullscreen = true
-                } label: {
+        if previewLoading {
+            HStack {
+                Spacer()
+                ProgressView()
+                Spacer()
+            }
+            .padding(.vertical, 24)
+        } else if let img = previewImage {
+            Button {
+                previewFullscreen = true
+            } label: {
+                Image(uiImage: img)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity)
+                    .cornerRadius(6)
+                    .padding(.vertical, 4)
+            }
+            .buttonStyle(.plain)
+            .fullScreenCover(isPresented: $previewFullscreen) {
+                ZStack(alignment: .topTrailing) {
+                    Color.black.ignoresSafeArea()
                     Image(uiImage: img)
                         .resizable()
                         .scaledToFit()
-                        .frame(maxWidth: .infinity)
-                        .cornerRadius(6)
-                        .padding(.vertical, 4)
-                }
-                .buttonStyle(.plain)
-                .fullScreenCover(isPresented: $previewFullscreen) {
-                    ZStack(alignment: .topTrailing) {
-                        Color.black.ignoresSafeArea()
-                        Image(uiImage: img)
-                            .resizable()
-                            .scaledToFit()
-                            .ignoresSafeArea()
-                        Button {
-                            previewFullscreen = false
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.title)
-                                .foregroundColor(.white)
-                                .padding()
-                        }
+                        .ignoresSafeArea()
+                    Button {
+                        previewFullscreen = false
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title)
+                            .foregroundColor(.white)
+                            .padding()
                     }
                 }
-            }
-        }
-        .task {
-            guard previewImage == nil, !previewLoading,
-                  let client = ApiClientFactory.make(
-                    baseURL: settings.serverURL, token: settings.bearerToken) else { return }
-            previewLoading = true
-            defer { previewLoading = false }
-            if let data = try? await client.jobPreview(jobId: job.job_id),
-               let img = UIImage(data: data) {
-                previewImage = img
             }
         }
     }
