@@ -36,6 +36,8 @@ final class SettingsStore: ObservableObject {
         static let appLanguage       = "appLanguage"
         static let delegateEnabled   = "delegateEnabled"
         static let recentQueueIds    = "recentQueueIds"    // Phase B: zuletzt genutzte Queues
+        static let recentDelegateIds = "recentDelegateIds" // Phase C: zuletzt genutzte Delegates
+        static let anywhereOnly      = "anywhereOnly"      // Phase B: Anywhere-Filter
     }
 
     /// Default-Ziel, auf das der Auto-Reset-Timer zurueckfaellt.
@@ -182,6 +184,18 @@ final class SettingsStore: ObservableObject {
     /// Phase B: Zuletzt genutzte Queue-IDs (max 5), neueste zuerst.
     /// Wird vom Queue-Picker beim Auswählen einer Queue befüllt und
     /// im Quick-Access als "Zuletzt verwendet" angezeigt.
+    @Published var anywhereOnly: Bool {
+        didSet { defaults.set(anywhereOnly, forKey: Keys.anywhereOnly) }
+    }
+
+    @Published var recentDelegateIds: [String] {
+        didSet {
+            if let data = try? JSONEncoder().encode(recentDelegateIds) {
+                defaults.set(data, forKey: Keys.recentDelegateIds)
+            }
+        }
+    }
+
     @Published var recentQueueIds: [String] {
         didSet {
             if let data = try? JSONEncoder().encode(recentQueueIds) {
@@ -255,11 +269,18 @@ final class SettingsStore: ObservableObject {
         // explizit eingeschaltet hat (UserDefaults.bool gibt false fuer
         // den nicht-gesetzten Key — genau das Verhalten was wir wollen).
         self.delegateEnabled = defaults.bool(forKey: Keys.delegateEnabled)
+        self.anywhereOnly = defaults.bool(forKey: Keys.anywhereOnly)
         if let data = defaults.data(forKey: Keys.recentQueueIds),
            let arr  = try? JSONDecoder().decode([String].self, from: data) {
             self.recentQueueIds = arr
         } else {
             self.recentQueueIds = []
+        }
+        if let data = defaults.data(forKey: Keys.recentDelegateIds),
+           let arr  = try? JSONDecoder().decode([String].self, from: data) {
+            self.recentDelegateIds = arr
+        } else {
+            self.recentDelegateIds = []
         }
     }
 
@@ -320,6 +341,12 @@ final class SettingsStore: ObservableObject {
         var recent = recentQueueIds.filter { $0 != id }
         recent.insert(id, at: 0)
         recentQueueIds = Array(recent.prefix(5))
+    }
+
+    func addRecentDelegate(id: String) {
+        var recent = recentDelegateIds.filter { $0 != id }
+        recent.insert(id, at: 0)
+        recentDelegateIds = Array(recent.prefix(5))
     }
 
     func clearSession() {

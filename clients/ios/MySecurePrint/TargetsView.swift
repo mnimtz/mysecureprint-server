@@ -25,13 +25,13 @@ struct TargetsView: View {
     @State private var mgmtUsersLoaded: Bool = false
     @State private var mgmtUsersLoading: Bool = false
     @State private var mgmtUsersError: String = ""
-    @State private var userQuery: String = ""
 
     // Phase B: 2-Ebenen Queue-Picker
-    @State private var userCanChoose: Bool = false
     @State private var showQueueSearchSheet: Bool = false
     @State private var queuesError: String = ""
-    @State private var anywhereOnly: Bool = false
+
+    // Phase C: 2-Ebenen Delegate-Picker
+    @State private var showDelegateSearchSheet: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -134,33 +134,39 @@ struct TargetsView: View {
                     Task { await reloadMgmtUsers() }
                 }
             }
+            // Sheets auf NavigationStack-Ebene — verhindert Dismiss beim List-Re-render
+            .sheet(isPresented: $showQueueSearchSheet) {
+                QueueSearchSheet(
+                    allQueues: cache.queues,
+                    selectedIds: Set(selectedQueueTargetIds),
+                    loading: cache.isSyncing,
+                    error: queuesError,
+                    anywhereOnly: $settings.anywhereOnly
+                ) { q in
+                    addQueueSelection(q)
+                    showQueueSearchSheet = false
+                }
+                .environmentObject(settings)
+            }
+            .sheet(isPresented: $showDelegateSearchSheet) {
+                DelegateSearchSheet(
+                    allUsers: allMgmtUsers,
+                    selectedIds: Set(selectedUserDelegationIds),
+                    loading: mgmtUsersLoading,
+                    error: mgmtUsersError,
+                    recentIds: settings.recentDelegateIds
+                ) { u in
+                    addUserDelegation(u)
+                    showDelegateSearchSheet = false
+                }
+                .environmentObject(settings)
+            }
         }
     }
 
     /// Aktuell ausgewaehlte „print:user:…"-Ziele (User-Delegation, Task D).
     private var selectedUserDelegationIds: [String] {
         settings.selectedTargetIds.filter { $0.hasPrefix("print:user:") }
-    }
-
-    /// Liste der Mgmt-User minus dem eingeloggten User selbst (man kann
-    /// sich nicht selber als Delegation-Ziel waehlen — dafuer gibt's
-    /// "print:self") minus bereits ausgewaehlte.
-    private var filteredMgmtUsers: [MgmtUser] {
-        let q = userQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let me = settings.userEmail.lowercased()
-        let selectedPxIds: Set<String> = Set(selectedUserDelegationIds.map {
-            String($0.dropFirst("print:user:".count))
-        })
-        return allMgmtUsers.filter { u in
-            // eigenen User raus
-            if let e = u.email?.lowercased(), e == me { return false }
-            // schon ausgewaehlte raus
-            if selectedPxIds.contains(u.id) { return false }
-            if q.isEmpty { return true }
-            let name = (u.name ?? "").lowercased()
-            let mail = (u.email ?? "").lowercased()
-            return name.contains(q) || mail.contains(q)
-        }
     }
 
     private var selectedQueueTargetIds: [String] {
@@ -188,17 +194,17 @@ struct TargetsView: View {
                         .foregroundColor(.secondary)
                 }
                 Spacer()
-                // Anywhere-Filter-Chip
+                // Anywhere-Filter-Chip (persistiert in SettingsStore)
                 Button {
-                    anywhereOnly.toggle()
+                    settings.anywhereOnly.toggle()
                 } label: {
                     Text("Anywhere")
                         .font(.caption)
                         .fontWeight(.medium)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
-                        .background(anywhereOnly ? MSP.cyan : Color(.tertiarySystemFill))
-                        .foregroundColor(anywhereOnly ? .white : .secondary)
+                        .background(settings.anywhereOnly ? MSP.cyan : Color(.tertiarySystemFill))
+                        .foregroundColor(settings.anywhereOnly ? .white : .secondary)
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -223,7 +229,7 @@ struct TargetsView: View {
 
             // Zuletzt verwendet (Ebene 1)
             if !recentQueues.isEmpty {
-                let visibleRecent = anywhereOnly
+                let visibleRecent = settings.anywhereOnly
                     ? recentQueues.filter { $0.isAnywhere == true }
                     : recentQueues
                 if !visibleRecent.isEmpty {
@@ -256,19 +262,6 @@ struct TargetsView: View {
                         .foregroundColor(Color(.tertiaryLabel))
                 }
             }
-        }
-        .sheet(isPresented: $showQueueSearchSheet) {
-            QueueSearchSheet(
-                allQueues: cache.queues,
-                selectedIds: Set(selectedQueueTargetIds),
-                loading: cache.isSyncing,
-                error: queuesError,
-                anywhereOnly: $anywhereOnly
-            ) { q in
-                addQueueSelection(q)
-                showQueueSearchSheet = false
-            }
-            .environmentObject(settings)
         }
     }
 
@@ -325,15 +318,20 @@ struct TargetsView: View {
     @ViewBuilder
     private var delegationPickerSection: some View {
         Section {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(String(localized: "delegation_picker_title"))
-                    .font(.headline)
-                Text(String(localized: "delegation_picker_sub"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            // Header
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "delegation_picker_title"))
+                        .font(.headline)
+                    Text(String(localized: "delegation_picker_sub"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
             }
+            .padding(.vertical, 2)
 
-            // Bereits ausgewaehlte Delegation-Ziele mit Entfernen-X.
+            // Bereits ausgewählte Delegation-Ziele mit Entfernen-X
             ForEach(selectedUserDelegationIds, id: \.self) { id in
                 HStack {
                     Image(systemName: "person.crop.circle.badge.checkmark")
@@ -341,9 +339,7 @@ struct TargetsView: View {
                     Text(settings.targetLabels[id] ?? id)
                         .font(.body)
                     Spacer()
-                    Button {
-                        removeUserDelegation(id)
-                    } label: {
+                    Button { removeUserDelegation(id) } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.secondary)
                     }
@@ -351,53 +347,61 @@ struct TargetsView: View {
                 }
             }
 
-            // Suchfeld
-            HStack {
-                Image(systemName: "magnifyingglass").foregroundColor(.secondary)
-                TextField("Benutzer suchen (Name oder E-Mail)", text: $userQuery)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                if !userQuery.isEmpty {
-                    Button { userQuery = "" } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
+            // Zuletzt verwendet (Ebene 1)
+            let recentDelegates = recentDelegateUsers
+            if !recentDelegates.isEmpty {
+                Text(String(localized: "Zuletzt verwendet"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.top, 4)
+                ForEach(recentDelegates, id: \.id) { u in
+                    Button { addUserDelegation(u) } label: {
+                        delegateRow(u)
                     }
-                    .buttonStyle(.plain)
                 }
             }
 
-            if mgmtUsersLoading && !mgmtUsersLoaded {
-                HStack { ProgressView(); Text(String(localized: "users_loading")) }
-            } else if !mgmtUsersError.isEmpty {
-                Text(mgmtUsersError)
-                    .font(.caption)
-                    .foregroundColor(.orange)
-            } else if mgmtUsersLoaded && allMgmtUsers.isEmpty {
-                Text(String(localized: "delegation_users_empty"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            } else {
-                let visible = filteredMgmtUsers.prefix(20)
-                if visible.isEmpty && !userQuery.isEmpty {
-                    Text("Keine Treffer.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                ForEach(Array(visible), id: \.id) { u in
-                    Button { addUserDelegation(u) } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(u.name ?? u.email ?? u.id).foregroundColor(.primary)
-                                if let e = u.email, !e.isEmpty, e != u.name {
-                                    Text(e).font(.caption).foregroundColor(.secondary)
-                                }
-                            }
-                            Spacer()
-                            Image(systemName: "plus.circle")
-                                .foregroundColor(MSP.cyan)
-                        }
-                    }
+            // Alle durchsuchen → Sub-Sheet (Ebene 2)
+            Button {
+                showDelegateSearchSheet = true
+                if !mgmtUsersLoaded { Task { await reloadMgmtUsers() } }
+            } label: {
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(MSP.cyan)
+                        .frame(width: 22)
+                    Text(String(localized: "Alle Benutzer durchsuchen"))
+                        .foregroundColor(.primary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Color(.tertiaryLabel))
                 }
             }
+        }
+    }
+
+    private var recentDelegateUsers: [MgmtUser] {
+        let selectedPxIds = Set(selectedUserDelegationIds.map {
+            String($0.dropFirst("print:user:".count))
+        })
+        return settings.recentDelegateIds.compactMap { id in
+            guard !selectedPxIds.contains(id) else { return nil }
+            return allMgmtUsers.first { $0.id == id }
+        }
+    }
+
+    @ViewBuilder
+    private func delegateRow(_ u: MgmtUser) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(u.name ?? u.email ?? u.id).foregroundColor(.primary)
+                if let e = u.email, !e.isEmpty {
+                    Text(e).font(.caption).foregroundColor(.secondary)
+                }
+            }
+            Spacer()
+            Image(systemName: "plus.circle").foregroundColor(MSP.cyan)
         }
     }
 
@@ -412,8 +416,8 @@ struct TargetsView: View {
         }()
         settings.targetLabels[id] = String(format: String(localized: "Delegation: %@"), label)
         settings.selectedTargetIds.append(id)
+        settings.addRecentDelegate(id: u.id)
         settings.applyAutoResetPolicy()
-        userQuery = ""
     }
 
     private func removeUserDelegation(_ id: String) {
@@ -516,6 +520,90 @@ struct TargetsView: View {
     }
 }
 
+// MARK: - Phase C: Delegate-Suche Sub-Sheet (Ebene 2)
+
+private struct DelegateSearchSheet: View {
+    let allUsers: [MgmtUser]
+    let selectedIds: Set<String>
+    let loading: Bool
+    let error: String
+    let recentIds: [String]
+    let onSelect: (MgmtUser) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var settings: SettingsStore
+    @State private var query: String = ""
+    @FocusState private var searchFocused: Bool
+
+    private var filtered: [MgmtUser] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let me = settings.userEmail.lowercased()
+        let selectedPxIds = Set(selectedIds.map { String($0.dropFirst("print:user:".count)) })
+        return allUsers.filter { u in
+            if let e = u.email?.lowercased(), e == me { return false }
+            if selectedPxIds.contains(u.id) { return false }
+            if q.isEmpty { return true }
+            let name = (u.name ?? "").lowercased()
+            let mail = (u.email ?? "").lowercased()
+            return name.contains(q) || mail.contains(q)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if loading && allUsers.isEmpty {
+                    Section {
+                        HStack { ProgressView(); Text(String(localized: "users_loading")) }
+                    }
+                } else if !error.isEmpty {
+                    Section {
+                        Text(error).font(.caption).foregroundColor(.orange)
+                    }
+                } else if filtered.isEmpty {
+                    Section {
+                        Text(query.isEmpty
+                             ? String(localized: "delegation_users_empty")
+                             : String(localized: "Keine Treffer."))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                } else {
+                    Section {
+                        ForEach(filtered.prefix(50), id: \.id) { u in
+                            Button { onSelect(u) } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(u.name ?? u.email ?? u.id)
+                                            .foregroundColor(.primary)
+                                        if let e = u.email, !e.isEmpty {
+                                            Text(e).font(.caption).foregroundColor(.secondary)
+                                        }
+                                    }
+                                    Spacer()
+                                    Image(systemName: "plus.circle").foregroundColor(MSP.cyan)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .searchable(text: $query,
+                        placement: .navigationBarDrawer(displayMode: .always),
+                        prompt: String(localized: "Benutzer suchen (Name oder E-Mail)"))
+            .navigationTitle(String(localized: "Benutzer wählen"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "Abbrechen")) { dismiss() }
+                }
+            }
+            .onAppear { searchFocused = true }
+        }
+    }
+}
+
 // MARK: - Phase B: Queue-Suche Sub-Sheet (Ebene 2)
 
 private struct QueueSearchSheet: View {
@@ -527,6 +615,7 @@ private struct QueueSearchSheet: View {
     let onSelect: (QueueItem) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var settings: SettingsStore
     @State private var query: String = ""
     @FocusState private var searchFocused: Bool
 
