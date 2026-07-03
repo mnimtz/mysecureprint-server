@@ -19,6 +19,13 @@ final class AppCache: ObservableObject {
     @Published var jobs: [PrintJob] = []
     @Published var jobsHasMore: Bool = false
 
+    // Management (nur Admins/Users — wird nur befüllt wenn hasManagementAccess)
+    @Published var mgmtStats: MgmtStatsResponse? = nil
+    @Published var mgmtPrinters: [MgmtPrinter] = []
+    @Published var mgmtUsers: [MgmtUser] = []
+    @Published var mgmtWorkstations: [MgmtWorkstation] = []
+    @Published var mgmtLastSyncedAt: Date? = nil
+
     // ── Sync-Status ───────────────────────────────────────────────────────
     @Published var isSyncing: Bool = false
     @Published var lastSyncedAt: Date? = nil
@@ -45,6 +52,11 @@ final class AppCache: ObservableObject {
         queues = []
         jobs = []
         jobsHasMore = false
+        mgmtStats = nil
+        mgmtPrinters = []
+        mgmtUsers = []
+        mgmtWorkstations = []
+        mgmtLastSyncedAt = nil
         preloaded = false
         isSyncing = false
         syncError = ""
@@ -60,12 +72,15 @@ final class AppCache: ObservableObject {
         syncError = ""
         defer { isSyncing = false }
 
-        // Alle drei Quellen parallel holen — wall-clock = langsamster Einzelaufruf
+        // Alle Quellen parallel holen — wall-clock = langsamster Einzelaufruf
         async let tResult = fetchTargets(client: client, settings: settings)
         async let qResult = fetchQueues(client: client)
         async let jResult = fetchJobs(client: client)
+        async let mResult = settings.hasManagementAccess
+            ? fetchManagement(client: client)
+            : nil
 
-        let (t, q, j) = await (tResult, qResult, jResult)
+        let (t, q, j, m) = await (tResult, qResult, jResult, mResult)
 
         if let r = t {
             targets = r.items
@@ -74,6 +89,13 @@ final class AppCache: ObservableObject {
         }
         if let newQueues = q { queues = newQueues }
         if let r = j { jobs = r.items; jobsHasMore = r.hasMore }
+        if let r = m {
+            mgmtStats         = r.stats
+            mgmtPrinters      = r.printers
+            mgmtUsers         = r.users
+            mgmtWorkstations  = r.workstations
+            mgmtLastSyncedAt  = Date()
+        }
 
         preloaded = true
         lastSyncedAt = Date()
@@ -109,6 +131,27 @@ final class AppCache: ObservableObject {
             let resp = try JSONDecoder().decode(JobsResponse.self, from: data)
             return JobResult(items: resp.jobs, hasMore: resp.jobs.count >= Self.jobPageSize)
         } catch { return nil }
+    }
+
+    private struct MgmtResult {
+        let stats: MgmtStatsResponse?
+        let printers: [MgmtPrinter]
+        let users: [MgmtUser]
+        let workstations: [MgmtWorkstation]
+    }
+
+    private func fetchManagement(client: ApiClient) async -> MgmtResult {
+        async let s = try? client.managementStats()
+        async let p = try? client.managementPrinters()
+        async let u = try? client.managementUsers()
+        async let w = try? client.managementWorkstations()
+        let (stats, printers, users, wkst) = await (s, p, u, w)
+        return MgmtResult(
+            stats:        stats,
+            printers:     printers?.printers ?? [],
+            users:        users?.users ?? [],
+            workstations: wkst?.workstations ?? []
+        )
     }
 
     private func applyTargetLabels(_ items: [Target], settings: SettingsStore) {

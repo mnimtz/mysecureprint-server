@@ -13,6 +13,7 @@ import PrintixSendCore
 /// Bedingung entscheidet ContentView → MainTabs, nicht diese View selbst.
 struct ManagementView: View {
     @EnvironmentObject private var settings: SettingsStore
+    @EnvironmentObject private var cache: AppCache
 
     @State private var stats: MgmtStatsResponse?
     @State private var printers: [MgmtPrinter] = []
@@ -60,14 +61,14 @@ struct ManagementView: View {
                     }
                 }
             }
-            .refreshable { await reload() }
+            .refreshable { await reload(updateCache: true) }
             .brandNavStyle(title: String(localized: "mgmt_nav_title"))
             .tint(MSP.cyan)
             .listStyle(.insetGrouped)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        Task { await reload() }
+                        Task { await reload(updateCache: true) }
                     } label: {
                         if isLoading {
                             ProgressView()
@@ -79,7 +80,12 @@ struct ManagementView: View {
                 }
             }
             .task {
-                if stats == nil { await reload() }
+                // Cache-Daten sofort anzeigen — kein Warten nötig
+                if stats == nil, cache.mgmtStats != nil {
+                    applyCache()
+                } else if stats == nil {
+                    await reload()
+                }
             }
         }
     }
@@ -253,7 +259,15 @@ struct ManagementView: View {
 
     // MARK: - Reload
 
-    private func reload() async {
+    private func applyCache() {
+        stats        = cache.mgmtStats
+        printers     = cache.mgmtPrinters
+        users        = cache.mgmtUsers
+        workstations = cache.mgmtWorkstations
+        lastUpdated  = cache.mgmtLastSyncedAt
+    }
+
+    private func reload(updateCache: Bool = false) async {
         guard let base = settings.serverBaseURL,
               let client = ApiClientFactory.make(baseURL: base.absoluteString,
                                                  token: settings.bearerToken) else {
@@ -278,11 +292,19 @@ struct ManagementView: View {
         let (sR, pR, uR, wR) = await (statsResult, printersResult,
                                       usersResult, workstationsResult)
 
-        stats = sR.value
-        printers = pR.value?.printers ?? []
-        users = uR.value?.users ?? []
+        stats        = sR.value
+        printers     = pR.value?.printers ?? []
+        users        = uR.value?.users ?? []
         workstations = wR.value?.workstations ?? []
-        lastUpdated = Date()
+        lastUpdated  = Date()
+
+        if updateCache {
+            cache.mgmtStats        = stats
+            cache.mgmtPrinters     = printers
+            cache.mgmtUsers        = users
+            cache.mgmtWorkstations = workstations
+            cache.mgmtLastSyncedAt = lastUpdated
+        }
 
         // Heterogene Generic-Typen → wir koennen die NamedResults nicht
         // in ein Array packen, also Fehler einzeln einsammeln.
