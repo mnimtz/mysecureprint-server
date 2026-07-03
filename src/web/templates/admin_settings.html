@@ -116,26 +116,18 @@
         <label style="display:flex; align-items:center; gap:8px; font-weight:600;">
           <input type="checkbox" name="delegation_print_allowed" value="1"
                  {% if current_delegation_allowed %}checked{% endif %}>
-          Delegation-Druck erlauben
+          {{ _('delegation_print_label') }}
         </label>
-        <small class="hint" style="margin-left:24px;">
-          Erlaubt es Usern in der iOS-App, Druckjobs an andere Benutzer
-          zu delegieren. Standardm&auml;ssig aus &mdash; aus Datenschutz-/
-          Compliance-Gr&uuml;nden im Default deaktiviert.
-        </small>
+        <small class="hint" style="margin-left:24px;">{{ _('delegation_print_help') }}</small>
       </div>
 
       <div class="form-group">
         <label style="display:flex; align-items:center; gap:8px; font-weight:600;">
           <input type="checkbox" name="employees_can_manage_cards" value="1"
                  {% if current_employees_can_manage_cards %}checked{% endif %}>
-          Mitarbeiter d&uuml;rfen Karten hinzuf&uuml;gen
+          {{ _('employee_card_label') }}
         </label>
-        <small class="hint" style="margin-left:24px;">
-          Wenn aktiv, sehen Mitarbeiter in der iOS-App den Karten-Tab und
-          k&ouml;nnen eigene NFC-Karten registrieren. Standardm&auml;ssig
-          deaktiviert &mdash; nur Admins und User haben Karten-Zugriff.
-        </small>
+        <small class="hint" style="margin-left:24px;">{{ _('employee_card_help') }}</small>
       </div>
 
       <button type="submit" class="btn btn-primary">{{ _('btn_save') }}</button>
