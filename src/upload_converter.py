@@ -245,6 +245,27 @@ def _apply_spreadsheet_print_settings(data: bytes, src_ext: str) -> bytes:
         return data
 
 
+def _pdf_page_width_pts(pdf_path: str) -> float | None:
+    """Gibt die Breite der ersten Seite eines PDFs in Punkten zurück.
+
+    Liest MediaBox direkt aus den rohen PDF-Bytes via Regex — kein
+    externer Dependency. Gibt None zurück wenn nicht lesbar.
+    """
+    import re
+    try:
+        with open(pdf_path, "rb") as f:
+            data = f.read(65536)  # ersten 64 KB reichen für MediaBox
+        m = re.search(
+            rb"/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]",
+            data,
+        )
+        if m:
+            return float(m.group(3)) - float(m.group(1))
+    except Exception:
+        pass
+    return None
+
+
 def _convert_libreoffice(data: bytes, src_ext: str) -> bytes:
     """Office-Formate → PDF via `libreoffice --headless`.
 
@@ -299,18 +320,23 @@ def _convert_libreoffice(data: bytes, src_ext: str) -> bytes:
 
         # Spreadsheets: Ghostscript-Pass erzwingt A4-Ausgabe.
         # LibreOffice ignoriert fitToPage bei headless-Konvertierung und
-        # rendert Sheets auf endlos-breiten Seiten. -dFIXEDMEDIA +
-        # -dPDFFitPage skaliert jede Seite proportional auf A4.
+        # rendert Sheets auf endlos-breiten Seiten.
+        # WICHTIG: -dPDFFitPage nur wenn Seite BREITER als A4 — sonst
+        # werden schmale Sheets (z.B. 3 Spalten) auf A4-Breite hochskaliert
+        # und Zellen erscheinen riesig im Preview.
         if src_ext in ("xlsx", "xls", "ods") and shutil.which("gs"):
             gs_out = os.path.join(out_dir, "a4.pdf")
-            gs_proc = subprocess.run(
-                ["gs", "-dBATCH", "-dNOPAUSE", "-dSAFER", "-dQUIET",
-                 "-sDEVICE=pdfwrite",
-                 "-dFIXEDMEDIA", "-dPDFFitPage",
-                 "-sPAPERSIZE=a4",
-                 f"-sOutputFile={gs_out}", out_path],
-                timeout=60, capture_output=True,
-            )
+            # Seitenbreite des LibreOffice-PDFs ermitteln (in Punkten)
+            pdf_width_pts = _pdf_page_width_pts(out_path)
+            A4_W_PTS = 595.28  # A4 Breite in Punkten (72dpi)
+            needs_scale_down = pdf_width_pts is None or pdf_width_pts > A4_W_PTS * 1.05
+            gs_args = ["gs", "-dBATCH", "-dNOPAUSE", "-dSAFER", "-dQUIET",
+                       "-sDEVICE=pdfwrite", "-dFIXEDMEDIA", "-sPAPERSIZE=a4"]
+            if needs_scale_down:
+                gs_args.append("-dPDFFitPage")  # nur verkleinern wenn nötig
+            gs_args.append(f"-sOutputFile={gs_out}")
+            gs_args.append(out_path)
+            gs_proc = subprocess.run(gs_args, timeout=60, capture_output=True)
             if gs_proc.returncode == 0 and os.path.exists(gs_out):
                 out_path = gs_out
             else:
