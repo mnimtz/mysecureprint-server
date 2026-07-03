@@ -156,6 +156,11 @@ struct UserDetailView: View {
     @State private var detail: MgmtUserDetail? = nil
     @State private var isLoadingDetail = false
 
+    private var effectiveRole: String? {
+        if let r = detail?.role, !r.isEmpty { return r }
+        return user.role.flatMap { $0.isEmpty ? nil : $0 }
+    }
+
     private var initials: String {
         let n = user.name ?? user.email ?? "?"
         return n.split(separator: " ")
@@ -186,8 +191,7 @@ struct UserDetailView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
-                        let displayRole = detail?.role ?? user.role
-                        if let role = displayRole, !role.isEmpty {
+                        if let role = effectiveRole {
                             roleChip(role: role)
                         }
                     }
@@ -199,8 +203,7 @@ struct UserDetailView: View {
                 if let e = user.email, !e.isEmpty {
                     infoRow(icon: "envelope", label: String(localized: "E-Mail"), value: e)
                 }
-                let displayRole = detail?.role ?? user.role
-                if let role = displayRole, !role.isEmpty {
+                if let role = effectiveRole {
                     infoRow(icon: "person.badge.key", label: String(localized: "Rolle"), value: role.capitalized)
                 }
                 if let lang = detail?.language, !lang.isEmpty {
