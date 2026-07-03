@@ -36,7 +36,23 @@ final class QRScannerViewController: UIViewController,
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .black
-        configureSession()
+        checkPermissionAndConfigure()
+    }
+
+    private func checkPermissionAndConfigure() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            configureSession()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                DispatchQueue.main.async {
+                    if granted { self?.configureSession() }
+                    else { self?.deliver(nil) }
+                }
+            }
+        default:
+            deliver(nil)
+        }
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -100,8 +116,13 @@ final class QRScannerViewController: UIViewController,
         // Einmalig: sobald der erste Treffer da ist, abdrehen.
         didDeliver = true
         AudioServicesPlaySystemSound(1057) // kurzes „ping"
-        session.stopRunning()
-        deliver(parseServer(from: value))
+        // stopRunning() ist blocking — nie auf dem Main Thread aufrufen,
+        // sonst friert die UI ein bis die Session anhält.
+        let parsed = parseServer(from: value)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.session.stopRunning()
+        }
+        deliver(parsed)
     }
 
     // MARK: - Payload-Parsing
