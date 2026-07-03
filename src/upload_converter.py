@@ -1,5 +1,5 @@
 """
-Upload-Konverter (v6.7.29)
+Upload-Konverter (v6.7.30)
 ===========================
 Konvertiert verschiedene Dokument-Formate zu PDF, damit der Web-Upload
 nicht nur PDFs akzeptiert sondern auch Office-Dateien, Bilder und Text.
@@ -207,47 +207,81 @@ def _convert_text_to_pdf(data: bytes) -> bytes:
 
 
 def _apply_spreadsheet_print_settings(data: bytes, src_ext: str) -> bytes:
-    """Setzt Fit-to-page + A4 auf allen Sheets bevor LibreOffice konvertiert.
+    """Entfernt Print_Area und setzt A4-Fit-to-Width direkt im xlsx-ZIP-XML.
 
-    Ohne diese Einstellung rendert LibreOffice Excel-Tabellen auf endlos-
-    breiten Seiten (kein Auto-Scale). Mit fitToPage=True + fitToWidth=1
-    passt jedes Sheet auf eine A4-Seite in der Breite; die Höhe wächst
-    in Seiten. xls-Dateien werden als xlsx neu gespeichert (openpyxl
-    unterstützt kein altes .xls-Format direkt — Fallback: unverändert).
+    Zweistufig:
+    1. ZIP/XML-Pass: _xlnm.Print_Area aus workbook.xml löschen + Row/Col-Breaks
+       aus sheet XMLs entfernen. Direktes XML-Patching ist zuverlässiger als
+       openpyxl-Propertysetter (kein Risiko durch fehlerhaftes Re-Serialisieren).
+    2. openpyxl-Pass: fitToWidth=1, paperSize=A4, Orientation setzen.
+       Nach dem XML-Pass liegt kein Print_Area mehr im File, sodass LibreOffice
+       alle Spalten rendert.
     """
+    import io, zipfile, re as _re
+
+    # ── Phase 1: direktes ZIP/XML-Patching ───────────────────────────────────
     try:
-        import io
+        buf_in = io.BytesIO(data)
+        buf_out = io.BytesIO()
+        with zipfile.ZipFile(buf_in, 'r') as zin, \
+             zipfile.ZipFile(buf_out, 'w', compression=zipfile.ZIP_DEFLATED) as zout:
+            for item in zin.infolist():
+                content = zin.read(item.filename)
+                if item.filename == 'xl/workbook.xml':
+                    # _xlnm.Print_Area definedName vollständig entfernen
+                    content = _re.sub(
+                        rb'<definedName[^>]*name="[^"]*Print_Area[^"]*"[^>]*>.*?</definedName>\s*',
+                        b'', content, flags=_re.DOTALL | _re.IGNORECASE,
+                    )
+                    # Auch self-closing Variante (seltener)
+                    content = _re.sub(
+                        rb'<definedName[^/]*Print_Area[^/]*/>\s*',
+                        b'', content, flags=_re.IGNORECASE,
+                    )
+                elif _re.match(rb'xl/worksheets/sheet\d+\.xml$',
+                               item.filename.encode()):
+                    # Manuelle Zeilen-/Spalten-Breaks entfernen
+                    content = _re.sub(
+                        rb'<rowBreaks\b[^>]*/>', b'', content)
+                    content = _re.sub(
+                        rb'<rowBreaks\b[^>]*>.*?</rowBreaks>', b'',
+                        content, flags=_re.DOTALL)
+                    content = _re.sub(
+                        rb'<colBreaks\b[^>]*/>', b'', content)
+                    content = _re.sub(
+                        rb'<colBreaks\b[^>]*>.*?</colBreaks>', b'',
+                        content, flags=_re.DOTALL)
+                zout.writestr(item, content)
+        data = buf_out.getvalue()
+        logger.debug("_apply_spreadsheet_print_settings: XML-Pass OK")
+    except Exception as exc:
+        logger.debug("XML-Phase fehlgeschlagen (harmlos): %s", exc)
+
+    # ── Phase 2: openpyxl für fitToPage/orientation ──────────────────────────
+    try:
         from openpyxl import load_workbook
         from openpyxl.worksheet.page import PageSetupProperties
 
         wb = load_workbook(filename=io.BytesIO(data))
         for ws in wb.worksheets:
-            # Print-Area löschen — sonst rendert LibreOffice nur den im xlsx
-            # deklarierten Bereich (häufig z.B. nur A:C statt aller Spalten).
-            ws.print_area = None
             ws.page_setup.paperSize  = ws.PAPERSIZE_A4
             ws.page_setup.fitToWidth = 1
             ws.page_setup.fitToHeight = 0
-            # Automatisch Landscape wenn Sheet deutlich breiter als hoch
             if ws.max_column and ws.max_row:
                 ratio = ws.max_column / max(ws.max_row, 1)
-                if ratio > 1.5:
-                    ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
-                else:
-                    ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
+                ws.page_setup.orientation = (
+                    ws.ORIENTATION_LANDSCAPE if ratio > 1.5
+                    else ws.ORIENTATION_PORTRAIT
+                )
             if ws.sheet_properties.pageSetUpPr is None:
                 ws.sheet_properties.pageSetUpPr = PageSetupProperties()
             ws.sheet_properties.pageSetUpPr.fitToPage = True
-            # Breaks löschen damit keine künstlichen Seitenumbrüche
-            # den Druckbereich einschränken
-            ws.col_breaks.brk.clear() if hasattr(ws.col_breaks, 'brk') else None
-            ws.row_breaks.brk.clear() if hasattr(ws.row_breaks, 'brk') else None
         out = io.BytesIO()
         wb.save(out)
-        logger.debug("_apply_spreadsheet_print_settings: %d sheets angepasst", len(wb.worksheets))
+        logger.debug("_apply_spreadsheet_print_settings: openpyxl-Pass OK, %d sheets", len(wb.worksheets))
         return out.getvalue()
     except Exception as exc:
-        logger.debug("_apply_spreadsheet_print_settings fehlgeschlagen, Original behalten: %s", exc)
+        logger.debug("openpyxl-Phase fehlgeschlagen: %s", exc)
         return data
 
 
