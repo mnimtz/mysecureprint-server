@@ -388,6 +388,9 @@ final class SettingsStore: ObservableObject {
         targetLabels = [:]
         selectionExpiresAt = nil
         pendingInviteToken = ""
+        recentQueueIds = []
+        recentDelegateIds = []
+        anywhereOnly = false
         // Admin-Flags auf sichere Defaults zuruecksetzen — werden nach
         // dem naechsten Login via refreshRole() neu geladen. Ohne Reset
         // koennte ein nachfolgender Login mit niedrigerer Rolle kurz den

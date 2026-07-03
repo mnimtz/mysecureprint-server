@@ -163,9 +163,15 @@ final class AppCache: ObservableObject {
             if !label.isEmpty { labels[t.id] = label }
         }
         settings.targetLabels = labels
-        // Default-Queue setzen falls noch nichts ausgewählt
-        if settings.selectedTargetIds.isEmpty, let first = items.first {
-            settings.selectedTargetIds = [first.id]
+        // Default-Queue setzen falls noch nichts ausgewählt.
+        // Vorzug: print:self (eigene SecurePrint-Queue) — das ist das
+        // konzeptuelle Default des Apps. Fallback: erster Server-Eintrag.
+        if settings.selectedTargetIds.isEmpty {
+            let preferred = items.first(where: { $0.id == SettingsStore.defaultTargetId })
+                         ?? items.first
+            if let id = preferred?.id {
+                settings.selectedTargetIds = [id]
+            }
         }
         // Ungültige IDs aus Auswahl prunen (außer print:queue/user — die kommen
         // aus dem Picker und sind nicht in targets enthalten)
