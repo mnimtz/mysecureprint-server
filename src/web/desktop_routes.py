@@ -1277,6 +1277,42 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             logger.warning("desktop_me_jobs: %s", e)
             return _json_error(str(e)[:200], code="jobs_query_failed", status=500)
 
+    @app.delete("/desktop/me/jobs")
+    async def desktop_me_jobs_clear(request: Request,
+                                     authorization: str = Header(default="")):
+        """v0.7.87: Eigene Job-Historie löschen."""
+        _log_req(request, "DELETE /me/jobs")
+        user = _require_token(authorization)
+        if not user:
+            return _json_error("token invalid", code="auth_required", status=401)
+        try:
+            from db import _conn, _resolve_tenant_owner_for
+            from cloudprint.db_extensions import get_tenant_for_user
+            parent_id = _resolve_tenant_owner_for(user["user_id"]) or user["user_id"]
+            tenant = get_tenant_for_user(parent_id)
+            tid = (tenant or {}).get("id", "")
+            uname  = (_user_descr(user) or "").lower()
+            uemail = (user.get("email") or "").lower()
+            pxid   = (user.get("printix_user_id") or "").lower()
+            with _conn() as conn:
+                result = conn.execute(
+                    """DELETE FROM cloudprint_jobs
+                       WHERE (tenant_id = ? OR IFNULL(tenant_id,'') = '')
+                         AND (
+                           LOWER(IFNULL(username,'')) = ?
+                           OR LOWER(IFNULL(username,'')) = ?
+                           OR LOWER(IFNULL(detected_identity,'')) = ?
+                           OR LOWER(IFNULL(detected_identity,'')) = ?
+                           OR LOWER(IFNULL(detected_identity,'')) = ?
+                         )""",
+                    (tid, uname, uemail, uname, uemail, pxid),
+                )
+                deleted = result.rowcount
+            return JSONResponse({"deleted": deleted})
+        except Exception as e:
+            logger.warning("desktop_me_jobs_clear: %s", e)
+            return _json_error(str(e)[:200], code="jobs_clear_failed", status=500)
+
     @app.get("/desktop/me/jobs/{job_id}/preview")
     async def desktop_job_preview(job_id: str, request: Request,
                                    authorization: str = Header(default="")):

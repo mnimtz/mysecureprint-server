@@ -14,6 +14,7 @@ struct JobsView: View {
     @State private var searchText = ""
     @State private var hasMore = false
     @State private var selectedJob: PrintJob? = nil
+    @State private var showClearConfirm = false
 
     private let pageSize = 30
 
@@ -64,6 +65,30 @@ struct JobsView: View {
             .task { await reload() }
             .sheet(item: $selectedJob) { job in
                 JobDetailView(job: job)
+            }
+            .toolbar {
+                ToolbarItem(placement: .bottomBar) {
+                    if !jobs.isEmpty {
+                        Button(role: .destructive) {
+                            showClearConfirm = true
+                        } label: {
+                            Label(String(localized: "Verlauf löschen"), systemImage: "trash")
+                                .font(.caption)
+                        }
+                        .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .confirmationDialog(
+                String(localized: "Job-Verlauf löschen?"),
+                isPresented: $showClearConfirm,
+                titleVisibility: .visible
+            ) {
+                Button(String(localized: "Verlauf löschen"), role: .destructive) {
+                    Task { await clearHistory() }
+                }
+            } message: {
+                Text(String(localized: "Alle Einträge werden unwiderruflich entfernt."))
             }
         }
     }
@@ -138,6 +163,15 @@ struct JobsView: View {
         } catch {
             self.error = error.localizedDescription
         }
+    }
+
+    @MainActor
+    private func clearHistory() async {
+        guard let client = ApiClientFactory.make(baseURL: settings.serverURL,
+                                                  token: settings.bearerToken) else { return }
+        _ = try? await client.deleteMyJobs()
+        jobs = []
+        hasMore = false
     }
 
     private func fetchJobs(offset: Int) async throws -> JobsResponse {

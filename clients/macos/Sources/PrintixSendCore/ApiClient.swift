@@ -335,6 +335,22 @@ public final class ApiClient: @unchecked Sendable {
         return data
     }
 
+    /// Löscht die gesamte eigene Job-Historie auf dem Server.
+    public func deleteMyJobs() async throws -> Int {
+        log.info("DELETE /desktop/me/jobs")
+        let url = baseUrl.appendingPathComponent("desktop/me/jobs")
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        if let token = token, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.timeoutInterval = 15
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
+        let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        return (json?["deleted"] as? Int) ?? 0
+    }
+
     /// Seite-1-Vorschau eines Jobs als PNG-Data.
     /// Gibt nil zurück wenn kein Preview vorhanden (HTTP 404).
     public func jobPreview(jobId: String) async throws -> Data? {
