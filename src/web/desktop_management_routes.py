@@ -127,10 +127,9 @@ def _extract_printers(raw: Any) -> list[dict]:
         qid = m.group(2) if m else (p.get("queueId") or "")
         if not pid:
             continue
-        key = f"{pid}:{qid}"
-        if key in seen_pids:
+        if pid in seen_pids:
             continue
-        seen_pids.add(key)
+        seen_pids.add(pid)
         status = (p.get("connectionStatus") or p.get("status") or "").lower()
         name = (p.get("name") or p.get("modelName") or p.get("displayName") or "").strip()
         location = (p.get("location") or p.get("locationName") or "").strip()
