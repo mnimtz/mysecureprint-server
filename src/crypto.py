@@ -54,8 +54,7 @@ def encrypt(plaintext: str) -> str:
     if not plaintext:
         return ""
     if not FERNET_AVAILABLE:
-        logger.warning("Fernet nicht verfügbar — Wert wird unverschlüsselt gespeichert")
-        return plaintext
+        raise RuntimeError("Fernet nicht verfügbar — Verschlüsselung nicht möglich (cryptography-Paket fehlt)")
     return _get_fernet().encrypt(plaintext.encode()).decode()
 
 

@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import UserNotifications
+import os.log
 
 /// Verwaltet APNs-Registrierung und Token-Upload zum MySecurePrint-Server.
 ///
@@ -13,6 +14,7 @@ import UserNotifications
 final class PushNotificationManager {
 
     static let shared = PushNotificationManager()
+    nonisolated private static let log = OSLog(subsystem: "de.nimtz.mysecureprint", category: "Push")
 
     private(set) var currentDeviceToken: String?
 
@@ -46,7 +48,8 @@ final class PushNotificationManager {
     }
 
     func handleRegistrationError(_ error: Error) {
-        print("[Push] APNs registration failed: \(error.localizedDescription)")
+        os_log("APNs registration failed: %{public}@", log: Self.log, type: .error,
+               error.localizedDescription)
     }
 
     // MARK: - Upload + Unregister
@@ -71,9 +74,10 @@ final class PushNotificationManager {
         do {
             let (_, resp) = try await URLSession.shared.data(for: req)
             let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
-            print("[Push] Token uploaded — HTTP \(status)")
+            os_log("Token uploaded — HTTP %{public}d", log: Self.log, type: .info, status)
         } catch {
-            print("[Push] Token upload failed: \(error.localizedDescription)")
+            os_log("Token upload failed: %{public}@", log: Self.log, type: .error,
+                   error.localizedDescription)
         }
     }
 

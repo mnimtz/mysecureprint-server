@@ -178,7 +178,7 @@ private final class NFCSessionHandler: NSObject, NFCTagReaderSessionDelegate {
         #else
         NSLog("[NFCScanner] Karte gelesen — Typ: \(typeName), Laenge: \(uid.count) Bytes")
         #endif
-        session.alertMessage = String(format: String(localized: "Karte gelesen: %@"), hex)
+        session.alertMessage = String(localized: "Karte erfolgreich gelesen.")
         // Continuation ZUERST entnehmen und nil-setzen, BEVOR
         // invalidate() aufgerufen wird. invalidate() triggert
         // didInvalidateWithError auf demselben Main-Queue-Run-Loop —

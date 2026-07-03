@@ -371,7 +371,16 @@ def register_employee_routes(
                     shared_client_id=full_tenant.get("shared_client_id", ""),
                     shared_client_secret=full_tenant.get("shared_client_secret", ""),
                 )
+                # IDOR-Schutz: Job muss dem anfragenden Benutzer gehören.
+                job = client.get_print_job(job_id)
+                user_email = (user.get("email") or "").lower()
+                job_owner = (job.get("ownerEmail") or "").lower()
+                if job_owner and job_owner != user_email:
+                    raise PermissionError("Job gehört nicht diesem Benutzer")
                 client.delete_print_job(job_id)
+        except PermissionError as e:
+            logger.warning("Job-Löschung verweigert (IDOR): %s", e)
+            return RedirectResponse("/my/jobs?flash=job_delete_denied", status_code=302)
         except Exception as e:
             logger.warning("Job-Löschung fehlgeschlagen: %s", e)
 

@@ -20,6 +20,7 @@ get_mailbox + tenant-check.
 from __future__ import annotations
 
 import logging
+import urllib.parse
 from fastapi import Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 
@@ -112,7 +113,7 @@ def register(app, *, require_login_fn, get_active_tenant_id_fn,
                 enabled=(enabled in ("1", "on", "true")))
         except ValueError as e:
             return RedirectResponse(
-                f"/admin/guestprint?error={str(e).replace(' ', '+')}",
+                f"/admin/guestprint?error={urllib.parse.quote_plus(str(e))}",
                 status_code=303)
         _audit(user, "guestprint_mailbox_created", mailbox_id=mid, upn=upn)
         return RedirectResponse(f"/admin/guestprint/mailbox/{mid}",
@@ -236,7 +237,7 @@ def register(app, *, require_login_fn, get_active_tenant_id_fn,
         except ValueError as e:
             return RedirectResponse(
                 f"/admin/guestprint/mailbox/{mid}?error="
-                f"{str(e).replace(' ', '+')}", status_code=303)
+                f"{urllib.parse.quote_plus(str(e))}", status_code=303)
         _audit(user, "guestprint_guest_added",
                  mailbox_id=mid, guest_id=gid, sender=sender_email)
         return RedirectResponse(f"/admin/guestprint/mailbox/{mid}",

@@ -1826,14 +1826,14 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         session_id = secrets.token_urlsafe(24)
         now = datetime.now(timezone.utc).isoformat()
         with _conn() as conn:
-            conn.executescript("""
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS desktop_entra_pending (
                     session_id   TEXT PRIMARY KEY,
                     device_code  TEXT NOT NULL,
                     device_name  TEXT NOT NULL DEFAULT '',
                     created_at   TEXT NOT NULL,
                     expires_at   TEXT NOT NULL
-                );
+                )
             """)
             from datetime import timedelta
             expires = (datetime.now(timezone.utc) +
@@ -2062,7 +2062,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         expires = (datetime.now(timezone.utc) +
                    timedelta(seconds=expires_in_s)).isoformat()
         with _conn() as conn:
-            conn.executescript("""
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS desktop_entra_authcode_pending (
                     session_id    TEXT PRIMARY KEY,
                     code_verifier TEXT NOT NULL,
@@ -2071,7 +2071,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     device_name   TEXT NOT NULL DEFAULT '',
                     created_at    TEXT NOT NULL,
                     expires_at    TEXT NOT NULL
-                );
+                )
             """)
             conn.execute(
                 "INSERT INTO desktop_entra_authcode_pending "

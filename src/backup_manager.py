@@ -356,9 +356,12 @@ def list_backups() -> list[dict]:
 
 
 def resolve_backup_path(filename: str) -> Path:
-    if not filename or "/" in filename or "\\" in filename:
+    if not filename or "/" in filename or "\\" in filename or ".." in filename:
         raise ValueError("Invalid backup filename")
     path = BACKUP_DIR / filename
+    # Doppelt prüfen nach Auflösung von Symlinks o.Ä.
+    if not path.resolve().is_relative_to(BACKUP_DIR.resolve()):
+        raise ValueError("Invalid backup filename")
     if not path.exists() or not path.is_file():
         raise FileNotFoundError(filename)
     return path
@@ -543,7 +546,13 @@ def restore_backup(uploaded_zip_path: str,
     with tempfile.TemporaryDirectory(prefix="printix-restore-") as tmp_root:
         temp_dir = Path(tmp_root)
         with zipfile.ZipFile(uploaded_zip_path, "r") as zf:
-            zf.extractall(temp_dir)
+            # ZIP-Slip-Schutz: jeden Member einzeln prüfen bevor entpacken.
+            temp_dir_resolved = temp_dir.resolve()
+            for member in zf.infolist():
+                member_path = (temp_dir / member.filename).resolve()
+                if not member_path.is_relative_to(temp_dir_resolved):
+                    raise RuntimeError(f"ZIP Slip erkannt: {member.filename}")
+                zf.extract(member, temp_dir)
 
         manifest_path = temp_dir / "manifest.json"
         if not manifest_path.exists():
@@ -571,6 +580,9 @@ def restore_backup(uploaded_zip_path: str,
                 continue
             archive_path = entry.get("archive_path", "")
             extracted_file = temp_dir / archive_path
+            # Manifest-Pfad darf nicht aus temp_dir ausbrechen.
+            if not extracted_file.resolve().is_relative_to(temp_dir.resolve()):
+                raise RuntimeError(f"Ungültiger archive_path in Manifest: {archive_path}")
             if not extracted_file.exists():
                 raise RuntimeError(f"Backup payload missing: {archive_path}")
 

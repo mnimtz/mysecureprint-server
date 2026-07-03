@@ -2040,12 +2040,14 @@ def get_tenant_by_oauth_client_id(client_id: str) -> Optional[dict]:
 
 def verify_tenant_oauth_secret(tenant_id: str, client_secret: str) -> bool:
     """Prüft das OAuth Client-Secret für einen Tenant."""
+    import hmac as _hmac
     with _conn() as conn:
         row = conn.execute("SELECT oauth_client_secret FROM tenants WHERE id=?",
                            (tenant_id,)).fetchone()
     if not row:
         return False
-    return _dec(row["oauth_client_secret"]) == client_secret
+    stored = _dec(row["oauth_client_secret"]) or ""
+    return _hmac.compare_digest(stored, client_secret)
 
 
 # ─── OAuth Dynamic Client Registration (v7.7.2, RFC 7591) ─────────────────────

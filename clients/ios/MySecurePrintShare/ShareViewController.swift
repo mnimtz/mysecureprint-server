@@ -75,47 +75,15 @@ final class ShareViewController: UIViewController {
         ])
     }
 
-    /// v1.0.1: Semaphore die den performExpiringActivity-Block am Leben
-    /// haelt bis der Upload wirklich fertig ist. Vorher: der Block kehrte
-    /// nach 0.05s zurueck → iOS suspendierte die Extension → Task.detached
-    /// wurde mid-flight gekilled → Upload verloren, User sieht Success.
-    private let uploadDoneSemaphore = DispatchSemaphore(value: 0)
     private var uploadFinished = false
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        // App-Extensions haben kein UIApplication.beginBackgroundTask;
-        // performExpiringActivity ist der einzige Weg, iOS zu bitten die
-        // Extension nicht zu suspendieren. Der Block MUSS blocken solange
-        // wir Zeit brauchen — sonst signalisieren wir dem System dass wir
-        // fertig sind und iOS killt uns.
-        ProcessInfo.processInfo.performExpiringActivity(
-            withReason: "MySecurePrintShareUpload"
-        ) { [weak self] expiring in
-            guard let self else { return }
-            if expiring {
-                // iOS zwingt uns raus. Wecke den Warteblock auf damit die
-                // Extension sauber zu Ende geht (Success/Fail wird
-                // eventuell noch nicht gemeldet, aber wir wurden gewarnt).
-                self.uploadDoneSemaphore.signal()
-                return
-            }
-            // Block bleibt hier haengen bis der Upload signalisiert.
-            // Hard-Cap 55s (iOS gibt ~60s im Suspend-Fenster) damit wir
-            // notfalls kontrolliert freigeben statt hart gekilled zu
-            // werden.
-            _ = self.uploadDoneSemaphore.wait(timeout: .now() + 55)
-        }
         handleSharedItem()
     }
 
-    /// Muss aus allen Terminal-Pfaden aufgerufen werden (Success/Fail)
-    /// damit iOS die Extension freigibt. Idempotent.
     private func markUploadFinished() {
-        if !uploadFinished {
-            uploadFinished = true
-            uploadDoneSemaphore.signal()
-        }
+        uploadFinished = true
     }
 
     // MARK: - Attachment-Handling
@@ -155,30 +123,38 @@ final class ShareViewController: UIViewController {
             }
             if let url = item as? URL {
                 let secured = url.startAccessingSecurityScopedResource()
-                defer { if secured { url.stopAccessingSecurityScopedResource() } }
                 // Size-Guard VOR dem Load — Data(contentsOf:) mit 200MB
                 // waere ein sicherer OOM-Kill.
                 if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
                    let size = attrs[.size] as? Int64, size > Self.maxAttachmentBytes {
-                    self.finish(error: String(format: String(localized: "Datei zu gross (%d MB). Max: %d MB."), Int(size/1024/1024), Int(Self.maxAttachmentBytes/1024/1024)))
+                    if secured { url.stopAccessingSecurityScopedResource() }
+                    let msg = String(format: String(localized: "Datei zu gross (%d MB). Max: %d MB."),
+                                     Int(size/1024/1024), Int(Self.maxAttachmentBytes/1024/1024))
+                    DispatchQueue.main.async { [weak self] in self?.finish(error: msg) }
                     return
                 }
                 // .mappedIfSafe = memory-mapped I/O, kein Full-Read in RAM
                 guard let data = try? Data(contentsOf: url, options: [.mappedIfSafe]) else {
-                    self.finish(error: String(localized: "PDF konnte nicht gelesen werden."))
+                    if secured { url.stopAccessingSecurityScopedResource() }
+                    DispatchQueue.main.async { [weak self] in
+                        self?.finish(error: String(localized: "PDF konnte nicht gelesen werden."))
+                    }
                     return
                 }
                 let name = url.lastPathComponent.isEmpty ? "document.pdf" : url.lastPathComponent
+                if secured { url.stopAccessingSecurityScopedResource() }
                 os_log("PDF geladen: name=%{public}@ size=%{public}d", log: Self.log, type: .info, name, data.count)
-                self.upload(data: data, filename: name)
+                DispatchQueue.main.async { [weak self] in self?.upload(data: data, filename: name) }
                 return
             }
             if let data = item as? Data {
                 os_log("PDF als Data geladen: size=%{public}d", log: Self.log, type: .info, data.count)
-                self.upload(data: data, filename: "document.pdf")
+                DispatchQueue.main.async { [weak self] in self?.upload(data: data, filename: "document.pdf") }
                 return
             }
-            self.finish(error: String(localized: "PDF-Anhang im unbekannten Format."))
+            DispatchQueue.main.async { [weak self] in
+                self?.finish(error: String(localized: "PDF-Anhang im unbekannten Format."))
+            }
         }
     }
 
@@ -190,32 +166,40 @@ final class ShareViewController: UIViewController {
             }
             if let url = item as? URL {
                 let secured = url.startAccessingSecurityScopedResource()
-                defer { if secured { url.stopAccessingSecurityScopedResource() } }
                 if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
                    let size = attrs[.size] as? Int64, size > Self.maxAttachmentBytes {
-                    self.finish(error: String(format: String(localized: "Bild zu gross (%d MB). Max: %d MB."), Int(size/1024/1024), Int(Self.maxAttachmentBytes/1024/1024)))
+                    if secured { url.stopAccessingSecurityScopedResource() }
+                    let msg = String(format: String(localized: "Bild zu gross (%d MB). Max: %d MB."),
+                                     Int(size/1024/1024), Int(Self.maxAttachmentBytes/1024/1024))
+                    DispatchQueue.main.async { [weak self] in self?.finish(error: msg) }
                     return
                 }
                 guard let data = try? Data(contentsOf: url, options: [.mappedIfSafe]),
                       let image = UIImage(data: data) else {
-                    self.finish(error: String(localized: "Bild konnte nicht gelesen werden."))
+                    if secured { url.stopAccessingSecurityScopedResource() }
+                    DispatchQueue.main.async { [weak self] in
+                        self?.finish(error: String(localized: "Bild konnte nicht gelesen werden."))
+                    }
                     return
                 }
-                let pdf = self.renderImageToPDF(image)
                 let baseName = url.deletingPathExtension().lastPathComponent
                 let filename = (baseName.isEmpty ? "image" : baseName) + ".pdf"
+                if secured { url.stopAccessingSecurityScopedResource() }
+                let pdf = self.renderImageToPDF(image)
                 os_log("Bild->PDF konvertiert: in=%{public}d out=%{public}d filename=%{public}@",
                        log: Self.log, type: .info, data.count, pdf.count, filename)
-                self.upload(data: pdf, filename: filename)
+                DispatchQueue.main.async { [weak self] in self?.upload(data: pdf, filename: filename) }
                 return
             }
             if let image = item as? UIImage {
                 let pdf = self.renderImageToPDF(image)
                 os_log("Bild (UIImage) -> PDF: size=%{public}d", log: Self.log, type: .info, pdf.count)
-                self.upload(data: pdf, filename: "image.pdf")
+                DispatchQueue.main.async { [weak self] in self?.upload(data: pdf, filename: "image.pdf") }
                 return
             }
-            self.finish(error: String(localized: "Bild-Anhang im unbekannten Format."))
+            DispatchQueue.main.async { [weak self] in
+                self?.finish(error: String(localized: "Bild-Anhang im unbekannten Format."))
+            }
         }
     }
 
@@ -254,8 +238,6 @@ final class ShareViewController: UIViewController {
                targetId,
                data.count,
                filename)
-        // Token nur als private logging — bewusst NICHT in den oben sichtbaren Log.
-        os_log("Bearer (private): %{private}@", log: Self.log, type: .debug, token)
 
         guard !serverURL.isEmpty else {
             finish(error: String(localized: "App ist nicht eingerichtet — bitte zuerst MySecurePrint starten und einloggen."))
@@ -368,7 +350,7 @@ final class ShareViewController: UIViewController {
         statusLabel.text = error
         statusLabel.textColor = .systemRed
         markUploadFinished()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
             self?.extensionContext?.completeRequest(returningItems: nil)
         }
     }

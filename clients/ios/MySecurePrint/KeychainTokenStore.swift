@@ -8,8 +8,8 @@ import Security
 /// UserDefaults:
 ///   - nicht in iTunes/Finder-Backups enthalten (AfterFirstUnlockThisDeviceOnly),
 ///   - Sandbox-/Jailbreak-resistenter,
-///   - ueberlebt App-Loeschung NICHT (per AccessibleAfterFirstUnlockThisDeviceOnly +
-///     Keychain wird mit der App geloescht).
+///   - ueberlebt App-Loeschung (kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+///     + Keychain-Access-Group bleiben nach App-Loeschung erhalten).
 ///
 /// Service-Name und Access-Group muessen mit den Entitlements
 /// uebereinstimmen.
