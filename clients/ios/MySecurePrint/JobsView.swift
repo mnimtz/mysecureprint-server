@@ -75,7 +75,7 @@ struct JobsView: View {
                 if searchText.trimmingCharacters(in: .whitespaces).isEmpty {
                     Text(String(localized: "Noch keine Druck-Jobs"))
                         .font(.headline)
-                    Text(String(localized: "Hier landen deine Aufträge nach dem Senden — inkl. Status (bereit zur Abholung, fehlgeschlagen)."))
+                    Text(String(localized: "Hier landen deine Aufträge nach dem Senden — inkl. Status (an Printix gesendet, gedruckt, Fehler)."))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 } else {
@@ -429,15 +429,15 @@ struct PrintJob: Decodable, Identifiable {
         case "queued":
             return (.gray,   String(localized: "In Warteschlange"))
         case "sent", "forwarded":
-            return (MSP.cyan, String(localized: "Gesendet"))
+            return (MSP.cyan, String(localized: "An Printix gesendet"))
         case "received", "pending", "processing":
-            return (.orange, String(localized: "Wird verarbeitet…"))
+            return (.orange,  String(localized: "Wird gedruckt…"))
         case "ok", "success", "completed", "printed":
-            return (.green,  String(localized: "Gedruckt ✓"))
+            return (.green,   String(localized: "Erfolgreich gedruckt ✓"))
         case "expired", "deleted":
-            return (.gray,   String(localized: "Abgelaufen"))
+            return (.gray,    String(localized: "Abgelaufen"))
         case "error", "failed":
-            return (.red,    String(localized: "Fehlgeschlagen"))
+            return (.red,     String(localized: "Fehler beim Drucken"))
         default:
             return (.gray,   status)
         }
