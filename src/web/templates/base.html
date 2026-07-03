@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
-  <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800&display=swap" rel="stylesheet">
+  <link href="https://fonts.bunny.net/css?family=red-hat-display:400,500,700&display=swap" rel="stylesheet">
   <title>{% block title %}{{ _('brand_console_name') }}{% endblock %}</title>
   <link rel="icon" type="image/png" href="/logo/icon.png">
   <style>
@@ -13,28 +13,31 @@
       --workspace-max-width: 1460px;
       --workspace-gutter: 16px;
 
-      /* mysecureprint — Brand Design System */
-      /* Color palette */
+      /* Tungsten Automation Brand Design System */
+      /* Color palette — Tungsten Brand Book (Print & Workplace Automation) */
       --bg: #f8fafc;
       --surface: #ffffff;
-      --border: #e2e8f0;
-      --border-subtle: #f1f5f9;
-      --text-strong: #0f172a;
-      --text: #1e293b;
-      --text-muted: #64748b;
-      --text-faint: #94a3b8;
-      --primary: #1B2A4E;
-      --primary-hover: #243358;
-      --accent: #3FA9F5;
-      --accent-hover: #2196F3;
+      --border: #D9DFE6;
+      --border-subtle: #E4E4E4;
+      --text-strong: #002854;
+      --text: #231F20;
+      --text-muted: #8094AA;
+      --text-faint: #D9DFE6;
+      --primary: #002854;
+      --primary-hover: #003A6E;
+      --deep: #00123B;
+      --accent: #00A0FB;
+      --accent-hover: #0090E0;
+      --brand-light: #9DDDF9;
+      --brand-green: #00EB86;
       --success: #16A34A;
       --warning: #F59E0B;
       --danger: #DC2626;
-      --code-bg: #0f172a;
-      --code-text: #e2e8f0;
+      --code-bg: #00123B;
+      --code-text: #D9DFE6;
 
-      /* Typography */
-      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      /* Typography — Red Hat Display (Tungsten brand font) */
+      --font-sans: 'Red Hat Display', Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       --font-mono: ui-monospace, "SF Mono", Monaco, "Cascadia Mono", "Roboto Mono", monospace;
 
       /* Spacing scale (4px-Grid) */
@@ -64,10 +67,10 @@
 
       /* Legacy aliases — keep existing templates working */
       --ta-navy: var(--primary);
-      --ta-navy-dark: #14213D;
+      --ta-navy-dark: var(--deep);
       --ta-cyan: var(--accent);
-      --ta-cyan-light: #BCE0FD;
-      --ta-cyan-dark: #1B5E8A;
+      --ta-cyan-light: var(--brand-light);
+      --ta-cyan-dark: #0070C0;
       --ta-green: var(--success);
       --ta-gold: var(--accent);
       --ta-gold-hover: var(--accent-hover);
@@ -82,7 +85,7 @@
       font-family: var(--font-sans);
       font-size: 15px;
       line-height: 1.6;
-      font-feature-settings: "ss01" 1, "cv11" 1;
+      font-weight: 400;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       background: var(--bg);
@@ -90,7 +93,7 @@
       min-height: 100vh;
     }
     h1, h2, h3 { color: var(--text-strong); letter-spacing: -0.01em; font-weight: 700; }
-    h1 { font-size: 1.875rem; font-weight: 800; letter-spacing: -0.02em; }
+    h1 { font-size: 1.875rem; font-weight: 700; letter-spacing: -0.02em; }
     h2 { font-size: 1.375rem; }
     h3 { font-size: 1.125rem; }
     img, svg, video, canvas {
@@ -257,7 +260,7 @@
     .sidebar-top-link .sb-icon {
       width: 28px; height: 28px; border-radius: var(--radius-sm);
       display: inline-flex; align-items: center; justify-content: center;
-      background: rgba(63,169,245,.10); font-size: .85em; flex-shrink: 0;
+      background: rgba(0,160,251,.10); font-size: .85em; flex-shrink: 0;
       filter: brightness(0.95);
     }
     .sidebar-top-link.active .sb-icon { background: rgba(255,255,255,.18); filter: none; }
@@ -299,7 +302,7 @@
     }
     .sb-sublink:hover { background: var(--border-subtle); color: var(--primary); }
     .sb-sublink.active {
-      background: rgba(63,169,245,.10); color: var(--primary);
+      background: rgba(0,160,251,.10); color: var(--primary);
       font-weight: 700; border-left-color: var(--accent);
     }
     .sb-sublink .sb-dot {
@@ -331,7 +334,7 @@
       transition: background var(--t-fast), color var(--t-fast);
     }
     .sb-bottom-link:hover { background: var(--border-subtle); color: var(--primary); }
-    .sb-bottom-link.active { background: rgba(63,169,245,.10); color: var(--primary); font-weight: 700; }
+    .sb-bottom-link.active { background: rgba(0,160,251,.10); color: var(--primary); font-weight: 700; }
     .sb-bottom-link .sb-icon {
       width: 22px; text-align: center; flex-shrink: 0; font-size: .85em;
     }
@@ -557,7 +560,7 @@
     .search-bar:focus, .card input[type="text"]:focus {
       background: var(--surface);
       border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(63,169,245,.15);
+      box-shadow: 0 0 0 3px rgba(0,160,251,.15);
     }
 
     /* Enhanced badges */
@@ -577,13 +580,13 @@
       border-radius: var(--radius-sm);
       font-size: .78em;
       font-weight: 600;
-      background: rgba(63,169,245,.10);
+      background: rgba(0,160,251,.10);
       color: var(--primary);
       margin: 2px 3px 2px 0;
       transition: background var(--t-fast);
     }
     .tag:hover, .queue-tag:hover, .pill:hover {
-      background: rgba(63,169,245,.18);
+      background: rgba(0,160,251,.18);
     }
 
     /* Divider */
@@ -643,7 +646,7 @@
     .filter-btn:hover, .card .btn-sm:hover {
       border-color: var(--accent);
       color: var(--primary);
-      background: rgba(63,169,245,.06);
+      background: rgba(0,160,251,.06);
     }
     .filter-btn.active, .card .btn-sm.active {
       background: var(--primary);
@@ -682,7 +685,7 @@
       background: var(--surface);
     }
     input:focus, select:focus, textarea:focus {
-      outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(63,169,245,.15);
+      outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,160,251,.15);
     }
     small.hint { display: block; margin-top: 4px; color: var(--text-muted); font-size: .82em; }
 
@@ -785,7 +788,7 @@
     .step-circle.done    { background: #16a34a; color: #fff; }
     .step-circle.pending { background: #e5e7eb; color: #9ca3af; }
     .step-label { margin-left: 8px; font-size: .82em; font-weight: 500; color: #6b7280; white-space: nowrap; }
-    .step-label.active { color: #1a1a2e; font-weight: 700; }
+    .step-label.active { color: var(--primary); font-weight: 700; }
     .step-connector { flex: 1; height: 2px; background: #e5e7eb; margin: 0 8px; min-width: 8px; }
 
     /* ── Section header ──────────────────────────────────────────────────── */
