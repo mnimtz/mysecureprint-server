@@ -126,6 +126,7 @@ struct BrandHeader: View {
     var body: some View {
         VStack(spacing: 12) {
             Image("AppLogo")
+                .renderingMode(.original)
                 .resizable()
                 .scaledToFit()
                 .frame(width: 90, height: 90)
