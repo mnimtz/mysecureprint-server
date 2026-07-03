@@ -125,19 +125,10 @@ struct BrandHeader: View {
     var subtitle: String? = nil
     var body: some View {
         VStack(spacing: 12) {
-            // Shield icon as logo placeholder (actual icon via xcassets)
-            ZStack {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(MSP.cyan.opacity(0.15))
-                    .frame(width: 80, height: 80)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .stroke(MSP.cyan.opacity(0.3), lineWidth: 1.5)
-                    )
-                Image(systemName: "shield.lefthalf.filled.badge.checkmark")
-                    .font(.system(size: 36, weight: .medium))
-                    .foregroundStyle(MSP.cyan, MSP.gold)
-            }
+            Image("AppLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 90, height: 90)
             Text("MySecurePrint")
                 .font(.system(size: 28, weight: .bold, design: .rounded))
                 .foregroundColor(.white)
