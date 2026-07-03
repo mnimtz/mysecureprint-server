@@ -327,12 +327,22 @@ async def _process_desktop_send_bg(
                         "UPDATE cloudprint_jobs SET preview_png=? WHERE job_id=?",
                         (_prev_png, internal_id),
                     )
-                logger.debug(
-                    "Desktop-Send [1b] preview OK — job_id=%s size=%d",
+                logger.info(
+                    "Desktop-Send [1b] preview OK — job_id=%s size=%d bytes",
                     internal_id, len(_prev_png),
                 )
+            else:
+                logger.warning(
+                    "Desktop-Send [1b] preview NONE — job_id=%s "
+                    "raw_type=%s raw_size=%d pdf_size=%d",
+                    internal_id,
+                    raw_data[:4] if raw_data else b"",
+                    len(raw_data) if raw_data else 0,
+                    len(data) if data else 0,
+                )
         except Exception as _prev_e:
-            logger.debug("Desktop-Send [1b] preview skipped: %s", _prev_e)
+            logger.warning("Desktop-Send [1b] preview EXCEPTION — job_id=%s err=%s",
+                           internal_id, _prev_e)
 
         # === Stage 2: Tenant + Queue + Owner-Email =========================
         parent_id = _resolve_tenant_owner_for(user["user_id"])
