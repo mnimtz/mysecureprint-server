@@ -312,6 +312,23 @@ async def _process_desktop_send_bg(
             _fail(str(e)[:200], code="convert_error")
             return
 
+        # === Stage 1b: Vorschau-Thumbnail (Seite 1 → PNG, 48h TTL) ===========
+        try:
+            from upload_converter import render_preview_png as _render_prev
+            _prev_png = _render_prev(data)
+            if _prev_png:
+                with _dconn() as _c:
+                    _c.execute(
+                        "UPDATE cloudprint_jobs SET preview_png=? WHERE job_id=?",
+                        (_prev_png, internal_id),
+                    )
+                logger.debug(
+                    "Desktop-Send [1b] preview OK — job_id=%s size=%d",
+                    internal_id, len(_prev_png),
+                )
+        except Exception as _prev_e:
+            logger.debug("Desktop-Send [1b] preview skipped: %s", _prev_e)
+
         # === Stage 2: Tenant + Queue + Owner-Email =========================
         parent_id = _resolve_tenant_owner_for(user["user_id"])
         tenant = get_tenant_full_by_user_id(parent_id) if parent_id else None
@@ -1244,7 +1261,8 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                               detected_identity AS source_identity,
                               IFNULL(delegated_from,'') AS delegated_from,
                               IFNULL(hostname,'') AS hostname,
-                              IFNULL(data_size,0) AS data_size
+                              IFNULL(data_size,0) AS data_size,
+                              (preview_png IS NOT NULL AND LENGTH(preview_png) > 0) AS has_preview
                        FROM cloudprint_jobs
                        WHERE {_where}
                        ORDER BY COALESCE(forwarded_at, created_at) DESC
@@ -1256,6 +1274,45 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         except Exception as e:
             logger.warning("desktop_me_jobs: %s", e)
             return _json_error(str(e)[:200], code="jobs_query_failed", status=500)
+
+    @app.get("/desktop/me/jobs/{job_id}/preview")
+    async def desktop_job_preview(job_id: str, request: Request,
+                                   authorization: str = Header(default="")):
+        """v0.7.83: Seite-1-Vorschau eines Print-Jobs als PNG.
+        Nur für eigene Jobs (gleiche Identitäts-Prüfung wie /desktop/me/jobs).
+        Gibt 404 zurück wenn kein Preview vorhanden.
+        """
+        _log_req(request, f"GET /me/jobs/{job_id}/preview")
+        user = _require_token(authorization)
+        if not user:
+            return _json_error("token invalid", code="auth_required", status=401)
+        try:
+            from db import _conn
+            uname  = (_user_descr(user) or "").lower()
+            uemail = (user.get("email") or "").lower()
+            pxid   = (user.get("printix_user_id") or "").lower()
+            with _conn() as conn:
+                row = conn.execute(
+                    """SELECT preview_png FROM cloudprint_jobs
+                       WHERE job_id = ?
+                         AND (
+                           LOWER(IFNULL(username,''))          IN (?,?,?)
+                           OR LOWER(IFNULL(detected_identity,'')) IN (?,?,?)
+                         )""",
+                    (job_id, uname, uemail, pxid, uname, uemail, pxid),
+                ).fetchone()
+            if not row or not row["preview_png"]:
+                from starlette.responses import Response as _R
+                return _R(status_code=404)
+            from starlette.responses import Response as _R
+            return _R(
+                content=bytes(row["preview_png"]),
+                media_type="image/png",
+                headers={"Cache-Control": "private, max-age=172800"},
+            )
+        except Exception as e:
+            logger.warning("job_preview: %s", e)
+            return _json_error(str(e)[:200], code="preview_failed", status=500)
 
     @app.get("/desktop/me")
     async def desktop_me(request: Request,

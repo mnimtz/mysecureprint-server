@@ -233,10 +233,21 @@ private struct JobRow: View {
 struct JobDetailView: View {
     let job: PrintJob
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var settings: SettingsStore
+    @State private var previewImage: UIImage? = nil
+    @State private var previewLoading = false
+    @State private var previewFullscreen = false
 
     var body: some View {
         NavigationStack {
             List {
+                // Vorschau-Bild (falls vorhanden)
+                if job.has_preview == true {
+                    Section {
+                        previewSection
+                    }
+                }
+
                 // Status
                 Section {
                     HStack {
@@ -314,6 +325,60 @@ struct JobDetailView: View {
     }
 
     @ViewBuilder
+    private var previewSection: some View {
+        Group {
+            if previewLoading {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
+                }
+                .padding(.vertical, 24)
+            } else if let img = previewImage {
+                Button {
+                    previewFullscreen = true
+                } label: {
+                    Image(uiImage: img)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity)
+                        .cornerRadius(6)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
+                .fullScreenCover(isPresented: $previewFullscreen) {
+                    ZStack(alignment: .topTrailing) {
+                        Color.black.ignoresSafeArea()
+                        Image(uiImage: img)
+                            .resizable()
+                            .scaledToFit()
+                            .ignoresSafeArea()
+                        Button {
+                            previewFullscreen = false
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title)
+                                .foregroundColor(.white)
+                                .padding()
+                        }
+                    }
+                }
+            }
+        }
+        .task {
+            guard previewImage == nil, !previewLoading,
+                  let client = ApiClientFactory.make(
+                    baseURL: settings.serverURL, token: settings.bearerToken) else { return }
+            previewLoading = true
+            defer { previewLoading = false }
+            if let data = try? await client.jobPreview(jobId: job.job_id),
+               let img = UIImage(data: data) {
+                previewImage = img
+            }
+        }
+    }
+
+    @ViewBuilder
     private func detailRow(_ label: String, value: String,
                            icon: String? = nil, iconColor: Color = .secondary) -> some View {
         HStack(alignment: .top, spacing: 8) {
@@ -355,15 +420,22 @@ struct PrintJob: Decodable, Identifiable {
     let delegated_from: String?
     let hostname: String?
     let data_size: Int?
+    let has_preview: Bool?
 
     var id: String { job_id }
 
     var badgeStyle: (Color, String) {
         switch status.lowercased() {
-        case "forwarded", "ok", "sent", "success":
-            return (.green,  String(localized: "Bereit zur Abholung"))
-        case "received", "pending":
+        case "queued":
+            return (.gray,   String(localized: "In Warteschlange"))
+        case "sent", "forwarded":
+            return (MSP.cyan, String(localized: "Gesendet"))
+        case "received", "pending", "processing":
             return (.orange, String(localized: "Wird verarbeitet…"))
+        case "ok", "success", "completed", "printed":
+            return (.green,  String(localized: "Gedruckt ✓"))
+        case "expired", "deleted":
+            return (.gray,   String(localized: "Abgelaufen"))
         case "error", "failed":
             return (.red,    String(localized: "Fehlgeschlagen"))
         default:

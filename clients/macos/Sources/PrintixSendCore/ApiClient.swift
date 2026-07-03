@@ -335,6 +335,23 @@ public final class ApiClient: @unchecked Sendable {
         return data
     }
 
+    /// Seite-1-Vorschau eines Jobs als PNG-Data.
+    /// Gibt nil zurück wenn kein Preview vorhanden (HTTP 404).
+    public func jobPreview(jobId: String) async throws -> Data? {
+        log.info("GET /desktop/me/jobs/\(jobId)/preview")
+        let url = baseUrl.appendingPathComponent("desktop/me/jobs/\(jobId)/preview")
+        var req = URLRequest(url: url)
+        if let token = token, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.timeoutInterval = 15
+        let (data, resp) = try await session.data(for: req)
+        guard let http = resp as? HTTPURLResponse else { return nil }
+        if http.statusCode == 404 { return nil }
+        try ensureOk(resp, data)
+        return data
+    }
+
     // MARK: - Entra Device-Code
 
     public func entraStart(deviceName: String) async throws -> EntraStartResponse {

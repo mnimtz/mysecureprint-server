@@ -247,3 +247,35 @@ def convert_to_pdf(data: bytes, filename: str = "") -> tuple[bytes, str]:
 def is_libreoffice_available() -> bool:
     """Für UI-Hinweise nützlich."""
     return bool(shutil.which("libreoffice") or shutil.which("soffice"))
+
+
+def render_preview_png(pdf_bytes: bytes, dpi: int = 96) -> Optional[bytes]:
+    """Rendert Seite 1 eines PDFs als PNG via Ghostscript.
+
+    Gibt None zurück wenn Ghostscript nicht verfügbar, das PDF leer/kaputt
+    ist oder das Rendering länger als 30s dauert.
+    """
+    if not pdf_bytes or pdf_bytes[:4] != b"%PDF":
+        return None
+    gs = shutil.which("gs")
+    if not gs:
+        return None
+    try:
+        with tempfile.TemporaryDirectory(prefix="msp-prev-") as tmp:
+            in_path = os.path.join(tmp, "in.pdf")
+            out_path = os.path.join(tmp, "page001.png")
+            with open(in_path, "wb") as fh:
+                fh.write(pdf_bytes)
+            subprocess.run(
+                [gs, "-dBATCH", "-dNOPAUSE", "-dSAFER", "-dQUIET",
+                 "-sDEVICE=png16m", f"-r{dpi}",
+                 "-dFirstPage=1", "-dLastPage=1",
+                 f"-sOutputFile={out_path}", in_path],
+                timeout=30, check=True, capture_output=True,
+            )
+            if os.path.exists(out_path):
+                with open(out_path, "rb") as fh:
+                    return fh.read()
+    except Exception as exc:
+        logger.debug("render_preview_png failed: %s", exc)
+    return None

@@ -218,6 +218,11 @@ def init_cloudprint_schema() -> None:
                 "ALTER TABLE cloudprint_jobs ADD COLUMN delegated_from TEXT NOT NULL DEFAULT ''"
             )
             logger.info("Migration: cloudprint_jobs.delegated_from hinzugefügt")
+        if "preview_png" not in cols:
+            conn.execute(
+                "ALTER TABLE cloudprint_jobs ADD COLUMN preview_png BLOB"
+            )
+            logger.info("Migration: cloudprint_jobs.preview_png hinzugefügt")
         logger.info("Migration: cloudprint_jobs-Tabelle geprüft/erstellt")
 
     # 5) v6.7.5: cached_printix_users — persistenter Cache der Printix-User
