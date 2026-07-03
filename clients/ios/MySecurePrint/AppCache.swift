@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import PrintixSendCore
 
 /// Zentraler In-Memory-Cache für alle Tab-Daten.
