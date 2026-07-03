@@ -1,13 +1,12 @@
 import SwiftUI
 import PrintixSendCore
 
-/// Printix Management — Read-only Live-Uebersicht fuers Tenant (v1, iOS-Only).
+/// Printix Management — Read-only Live-Uebersicht fuers Tenant.
 ///
-/// Architektur-Entscheidung: reine On-Demand-Abfrage, kein Cache im Client.
-/// Jeder "Aktualisieren"-Tap + jedes Oeffnen des Tabs feuert die drei
-/// Endpoints (/stats, /printers, /users, /workstations) parallel via
-/// async-let. Damit sehen Admins den aktuellen Zustand — kein stale State.
-/// Push/Background-Poll ist Phase 2.
+/// Preload-Strategie: AppCache befüllt Management-Daten beim App-Start im
+/// Hintergrund. ManagementView zeigt den Cache sofort an und triggert
+/// anschliessend einen stillen Hintergrund-Refresh. Alle 5 Minuten wird
+/// automatisch nachgeladen (nur wenn der Tab sichtbar ist).
 ///
 /// Sichtbarkeit: nur wenn `settings.hasManagementAccess` true ist. Die
 /// Bedingung entscheidet ContentView → MainTabs, nicht diese View selbst.
@@ -24,12 +23,13 @@ struct ManagementView: View {
     @State private var lastUpdated: Date?
     @State private var errorMessage: String?
 
-    // Aufklapp-Status der Detaillisten. Alle drei Listen starten
-    // eingeklappt — nur die Uebersicht + Zaehler sind sofort sichtbar,
-    // damit die Seite nicht ueberladen wirkt.
+    // Aufklapp-Status der Detaillisten.
     @State private var expandPrinters = false
     @State private var expandUsers = false
     @State private var expandWorkstations = false
+
+    // 5-Minuten-Timer für stillen Hintergrund-Refresh (läuft nur wenn Tab sichtbar).
+    private let refreshTimer = Timer.publish(every: 300, on: .main, in: .common).autoconnect()
 
     var body: some View {
         NavigationStack {
@@ -41,7 +41,7 @@ struct ManagementView: View {
                 // nicht (gated via hasManagementAccess in ContentView),
                 // aber falls die Rolle nach App-Start zu "employee"
                 // wechselt blenden wir die sensiblen Listen hier nochmal
-                // aktiv aus — Belt-and-suspenders.
+                // aktiv aus.
                 if settings.userRoleType.lowercased() != "employee" {
                     usersSection
                     workstationsSection
@@ -60,6 +60,16 @@ struct ManagementView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+            }
+            // NavigationLink-Destinationen für alle drei Detailansichten
+            .navigationDestination(for: MgmtPrinter.self) { p in
+                PrinterDetailView(printer: p)
+            }
+            .navigationDestination(for: MgmtUser.self) { u in
+                UserDetailView(user: u)
+            }
+            .navigationDestination(for: MgmtWorkstation.self) { w in
+                WorkstationDetailView(workstation: w)
             }
             .refreshable { await reload(updateCache: true) }
             .brandNavStyle(title: String(localized: "mgmt_nav_title"))
@@ -80,12 +90,18 @@ struct ManagementView: View {
                 }
             }
             .task {
-                // Cache-Daten sofort anzeigen — kein Warten nötig
-                if stats == nil, cache.mgmtStats != nil {
+                // Cache sofort anzeigen (kein Flackern / Ladescreen),
+                // dann im Hintergrund frisch laden und Cache aktualisieren.
+                if cache.mgmtStats != nil {
                     applyCache()
-                } else if stats == nil {
-                    await reload()
+                    await reload(updateCache: true)
+                } else {
+                    await reload(updateCache: true)
                 }
+            }
+            // Stiller Hintergrund-Refresh alle 5 Minuten
+            .onReceive(refreshTimer) { _ in
+                Task { await reload(updateCache: true) }
             }
         }
     }
@@ -154,21 +170,23 @@ struct ManagementView: View {
             Section {
                 DisclosureGroup(isExpanded: $expandPrinters) {
                     ForEach(printers) { p in
-                        HStack(alignment: .firstTextBaseline) {
-                            Circle()
-                                .fill(p.isOnline == true ? Color.green : Color.gray)
-                                .frame(width: 8, height: 8)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(p.name).font(.body)
-                                if let loc = p.location, !loc.isEmpty {
-                                    Text(loc).font(.caption).foregroundStyle(.secondary)
-                                } else if let m = p.model, !m.isEmpty {
-                                    Text(m).font(.caption).foregroundStyle(.secondary)
+                        NavigationLink(value: p) {
+                            HStack(alignment: .firstTextBaseline) {
+                                Circle()
+                                    .fill(p.isOnline == true ? Color.green : Color.gray)
+                                    .frame(width: 8, height: 8)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(p.name).font(.body)
+                                    if let loc = p.location, !loc.isEmpty {
+                                        Text(loc).font(.caption).foregroundStyle(.secondary)
+                                    } else if let m = p.model, !m.isEmpty {
+                                        Text(m).font(.caption).foregroundStyle(.secondary)
+                                    }
                                 }
-                            }
-                            Spacer()
-                            if let s = p.status, !s.isEmpty {
-                                Text(s).font(.caption2).foregroundStyle(.secondary)
+                                Spacer()
+                                if let s = p.status, !s.isEmpty {
+                                    Text(s).font(.caption2).foregroundStyle(.secondary)
+                                }
                             }
                         }
                     }
@@ -187,10 +205,12 @@ struct ManagementView: View {
             Section {
                 DisclosureGroup(isExpanded: $expandUsers) {
                     ForEach(users.prefix(50)) { u in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(u.name ?? u.email ?? u.id).font(.body)
-                            if let e = u.email, !e.isEmpty, e != u.name {
-                                Text(e).font(.caption).foregroundStyle(.secondary)
+                        NavigationLink(value: u) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(u.name ?? u.email ?? u.id).font(.body)
+                                if let e = u.email, !e.isEmpty, e != u.name {
+                                    Text(e).font(.caption).foregroundStyle(.secondary)
+                                }
                             }
                         }
                     }
@@ -213,17 +233,19 @@ struct ManagementView: View {
             Section {
                 DisclosureGroup(isExpanded: $expandWorkstations) {
                     ForEach(workstations.prefix(50)) { w in
-                        HStack(alignment: .firstTextBaseline) {
-                            Circle()
-                                .fill(w.isOnline == true ? Color.green : Color.gray)
-                                .frame(width: 8, height: 8)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(w.hostname).font(.body)
-                                if let e = w.userEmail, !e.isEmpty {
-                                    Text(e).font(.caption).foregroundStyle(.secondary)
+                        NavigationLink(value: w) {
+                            HStack(alignment: .firstTextBaseline) {
+                                Circle()
+                                    .fill(w.isOnline == true ? Color.green : Color.gray)
+                                    .frame(width: 8, height: 8)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(w.hostname).font(.body)
+                                    if let e = w.userEmail, !e.isEmpty {
+                                        Text(e).font(.caption).foregroundStyle(.secondary)
+                                    }
                                 }
+                                Spacer()
                             }
-                            Spacer()
                         }
                     }
                     if workstations.count > 50 {
@@ -239,9 +261,6 @@ struct ManagementView: View {
         }
     }
 
-    /// Einheitliches Header-Layout fuer alle drei Disclosure-Listen:
-    /// Icon + Titel links, Anzahl rechts. Tippen oeffnet/schliesst die
-    /// Liste. Das Chevron zeichnet SwiftUI automatisch dazu.
     @ViewBuilder
     private func disclosureLabel(icon: String, title: LocalizedStringKey, count: Int) -> some View {
         HStack {
@@ -279,11 +298,6 @@ struct ManagementView: View {
         errorMessage = nil
         defer { isLoading = false }
 
-        // Jeden Endpoint einzeln in try?-Tasks — ein Decode-Fehler in
-        // /users soll nicht verhindern, dass /printers und /workstations
-        // trotzdem angezeigt werden. Fehlgeschlagene Endpoints sammeln
-        // wir in einer Liste, damit wir gezielt sagen koennen WAS kaputt
-        // ist.
         async let statsResult         = runNamed("stats")        { try await client.managementStats()         }
         async let printersResult      = runNamed("printers")     { try await client.managementPrinters()      }
         async let usersResult         = runNamed("users")        { try await client.managementUsers()         }
@@ -306,15 +320,12 @@ struct ManagementView: View {
             cache.mgmtLastSyncedAt = lastUpdated
         }
 
-        // Heterogene Generic-Typen → wir koennen die NamedResults nicht
-        // in ein Array packen, also Fehler einzeln einsammeln.
         var failures: [String] = []
         if let f = sR.failure { failures.append(f) }
         if let f = pR.failure { failures.append(f) }
         if let f = uR.failure { failures.append(f) }
         if let f = wR.failure { failures.append(f) }
         if !failures.isEmpty {
-            // no_tenant → freundlicher Hinweis statt rohem HTTP-String
             if failures.first?.contains("no_tenant") == true
                 || failures.first?.contains("no tenant") == true {
                 errorMessage = String(localized: "Printix-API nicht konfiguriert. Bitte im Admin-Portal unter Einstellungen → Printix die API-Zugangsdaten eintragen.")
@@ -324,18 +335,12 @@ struct ManagementView: View {
         }
     }
 
-    /// Wrapper fuer eine benannte, fehlertolerante Async-Task. Liefert
-    /// entweder einen value oder eine description des Fehlers — beides
-    /// nicht beide.
     private func runNamed<T>(_ name: String,
                              _ op: @escaping () async throws -> T) async -> NamedResult<T> {
         do {
             let v = try await op()
             return NamedResult(value: v, failure: nil)
         } catch {
-            // Debug-Detail statt localizedDescription — bei Decode-
-            // Fehlern zeigt Foundation sonst nur "The data couldn't
-            // be read…" ohne den eigentlichen Typ-Mismatch.
             let detail = "\(error)"
             return NamedResult(value: nil, failure: "\(name): \(detail.prefix(280))")
         }
