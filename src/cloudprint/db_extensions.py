@@ -255,6 +255,11 @@ def init_cloudprint_schema() -> None:
                 "ALTER TABLE cloudprint_jobs ADD COLUMN ai_analyzed_at TEXT NOT NULL DEFAULT ''"
             )
             logger.info("Migration: cloudprint_jobs.ai_analyzed_at hinzugefügt")
+        if "ai_tags" not in cols:
+            conn.execute(
+                "ALTER TABLE cloudprint_jobs ADD COLUMN ai_tags TEXT NOT NULL DEFAULT ''"
+            )
+            logger.info("Migration: cloudprint_jobs.ai_tags hinzugefügt")
         logger.info("Migration: cloudprint_jobs-Tabelle geprüft/erstellt")
 
     # 5b) Delegate-Teams (v4.0): persönliche Empfänger-Gruppen pro User

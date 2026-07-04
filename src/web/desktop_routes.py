@@ -1348,6 +1348,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                               IFNULL(ai_color_rec,'') AS ai_color_rec,
                               IFNULL(ai_sensitivity,'') AS ai_sensitivity,
                               IFNULL(ai_summary,'') AS ai_summary,
+                              IFNULL(ai_tags,'') AS ai_tags,
                               IFNULL(ai_analyzed_at,'') AS ai_analyzed_at,
                               (SELECT GROUP_CONCAT(IFNULL(username,''),',')
                                FROM cloudprint_jobs _c2
@@ -2077,7 +2078,9 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 pass
         asyncio.create_task(_bg_create_tracking())
 
-        # v0.7.114: KI-Dokumentenanalyse — fire-and-forget nach Job-Insert
+        # v0.7.115: KI-Dokumentenanalyse — fire-and-forget nach Job-Insert.
+        # ai_cfg wird einmalig hier gebaut (Tenant schon aus _bg_create_tracking
+        # bekannt), damit analyse_job() keinen zweiten DB-Lookup braucht.
         async def _bg_ai_analysis():
             def _do_ai():
                 try:
@@ -2085,18 +2088,28 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     src_dir = _os.path.dirname(_os.path.dirname(__file__))
                     if src_dir not in _sys.path:
                         _sys.path.insert(0, src_dir)
-                    from db import _resolve_tenant_owner_for, get_tenant_full_by_user_id
+                    from db import _resolve_tenant_owner_for, get_tenant_full_by_user_id, _dec
                     _pid = _resolve_tenant_owner_for(user["user_id"])
                     _tnt = get_tenant_full_by_user_id(_pid) if _pid else None
-                    if not _tnt or not (_tnt.get("ai_provider") or "").strip():
+                    if not _tnt:
                         return
-                    _tid = _tnt.get("id", "") or ""
+                    _provider = (_tnt.get("ai_provider") or "").strip()
+                    if not _provider:
+                        return
+                    _ai_cfg = {
+                        "tenant_id":    _tnt.get("id", "") or "",
+                        "provider":     _provider,
+                        "gemini_key":   _dec(_tnt.get("ai_gemini_api_key") or ""),
+                        "gemini_model": (_tnt.get("ai_gemini_model") or "").strip(),
+                        "ollama_url":   (_tnt.get("ai_ollama_url") or "").strip(),
+                        "ollama_model": (_tnt.get("ai_ollama_model") or "").strip(),
+                    }
                     from cloudprint.ai_analysis import analyse_job
                     analyse_job(
                         job_id=internal_id,
                         file_bytes=data if isinstance(data, (bytes, bytearray)) else b"",
                         filename=file.filename or "",
-                        tenant_id=_tid,
+                        ai_cfg=_ai_cfg,
                     )
                 except Exception as _ae:
                     logger.debug("bg_ai_analysis: %s", _ae)

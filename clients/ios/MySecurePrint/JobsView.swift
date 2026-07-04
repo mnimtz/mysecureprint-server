@@ -473,9 +473,18 @@ struct JobDetailView: View {
                                     .clipShape(Capsule())
                             }
                         }
+                        if let tags = job.ai_tags, !tags.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Label(String(localized: "Schlagwörter"), systemImage: "tag")
+                                    .foregroundColor(.secondary)
+                                    .font(.caption)
+                                let tagList = tags.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+                                FlowTagsView(tags: tagList)
+                            }
+                        }
                         if let summary = job.ai_summary, !summary.isEmpty {
                             VStack(alignment: .leading, spacing: 4) {
-                                Label(String(localized: "KI-Zusammenfassung"), systemImage: "sparkles")
+                                Label(String(localized: "Beschreibung"), systemImage: "sparkles")
                                     .foregroundColor(.secondary)
                                     .font(.caption)
                                 Text(summary)
@@ -597,6 +606,28 @@ struct JobDetailView: View {
     }
 }
 
+// MARK: - Tag Chips Flow Layout
+
+private struct FlowTagsView: View {
+    let tags: [String]
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 60, maximum: 160), spacing: 6)],
+                  alignment: .leading, spacing: 6) {
+            ForEach(tags, id: \.self) { tag in
+                Text(tag)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.purple.opacity(0.1))
+                    .foregroundColor(.purple)
+                    .clipShape(Capsule())
+            }
+        }
+    }
+}
+
 // MARK: - Fullscreen Preview
 
 private struct FullscreenImagePreview: View {
@@ -643,6 +674,7 @@ struct PrintJob: Decodable, Identifiable, Equatable {
     let ai_color_rec: String?
     let ai_sensitivity: String?
     let ai_summary: String?
+    let ai_tags: String?
     let ai_analyzed_at: String?
 
     var id: String { job_id }
@@ -656,7 +688,7 @@ struct PrintJob: Decodable, Identifiable, Equatable {
          delegate_recipients: [String]? = nil, delegate_group_name: String? = nil,
          ai_doc_type: String? = nil, ai_color_rec: String? = nil,
          ai_sensitivity: String? = nil, ai_summary: String? = nil,
-         ai_analyzed_at: String? = nil) {
+         ai_tags: String? = nil, ai_analyzed_at: String? = nil) {
         self.job_id            = job_id
         self.filename          = filename
         self.status            = status
@@ -675,6 +707,7 @@ struct PrintJob: Decodable, Identifiable, Equatable {
         self.ai_color_rec      = ai_color_rec
         self.ai_sensitivity    = ai_sensitivity
         self.ai_summary        = ai_summary
+        self.ai_tags           = ai_tags
         self.ai_analyzed_at    = ai_analyzed_at
     }
 
@@ -717,7 +750,7 @@ struct PrintJob: Decodable, Identifiable, Equatable {
                  delegate_group_name: delegate_group_name,
                  ai_doc_type: ai_doc_type, ai_color_rec: ai_color_rec,
                  ai_sensitivity: ai_sensitivity, ai_summary: ai_summary,
-                 ai_analyzed_at: ai_analyzed_at)
+                 ai_tags: ai_tags, ai_analyzed_at: ai_analyzed_at)
     }
 
     static func formatDate(_ raw: String, style: DateFormatter.Style) -> String {
