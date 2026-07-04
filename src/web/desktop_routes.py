@@ -1284,7 +1284,13 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                               IFNULL(delegated_from,'') AS delegated_from,
                               IFNULL(hostname,'') AS hostname,
                               IFNULL(data_size,0) AS data_size,
-                              (preview_png IS NOT NULL AND LENGTH(preview_png) > 0) AS has_preview
+                              (preview_png IS NOT NULL AND LENGTH(preview_png) > 0) AS has_preview,
+                              IFNULL(delegate_group_name,'') AS delegate_group_name,
+                              (SELECT GROUP_CONCAT(IFNULL(username,''),',')
+                               FROM cloudprint_jobs _c2
+                               WHERE _c2.parent_job_id = cloudprint_jobs.job_id
+                                 AND _c2.parent_job_id != ''
+                               ) AS delegate_recipients_csv
                        FROM cloudprint_jobs
                        WHERE {_where}
                        ORDER BY COALESCE(forwarded_at, created_at) DESC
@@ -1294,6 +1300,8 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             items = [dict(r) for r in rows]
             for item in items:
                 item["has_preview"] = bool(item.get("has_preview") or 0)
+                csv = item.pop("delegate_recipients_csv", None) or ""
+                item["delegate_recipients"] = [r for r in csv.split(",") if r.strip()] if csv else []
             return JSONResponse({"jobs": items, "count": len(items), "offset": offset_int})
         except Exception as e:
             logger.warning("desktop_me_jobs: %s", e)
@@ -1373,6 +1381,206 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         except Exception as e:
             logger.warning("job_preview: %s", e)
             return _json_error(str(e)[:200], code="preview_failed", status=500)
+
+    # ── Delegate-Teams (v4.0) ──────────────────────────────────────────────
+
+    @app.get("/desktop/me/delegate-groups")
+    async def desktop_delegate_groups_list(request: Request,
+                                           authorization: str = Header(default="")):
+        """Alle eigenen Delegate-Gruppen mit Mitgliedern."""
+        _log_req(request, "GET /me/delegate-groups")
+        user = _require_token(authorization)
+        if not user:
+            return _json_error("token invalid", code="auth_required", status=401)
+        try:
+            from db import _conn
+            owner = (user.get("email") or "").lower()
+            with _conn() as conn:
+                groups = conn.execute(
+                    """SELECT group_uuid, name, created_at FROM delegate_groups
+                       WHERE LOWER(owner_email) = ? ORDER BY name""",
+                    (owner,),
+                ).fetchall()
+                result = []
+                for g in groups:
+                    members = conn.execute(
+                        """SELECT member_email, member_display_name, member_printix_id
+                           FROM delegate_group_members WHERE group_uuid = ?
+                           ORDER BY member_display_name, member_email""",
+                        (g["group_uuid"],),
+                    ).fetchall()
+                    result.append({
+                        "group_uuid": g["group_uuid"],
+                        "name": g["name"],
+                        "created_at": g["created_at"],
+                        "members": [dict(m) for m in members],
+                    })
+            return JSONResponse({"groups": result})
+        except Exception as e:
+            logger.warning("delegate_groups_list: %s", e)
+            return _json_error(str(e)[:200], code="query_failed", status=500)
+
+    @app.post("/desktop/me/delegate-groups")
+    async def desktop_delegate_groups_create(request: Request,
+                                              authorization: str = Header(default="")):
+        """Neue Delegate-Gruppe anlegen."""
+        _log_req(request, "POST /me/delegate-groups")
+        user = _require_token(authorization)
+        if not user:
+            return _json_error("token invalid", code="auth_required", status=401)
+        try:
+            import uuid as _uuid_mod
+            import datetime as _dt
+            body = await request.json()
+            name = (body.get("name") or "").strip()[:80]
+            if not name:
+                return _json_error("name required", code="invalid_input", status=400)
+            owner = (user.get("email") or "").lower()
+            from db import _conn
+            with _conn() as conn:
+                cnt = conn.execute(
+                    "SELECT COUNT(*) FROM delegate_groups WHERE LOWER(owner_email) = ?",
+                    (owner,)
+                ).fetchone()[0]
+                if cnt >= 30:
+                    return _json_error("max 30 groups per user", code="limit_exceeded", status=400)
+            new_uuid = str(_uuid_mod.uuid4())
+            now = _dt.datetime.now(_dt.timezone.utc).isoformat()
+            with _conn() as conn:
+                conn.execute(
+                    "INSERT INTO delegate_groups (group_uuid, owner_email, name, created_at) VALUES (?,?,?,?)",
+                    (new_uuid, owner, name, now),
+                )
+            return JSONResponse({"group_uuid": new_uuid, "name": name, "created_at": now, "members": []}, status_code=201)
+        except Exception as e:
+            logger.warning("delegate_groups_create: %s", e)
+            return _json_error(str(e)[:200], code="create_failed", status=500)
+
+    @app.patch("/desktop/me/delegate-groups/{group_uuid}")
+    async def desktop_delegate_groups_rename(request: Request,
+                                              group_uuid: str,
+                                              authorization: str = Header(default="")):
+        """Gruppe umbenennen."""
+        _log_req(request, f"PATCH /me/delegate-groups/{group_uuid}")
+        user = _require_token(authorization)
+        if not user:
+            return _json_error("token invalid", code="auth_required", status=401)
+        try:
+            body = await request.json()
+            name = (body.get("name") or "").strip()[:80]
+            if not name:
+                return _json_error("name required", code="invalid_input", status=400)
+            owner = (user.get("email") or "").lower()
+            from db import _conn
+            with _conn() as conn:
+                rows = conn.execute(
+                    "UPDATE delegate_groups SET name=? WHERE group_uuid=? AND LOWER(owner_email)=?",
+                    (name, group_uuid, owner),
+                ).rowcount
+            if rows == 0:
+                return _json_error("group not found", code="not_found", status=404)
+            return JSONResponse({"ok": True})
+        except Exception as e:
+            logger.warning("delegate_groups_rename: %s", e)
+            return _json_error(str(e)[:200], code="rename_failed", status=500)
+
+    @app.delete("/desktop/me/delegate-groups/{group_uuid}")
+    async def desktop_delegate_groups_delete(request: Request,
+                                              group_uuid: str,
+                                              authorization: str = Header(default="")):
+        """Gruppe und alle Mitglieder löschen."""
+        _log_req(request, f"DELETE /me/delegate-groups/{group_uuid}")
+        user = _require_token(authorization)
+        if not user:
+            return _json_error("token invalid", code="auth_required", status=401)
+        try:
+            owner = (user.get("email") or "").lower()
+            from db import _conn
+            with _conn() as conn:
+                rows = conn.execute(
+                    "DELETE FROM delegate_groups WHERE group_uuid=? AND LOWER(owner_email)=?",
+                    (group_uuid, owner),
+                ).rowcount
+                conn.execute("DELETE FROM delegate_group_members WHERE group_uuid=?", (group_uuid,))
+            if rows == 0:
+                return _json_error("group not found", code="not_found", status=404)
+            return JSONResponse({"ok": True})
+        except Exception as e:
+            logger.warning("delegate_groups_delete: %s", e)
+            return _json_error(str(e)[:200], code="delete_failed", status=500)
+
+    @app.post("/desktop/me/delegate-groups/{group_uuid}/members")
+    async def desktop_delegate_groups_add_member(request: Request,
+                                                  group_uuid: str,
+                                                  authorization: str = Header(default="")):
+        """Mitglied zu Gruppe hinzufügen."""
+        _log_req(request, f"POST /me/delegate-groups/{group_uuid}/members")
+        user = _require_token(authorization)
+        if not user:
+            return _json_error("token invalid", code="auth_required", status=401)
+        try:
+            import datetime as _dt
+            body = await request.json()
+            email = (body.get("member_email") or "").strip().lower()[:120]
+            display = (body.get("member_display_name") or "").strip()[:80]
+            pxid = (body.get("member_printix_id") or "").strip()[:80]
+            if not email or "@" not in email:
+                return _json_error("valid member_email required", code="invalid_input", status=400)
+            owner = (user.get("email") or "").lower()
+            from db import _conn
+            # Verify ownership
+            with _conn() as conn:
+                g = conn.execute(
+                    "SELECT 1 FROM delegate_groups WHERE group_uuid=? AND LOWER(owner_email)=?",
+                    (group_uuid, owner),
+                ).fetchone()
+                if not g:
+                    return _json_error("group not found", code="not_found", status=404)
+                cnt = conn.execute(
+                    "SELECT COUNT(*) FROM delegate_group_members WHERE group_uuid=?",
+                    (group_uuid,)
+                ).fetchone()[0]
+                if cnt >= 20:
+                    return _json_error("max 20 members per group", code="limit_exceeded", status=400)
+                conn.execute(
+                    """INSERT OR IGNORE INTO delegate_group_members
+                       (group_uuid, member_email, member_display_name, member_printix_id, added_at)
+                       VALUES (?,?,?,?,?)""",
+                    (group_uuid, email, display, pxid, _dt.datetime.now(_dt.timezone.utc).isoformat()),
+                )
+            return JSONResponse({"ok": True}, status_code=201)
+        except Exception as e:
+            logger.warning("delegate_groups_add_member: %s", e)
+            return _json_error(str(e)[:200], code="add_member_failed", status=500)
+
+    @app.delete("/desktop/me/delegate-groups/{group_uuid}/members/{member_email}")
+    async def desktop_delegate_groups_remove_member(request: Request,
+                                                     group_uuid: str,
+                                                     member_email: str,
+                                                     authorization: str = Header(default="")):
+        """Mitglied aus Gruppe entfernen."""
+        _log_req(request, f"DELETE /me/delegate-groups/{group_uuid}/members/{member_email}")
+        user = _require_token(authorization)
+        if not user:
+            return _json_error("token invalid", code="auth_required", status=401)
+        try:
+            owner = (user.get("email") or "").lower()
+            from db import _conn
+            with _conn() as conn:
+                g = conn.execute(
+                    "SELECT 1 FROM delegate_groups WHERE group_uuid=? AND LOWER(owner_email)=?",
+                    (group_uuid, owner),
+                ).fetchone()
+                if not g:
+                    return _json_error("group not found", code="not_found", status=404)
+                conn.execute(
+                    "DELETE FROM delegate_group_members WHERE group_uuid=? AND LOWER(member_email)=?",
+                    (group_uuid, member_email.strip().lower()),
+                )
+            return JSONResponse({"ok": True})
+        except Exception as e:
+            logger.warning("delegate_groups_remove_member: %s", e)
+            return _json_error(str(e)[:200], code="remove_member_failed", status=500)
 
     @app.get("/desktop/me")
     async def desktop_me(request: Request,
@@ -1596,6 +1804,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         color: str = Form(""),
         duplex: str = Form(""),
         print_image_size: str = Form("full"),
+        group_label: str = Form(""),
     ):
         import time as _t
         t_start = _t.monotonic()
@@ -1706,6 +1915,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                         detected_identity=(user.get("email") or ""),
                         identity_source="desktop-send",
                         status="queued",
+                        delegate_group_name=(group_label or "")[:80],
                     )
                 except Exception as _cj:
                     logger.warning("initial cloudprint_job insert failed: %s", _cj)

@@ -26,6 +26,9 @@ final class AppCache: ObservableObject {
     @Published var mgmtWorkstations: [MgmtWorkstation] = []
     @Published var mgmtLastSyncedAt: Date? = nil
 
+    // Delegate-Teams (Phase F, v4.0)
+    @Published var delegateGroups: [DelegateGroup] = []
+
     // ── Sync-Status ───────────────────────────────────────────────────────
     @Published var isSyncing: Bool = false
     @Published var lastSyncedAt: Date? = nil
@@ -57,6 +60,7 @@ final class AppCache: ObservableObject {
         mgmtUsers = []
         mgmtWorkstations = []
         mgmtLastSyncedAt = nil
+        delegateGroups = []
         preloaded = false
         isSyncing = false
         syncError = ""
@@ -79,8 +83,11 @@ final class AppCache: ObservableObject {
         async let mResult = settings.hasManagementAccess
             ? fetchManagement(client: client)
             : nil
+        async let gResult = settings.delegateEnabled
+            ? fetchDelegateGroups(client: client)
+            : []
 
-        let (t, q, j, m) = await (tResult, qResult, jResult, mResult)
+        let (t, q, j, m, g) = await (tResult, qResult, jResult, mResult, gResult)
 
         if let r = t {
             targets = r.items
@@ -96,6 +103,7 @@ final class AppCache: ObservableObject {
             mgmtWorkstations  = r.workstations
             mgmtLastSyncedAt  = Date()
         }
+        delegateGroups = g ?? []
 
         preloaded = true
         lastSyncedAt = Date()
@@ -152,6 +160,12 @@ final class AppCache: ObservableObject {
             users:        users?.users ?? [],
             workstations: wkst?.workstations ?? []
         )
+    }
+
+    private func fetchDelegateGroups(client: ApiClient) async -> [DelegateGroup]? {
+        do {
+            return try await client.listDelegateGroups()
+        } catch { return nil }
     }
 
     private func applyTargetLabels(_ items: [Target], settings: SettingsStore) {

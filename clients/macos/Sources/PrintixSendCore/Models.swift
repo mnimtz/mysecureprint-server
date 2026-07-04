@@ -523,3 +523,43 @@ public struct VersionResponse: Codable, Sendable {
         case downloadUrlMac   = "download_url_mac"
     }
 }
+
+// MARK: - Delegate Groups (v4.0)
+
+public struct DelegateGroupMember: Codable, Identifiable, Sendable {
+    public let member_email: String
+    public let member_display_name: String
+    public let member_printix_id: String
+
+    public var id: String { member_email }
+
+    public var displayName: String {
+        member_display_name.isEmpty ? member_email : member_display_name
+    }
+
+    public init(member_email: String, member_display_name: String, member_printix_id: String) {
+        self.member_email = member_email
+        self.member_display_name = member_display_name
+        self.member_printix_id = member_printix_id
+    }
+}
+
+public struct DelegateGroup: Codable, Identifiable, Sendable {
+    public let group_uuid: String
+    public let name: String
+    public let created_at: String
+    public let members: [DelegateGroupMember]
+
+    public var id: String { group_uuid }
+
+    public init(group_uuid: String, name: String, created_at: String, members: [DelegateGroupMember]) {
+        self.group_uuid = group_uuid
+        self.name = name
+        self.created_at = created_at
+        self.members = members
+    }
+}
+
+public struct DelegateGroupsResponse: Codable, Sendable {
+    public let groups: [DelegateGroup]
+}

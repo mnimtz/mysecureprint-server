@@ -61,18 +61,14 @@ final class SettingsStore: ObservableObject {
 
     @Published var bearerToken: String {
         didSet {
-            // C-4: primaer im Keychain (Access-Group geteilt mit
-            // Share-Extension); UserDefaults-Spiegel raeumen.
-            // v1.0.1: nur removeObject wenn Keychain-Write OK — sonst
-            // verliert der User Token bei Keychain-Fehlern (z.B. nicht-
-            // provisioned Access-Group im Dev-Build) ohne Recovery.
-            let ok = KeychainTokenStore.set(bearerToken)
-            if ok || bearerToken.isEmpty {
+            // Primaer im Keychain (Access-Group geteilt mit Share-Extension).
+            // Zusaetzlich IMMER als Backup in den App-Group-Defaults schreiben —
+            // die Share-Extension liest Keychain in ihrem Sandbox-Kontext manchmal
+            // nicht (CFPrefsPlistSource/cfprefsd detach), und braucht den Fallback.
+            KeychainTokenStore.set(bearerToken)
+            if bearerToken.isEmpty {
                 defaults.removeObject(forKey: Keys.bearerToken)
             } else {
-                // Fallback: Plaintext-Spiegel im Defaults behalten, damit
-                // App nach Restart noch ein Login hat. Keychain wird
-                // beim naechsten Login-Versuch erneut probiert.
                 defaults.set(bearerToken, forKey: Keys.bearerToken)
             }
         }
@@ -210,6 +206,10 @@ final class SettingsStore: ObservableObject {
         }
     }
 
+    /// Gruppenname wenn ein Team ausgewählt wurde. Wird beim nächsten Send als
+    /// group_label mitgeschickt und danach geleert.
+    @Published var activeGroupLabel: String = ""
+
     @Published var recentQueueIds: [String] {
         didSet {
             if let data = try? JSONEncoder().encode(recentQueueIds) {
@@ -237,16 +237,21 @@ final class SettingsStore: ObservableObject {
         // (guard via migration-Flag, damit wir bei spaeterem Sign-out
         // den dann leeren Token nicht erneut "migrieren").
         let migrated = defaults.bool(forKey: Self.migrationKeychainFlag)
+        let resolvedToken: String
         if migrated {
-            self.bearerToken = KeychainTokenStore.get()
+            resolvedToken = KeychainTokenStore.get()
         } else {
             let legacyToken = defaults.string(forKey: Keys.bearerToken) ?? ""
             if !legacyToken.isEmpty {
                 _ = KeychainTokenStore.set(legacyToken)
             }
-            defaults.removeObject(forKey: Keys.bearerToken)
             defaults.set(true, forKey: Self.migrationKeychainFlag)
-            self.bearerToken = KeychainTokenStore.get()
+            resolvedToken = KeychainTokenStore.get()
+        }
+        self.bearerToken = resolvedToken
+        // didSet faeuert nicht in init() — Backup fuer Share-Extension explizit schreiben.
+        if !resolvedToken.isEmpty {
+            defaults.set(resolvedToken, forKey: Keys.bearerToken)
         }
         self.userEmail    = defaults.string(forKey: Keys.userEmail)    ?? ""
         self.userFullName = defaults.string(forKey: Keys.userFullName) ?? ""

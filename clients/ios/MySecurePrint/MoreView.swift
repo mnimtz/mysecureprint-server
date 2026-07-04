@@ -11,6 +11,11 @@ struct MoreView: View {
     var body: some View {
         NavigationStack {
             List {
+                if settings.delegateEnabled {
+                    NavigationLink(destination: DelegateTeamsView()) {
+                        Label(String(localized: "Delegate-Teams"), systemImage: "person.3.fill")
+                    }
+                }
                 NavigationLink(destination: CardsContent()) {
                     Label(String(localized: "Karten"), systemImage: "creditcard.fill")
                 }

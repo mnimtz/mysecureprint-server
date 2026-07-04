@@ -347,6 +347,34 @@ struct TargetsView: View {
                 }
             }
 
+            // Meine Teams (Phase F)
+            if !cache.delegateGroups.isEmpty {
+                Text(String(localized: "Meine Teams"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.top, 4)
+                ForEach(cache.delegateGroups) { group in
+                    Button { addGroupDelegation(group) } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "person.3.fill")
+                                        .font(.caption)
+                                        .foregroundColor(MSP.cyan)
+                                    Text(group.name).foregroundColor(.primary)
+                                }
+                                Text("\(group.members.count) \(group.members.count == 1 ? String(localized: "Mitglied") : String(localized: "Mitglieder"))")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "plus.circle").foregroundColor(MSP.cyan)
+                        }
+                    }
+                    .disabled(group.members.isEmpty)
+                }
+            }
+
             // Zuletzt verwendet (Ebene 1)
             let recentDelegates = recentDelegateUsers
             if !recentDelegates.isEmpty {
@@ -379,6 +407,20 @@ struct TargetsView: View {
                 }
             }
         }
+    }
+
+    private func addGroupDelegation(_ group: DelegateGroup) {
+        // Alle Mitglieder des Teams als individuelle print:user: targets eintragen
+        // plus group_label speichern damit UploadView es mitschickt
+        for member in group.members {
+            let id = "print:user:\(member.member_printix_id)"
+            guard !member.member_printix_id.isEmpty,
+                  !settings.selectedTargetIds.contains(id) else { continue }
+            settings.targetLabels[id] = member.displayName
+            settings.selectedTargetIds.append(id)
+        }
+        settings.activeGroupLabel = group.name
+        settings.applyAutoResetPolicy()
     }
 
     private var recentDelegateUsers: [MgmtUser] {

@@ -7572,6 +7572,18 @@ def create_app(session_secret: str) -> FastAPI:
         except Exception as e:
             return JSONResponse({"ok": False, "error": str(e)[:120]})
 
+    @app.get("/api/prefetch-status")
+    async def api_prefetch_status(request: Request):
+        from fastapi.responses import JSONResponse
+        from cache import prefetch_status
+        user = get_session_user(request)
+        if not user:
+            return JSONResponse({"status": "anon"})
+        tenant_id = user.get("tenant_id")
+        if not tenant_id:
+            return JSONResponse({"status": "idle"})
+        return JSONResponse({"status": prefetch_status(tenant_id)})
+
     # ─── Tenant: Printers / Queues / Users+Cards ─────────────────────────────────
 
     def _make_printix_client(tenant: dict):

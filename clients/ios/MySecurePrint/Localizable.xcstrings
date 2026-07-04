@@ -1118,7 +1118,6 @@
       }
     },
     "Anmeldung" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4368,6 +4367,9 @@
         }
       }
     },
+    "Geändert" : {
+
+    },
     "Generisch" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4599,6 +4601,9 @@
           }
         }
       }
+    },
+    "Getrennt" : {
+
     },
     "Größe" : {
       "localizations" : {
@@ -5300,6 +5305,9 @@
         }
       }
     },
+    "Karte erfolgreich gelesen." : {
+
+    },
     "Karte erkannt, aber keine UID gelesen." : {
       "localizations" : {
         "en" : {
@@ -5347,6 +5355,7 @@
       }
     },
     "Karte gelesen: %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -10092,6 +10101,9 @@
     "Rolle" : {
 
     },
+    "Rollen" : {
+
+    },
     "S/W" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -11806,6 +11818,9 @@
     "Verbrauchsmaterialien" : {
 
     },
+    "Verbunden" : {
+
+    },
     "Verlauf löschen" : {
       "localizations" : {
         "en" : {
@@ -12545,6 +12560,9 @@
         }
       }
     },
+    "Zuletzt aktiv" : {
+
+    },
     "Zuletzt aktualisiert: %@" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -12591,9 +12609,6 @@
           }
         }
       }
-    },
-    "Zuletzt gesehen" : {
-
     },
     "Zuletzt verwendet" : {
       "localizations" : {

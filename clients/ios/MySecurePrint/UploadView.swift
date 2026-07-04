@@ -431,6 +431,8 @@ struct UploadView: View {
             // anschliessend an — ein Fehler bei einem Ziel bricht den
             // Rest nicht ab (z.B. wenn ein Drucker offline ist, soll
             // der andere trotzdem losgehen).
+            let groupLabel = settings.activeGroupLabel.isEmpty ? nil : settings.activeGroupLabel
+            settings.activeGroupLabel = ""
             var outcomes: [SendOutcome] = []
             for targetId in settings.selectedTargetIds {
                 let display = settings.targetLabels[targetId] ?? targetId
@@ -442,7 +444,8 @@ struct UploadView: View {
                                                            copies: copies,
                                                            color: color,
                                                            duplex: duplex,
-                                                           printImageSize: effectiveImageSize)
+                                                           printImageSize: effectiveImageSize,
+                                                           groupLabel: groupLabel)
                     if result.ok == true || result.status?.lowercased() == "queued" {
                         outcomes.append(SendOutcome(targetDisplay: display,
                                                     ok: true,

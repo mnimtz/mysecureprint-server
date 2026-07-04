@@ -223,7 +223,40 @@ def init_cloudprint_schema() -> None:
                 "ALTER TABLE cloudprint_jobs ADD COLUMN preview_png BLOB"
             )
             logger.info("Migration: cloudprint_jobs.preview_png hinzugefügt")
+        # v4.0 — Delegate-Teams: Gruppenname am Parent-Job speichern
+        if "delegate_group_name" not in cols:
+            conn.execute(
+                "ALTER TABLE cloudprint_jobs ADD COLUMN delegate_group_name TEXT NOT NULL DEFAULT ''"
+            )
+            logger.info("Migration: cloudprint_jobs.delegate_group_name hinzugefügt")
         logger.info("Migration: cloudprint_jobs-Tabelle geprüft/erstellt")
+
+    # 5b) Delegate-Teams (v4.0): persönliche Empfänger-Gruppen pro User
+    with _conn() as conn:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS delegate_groups (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                group_uuid  TEXT NOT NULL UNIQUE,
+                tenant_id   TEXT NOT NULL DEFAULT '',
+                owner_email TEXT NOT NULL,
+                name        TEXT NOT NULL,
+                created_at  TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_dgrp_owner
+                ON delegate_groups (owner_email, tenant_id);
+            CREATE TABLE IF NOT EXISTS delegate_group_members (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                group_uuid          TEXT NOT NULL,
+                member_email        TEXT NOT NULL,
+                member_display_name TEXT NOT NULL DEFAULT '',
+                member_printix_id   TEXT NOT NULL DEFAULT '',
+                added_at            TEXT NOT NULL,
+                UNIQUE(group_uuid, member_email)
+            );
+            CREATE INDEX IF NOT EXISTS idx_dgmem_group
+                ON delegate_group_members (group_uuid);
+        """)
+        logger.info("Migration: delegate_groups / delegate_group_members geprüft/erstellt")
 
     # 5) v6.7.5: cached_printix_users — persistenter Cache der Printix-User
     #     pro Tenant. Ersetzt das In-Memory-Lookup für IPP-Tenant-Resolution
@@ -312,12 +345,12 @@ def create_cloudprint_job(
     parent_job_id: str = "",
     delegated_from: str = "",
     status: str = "received",
+    delegate_group_name: str = "",
 ) -> dict:
     """Speichert einen empfangenen LPR-Job in der Tracking-Tabelle.
 
     v6.4.0: parent_job_id + delegated_from für Delegate-Print-Kind-Einträge.
-    Bei Kind-Einträgen referenziert parent_job_id den Haupt-Job und
-    delegated_from enthält die E-Mail / den Namen des Original-Owners.
+    v4.0: delegate_group_name für Gruppen-Sends (Phase F).
     """
     from db import _conn
     now = datetime.now(timezone.utc).isoformat()
@@ -327,13 +360,13 @@ def create_cloudprint_job(
                (job_id, tenant_id, queue_name, username, hostname, job_name,
                 data_size, data_format, control_lines_json, payload_preview,
                 detected_identity, identity_source, parent_job_id, delegated_from,
-                status, received_at, created_at)
-               VALUES (?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?,?)""",
+                status, received_at, created_at, delegate_group_name)
+               VALUES (?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?,?,?)""",
             (job_id, tenant_id, queue_name, username, hostname, job_name,
              data_size, data_format, control_lines_json[:4000], payload_preview[:4000],
              detected_identity[:255], identity_source[:120],
              parent_job_id[:64], delegated_from[:255],
-             status, now, now),
+             status, now, now, delegate_group_name[:80]),
         )
     return {"job_id": job_id, "status": status}
 

@@ -233,13 +233,14 @@ public final class ApiClient: @unchecked Sendable {
                      copies: Int = 1,
                      color: Bool = false,
                      duplex: Bool = false,
-                     printImageSize: String = "full") async throws -> SendResult {
+                     printImageSize: String = "full",
+                     groupLabel: String? = nil) async throws -> SendResult {
         let url = URL(fileURLWithPath: filePath)
         let fileData = try Data(contentsOf: url)
         let filename = url.lastPathComponent
         return try await sendData(fileData, filename: filename, targetId: targetId,
                                   comment: comment, copies: copies, color: color, duplex: duplex,
-                                  printImageSize: printImageSize)
+                                  printImageSize: printImageSize, groupLabel: groupLabel)
     }
 
     /// In-Memory-Variante: nötig für den iOS-Share-Extension-Pfad, der oft
@@ -250,7 +251,8 @@ public final class ApiClient: @unchecked Sendable {
                          copies: Int = 1,
                          color: Bool = false,
                          duplex: Bool = false,
-                         printImageSize: String = "full") async throws -> SendResult {
+                         printImageSize: String = "full",
+                         groupLabel: String? = nil) async throws -> SendResult {
         log.info("POST /desktop/send — target=\(targetId) file=\(filename) size=\(fileData.count)")
 
         let boundary = "Boundary-\(UUID().uuidString)"
@@ -285,6 +287,12 @@ public final class ApiClient: @unchecked Sendable {
             append("--\(boundary)\r\n")
             append("Content-Disposition: form-data; name=\"comment\"\r\n\r\n")
             append("\(c)\r\n")
+        }
+
+        if let gl = groupLabel, !gl.isEmpty {
+            append("--\(boundary)\r\n")
+            append("Content-Disposition: form-data; name=\"group_label\"\r\n\r\n")
+            append("\(gl)\r\n")
         }
 
         append("--\(boundary)\r\n")
@@ -380,6 +388,100 @@ public final class ApiClient: @unchecked Sendable {
         if http.statusCode == 404 { return nil }
         try ensureOk(resp, data)
         return data
+    }
+
+    // MARK: - Delegate Groups (v4.0)
+
+    public func listDelegateGroups() async throws -> [DelegateGroup] {
+        log.info("GET /desktop/me/delegate-groups")
+        let url = baseUrl.appendingPathComponent("desktop/me/delegate-groups")
+        var req = URLRequest(url: url)
+        if let token = token, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.timeoutInterval = 15
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
+        let r = try JSONDecoder().decode(DelegateGroupsResponse.self, from: data)
+        return r.groups
+    }
+
+    public func createDelegateGroup(name: String) async throws -> DelegateGroup {
+        log.info("POST /desktop/me/delegate-groups — name=\(name)")
+        let url = baseUrl.appendingPathComponent("desktop/me/delegate-groups")
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        if let token = token, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.timeoutInterval = 15
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["name": name])
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
+        return try JSONDecoder().decode(DelegateGroup.self, from: data)
+    }
+
+    public func renameDelegateGroup(uuid: String, name: String) async throws {
+        log.info("PATCH /desktop/me/delegate-groups/\(uuid)")
+        let url = baseUrl.appendingPathComponent("desktop/me/delegate-groups/\(uuid)")
+        var req = URLRequest(url: url)
+        req.httpMethod = "PATCH"
+        if let token = token, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.timeoutInterval = 15
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["name": name])
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
+    }
+
+    public func deleteDelegateGroup(uuid: String) async throws {
+        log.info("DELETE /desktop/me/delegate-groups/\(uuid)")
+        let url = baseUrl.appendingPathComponent("desktop/me/delegate-groups/\(uuid)")
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        if let token = token, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.timeoutInterval = 15
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
+    }
+
+    public func addGroupMember(groupUuid: String, email: String, displayName: String, printixId: String) async throws {
+        log.info("POST /desktop/me/delegate-groups/\(groupUuid)/members — \(email)")
+        let url = baseUrl.appendingPathComponent("desktop/me/delegate-groups/\(groupUuid)/members")
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        if let token = token, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.timeoutInterval = 15
+        req.httpBody = try JSONSerialization.data(withJSONObject: [
+            "member_email": email,
+            "member_display_name": displayName,
+            "member_printix_id": printixId,
+        ])
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
+    }
+
+    public func removeGroupMember(groupUuid: String, email: String) async throws {
+        log.info("DELETE /desktop/me/delegate-groups/\(groupUuid)/members/\(email)")
+        let encoded = email.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? email
+        let url = baseUrl.appendingPathComponent("desktop/me/delegate-groups/\(groupUuid)/members/\(encoded)")
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        if let token = token, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.timeoutInterval = 15
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
     }
 
     // MARK: - Entra Device-Code

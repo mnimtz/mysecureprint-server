@@ -239,9 +239,13 @@ private struct JobRow: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
-            // Delegate flag
+            // Delegiert-von-Flag (empfangener Delegate-Job)
             if let delegate = job.delegated_from, !delegate.isEmpty {
                 delegateTag(name: delegate)
+            }
+            // Empfänger-Flag (selbst delegiert)
+            if let recipients = job.delegate_recipients, !recipients.isEmpty {
+                recipientTag(recipients: recipients, groupName: job.delegate_group_name)
             }
             // Error
             if let err = job.error_message, !err.isEmpty {
@@ -267,6 +271,32 @@ private struct JobRow: View {
         .padding(.horizontal, 7)
         .padding(.vertical, 2)
         .background(MSP.cyan.opacity(0.12))
+        .clipShape(Capsule())
+    }
+
+    @ViewBuilder
+    private func recipientTag(recipients: [String], groupName: String?) -> some View {
+        let label: String = {
+            if let g = groupName, !g.isEmpty {
+                return "→ \(g) · \(recipients.count)"
+            }
+            if recipients.count == 1 {
+                let r = recipients[0]
+                return "→ \(r)"
+            }
+            return String(format: String(localized: "→ %d Empfänger"), recipients.count)
+        }()
+        HStack(spacing: 4) {
+            Image(systemName: groupName != nil && !(groupName!.isEmpty) ? "person.3.fill" : "person.fill.badge.plus")
+                .font(.caption2)
+            Text(label)
+                .font(.caption)
+                .lineLimit(1)
+        }
+        .foregroundColor(.orange)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 2)
+        .background(Color.orange.opacity(0.12))
         .clipShape(Capsule())
     }
 
@@ -345,8 +375,18 @@ struct JobDetailView: View {
                         detailRow(String(localized: "Queue"), value: job.queue, icon: "printer.fill")
                     }
                     if let delegate = job.delegated_from, !delegate.isEmpty {
-                        detailRow(String(localized: "Delegiert an"), value: delegate,
+                        detailRow(String(localized: "Delegiert von"), value: delegate,
                                   icon: "person.2.fill", iconColor: MSP.cyan)
+                    }
+                    if let recipients = job.delegate_recipients, !recipients.isEmpty {
+                        if let g = job.delegate_group_name, !g.isEmpty {
+                            detailRow(String(localized: "Team"), value: "\(g) (\(recipients.count))",
+                                      icon: "person.3.fill", iconColor: .orange)
+                        }
+                        ForEach(recipients, id: \.self) { r in
+                            detailRow(String(localized: "Empfänger"), value: r,
+                                      icon: "person.fill.badge.plus", iconColor: .orange)
+                        }
                     }
                     if let src = job.source_identity, !src.isEmpty {
                         detailRow(String(localized: "Absender"), value: src, icon: "person.fill")
@@ -495,6 +535,8 @@ struct PrintJob: Decodable, Identifiable {
     let hostname: String?
     let data_size: Int?
     let has_preview: Bool?
+    let delegate_recipients: [String]?
+    let delegate_group_name: String?
 
     var id: String { job_id }
 
