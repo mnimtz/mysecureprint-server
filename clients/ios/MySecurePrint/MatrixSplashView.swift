@@ -1,24 +1,29 @@
 import SwiftUI
 
+// MARK: - Style
+
+enum MatrixStyle {
+    /// Erster Login: voller schwarzer Hintergrund, Mind.-4-Sek., App-Name + "Initialisiere…"
+    case splash
+    /// Sync-Overlay: halbtransparent über aktuellem Screen, "Laden…", kein Mindest-Timer
+    case overlay
+}
+
 // MARK: - Datenmodell
 
 private struct RainColumn {
     let x: CGFloat
-    let speed: CGFloat       // Pixel pro Sekunde
-    let trailLength: Int     // Anzahl Symbole im Schweif
-    let timeOffset: Double   // Versatz damit Spalten versetzt starten
-    let sequence: [Int]      // zyklische Indizes in symbolPool
+    let speed: CGFloat
+    let trailLength: Int
+    let timeOffset: Double
+    let sequence: [Int]
 }
 
-// MARK: - Hauptview
+// MARK: - MatrixSplashView
 
-/// Matrix-Regen mit Drucker- und Dokument-Symbolen.
-/// Läuft so lange bis BEIDE Bedingungen erfüllt sind:
-///   1. cache.isInitialLoad == false  (Daten vollständig geladen)
-///   2. minDuration (4 s) abgelaufen
-/// Danach Fade-out → onDismiss.
 struct MatrixSplashView: View {
 
+    let style: MatrixStyle
     let onDismiss: () -> Void
 
     @EnvironmentObject private var cache: AppCache
@@ -46,21 +51,25 @@ struct MatrixSplashView: View {
         "rectangle.and.arrow.up.right.and.arrow.down.left",
     ]
 
-    private let symbolSize: CGFloat = 19
-    private let minDuration: Double = 4.0
+    // ── Konfiguration je Style ───────────────────────────────────────────────
+    private var bgOpacity:       Double { style == .splash ? 1.0  : 0.22 }
+    private var symbolOpacity:   Double { style == .splash ? 1.0  : 0.55 }
+    private var symbolSize:   CGFloat   { style == .splash ? 19   : 17   }
+    private var minDuration:     Double { style == .splash ? 4.0  : 0.0  }
+    private var showLabel:         Bool { style == .splash             }
 
     // ── State ────────────────────────────────────────────────────────────────
-    @State private var startTime   = Date.now
+    @State private var startTime  = Date.now
     @State private var columns: [RainColumn] = []
-    @State private var opacity: Double = 1.0
-    @State private var dataReady   = false
-    @State private var timerReady  = false
+    @State private var opacity: Double = 0        // startet bei 0 → fade-in
+    @State private var dataReady  = false
+    @State private var timerReady = false
 
     // MARK: Body
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            Color.black.ignoresSafeArea()
+            Color.black.opacity(bgOpacity).ignoresSafeArea()
 
             if !columns.isEmpty {
                 TimelineView(.animation) { tl in
@@ -72,25 +81,52 @@ struct MatrixSplashView: View {
                 .ignoresSafeArea()
             }
 
-            VStack(spacing: 6) {
-                Text("MySecurePrint")
-                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                    .foregroundColor(Self.green)
-                Text(String(localized: "Initialisiere…"))
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(Self.green.opacity(0.55))
+            if showLabel {
+                // Splash: App-Name + Statuszeile
+                VStack(spacing: 6) {
+                    Text("MySecurePrint")
+                        .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                        .foregroundColor(Self.green)
+                    Text(String(localized: "Initialisiere…"))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(Self.green.opacity(0.55))
+                }
+                .padding(.bottom, 54)
+            } else {
+                // Overlay: kompaktes "Laden…"-Label unten-mittig
+                Text(String(localized: "Laden…"))
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundColor(Self.green.opacity(0.80))
+                    .padding(.bottom, 54)
             }
-            .padding(.bottom, 54)
         }
         .opacity(opacity)
-        .onAppear { buildColumns() }
-        .onChange(of: cache.isInitialLoad) { _, loading in
-            if !loading { dataReady = true; checkFinish() }
+        .onAppear {
+            buildColumns()
+            // Fade-in: splash langsamer, overlay schneller
+            withAnimation(.easeIn(duration: style == .splash ? 0.3 : 0.15)) {
+                opacity = 1
+            }
         }
-        .task {
-            try? await Task.sleep(for: .seconds(minDuration))
-            timerReady = true
-            checkFinish()
+        // ── Splash: wartet auf isInitialLoad + Mindest-Timer ────────────────
+        .onChange(of: cache.isInitialLoad) { _, loading in
+            if !loading && style == .splash {
+                dataReady = true
+                checkFinish()
+            }
+        }
+        .task(id: style) {
+            if style == .splash {
+                try? await Task.sleep(for: .seconds(minDuration))
+                timerReady = true
+                checkFinish()
+            }
+        }
+        // ── Overlay: verschwindet sobald isSyncing false wird ───────────────
+        .onChange(of: cache.isSyncing) { _, syncing in
+            if !syncing && style == .overlay {
+                fadeOut()
+            }
         }
     }
 
@@ -133,12 +169,12 @@ struct MatrixSplashView: View {
                 let y = headY + CGFloat(i) * spacing
                 guard y > -spacing, y < size.height else { continue }
 
-                let alpha  = i == 0
+                let trailAlpha = i == 0
                     ? 1.0
                     : max(0, 1.0 - Double(i) / Double(col.trailLength) * 1.2)
+                let alpha  = trailAlpha * symbolOpacity
                 let color  = i == 0 ? Self.greenBright : Self.green
-                let symIdx = col.sequence[i % col.sequence.count]
-                let name   = Self.symbolPool[symIdx]
+                let name   = Self.symbolPool[col.sequence[i % col.sequence.count]]
 
                 var c = ctx
                 c.opacity = alpha
@@ -156,8 +192,15 @@ struct MatrixSplashView: View {
     // MARK: Abschluss
 
     private func checkFinish() {
-        guard dataReady && timerReady else { return }
-        withAnimation(.easeIn(duration: 0.55)) { opacity = 0 }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { onDismiss() }
+        guard style == .splash, dataReady, timerReady else { return }
+        fadeOut()
+    }
+
+    private func fadeOut() {
+        let duration = style == .splash ? 0.55 : 0.2
+        withAnimation(.easeIn(duration: duration)) { opacity = 0 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.05) {
+            onDismiss()
+        }
     }
 }

@@ -21,9 +21,13 @@ struct ContentView: View {
             }
 
             if showSplash {
-                MatrixSplashView(onDismiss: { showSplash = false })
+                MatrixSplashView(style: .splash, onDismiss: { showSplash = false })
+                    .environmentObject(cache)
+            } else if cache.isSyncing {
+                MatrixSplashView(style: .overlay, onDismiss: {})
                     .environmentObject(cache)
                     .transition(.opacity)
+                    .animation(.easeIn(duration: 0.15), value: cache.isSyncing)
             }
         }
         .environmentObject(settings)
