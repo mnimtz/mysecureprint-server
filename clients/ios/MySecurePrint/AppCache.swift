@@ -54,6 +54,19 @@ final class AppCache: ObservableObject {
         await sync(settings: settings, showSpinner: true)
     }
 
+    /// Nur die Jobs-Liste neu laden — für den Post-Submit-Refresh.
+    /// Kein Full-Sync, kein Spinner, kein Fluten. Einmal nach Abschluss
+    /// aller Sends aufrufen, damit echte Daten + has_preview ankommen.
+    func refreshJobs(settings: SettingsStore) async {
+        guard let client = ApiClientFactory.make(
+            baseURL: settings.serverURL, token: settings.bearerToken) else { return }
+        if let r = await fetchJobs(client: client) {
+            jobs = r.items
+            jobsHasMore = r.hasMore
+            pendingJob = nil   // Optimistic-Eintrag ist jetzt von echten Daten abgelöst
+        }
+    }
+
     /// Cache bei Logout leeren.
     func invalidate() {
         targets = []

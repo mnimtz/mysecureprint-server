@@ -482,6 +482,17 @@ struct UploadView: View {
                 }
             }
             sendResults = outcomes
+
+            // Einmaliger Hintergrund-Refresh nach allen Sends — ersetzt
+            // optimistische Einträge durch echte Serverdaten inkl. has_preview.
+            // 4s Verzögerung: Server generiert Preview-PNG asynchron nach dem
+            // Job-Insert; früher würde has_preview noch false zurückkommen.
+            if outcomes.contains(where: { $0.ok }) {
+                Task {
+                    try? await Task.sleep(for: .seconds(4))
+                    await cache.refreshJobs(settings: settings)
+                }
+            }
         } catch {
             errorText = error.localizedDescription
         }
