@@ -15,6 +15,13 @@ struct ManagementView: View {
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var cache: AppCache
 
+    // Wert-basierte Navigationsziele für die drei Listen-Views.
+    // Benötigt, damit NavigationLink(value:) in den List-Views über die
+    // selbe NavigationStack-Instanz navigieren kann wie ManagementView.
+    private enum ListDest: Hashable {
+        case printerList, userList, workstationList
+    }
+
     @State private var stats: MgmtStatsResponse?
     @State private var printers: [MgmtPrinter] = []
     @State private var users: [MgmtUser] = []
@@ -57,7 +64,16 @@ struct ManagementView: View {
                     }
                 }
             }
-            // NavigationLink-Destinationen für alle drei Detailansichten
+            // NavigationLink-Destinationen: Listen-Ebene + Detail-Ebene.
+            // Alle Destinationen hier zentral deklariert, damit NavigationLink(value:)
+            // aus gepushten Views (PrinterListView etc.) korrekt aufgelöst wird.
+            .navigationDestination(for: ListDest.self) { dest in
+                switch dest {
+                case .printerList:     PrinterListView(printers: printers)
+                case .userList:        UserListView(users: users)
+                case .workstationList: WorkstationListView(workstations: workstations)
+                }
+            }
             .navigationDestination(for: MgmtPrinter.self) { p in
                 PrinterDetailView(printer: p)
             }
@@ -164,9 +180,7 @@ struct ManagementView: View {
     private var printersSection: some View {
         if !printers.isEmpty {
             Section {
-                NavigationLink {
-                    PrinterListView(printers: printers)
-                } label: {
+                NavigationLink(value: ListDest.printerList) {
                     HStack {
                         Image(systemName: "printer.fill").foregroundStyle(.tint).frame(width: 26)
                         Text(String(localized: "Drucker"))
@@ -184,9 +198,7 @@ struct ManagementView: View {
     private var usersSection: some View {
         if !users.isEmpty {
             Section {
-                NavigationLink {
-                    UserListView(users: users)
-                } label: {
+                NavigationLink(value: ListDest.userList) {
                     HStack {
                         Image(systemName: "person.2.fill").foregroundStyle(.tint).frame(width: 26)
                         Text(String(localized: "Benutzer"))
@@ -203,9 +215,7 @@ struct ManagementView: View {
     private var workstationsSection: some View {
         if !workstations.isEmpty {
             Section {
-                NavigationLink {
-                    WorkstationListView(workstations: workstations)
-                } label: {
+                NavigationLink(value: ListDest.workstationList) {
                     HStack {
                         Image(systemName: "desktopcomputer").foregroundStyle(.tint).frame(width: 26)
                         Text(String(localized: "Arbeitsplätze"))
