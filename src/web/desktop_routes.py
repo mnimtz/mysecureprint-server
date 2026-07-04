@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from typing import Optional
 
 from fastapi import APIRouter, FastAPI, File, Form, Header, Request, UploadFile
@@ -31,6 +32,36 @@ from desktop_auth import (
 )
 
 logger = logging.getLogger("printix.desktop")
+
+
+# ─── In-Memory Jobs-Cache ─────────────────────────────────────────────────────
+# SQLite liegt auf Azure-Files-SMB → Lock-Acquire kostet 50-200 ms pro Query.
+# Cache reduziert DB-Hits auf 1 pro User alle 30 Sek. Kein Printix-API-Call
+# involviert, kein Rate-Limit-Problem.
+
+_jobs_cache: dict[tuple, tuple[float, list]] = {}  # (uid, limit, offset) → (ts, items)
+_JOBS_TTL = 30.0   # Sekunden bis Eintrag als veraltet gilt
+_JOBS_MAX = 2000   # Sicherheits-Obergrenze für Cache-Einträge
+
+
+def _jobs_cache_get(uid: str, limit: int, offset: int) -> list | None:
+    entry = _jobs_cache.get((uid, limit, offset))
+    if entry and (time.monotonic() - entry[0]) < _JOBS_TTL:
+        return entry[1]
+    return None
+
+
+def _jobs_cache_set(uid: str, limit: int, offset: int, items: list) -> None:
+    if len(_jobs_cache) >= _JOBS_MAX:
+        oldest = min(_jobs_cache, key=lambda k: _jobs_cache[k][0])
+        del _jobs_cache[oldest]
+    _jobs_cache[(uid, limit, offset)] = (time.monotonic(), items)
+
+
+def _jobs_cache_invalidate(uid: str) -> None:
+    """Alle Cache-Einträge für einen User löschen (nach Schreiboperation)."""
+    for k in [k for k in _jobs_cache if k[0] == uid]:
+        del _jobs_cache[k]
 
 
 # ─── Auth-Helper ─────────────────────────────────────────────────────────────
@@ -1002,6 +1033,8 @@ async def _process_desktop_send_bg(
             except Exception as _ae:
                 logger.debug("audit(print_job_submitted) failed: %s", _ae)
 
+            _jobs_cache_invalidate(user.get("user_id", ""))
+
             # v0.7.72: Push-Benachrichtigung — Job erfolgreich gesendet.
             try:
                 from push_notify import notify_user as _push
@@ -1256,13 +1289,20 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         if not user:
             return _json_error("token invalid", code="auth_required", status=401)
         try:
+            uid = user["user_id"]
+            limit_int  = max(1, min(int(limit  or 20),  200))
+            offset_int = max(0,        int(offset or 0))
+
+            cached = _jobs_cache_get(uid, limit_int, offset_int)
+            if cached is not None:
+                return JSONResponse({"jobs": cached, "count": len(cached),
+                                     "offset": offset_int, "cached": True})
+
             from db import _conn, _resolve_tenant_owner_for
             from cloudprint.db_extensions import get_tenant_for_user
-            parent_id = _resolve_tenant_owner_for(user["user_id"]) or user["user_id"]
+            parent_id = _resolve_tenant_owner_for(uid) or uid
             tenant = get_tenant_for_user(parent_id)
             tid = (tenant or {}).get("id", "")
-            limit_int = max(1, min(int(limit or 20), 200))
-            offset_int = max(0, int(offset or 0))
             uname = (_user_descr(user) or "").lower()
             uemail = (user.get("email") or "").lower()
             pxid = (user.get("printix_user_id") or "").lower()
@@ -1302,6 +1342,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 item["has_preview"] = bool(item.get("has_preview") or 0)
                 csv = item.pop("delegate_recipients_csv", None) or ""
                 item["delegate_recipients"] = [r for r in csv.split(",") if r.strip()] if csv else []
+            _jobs_cache_set(uid, limit_int, offset_int, items)
             return JSONResponse({"jobs": items, "count": len(items), "offset": offset_int})
         except Exception as e:
             logger.warning("desktop_me_jobs: %s", e)
@@ -1338,6 +1379,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     (tid, uname, uemail, uname, uemail, pxid),
                 )
                 deleted = result.rowcount
+            _jobs_cache_invalidate(user["user_id"])
             return JSONResponse({"deleted": deleted})
         except Exception as e:
             logger.warning("desktop_me_jobs_clear: %s", e)
