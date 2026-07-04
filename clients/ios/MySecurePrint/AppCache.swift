@@ -31,6 +31,7 @@ final class AppCache: ObservableObject {
 
     // ── Sync-Status ───────────────────────────────────────────────────────
     @Published var isSyncing: Bool = false
+    @Published var isInitialLoad: Bool = true   // true bis erster Fetch abgeschlossen
     @Published var lastSyncedAt: Date? = nil
     @Published var syncError: String = ""
 
@@ -62,6 +63,7 @@ final class AppCache: ObservableObject {
         mgmtLastSyncedAt = nil
         delegateGroups = []
         preloaded = false
+        isInitialLoad = true
         isSyncing = false
         syncError = ""
         lastSyncedAt = nil
@@ -106,6 +108,7 @@ final class AppCache: ObservableObject {
         delegateGroups = g ?? []
 
         preloaded = true
+        isInitialLoad = false
         lastSyncedAt = Date()
     }
 

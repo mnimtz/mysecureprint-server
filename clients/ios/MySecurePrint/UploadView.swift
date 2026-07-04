@@ -9,6 +9,7 @@ import PrintixSendCore
 struct UploadView: View {
 
     @EnvironmentObject private var settings: SettingsStore
+    @EnvironmentObject private var cache: AppCache
 
     @State private var pickedURL: URL?
     @State private var copies: Int = 1
@@ -209,6 +210,12 @@ struct UploadView: View {
                                         autoResetBanner(now: ctx.date)
                                     }
                                 }
+                            }
+                        }
+                    } else if cache.isInitialLoad {
+                        CardSection {
+                            CardFormRow(divider: false) {
+                                InitializingRow()
                             }
                         }
                     } else {
@@ -500,6 +507,35 @@ struct UploadView: View {
 
 /// I-3: Haelt genau EINEN autoconnected 1s-Timer ueber den
 /// gesamten View-Lifecycle. SwiftUI instanziiert StateObjects einmal,
+// ── Initialisierungs-Platzhalter ──────────────────────────────────────────────
+
+/// Animierter Ladehinweis während des ersten Server-Fetchs.
+/// Zeigt drei tippende Punkte ("Initialisiere · · ·") damit klar ist,
+/// dass die App gerade Daten lädt und noch kein Fehler vorliegt.
+private struct InitializingRow: View {
+    @State private var dotCount = 0
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ProgressView()
+                .scaleEffect(0.85)
+                .frame(width: 22)
+            Text(String(localized: "Initialisiere") + String(repeating: " ·", count: dotCount + 1))
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
+                .animation(.none, value: dotCount)
+        }
+        .onAppear {
+            // Ticker: 0 → 1 → 2 → 0 → …
+            Timer.scheduledTimer(withTimeInterval: 0.45, repeats: true) { t in
+                dotCount = (dotCount + 1) % 3
+            }
+        }
+    }
+}
+
+// ── ResetClock ────────────────────────────────────────────────────────────────
+
 /// sodass nicht bei jedem `body`-Rebuild ein neuer Publisher entsteht.
 @MainActor
 final class ResetClock: ObservableObject {
