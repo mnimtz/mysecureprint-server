@@ -70,8 +70,10 @@ _PX_STATE_MAP = {
     "READY":              "ready",
     "PRINTING":           "printing",
     "PRINTED":            "printed",
+    "PROCESSED":          "printed",
     "DELETED":            "deleted",
     "ERROR":              "error",
+    "FAILED":             "error",
 }
 
 
@@ -1419,6 +1421,8 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             uname  = (_user_descr(user) or "").lower()
             uemail = (user.get("email") or "").lower()
             pxid   = (user.get("printix_user_id") or "").lower()
+            if not uname and not uemail and not pxid:
+                return _json_error("job not found", code="not_found", status=404)
             with _conn() as conn:
                 row = conn.execute(
                     """SELECT job_id, status, printix_job_id, error_message
