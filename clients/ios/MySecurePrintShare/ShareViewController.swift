@@ -111,9 +111,9 @@ final class ShareViewController: UIViewController {
         finish(error: String(localized: "Nur PDF- und Bild-Dateien werden unterstuetzt."))
     }
 
-    /// v1.0.1: 60 MB Hard-Cap — Share-Extension hat nur ~120 MB Speicher-
-    /// Budget, iOS jetsam-killt sonst still ohne Fehlermeldung.
-    private static let maxAttachmentBytes: Int64 = 60 * 1024 * 1024
+    /// 50 MB Hard-Cap — identisch mit dem Server-Limit in /desktop/send (MAX=50MB).
+    /// Share-Extension hat ~120 MB Speicher-Budget; iOS jetsam-killt bei Überschreitung.
+    private static let maxAttachmentBytes: Int64 = 50 * 1024 * 1024
 
     private func loadPDF(from provider: NSItemProvider) {
         provider.loadItem(forTypeIdentifier: UTType.pdf.identifier, options: nil) { [weak self] item, err in

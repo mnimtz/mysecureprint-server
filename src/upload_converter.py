@@ -75,6 +75,19 @@ def detect_format(data: bytes, filename_hint: str = "") -> tuple[str, str]:
                         return m, e
                 return mime, ext
             return mime, ext
+    # Fallback: Dateiname-Extension für Bildformate ohne feste Magic-Bytes
+    # (HEIC/HEIF nutzen ISO-BMFF mit variablem box-size an Offset 0, kein fixer Header).
+    _name_lower = (filename_hint or "").lower()
+    _img_ext_map = {
+        ".heic": ("image/heic", "heic"),
+        ".heif": ("image/heif", "heif"),
+        ".hif":  ("image/heif", "heif"),
+        ".webp": ("image/webp", "webp"),
+        ".avif": ("image/avif", "avif"),
+    }
+    for _sfx, (_m, _e) in _img_ext_map.items():
+        if _name_lower.endswith(_sfx):
+            return _m, _e
     # Fallback: Plaintext? Alles ASCII/UTF-8-druckbar → text
     try:
         sample = data[:4096].decode("utf-8")
@@ -108,7 +121,20 @@ def _convert_image_to_pdf(data: bytes, bw: bool = False, image_size: str = "full
     MARGIN = 40  # px Rand für "full" und "original"
     PX_PER_CM = 150 / 2.54  # ≈ 59.06 px/cm
 
-    img = Image.open(io.BytesIO(data))
+    # pillow-heif erweitert Pillow um HEIC/HEIF-Unterstützung (optional).
+    try:
+        import pillow_heif as _ph
+        _ph.register_heif_opener()
+    except ImportError:
+        pass
+
+    try:
+        img = Image.open(io.BytesIO(data))
+    except Exception as _open_err:
+        raise ConversionError(
+            f"Bildformat nicht lesbar: {_open_err}. "
+            "HEIC-Dateien bitte als JPEG teilen (Fotos-App → Teilen → als JPEG senden)."
+        ) from _open_err
     if img.mode in ("RGBA", "LA"):
         bg = Image.new("RGB", img.size, "white")
         bg.paste(img, mask=img.split()[-1])
