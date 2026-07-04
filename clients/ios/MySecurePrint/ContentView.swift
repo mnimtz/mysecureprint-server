@@ -8,13 +8,22 @@ struct ContentView: View {
 
     @StateObject private var settings = SettingsStore()
     @StateObject private var cache    = AppCache()
+    @State private var showSplash = false
 
     var body: some View {
-        Group {
-            if settings.isLoggedIn {
-                MainTabs()
-            } else {
-                SetupView()
+        ZStack {
+            Group {
+                if settings.isLoggedIn {
+                    MainTabs()
+                } else {
+                    SetupView()
+                }
+            }
+
+            if showSplash {
+                MatrixSplashView(onDismiss: { showSplash = false })
+                    .environmentObject(cache)
+                    .transition(.opacity)
             }
         }
         .environmentObject(settings)
@@ -22,11 +31,18 @@ struct ContentView: View {
         // Push-Permission anfordern + Cache befüllen sobald eingeloggt.
         .onChange(of: settings.isLoggedIn) { _, loggedIn in
             if loggedIn {
+                showSplash = true
                 PushNotificationManager.shared.requestPermissionAndRegister()
                 PushNotificationManager.shared.uploadCachedTokenIfNeeded(settings: settings)
                 Task { await cache.preloadIfNeeded(settings: settings) }
             } else {
+                showSplash = false
                 cache.invalidate()
+            }
+        }
+        .onAppear {
+            if settings.isLoggedIn && cache.isInitialLoad {
+                showSplash = true
             }
         }
         // mysecureprint://setup?server=...&token=...
