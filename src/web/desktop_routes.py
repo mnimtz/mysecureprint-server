@@ -1416,7 +1416,6 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             return _json_error("token invalid", code="auth_required", status=401)
         try:
             from db import _conn, _resolve_tenant_owner_for
-            from cloudprint.db_extensions import get_tenant_for_user
             uname  = (_user_descr(user) or "").lower()
             uemail = (user.get("email") or "").lower()
             pxid   = (user.get("printix_user_id") or "").lower()

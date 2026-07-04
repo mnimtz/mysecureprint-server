@@ -360,7 +360,8 @@ struct JobDetailView: View {
                         Text(String(localized: "Status"))
                             .foregroundColor(.secondary)
                         Spacer()
-                        let (color, label) = PrintJob.badgeStyleFor(displayStatus)
+                        let (color, label) = PrintJob.badgeStyleFor(
+                            displayStatus.isEmpty ? job.status : displayStatus)
                         Text(label)
                             .font(.caption)
                             .fontWeight(.semibold)
