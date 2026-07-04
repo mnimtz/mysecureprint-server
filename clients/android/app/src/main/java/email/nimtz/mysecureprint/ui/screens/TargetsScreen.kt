@@ -76,10 +76,19 @@ fun TargetsScreen(settings: SettingsStore) {
                 }
                 is TargetsUiState.Success -> {
                     val filtered = state.queues.filter { q ->
-                        search.isBlank() || q.name.contains(search, ignoreCase = true)
-                                || q.siteName.contains(search, ignoreCase = true)
+                        search.isBlank() || q.label.contains(search, ignoreCase = true)
+                                || (q.description ?: "").contains(search, ignoreCase = true)
                     }
-                    val grouped = filtered.groupBy { it.siteName.ifBlank { "Ohne Standort" } }
+                    // Group by type — "print_secure" first, delegates second
+                    val grouped = linkedMapOf<String, MutableList<PrintTarget>>()
+                    filtered.forEach { t ->
+                        val group = when (t.type) {
+                            "print_secure"   -> "Mein Drucker"
+                            "print_delegate" -> "Delegation"
+                            else             -> "Sonstige"
+                        }
+                        grouped.getOrPut(group) { mutableListOf() }.add(t)
+                    }
 
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         grouped.forEach { (site, queues) ->
@@ -90,7 +99,7 @@ fun TargetsScreen(settings: SettingsStore) {
                                     isDefault = queue.id == settings.defaultQueueId,
                                     onSetDefault = {
                                         vm.setDefaultQueue(queue)
-                                        snackbar = "Standard: ${queue.name}"
+                                        snackbar = "Standard: ${queue.label}"
                                     },
                                 )
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
@@ -143,18 +152,18 @@ private fun TargetRow(queue: PrintTarget, isDefault: Boolean, onSetDefault: () -
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = Icons.Default.Print,
+            imageVector = if (queue.type == "print_delegate") Icons.Default.People else Icons.Default.Print,
             contentDescription = null,
             tint = if (isDefault) MSPColors.Cyan else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(24.dp),
         )
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(queue.name, fontSize = 14.sp, fontWeight = FontWeight.Medium,
+            Text(queue.label, fontSize = 14.sp, fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (queue.networkName.isNotBlank()) {
-                Text(queue.networkName, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            if (!queue.description.isNullOrBlank()) {
+                Text(queue.description, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }

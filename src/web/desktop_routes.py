@@ -1350,7 +1350,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                               IFNULL(ai_summary,'') AS ai_summary,
                               IFNULL(ai_tags,'') AS ai_tags,
                               IFNULL(ai_analyzed_at,'') AS ai_analyzed_at,
-                              IFNULL(ai_extra,'{}') AS ai_extra,
+                              IFNULL(ai_extra,'{{}}') AS ai_extra,
                               (SELECT GROUP_CONCAT(IFNULL(username,''),',')
                                FROM cloudprint_jobs _c2
                                WHERE _c2.parent_job_id = cloudprint_jobs.job_id

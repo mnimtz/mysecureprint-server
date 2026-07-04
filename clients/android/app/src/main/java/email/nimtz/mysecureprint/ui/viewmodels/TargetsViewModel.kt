@@ -7,6 +7,7 @@ import email.nimtz.mysecureprint.data.api.ApiClient
 import email.nimtz.mysecureprint.data.api.ApiResult
 import email.nimtz.mysecureprint.data.model.PrintTarget
 import email.nimtz.mysecureprint.data.model.TargetsResponse
+import email.nimtz.mysecureprint.data.model.PrintQueue
 import email.nimtz.mysecureprint.data.store.SettingsStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,16 +32,16 @@ class TargetsViewModel(private val settings: SettingsStore) : ViewModel() {
             val client = ApiClient(settings.serverUrl, settings.authToken)
             val raw = client.getTargets()
             when (val result = client.parseBody<TargetsResponse>(raw)) {
-                is ApiResult.Success      -> _uiState.value = TargetsUiState.Success(result.body.queues)
+                is ApiResult.Success      -> _uiState.value = TargetsUiState.Success(result.body.targets)
                 is ApiResult.Error        -> _uiState.value = TargetsUiState.Error("HTTP ${result.code}: ${result.message}")
                 is ApiResult.NetworkError -> _uiState.value = TargetsUiState.Error(result.message)
             }
         }
     }
 
-    fun setDefaultQueue(queue: PrintTarget) {
-        settings.defaultQueueId   = queue.id
-        settings.defaultQueueName = queue.name
+    fun setDefaultQueue(target: PrintTarget) {
+        settings.defaultQueueId   = target.id
+        settings.defaultQueueName = target.label
     }
 }
 

@@ -8,7 +8,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import email.nimtz.mysecureprint.data.api.ApiClient
 import email.nimtz.mysecureprint.data.api.ApiResult
-import email.nimtz.mysecureprint.data.model.EntraDeviceCodeResponse
+import email.nimtz.mysecureprint.data.model.EntraStartResponse
 import email.nimtz.mysecureprint.data.store.SettingsStore
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -22,7 +22,7 @@ sealed class LoginUiState {
     data class EntraDeviceCode(
         val userCode: String,
         val verificationUri: String,
-        val deviceCode: String,
+        val sessionId: String,
         val interval: Int,
     ) : LoginUiState()
     object Success : LoginUiState()
@@ -65,15 +65,15 @@ class LoginViewModel(private val settings: SettingsStore) : ViewModel() {
         viewModelScope.launch {
             _uiState.value = LoginUiState.Loading("entra")
             val client = ApiClient(settings.serverUrl)
-            val raw = client.startEntraLogin()
-            val result = client.parseBody<EntraDeviceCodeResponse>(raw)
+            val raw = client.startEntraLogin(deviceName = "Android")
+            val result = client.parseBody<EntraStartResponse>(raw)
             when (result) {
                 is ApiResult.Success -> {
                     val resp = result.body
                     _uiState.value = LoginUiState.EntraDeviceCode(
                         userCode        = resp.userCode,
                         verificationUri = resp.verificationUri,
-                        deviceCode      = resp.deviceCode,
+                        sessionId       = resp.sessionId,
                         interval        = resp.interval.coerceAtLeast(5),
                     )
                     // Open browser automatically
@@ -82,7 +82,7 @@ class LoginViewModel(private val settings: SettingsStore) : ViewModel() {
                             Intent(Intent.ACTION_VIEW, Uri.parse(resp.verificationUri)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         )
                     } catch (_: Exception) {}
-                    startPolling(client, resp.deviceCode, resp.interval.coerceAtLeast(5))
+                    startPolling(client, resp.sessionId, resp.interval.coerceAtLeast(5))
                 }
                 is ApiResult.Error       -> _uiState.value = LoginUiState.Error("HTTP ${result.code}: ${result.message}")
                 is ApiResult.NetworkError -> _uiState.value = LoginUiState.Error(result.message)
@@ -90,12 +90,12 @@ class LoginViewModel(private val settings: SettingsStore) : ViewModel() {
         }
     }
 
-    private fun startPolling(client: ApiClient, deviceCode: String, intervalSec: Int) {
+    private fun startPolling(client: ApiClient, sessionId: String, intervalSec: Int) {
         pollJob?.cancel()
         pollJob = viewModelScope.launch {
             repeat(60) {
                 delay(intervalSec * 1000L)
-                val raw = client.pollEntraLogin(deviceCode)
+                val raw = client.pollEntraLogin(sessionId)
                 val result = client.parseBody<email.nimtz.mysecureprint.data.model.EntraPollResponse>(raw)
                 if (result is ApiResult.Success) {
                     val resp = result.body

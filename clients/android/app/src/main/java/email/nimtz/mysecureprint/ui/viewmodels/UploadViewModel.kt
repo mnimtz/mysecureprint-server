@@ -27,7 +27,7 @@ class UploadViewModel(private val settings: SettingsStore) : ViewModel() {
 
     fun resetState() { _uiState.value = UploadUiState.Idle }
 
-    fun upload(context: Context, uri: Uri, queueId: String = settings.defaultQueueId) {
+    fun upload(context: Context, uri: Uri, targetId: String = settings.defaultQueueId.ifBlank { "print:self" }) {
         viewModelScope.launch {
             _uiState.value = UploadUiState.Uploading(0)
             try {
@@ -43,7 +43,7 @@ class UploadViewModel(private val settings: SettingsStore) : ViewModel() {
                     inputStream = inputStream,
                     filename    = filename,
                     mimeType    = mimeType,
-                    queueId     = queueId,
+                    targetId    = targetId,
                 )
                 inputStream.close()
 
