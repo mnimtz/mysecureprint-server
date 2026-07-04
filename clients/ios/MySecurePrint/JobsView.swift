@@ -102,15 +102,14 @@ struct JobsView: View {
                 JobDetailView(job: job)
             }
             .toolbar {
-                ToolbarItem(placement: .bottomBar) {
+                ToolbarItem(placement: .navigationBarLeading) {
                     if !jobs.isEmpty {
                         Button(role: .destructive) {
                             showClearConfirm = true
                         } label: {
-                            Label(String(localized: "Verlauf löschen"), systemImage: "trash")
-                                .font(.caption)
+                            Image(systemName: "trash")
+                                .foregroundStyle(.secondary)
                         }
-                        .foregroundStyle(.secondary)
                     }
                 }
             }
