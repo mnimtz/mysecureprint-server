@@ -166,7 +166,8 @@ struct JobsView: View {
             return
         }
         loading = true
-        defer { loading = false }
+        cache.isSyncing = true
+        defer { loading = false; cache.isSyncing = false }
         do {
             let result = try await fetchJobs(offset: 0)
             jobs = result.jobs

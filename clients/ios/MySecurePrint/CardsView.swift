@@ -22,6 +22,7 @@ struct CardsView: View {
 
 struct CardsContent: View {
     @EnvironmentObject private var settings: SettingsStore
+    @EnvironmentObject private var cache: AppCache
 
     @State private var cards: [Card] = []
     @State private var profiles: [CardProfile] = []
@@ -137,6 +138,7 @@ struct CardsContent: View {
         }
         await MainActor.run {
             isLoading = true
+            cache.isSyncing = true
             errorMessage = nil
         }
         do {
@@ -148,11 +150,13 @@ struct CardsContent: View {
                 self.profiles = pd.0
                 self.defaultProfileId = pd.1
                 self.isLoading = false
+                self.cache.isSyncing = false
             }
         } catch {
             await MainActor.run {
                 self.errorMessage = error.localizedDescription
                 self.isLoading = false
+                self.cache.isSyncing = false
             }
         }
     }

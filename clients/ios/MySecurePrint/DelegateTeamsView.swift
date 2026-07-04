@@ -157,7 +157,8 @@ struct DelegateTeamsView: View {
         guard let client = ApiClientFactory.make(
             baseURL: settings.serverURL, token: settings.bearerToken) else { return }
         loading = true
-        defer { loading = false }
+        cache.isSyncing = true
+        defer { loading = false; cache.isSyncing = false }
         do {
             cache.delegateGroups = try await client.listDelegateGroups()
             loadError = ""

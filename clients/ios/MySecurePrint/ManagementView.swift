@@ -296,8 +296,9 @@ struct ManagementView: View {
         }
 
         isLoading = true
+        cache.isSyncing = true
         errorMessage = nil
-        defer { isLoading = false }
+        defer { isLoading = false; cache.isSyncing = false }
 
         async let statsResult         = runNamed("stats")        { try await client.managementStats()         }
         async let printersResult      = runNamed("printers")     { try await client.managementPrinters()      }
