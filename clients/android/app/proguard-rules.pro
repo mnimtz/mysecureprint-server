@@ -1,0 +1,3 @@
+-keep class email.nimtz.mysecureprint.data.model.** { *; }
+-keepattributes Signature
+-keepattributes *Annotation*
