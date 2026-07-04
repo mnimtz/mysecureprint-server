@@ -63,7 +63,9 @@ struct PrinterListView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .searchable(text: $query, prompt: String(localized: "Drucker suchen"))
+        .searchable(text: $query,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: String(localized: "Drucker suchen"))
         .brandNavStyle(title: String(localized: "Drucker"))
         .tint(MSP.cyan)
     }
@@ -122,7 +124,9 @@ struct UserListView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .searchable(text: $query, prompt: String(localized: "Benutzer suchen"))
+        .searchable(text: $query,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: String(localized: "Benutzer suchen"))
         .brandNavStyle(title: String(localized: "Benutzer"))
         .tint(MSP.cyan)
     }
@@ -184,7 +188,9 @@ struct WorkstationListView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .searchable(text: $query, prompt: String(localized: "Arbeitsplatz suchen"))
+        .searchable(text: $query,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: String(localized: "Arbeitsplatz suchen"))
         .brandNavStyle(title: String(localized: "Arbeitsplätze"))
         .tint(MSP.cyan)
     }
