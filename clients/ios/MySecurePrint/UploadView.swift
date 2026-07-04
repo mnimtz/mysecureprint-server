@@ -457,6 +457,19 @@ struct UploadView: View {
                         outcomes.append(SendOutcome(targetDisplay: display,
                                                     ok: true,
                                                     detail: successDetail(result)))
+                        if let jobId = result.jobId, !jobId.isEmpty {
+                            let iso = ISO8601DateFormatter()
+                            iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                            let optimistic = PrintJob(
+                                job_id: jobId,
+                                filename: filename,
+                                status: result.status ?? "queued",
+                                queue: display,
+                                created_at: iso.string(from: Date()),
+                                data_size: data.count
+                            )
+                            cache.pendingJob = optimistic
+                        }
                     } else {
                         outcomes.append(SendOutcome(targetDisplay: display,
                                                     ok: false,

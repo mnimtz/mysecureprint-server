@@ -88,6 +88,16 @@ struct JobsView: View {
                     await reload()
                 }
             }
+            // Optimistic Insert: sobald UploadView einen Job erfolgreich gesendet
+            // hat, setzt sie cache.pendingJob. Wir prependen ihn sofort oben in
+            // die Liste — ohne Wartezeit / Pull-to-Refresh. Deduplizierung via
+            // job_id falls ein Full-Refresh schon stattgefunden hat.
+            .onChange(of: cache.pendingJob) { _, newJob in
+                guard let job = newJob else { return }
+                guard !jobs.contains(where: { $0.job_id == job.job_id }) else { return }
+                jobs.insert(job, at: 0)
+                cache.jobs = jobs
+            }
             .sheet(item: $selectedJob) { job in
                 JobDetailView(job: job)
             }
@@ -523,7 +533,7 @@ private struct FullscreenImagePreview: View {
 
 // MARK: - Data Models  (internal — AppCache liest sie auch)
 
-struct PrintJob: Decodable, Identifiable {
+struct PrintJob: Decodable, Identifiable, Equatable {
     let job_id: String
     let filename: String
     let status: String
@@ -540,6 +550,29 @@ struct PrintJob: Decodable, Identifiable {
     let delegate_group_name: String?
 
     var id: String { job_id }
+
+    static func == (lhs: PrintJob, rhs: PrintJob) -> Bool { lhs.job_id == rhs.job_id }
+
+    init(job_id: String, filename: String, status: String, queue: String,
+         created_at: String, forwarded_at: String? = nil, error_message: String? = nil,
+         source_identity: String? = nil, delegated_from: String? = nil,
+         hostname: String? = nil, data_size: Int? = nil, has_preview: Bool? = false,
+         delegate_recipients: [String]? = nil, delegate_group_name: String? = nil) {
+        self.job_id            = job_id
+        self.filename          = filename
+        self.status            = status
+        self.queue             = queue
+        self.created_at        = created_at
+        self.forwarded_at      = forwarded_at
+        self.error_message     = error_message
+        self.source_identity   = source_identity
+        self.delegated_from    = delegated_from
+        self.hostname          = hostname
+        self.data_size         = data_size
+        self.has_preview       = has_preview
+        self.delegate_recipients  = delegate_recipients
+        self.delegate_group_name  = delegate_group_name
+    }
 
     var badgeStyle: (Color, String) {
         switch status.lowercased() {

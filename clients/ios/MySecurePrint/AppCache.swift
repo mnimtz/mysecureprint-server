@@ -29,6 +29,10 @@ final class AppCache: ObservableObject {
     // Delegate-Teams (Phase F, v4.0)
     @Published var delegateGroups: [DelegateGroup] = []
 
+    // Optimistic Insert: nach erfolgreichem Job-Submit aus UploadView setzen,
+    // damit JobsView den Job sofort oben anzeigt ohne Full-Refresh.
+    @Published var pendingJob: PrintJob? = nil
+
     // ── Sync-Status ───────────────────────────────────────────────────────
     @Published var isSyncing: Bool = false
     @Published var isInitialLoad: Bool = true   // true bis erster Fetch abgeschlossen
@@ -62,6 +66,7 @@ final class AppCache: ObservableObject {
         mgmtWorkstations = []
         mgmtLastSyncedAt = nil
         delegateGroups = []
+        pendingJob = nil
         preloaded = false
         isInitialLoad = true
         isSyncing = false
