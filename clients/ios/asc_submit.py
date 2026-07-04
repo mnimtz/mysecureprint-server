@@ -73,7 +73,7 @@ LISTING_DE = {
         "Markenzeichen von Tungsten Automation Corp. und wird hier "
         "ausschliesslich zur Beschreibung der API-Kompatibilitaet genannt."
     ),
-    "whatsNew": "Bilder (JPEG, PNG, HEIC) werden jetzt serverseitig in druckfertige PDFs umgewandelt. Die Share-Extension lädt nur noch die komprimierten Original-Bytes hoch — kein Speicherproblem mehr bei großen Kamerafotos.",
+    "whatsNew": "QR-Code-Scanner erkennt jetzt alle Server-QR-Codes — JSON-Format vom Mitarbeiter-Portal und Deep-Link-Format aus dem Admin-Bereich werden korrekt ausgewertet.",
     "supportUrl": "https://github.com/mnimtz/mysecureprint-server/issues",
     "marketingUrl": "https://github.com/mnimtz/mysecureprint-server",
     "privacyPolicyUrl": "https://printix-sp.azurewebsites.net/privacy",

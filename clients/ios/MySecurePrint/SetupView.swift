@@ -156,8 +156,24 @@ struct SetupView: View {
                         scanNote = String(localized: "Scan abgebrochen.")
                         return
                     }
-                    if v.lowercased().hasPrefix("http://") || v.lowercased().hasPrefix("https://") {
-                        draftURL = v
+                    // QR-Payload kann drei Formate haben:
+                    // 1. JSON {"v":1,"server":"https://..."}  ← /my/mobile-app/qr.png
+                    // 2. Deep-Link mysecureprint://setup?server=https://...  ← Admin-QR
+                    // 3. Plain URL https://...  ← Legacy
+                    var serverURL = v
+                    if v.hasPrefix("{"),
+                       let data = v.data(using: .utf8),
+                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let s = json["server"] as? String, !s.isEmpty {
+                        serverURL = s
+                    } else if v.hasPrefix("mysecureprint://"),
+                              let comps = URLComponents(string: v),
+                              let s = comps.queryItems?.first(where: { $0.name == "server" })?.value,
+                              !s.isEmpty {
+                        serverURL = s
+                    }
+                    if serverURL.lowercased().hasPrefix("http://") || serverURL.lowercased().hasPrefix("https://") {
+                        draftURL = serverURL
                         scanNote = String(localized: "Server-URL übernommen ✓")
                     } else {
                         scanNote = String(localized: "QR enthält keine gültige Server-URL.")
