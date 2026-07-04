@@ -1,6 +1,195 @@
 import SwiftUI
 import PrintixSendCore
 
+// MARK: - Drucker-Liste
+
+struct PrinterListView: View {
+    let printers: [MgmtPrinter]
+    @State private var query = ""
+    @State private var onlineFilter: Bool? = nil
+
+    private var filtered: [MgmtPrinter] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return printers.filter { p in
+            if let f = onlineFilter, (p.isOnline == true) != f { return false }
+            guard !q.isEmpty else { return true }
+            return p.name.lowercased().contains(q)
+                || (p.location ?? "").lowercased().contains(q)
+                || (p.model ?? "").lowercased().contains(q)
+        }
+    }
+
+    var body: some View {
+        List {
+            Section {
+                HStack(spacing: 8) {
+                    mgmtFilterChip(String(localized: "Alle"),    selected: onlineFilter == nil)   { onlineFilter = nil }
+                    mgmtFilterChip(String(localized: "Online"),  selected: onlineFilter == true)  { onlineFilter = true }
+                    mgmtFilterChip(String(localized: "Offline"), selected: onlineFilter == false) { onlineFilter = false }
+                    Spacer()
+                }
+            }
+            .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+
+            Section {
+                if filtered.isEmpty {
+                    Text(query.isEmpty ? String(localized: "Keine Drucker.") : String(localized: "Keine Treffer."))
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    ForEach(filtered) { p in
+                        NavigationLink(value: p) {
+                            HStack(alignment: .firstTextBaseline) {
+                                Circle()
+                                    .fill(p.isOnline == true ? Color.green : Color.gray)
+                                    .frame(width: 8, height: 8)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(p.name).font(.body)
+                                    if let loc = p.location, !loc.isEmpty {
+                                        Text(loc).font(.caption).foregroundStyle(.secondary)
+                                    } else if let m = p.model, !m.isEmpty {
+                                        Text(m).font(.caption).foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                if let s = p.status, !s.isEmpty {
+                                    Text(s).font(.caption2).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .searchable(text: $query, prompt: String(localized: "Drucker suchen"))
+        .brandNavStyle(title: String(localized: "Drucker"))
+        .tint(MSP.cyan)
+    }
+}
+
+// MARK: - Benutzer-Liste
+
+struct UserListView: View {
+    let users: [MgmtUser]
+    @State private var query = ""
+    @State private var roleFilter: String? = nil
+
+    private var filtered: [MgmtUser] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return users.filter { u in
+            if let rf = roleFilter {
+                guard (u.role ?? "").lowercased() == rf else { return false }
+            }
+            guard !q.isEmpty else { return true }
+            return (u.name ?? "").lowercased().contains(q)
+                || (u.email ?? "").lowercased().contains(q)
+        }
+    }
+
+    var body: some View {
+        List {
+            Section {
+                HStack(spacing: 8) {
+                    mgmtFilterChip(String(localized: "Alle"),     selected: roleFilter == nil)        { roleFilter = nil }
+                    mgmtFilterChip("Admin",                        selected: roleFilter == "admin")    { roleFilter = "admin" }
+                    mgmtFilterChip("User",                         selected: roleFilter == "user")     { roleFilter = "user" }
+                    mgmtFilterChip("Employee",                     selected: roleFilter == "employee") { roleFilter = "employee" }
+                    Spacer()
+                }
+            }
+            .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+
+            Section {
+                if filtered.isEmpty {
+                    Text(query.isEmpty ? String(localized: "Keine Benutzer.") : String(localized: "Keine Treffer."))
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    ForEach(filtered) { u in
+                        NavigationLink(value: u) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(u.name ?? u.email ?? u.id).font(.body)
+                                if let e = u.email, !e.isEmpty, e != u.name {
+                                    Text(e).font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .searchable(text: $query, prompt: String(localized: "Benutzer suchen"))
+        .brandNavStyle(title: String(localized: "Benutzer"))
+        .tint(MSP.cyan)
+    }
+}
+
+// MARK: - Arbeitsplatz-Liste
+
+struct WorkstationListView: View {
+    let workstations: [MgmtWorkstation]
+    @State private var query = ""
+    @State private var onlineFilter: Bool? = nil
+
+    private var filtered: [MgmtWorkstation] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return workstations.filter { w in
+            if let f = onlineFilter, (w.isOnline == true) != f { return false }
+            guard !q.isEmpty else { return true }
+            return w.hostname.lowercased().contains(q)
+                || (w.userEmail ?? "").lowercased().contains(q)
+        }
+    }
+
+    var body: some View {
+        List {
+            Section {
+                HStack(spacing: 8) {
+                    mgmtFilterChip(String(localized: "Alle"),    selected: onlineFilter == nil)   { onlineFilter = nil }
+                    mgmtFilterChip(String(localized: "Online"),  selected: onlineFilter == true)  { onlineFilter = true }
+                    mgmtFilterChip(String(localized: "Offline"), selected: onlineFilter == false) { onlineFilter = false }
+                    Spacer()
+                }
+            }
+            .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+
+            Section {
+                if filtered.isEmpty {
+                    Text(query.isEmpty ? String(localized: "Keine Arbeitsplätze.") : String(localized: "Keine Treffer."))
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    ForEach(filtered) { w in
+                        NavigationLink(value: w) {
+                            HStack(alignment: .firstTextBaseline) {
+                                Circle()
+                                    .fill(w.isOnline == true ? Color.green : Color.gray)
+                                    .frame(width: 8, height: 8)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(w.hostname).font(.body)
+                                    if let e = w.userEmail, !e.isEmpty {
+                                        Text(e).font(.caption).foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .searchable(text: $query, prompt: String(localized: "Arbeitsplatz suchen"))
+        .brandNavStyle(title: String(localized: "Arbeitsplätze"))
+        .tint(MSP.cyan)
+    }
+}
+
 // MARK: - Drucker-Detail
 
 struct PrinterDetailView: View {
@@ -480,4 +669,18 @@ private func infoRow(icon: String, label: String, value: String,
             .multilineTextAlignment(.trailing)
             .lineLimit(2)
     }
+}
+
+private func mgmtFilterChip(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+        Text(label)
+            .font(.caption)
+            .fontWeight(.medium)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(selected ? MSP.cyan : Color(.tertiarySystemFill))
+            .foregroundColor(selected ? .white : .secondary)
+            .clipShape(Capsule())
+    }
+    .buttonStyle(.plain)
 }

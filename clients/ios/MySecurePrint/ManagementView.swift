@@ -24,11 +24,6 @@ struct ManagementView: View {
     @State private var lastUpdated: Date?
     @State private var errorMessage: String?
 
-    // Aufklapp-Status der Detaillisten.
-    @State private var expandPrinters = false
-    @State private var expandUsers = false
-    @State private var expandWorkstations = false
-
     // 5-Minuten-Timer für stillen Hintergrund-Refresh (läuft nur wenn Tab sichtbar).
     private let refreshTimer = Timer.publish(every: 300, on: .main, in: .common).autoconnect()
 
@@ -169,32 +164,17 @@ struct ManagementView: View {
     private var printersSection: some View {
         if !printers.isEmpty {
             Section {
-                DisclosureGroup(isExpanded: $expandPrinters) {
-                    ForEach(printers) { p in
-                        NavigationLink(value: p) {
-                            HStack(alignment: .firstTextBaseline) {
-                                Circle()
-                                    .fill(p.isOnline == true ? Color.green : Color.gray)
-                                    .frame(width: 8, height: 8)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(p.name).font(.body)
-                                    if let loc = p.location, !loc.isEmpty {
-                                        Text(loc).font(.caption).foregroundStyle(.secondary)
-                                    } else if let m = p.model, !m.isEmpty {
-                                        Text(m).font(.caption).foregroundStyle(.secondary)
-                                    }
-                                }
-                                Spacer()
-                                if let s = p.status, !s.isEmpty {
-                                    Text(s).font(.caption2).foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    }
+                NavigationLink {
+                    PrinterListView(printers: printers)
                 } label: {
-                    disclosureLabel(icon: "printer.fill",
-                                    title: "Drucker",
-                                    count: printers.count)
+                    HStack {
+                        Image(systemName: "printer.fill").foregroundStyle(.tint).frame(width: 26)
+                        Text(String(localized: "Drucker"))
+                        Spacer()
+                        let online = printers.filter { $0.isOnline == true }.count
+                        Text("\(online)/\(printers.count) \(String(localized: "online"))")
+                            .font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+                    }
                 }
             }
         }
@@ -204,25 +184,16 @@ struct ManagementView: View {
     private var usersSection: some View {
         if !users.isEmpty {
             Section {
-                DisclosureGroup(isExpanded: $expandUsers) {
-                    ForEach(users.prefix(50)) { u in
-                        NavigationLink(value: u) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(u.name ?? u.email ?? u.id).font(.body)
-                                if let e = u.email, !e.isEmpty, e != u.name {
-                                    Text(e).font(.caption).foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    }
-                    if users.count > 50 {
-                        Text("… \(users.count - 50) weitere")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }
+                NavigationLink {
+                    UserListView(users: users)
                 } label: {
-                    disclosureLabel(icon: "person.2.fill",
-                                    title: "Benutzer",
-                                    count: users.count)
+                    HStack {
+                        Image(systemName: "person.2.fill").foregroundStyle(.tint).frame(width: 26)
+                        Text(String(localized: "Benutzer"))
+                        Spacer()
+                        Text("\(users.count)")
+                            .font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+                    }
                 }
             }
         }
@@ -232,49 +203,20 @@ struct ManagementView: View {
     private var workstationsSection: some View {
         if !workstations.isEmpty {
             Section {
-                DisclosureGroup(isExpanded: $expandWorkstations) {
-                    ForEach(workstations.prefix(50)) { w in
-                        NavigationLink(value: w) {
-                            HStack(alignment: .firstTextBaseline) {
-                                Circle()
-                                    .fill(w.isOnline == true ? Color.green : Color.gray)
-                                    .frame(width: 8, height: 8)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(w.hostname).font(.body)
-                                    if let e = w.userEmail, !e.isEmpty {
-                                        Text(e).font(.caption).foregroundStyle(.secondary)
-                                    }
-                                }
-                                Spacer()
-                            }
-                        }
-                    }
-                    if workstations.count > 50 {
-                        Text("… \(workstations.count - 50) weitere")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }
+                NavigationLink {
+                    WorkstationListView(workstations: workstations)
                 } label: {
-                    disclosureLabel(icon: "desktopcomputer",
-                                    title: "Arbeitsplätze",
-                                    count: workstations.count)
+                    HStack {
+                        Image(systemName: "desktopcomputer").foregroundStyle(.tint).frame(width: 26)
+                        Text(String(localized: "Arbeitsplätze"))
+                        Spacer()
+                        let online = workstations.filter { $0.isOnline == true }.count
+                        Text("\(online)/\(workstations.count) \(String(localized: "online"))")
+                            .font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+                    }
                 }
             }
         }
-    }
-
-    @ViewBuilder
-    private func disclosureLabel(icon: String, title: LocalizedStringKey, count: Int) -> some View {
-        HStack {
-            Image(systemName: icon)
-                .foregroundStyle(.tint)
-                .frame(width: 26)
-            Text(title).font(.body)
-            Spacer()
-            Text("\(count)")
-                .font(.callout.monospacedDigit())
-                .foregroundStyle(.secondary)
-        }
-        .contentShape(Rectangle())
     }
 
     // MARK: - Reload
