@@ -11,21 +11,22 @@ struct ContentView: View {
     @State private var showSplash = false
 
     var body: some View {
-        ZStack {
-            Group {
-                if settings.isLoggedIn {
-                    MainTabs()
-                } else {
-                    SetupView()
-                }
+        Group {
+            if settings.isLoggedIn {
+                MainTabs()
+            } else {
+                SetupView()
             }
-
+        }
+        .overlay {
             if showSplash {
                 MatrixSplashView(style: .splash, onDismiss: { showSplash = false })
                     .environmentObject(cache)
+                    .ignoresSafeArea()
             } else if cache.isSyncing {
                 MatrixSplashView(style: .overlay, onDismiss: {})
                     .environmentObject(cache)
+                    .ignoresSafeArea()
                     .transition(.opacity)
                     .animation(.easeIn(duration: 0.15), value: cache.isSyncing)
             }
