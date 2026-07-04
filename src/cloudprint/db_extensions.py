@@ -229,6 +229,32 @@ def init_cloudprint_schema() -> None:
                 "ALTER TABLE cloudprint_jobs ADD COLUMN delegate_group_name TEXT NOT NULL DEFAULT ''"
             )
             logger.info("Migration: cloudprint_jobs.delegate_group_name hinzugefügt")
+        # v0.7.114 — KI-Dokumentenanalyse
+        if "ai_doc_type" not in cols:
+            conn.execute(
+                "ALTER TABLE cloudprint_jobs ADD COLUMN ai_doc_type TEXT NOT NULL DEFAULT ''"
+            )
+            logger.info("Migration: cloudprint_jobs.ai_doc_type hinzugefügt")
+        if "ai_color_rec" not in cols:
+            conn.execute(
+                "ALTER TABLE cloudprint_jobs ADD COLUMN ai_color_rec TEXT NOT NULL DEFAULT ''"
+            )
+            logger.info("Migration: cloudprint_jobs.ai_color_rec hinzugefügt")
+        if "ai_sensitivity" not in cols:
+            conn.execute(
+                "ALTER TABLE cloudprint_jobs ADD COLUMN ai_sensitivity TEXT NOT NULL DEFAULT ''"
+            )
+            logger.info("Migration: cloudprint_jobs.ai_sensitivity hinzugefügt")
+        if "ai_summary" not in cols:
+            conn.execute(
+                "ALTER TABLE cloudprint_jobs ADD COLUMN ai_summary TEXT NOT NULL DEFAULT ''"
+            )
+            logger.info("Migration: cloudprint_jobs.ai_summary hinzugefügt")
+        if "ai_analyzed_at" not in cols:
+            conn.execute(
+                "ALTER TABLE cloudprint_jobs ADD COLUMN ai_analyzed_at TEXT NOT NULL DEFAULT ''"
+            )
+            logger.info("Migration: cloudprint_jobs.ai_analyzed_at hinzugefügt")
         logger.info("Migration: cloudprint_jobs-Tabelle geprüft/erstellt")
 
     # 5b) Delegate-Teams (v4.0): persönliche Empfänger-Gruppen pro User

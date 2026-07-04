@@ -1330,6 +1330,132 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
   </script>
   {% endif %}{# end push section gate #}
 
+  {# ── 🤖 KI-Dokumentenanalyse — v0.7.114 ────────────────────────────────── #}
+  {% if not section or section == 'ai_analysis' %}
+  <div class="settings-card" id="ai_analysis">
+    <h2 class="section-title">🤖 Dokumentenanalyse (KI)</h2>
+    <p class="form-hint" style="margin-bottom:16px;">
+      Analysiert Druckaufträge automatisch im Hintergrund und ergänzt jeden Job
+      mit strukturierten Erkenntnissen: <strong>Dokumenttyp</strong> (Rechnung,
+      Präsentation, Vertrag …), <strong>Farbbedarf</strong> (Farbe oder
+      Schwarzweiß) und <strong>Vertraulichkeit</strong> (öffentlich / intern /
+      vertraulich). Fotos erhalten eine kurze Bildbeschreibung.<br>
+      Diese Informationen sind nur für den Druckenden sichtbar und werden in den
+      Job-Details der iOS-App angezeigt. Keine Daten werden extern gespeichert —
+      die Analyse läuft ausschließlich über den gewählten Anbieter.
+    </p>
+
+    {% if request.query_params.get('ok') == 'ai_saved' %}
+    <div class="alert alert-success" style="margin-bottom:12px;">✓ KI-Einstellungen gespeichert.</div>
+    {% endif %}
+    {% if request.query_params.get('err') %}
+    <div class="alert alert-error" style="margin-bottom:12px;">{{ request.query_params.get('err') }}</div>
+    {% endif %}
+
+    <form method="post" action="/admin/settings/ai-analysis/save">
+
+      <div class="form-group">
+        <label class="form-label">Anbieter</label>
+        <select name="ai_provider" id="ai-provider-select" class="form-select" onchange="aiProviderChange(this.value)">
+          <option value=""        {% if not ai_provider %}selected{% endif %}>Deaktiviert</option>
+          <option value="gemini"  {% if ai_provider == 'gemini' %}selected{% endif %}>Google Gemini</option>
+          <option value="ollama"  {% if ai_provider == 'ollama' %}selected{% endif %}>Ollama (lokal)</option>
+        </select>
+        <p class="form-hint">Google Gemini unterstützt PDFs und Fotos. Ollama funktioniert lokal, aber nur für Textdokumente (PDFs mit lesbarem Text).</p>
+      </div>
+
+      {# ── Gemini ── #}
+      <div id="ai-gemini-block" style="{% if ai_provider != 'gemini' %}display:none;{% endif %}border-left:3px solid var(--ta-cyan);padding-left:14px;margin-top:12px;">
+        <div class="form-group">
+          <label class="form-label">Gemini API-Key</label>
+          <input type="password" name="ai_gemini_api_key" class="form-input" autocomplete="new-password"
+                 placeholder="{% if ai_has_gemini_key %}● gespeichert — leer lassen um beizubehalten{% else %}AIza…{% endif %}">
+          {% if ai_has_gemini_key %}
+          <p class="form-hint">✓ API-Key hinterlegt. Nur ausfüllen zum Ändern.</p>
+          {% else %}
+          <p class="form-hint">API-Key von <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a> (kostenloser Plan reicht für Flash-Modelle).</p>
+          {% endif %}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Gemini Modell</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select name="ai_gemini_model" id="ai-gemini-model" class="form-select" style="flex:1;">
+              {% if ai_gemini_model %}
+              <option value="{{ ai_gemini_model }}" selected>{{ ai_gemini_model }}</option>
+              {% else %}
+              <option value="">— Modell wählen —</option>
+              {% endif %}
+            </select>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="loadGeminiModels()" id="ai-load-models-btn">
+              Modelle laden
+            </button>
+          </div>
+          <p class="form-hint">Empfehlung: <code>gemini-2.0-flash-lite</code> (sehr günstig, schnell, multimodal).</p>
+        </div>
+      </div>
+
+      {# ── Ollama ── #}
+      <div id="ai-ollama-block" style="{% if ai_provider != 'ollama' %}display:none;{% endif %}border-left:3px solid var(--ta-navy);padding-left:14px;margin-top:12px;">
+        <div class="form-group">
+          <label class="form-label">Ollama Server-URL</label>
+          <input type="url" name="ai_ollama_url" class="form-input"
+                 value="{{ ai_ollama_url }}"
+                 placeholder="http://localhost:11434">
+          <p class="form-hint">URL des lokalen Ollama-Servers. Muss vom Server erreichbar sein.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ollama Modell</label>
+          <input type="text" name="ai_ollama_model" class="form-input"
+                 value="{{ ai_ollama_model }}"
+                 placeholder="z.B. qwen2.5:3b oder phi3:mini">
+          <p class="form-hint">Text-Modell für Dokumentanalyse. Bilder werden bei Ollama übersprungen.</p>
+        </div>
+      </div>
+
+      <div style="margin-top:18px;">
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>
+  </div>
+  <script>
+  function aiProviderChange(v) {
+    document.getElementById('ai-gemini-block').style.display = v === 'gemini' ? '' : 'none';
+    document.getElementById('ai-ollama-block').style.display = v === 'ollama' ? '' : 'none';
+  }
+  function loadGeminiModels() {
+    const keyInput = document.querySelector('[name="ai_gemini_api_key"]');
+    const select   = document.getElementById('ai-gemini-model');
+    const btn      = document.getElementById('ai-load-models-btn');
+    const rawKey   = (keyInput.value || '').trim();
+    const hasSaved = {{ 'true' if ai_has_gemini_key else 'false' }};
+    if (!rawKey && !hasSaved) {
+      alert('Bitte zuerst den Gemini API-Key eingeben und speichern.');
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Lädt…';
+    const url = rawKey ? `/api/gemini-models?key=${encodeURIComponent(rawKey)}` : '/api/gemini-models?key=saved';
+    fetch(url)
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) { alert('Fehler: ' + d.error); return; }
+        const current = select.value;
+        select.innerHTML = '<option value="">— Modell wählen —</option>';
+        (d.models || []).forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m; opt.textContent = m;
+          if (m === current) opt.selected = true;
+          select.appendChild(opt);
+        });
+        btn.textContent = d.models.length + ' Modelle geladen';
+      })
+      .catch(e => { alert('Netzwerkfehler: ' + e); })
+      .finally(() => { btn.disabled = false; });
+  }
+  </script>
+  {% endif %}{# end ai_analysis section gate #}
+
 <!-- i18n strings for JavaScript -->
 <div id="entra-i18n" style="display:none;"
      data-err-empty="{{ _('entra_json_err_empty') }}"

@@ -428,6 +428,66 @@ struct JobDetailView: View {
                             .textSelection(.enabled)
                     }
                 }
+
+                if let _ = job.ai_analyzed_at.flatMap({ $0.isEmpty ? nil : $0 }) {
+                    Section {
+                        if let docType = job.ai_doc_type, !docType.isEmpty {
+                            HStack {
+                                Label(String(localized: "Dokumenttyp"), systemImage: "doc.text.magnifyingglass")
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text(docType)
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                            }
+                        }
+                        if let color = job.ai_color_rec, !color.isEmpty {
+                            HStack {
+                                Label(String(localized: "Farbmodus"), systemImage: "paintpalette")
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                let isColor = color.lowercased() == "farbe"
+                                Text(isColor ? String(localized: "Farbe") : String(localized: "Schwarzweiß"))
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background((isColor ? Color.blue : Color.gray).opacity(0.12))
+                                    .foregroundColor(isColor ? .blue : .gray)
+                                    .clipShape(Capsule())
+                            }
+                        }
+                        if let sens = job.ai_sensitivity, !sens.isEmpty {
+                            HStack {
+                                Label(String(localized: "Vertraulichkeit"), systemImage: "lock.shield")
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                let (sColor, sLabel) = sensitivityStyle(sens)
+                                Text(sLabel)
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(sColor.opacity(0.12))
+                                    .foregroundColor(sColor)
+                                    .clipShape(Capsule())
+                            }
+                        }
+                        if let summary = job.ai_summary, !summary.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Label(String(localized: "KI-Zusammenfassung"), systemImage: "sparkles")
+                                    .foregroundColor(.secondary)
+                                    .font(.caption)
+                                Text(summary)
+                                    .font(.subheadline)
+                                    .textSelection(.enabled)
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    } header: {
+                        Label(String(localized: "Dokument-Analyse"), systemImage: "brain")
+                    }
+                }
             }
             .listStyle(.insetGrouped)
             .navigationTitle(job.filename.isEmpty ? String(localized: "Job-Details") : job.filename)
@@ -526,6 +586,15 @@ struct JobDetailView: View {
         if b < 1_024 * 1_024 { return String(format: "%.1f KB", b / 1_024) }
         return String(format: "%.1f MB", b / (1_024 * 1_024))
     }
+
+    private func sensitivityStyle(_ s: String) -> (Color, String) {
+        switch s.lowercased() {
+        case "öffentlich": return (.green, String(localized: "Öffentlich"))
+        case "intern":     return (.orange, String(localized: "Intern"))
+        case "vertraulich": return (.red, String(localized: "Vertraulich"))
+        default:           return (.gray, s)
+        }
+    }
 }
 
 // MARK: - Fullscreen Preview
@@ -570,6 +639,11 @@ struct PrintJob: Decodable, Identifiable, Equatable {
     let has_preview: Bool?
     let delegate_recipients: [String]?
     let delegate_group_name: String?
+    let ai_doc_type: String?
+    let ai_color_rec: String?
+    let ai_sensitivity: String?
+    let ai_summary: String?
+    let ai_analyzed_at: String?
 
     var id: String { job_id }
 
@@ -579,7 +653,10 @@ struct PrintJob: Decodable, Identifiable, Equatable {
          created_at: String, forwarded_at: String? = nil, error_message: String? = nil,
          source_identity: String? = nil, delegated_from: String? = nil,
          hostname: String? = nil, data_size: Int? = nil, has_preview: Bool? = false,
-         delegate_recipients: [String]? = nil, delegate_group_name: String? = nil) {
+         delegate_recipients: [String]? = nil, delegate_group_name: String? = nil,
+         ai_doc_type: String? = nil, ai_color_rec: String? = nil,
+         ai_sensitivity: String? = nil, ai_summary: String? = nil,
+         ai_analyzed_at: String? = nil) {
         self.job_id            = job_id
         self.filename          = filename
         self.status            = status
@@ -594,6 +671,11 @@ struct PrintJob: Decodable, Identifiable, Equatable {
         self.has_preview       = has_preview
         self.delegate_recipients  = delegate_recipients
         self.delegate_group_name  = delegate_group_name
+        self.ai_doc_type       = ai_doc_type
+        self.ai_color_rec      = ai_color_rec
+        self.ai_sensitivity    = ai_sensitivity
+        self.ai_summary        = ai_summary
+        self.ai_analyzed_at    = ai_analyzed_at
     }
 
     var badgeStyle: (Color, String) { PrintJob.badgeStyleFor(status) }
@@ -632,7 +714,10 @@ struct PrintJob: Decodable, Identifiable, Equatable {
                  error_message: error_message, source_identity: source_identity,
                  delegated_from: delegated_from, hostname: hostname, data_size: data_size,
                  has_preview: has_preview, delegate_recipients: delegate_recipients,
-                 delegate_group_name: delegate_group_name)
+                 delegate_group_name: delegate_group_name,
+                 ai_doc_type: ai_doc_type, ai_color_rec: ai_color_rec,
+                 ai_sensitivity: ai_sensitivity, ai_summary: ai_summary,
+                 ai_analyzed_at: ai_analyzed_at)
     }
 
     static func formatDate(_ raw: String, style: DateFormatter.Style) -> String {

@@ -276,6 +276,17 @@ def init_db() -> None:
                 "ALTER TABLE tenants ADD COLUMN notify_events TEXT "
                 "NOT NULL DEFAULT '[\"log_error\"]'"
             )
+        # v0.7.114: KI-Dokumentenanalyse — Konfiguration pro Tenant
+        if "ai_provider" not in existing_t:
+            conn.execute("ALTER TABLE tenants ADD COLUMN ai_provider TEXT NOT NULL DEFAULT ''")
+        if "ai_gemini_api_key" not in existing_t:
+            conn.execute("ALTER TABLE tenants ADD COLUMN ai_gemini_api_key TEXT NOT NULL DEFAULT ''")
+        if "ai_gemini_model" not in existing_t:
+            conn.execute("ALTER TABLE tenants ADD COLUMN ai_gemini_model TEXT NOT NULL DEFAULT ''")
+        if "ai_ollama_url" not in existing_t:
+            conn.execute("ALTER TABLE tenants ADD COLUMN ai_ollama_url TEXT NOT NULL DEFAULT ''")
+        if "ai_ollama_model" not in existing_t:
+            conn.execute("ALTER TABLE tenants ADD COLUMN ai_ollama_model TEXT NOT NULL DEFAULT ''")
     # v3.9.1: bearer_token_hash — indexierter SHA-256-Lookup (O(1) statt
     # Full-Table-Scan über alle Tenants bei jedem authenticated Request).
     # Der Hash ist nicht sensitiv: der Bearer-Token hat 48 Bytes Zufall (>384 Bit),

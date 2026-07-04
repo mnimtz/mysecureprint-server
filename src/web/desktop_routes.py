@@ -1344,6 +1344,11 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                               IFNULL(data_size,0) AS data_size,
                               (preview_png IS NOT NULL AND LENGTH(preview_png) > 0) AS has_preview,
                               IFNULL(delegate_group_name,'') AS delegate_group_name,
+                              IFNULL(ai_doc_type,'') AS ai_doc_type,
+                              IFNULL(ai_color_rec,'') AS ai_color_rec,
+                              IFNULL(ai_sensitivity,'') AS ai_sensitivity,
+                              IFNULL(ai_summary,'') AS ai_summary,
+                              IFNULL(ai_analyzed_at,'') AS ai_analyzed_at,
                               (SELECT GROUP_CONCAT(IFNULL(username,''),',')
                                FROM cloudprint_jobs _c2
                                WHERE _c2.parent_job_id = cloudprint_jobs.job_id
@@ -2071,6 +2076,35 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             except Exception:
                 pass
         asyncio.create_task(_bg_create_tracking())
+
+        # v0.7.114: KI-Dokumentenanalyse — fire-and-forget nach Job-Insert
+        async def _bg_ai_analysis():
+            def _do_ai():
+                try:
+                    import sys as _sys, os as _os
+                    src_dir = _os.path.dirname(_os.path.dirname(__file__))
+                    if src_dir not in _sys.path:
+                        _sys.path.insert(0, src_dir)
+                    from db import _resolve_tenant_owner_for, get_tenant_full_by_user_id
+                    _pid = _resolve_tenant_owner_for(user["user_id"])
+                    _tnt = get_tenant_full_by_user_id(_pid) if _pid else None
+                    if not _tnt or not (_tnt.get("ai_provider") or "").strip():
+                        return
+                    _tid = _tnt.get("id", "") or ""
+                    from cloudprint.ai_analysis import analyse_job
+                    analyse_job(
+                        job_id=internal_id,
+                        file_bytes=data if isinstance(data, (bytes, bytearray)) else b"",
+                        filename=file.filename or "",
+                        tenant_id=_tid,
+                    )
+                except Exception as _ae:
+                    logger.debug("bg_ai_analysis: %s", _ae)
+            try:
+                await asyncio.to_thread(_do_ai)
+            except Exception:
+                pass
+        asyncio.create_task(_bg_ai_analysis())
 
         # v0.7.5: Wrapper mit 5-Min-Watchdog. Wenn die BG-Task laenger als
         # 300s laeuft (z.B. Printix-Submit haengt im Network-Wait), wird

@@ -5967,6 +5967,18 @@ def create_app(session_secret: str) -> FastAPI:
             push_token_count = _get_push_token_count()
         except Exception:
             push_token_count = None
+        # v0.7.114: KI-Dokumentenanalyse
+        try:
+            from db import _dec as _dec_ai
+            ai_provider     = (tenant_full or {}).get("ai_provider", "") or ""
+            ai_gemini_key   = (tenant_full or {}).get("ai_gemini_api_key", "") or ""
+            ai_has_gemini_key = bool(_dec_ai(ai_gemini_key)) if ai_gemini_key else False
+            ai_gemini_model = (tenant_full or {}).get("ai_gemini_model", "") or ""
+            ai_ollama_url   = (tenant_full or {}).get("ai_ollama_url", "") or ""
+            ai_ollama_model = (tenant_full or {}).get("ai_ollama_model", "") or ""
+        except Exception:
+            ai_provider = ai_gemini_model = ai_ollama_url = ai_ollama_model = ""
+            ai_has_gemini_key = False
         return {
             "request": request, "user": user,
             "public_url": public_url,
@@ -5998,6 +6010,12 @@ def create_app(session_secret: str) -> FastAPI:
             "push_relay_token":       push_relay_token,
             "push_relay_registered":  push_relay_registered,
             "push_token_count":       push_token_count,
+            # v0.7.114: KI-Dokumentenanalyse
+            "ai_provider":        ai_provider,
+            "ai_has_gemini_key":  ai_has_gemini_key,
+            "ai_gemini_model":    ai_gemini_model,
+            "ai_ollama_url":      ai_ollama_url,
+            "ai_ollama_model":    ai_ollama_model,
             "auto_setup_success": auto_setup_success,
             "backups": backups,
             "backup_success": backup_success,
@@ -7571,6 +7589,84 @@ def create_app(session_secret: str) -> FastAPI:
             return JSONResponse(result)
         except Exception as e:
             return JSONResponse({"ok": False, "error": str(e)[:120]})
+
+    # ─── KI-Dokumentenanalyse: Save + Gemini-Model-List ─────────────────────────
+
+    @app.post("/admin/settings/ai-analysis/save", response_class=HTMLResponse)
+    async def admin_ai_analysis_save(request: Request):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        form = await request.form()
+        try:
+            from db import (
+                _enc, audit, _find_tenant_owner_user_id,
+                get_tenant_full_by_user_id,
+            )
+            oid = _find_tenant_owner_user_id()
+            if not oid:
+                raise ValueError("Kein Tenant konfiguriert")
+            tenant = get_tenant_full_by_user_id(oid)
+            if not tenant:
+                raise ValueError("Tenant nicht gefunden")
+            tid = tenant["id"]
+
+            provider     = (form.get("ai_provider") or "").strip().lower()
+            gemini_model = (form.get("ai_gemini_model") or "").strip()
+            ollama_url   = (form.get("ai_ollama_url") or "").strip()
+            ollama_model = (form.get("ai_ollama_model") or "").strip()
+
+            raw_key = (form.get("ai_gemini_api_key") or "").strip()
+            from db import _conn
+            with _conn() as conn:
+                if raw_key:
+                    conn.execute(
+                        "UPDATE tenants SET ai_provider=?, ai_gemini_api_key=?, "
+                        "ai_gemini_model=?, ai_ollama_url=?, ai_ollama_model=? WHERE id=?",
+                        (provider, _enc(raw_key), gemini_model, ollama_url, ollama_model, tid),
+                    )
+                else:
+                    conn.execute(
+                        "UPDATE tenants SET ai_provider=?, ai_gemini_model=?, "
+                        "ai_ollama_url=?, ai_ollama_model=? WHERE id=?",
+                        (provider, gemini_model, ollama_url, ollama_model, tid),
+                    )
+            audit(user["id"], "ai_analysis_settings", f"provider={provider}")
+        except Exception as e:
+            logger.error("ai-analysis save: %s", e)
+            from urllib.parse import quote_plus
+            return RedirectResponse(
+                f"/admin/settings?section=ai_analysis&err={quote_plus(str(e)[:120])}#ai_analysis",
+                status_code=302,
+            )
+        return RedirectResponse(
+            "/admin/settings?section=ai_analysis&ok=ai_saved#ai_analysis", status_code=302,
+        )
+
+    @app.get("/api/gemini-models")
+    async def api_gemini_models(request: Request, key: str = ""):
+        from fastapi.responses import JSONResponse
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return JSONResponse({"error": "Unauthorized"}, status_code=401)
+        resolved_key = key.strip()
+        if not resolved_key or resolved_key == "saved":
+            try:
+                from db import _dec, _find_tenant_owner_user_id, get_tenant_full_by_user_id
+                oid = _find_tenant_owner_user_id()
+                t = get_tenant_full_by_user_id(oid) if oid else None
+                resolved_key = _dec((t or {}).get("ai_gemini_api_key", "") or "") if t else ""
+            except Exception:
+                resolved_key = ""
+        if not resolved_key:
+            return JSONResponse({"models": [], "error": "Kein API-Key hinterlegt"})
+        try:
+            import asyncio as _aio_ai
+            from cloudprint.ai_analysis import fetch_gemini_models
+            models = await _aio_ai.to_thread(fetch_gemini_models, resolved_key)
+            return JSONResponse({"models": models})
+        except Exception as e:
+            return JSONResponse({"error": str(e)[:120], "models": []})
 
     @app.get("/api/prefetch-status")
     async def api_prefetch_status(request: Request):
