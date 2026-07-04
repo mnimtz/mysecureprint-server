@@ -1,5 +1,6 @@
 import UIKit
 import UniformTypeIdentifiers
+import ImageIO
 import Security
 import os.log
 import PrintixSendCore
@@ -115,6 +116,12 @@ final class ShareViewController: UIViewController {
     /// Budget, iOS jetsam-killt sonst still ohne Fehlermeldung.
     private static let maxAttachmentBytes: Int64 = 60 * 1024 * 1024
 
+    /// v1.1.6: Maximale Bildaufloesung fuer PDF-Rendering.
+    /// Ein 48MP-iPhone-Foto (8064×6048) benoetigt ~192 MB dekodiert
+    /// — weit ueber dem Extensions-Limit. CGImageSource laedt nur
+    /// die benoetigte Aufloesung ohne den vollen Frame zu dekodieren.
+    private static let maxImagePixels = 2048
+
     private func loadPDF(from provider: NSItemProvider) {
         provider.loadItem(forTypeIdentifier: UTType.pdf.identifier, options: nil) { [weak self] item, err in
             guard let self else { return }
@@ -159,7 +166,13 @@ final class ShareViewController: UIViewController {
     }
 
     private func loadImage(from provider: NSItemProvider) {
-        provider.loadItem(forTypeIdentifier: UTType.image.identifier, options: nil) { [weak self] item, err in
+        // JPEG bevorzugen — Photos transkodiert HEIC automatisch zu JPEG
+        // wenn wir explizit UTType.jpeg anfordern. Das vermeidet, dass wir
+        // die HEIC-Dekodierung (~192 MB fuer 48MP) selbst tragen muessen.
+        let typeId = provider.hasItemConformingToTypeIdentifier(UTType.jpeg.identifier)
+            ? UTType.jpeg.identifier : UTType.image.identifier
+
+        provider.loadItem(forTypeIdentifier: typeId, options: nil) { [weak self] item, err in
             guard let self else { return }
             if let err {
                 os_log("Image-Load-Fehler: %{public}@", log: Self.log, type: .error, String(describing: err))
@@ -174,11 +187,12 @@ final class ShareViewController: UIViewController {
                     DispatchQueue.main.async { [weak self] in self?.finish(error: msg) }
                     return
                 }
-                guard let data = try? Data(contentsOf: url, options: [.mappedIfSafe]),
-                      let image = UIImage(data: data) else {
+                // CGImageSource-Thumbnail laedt nur die benoetigte Aufloesung
+                // ohne das Bild komplett zu dekodieren — loest HEIC-OOM-Kill.
+                guard let image = self.loadScaledImage(from: url, maxDimension: Self.maxImagePixels) else {
                     if secured { url.stopAccessingSecurityScopedResource() }
                     DispatchQueue.main.async { [weak self] in
-                        self?.finish(error: String(localized: "Bild konnte nicht gelesen werden."))
+                        self?.finish(error: String(localized: "Bild konnte nicht geladen werden."))
                     }
                     return
                 }
@@ -186,20 +200,53 @@ final class ShareViewController: UIViewController {
                 let filename = (baseName.isEmpty ? "image" : baseName) + ".pdf"
                 if secured { url.stopAccessingSecurityScopedResource() }
                 let pdf = self.renderImageToPDF(image)
-                os_log("Bild->PDF konvertiert: in=%{public}d out=%{public}d filename=%{public}@",
-                       log: Self.log, type: .info, data.count, pdf.count, filename)
+                os_log("Bild->PDF: %{public}dx%{public}d -> %{public}d Bytes filename=%{public}@",
+                       log: Self.log, type: .info,
+                       Int(image.size.width), Int(image.size.height), pdf.count, filename)
                 DispatchQueue.main.async { [weak self] in self?.upload(data: pdf, filename: filename) }
                 return
             }
             if let image = item as? UIImage {
-                let pdf = self.renderImageToPDF(image)
-                os_log("Bild (UIImage) -> PDF: size=%{public}d", log: Self.log, type: .info, pdf.count)
+                // UIImage ist bereits im Speicher — skalieren falls noetig
+                // (Photos liefert native Bilder fast immer als URL, aber Fallback)
+                let scaled = self.scaleDownIfNeeded(image, maxDimension: Self.maxImagePixels)
+                let pdf = self.renderImageToPDF(scaled)
+                os_log("Bild (UIImage)->PDF: %{public}dx%{public}d -> %{public}d Bytes",
+                       log: Self.log, type: .info, Int(scaled.size.width), Int(scaled.size.height), pdf.count)
                 DispatchQueue.main.async { [weak self] in self?.upload(data: pdf, filename: "image.pdf") }
                 return
             }
             DispatchQueue.main.async { [weak self] in
                 self?.finish(error: String(localized: "Bild-Anhang im unbekannten Format."))
             }
+        }
+    }
+
+    /// CGImageSource-Thumbnail: laedt HEIC/JPEG auf maxDimension herunter
+    /// ohne das Original vollstaendig zu dekodieren — verhindert OOM-Kill.
+    private func loadScaledImage(from url: URL, maxDimension: Int) -> UIImage? {
+        let opts: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxDimension,
+            kCGImageSourceCreateThumbnailWithTransform: true,  // EXIF-Rotation korrekt
+        ]
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let cg  = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary)
+        else { return nil }
+        return UIImage(cgImage: cg)
+    }
+
+    /// Skaliert ein UIImage herunter wenn es groesser als maxDimension ist.
+    private func scaleDownIfNeeded(_ image: UIImage, maxDimension: Int) -> UIImage {
+        let size = image.size
+        guard max(size.width, size.height) > CGFloat(maxDimension) else { return image }
+        let scale = CGFloat(maxDimension) / max(size.width, size.height)
+        let newSize = CGSize(width: (size.width * scale).rounded(),
+                             height: (size.height * scale).rounded())
+        let fmt = UIGraphicsImageRendererFormat()
+        fmt.scale = 1
+        return UIGraphicsImageRenderer(size: newSize, format: fmt).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
         }
     }
 

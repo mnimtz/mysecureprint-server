@@ -73,7 +73,7 @@ LISTING_DE = {
         "Markenzeichen von Tungsten Automation Corp. und wird hier "
         "ausschliesslich zur Beschreibung der API-Kompatibilitaet genannt."
     ),
-    "whatsNew": "Share-Extension: Dokumente und Bilder können jetzt zuverlässig aus Fotos und anderen Apps per Teilen-Menü gedruckt werden. Weitere Stabilitätsverbesserungen.",
+    "whatsNew": "HEIC-Bilder (iPhone-Kamerafotos) können jetzt zuverlässig über das Teilen-Menü gedruckt werden. Große Fotos werden automatisch optimiert.",
     "supportUrl": "https://github.com/mnimtz/mysecureprint-server/issues",
     "marketingUrl": "https://github.com/mnimtz/mysecureprint-server",
     "privacyPolicyUrl": "https://printix-sp.azurewebsites.net/privacy",
