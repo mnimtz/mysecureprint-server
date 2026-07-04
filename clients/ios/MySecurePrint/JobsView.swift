@@ -336,9 +336,11 @@ struct JobDetailView: View {
     let job: PrintJob
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var settings: SettingsStore
+    @EnvironmentObject private var cache: AppCache
     @State private var previewImage: UIImage? = nil
     @State private var previewLoading = false
     @State private var previewFullscreen = false
+    @State private var displayStatus: String = ""
 
     var body: some View {
         NavigationStack {
@@ -358,7 +360,7 @@ struct JobDetailView: View {
                         Text(String(localized: "Status"))
                             .foregroundColor(.secondary)
                         Spacer()
-                        let (color, label) = job.badgeStyle
+                        let (color, label) = PrintJob.badgeStyleFor(displayStatus)
                         Text(label)
                             .font(.caption)
                             .fontWeight(.semibold)
@@ -435,17 +437,37 @@ struct JobDetailView: View {
                     Button(String(localized: "Fertig")) { dismiss() }
                 }
             }
-            // Preview immer laden — unabhängig von has_preview im gecachten
-            // Job-Objekt (Background-Worker kann nach dem Listen-Fetch fertig werden).
+            // Preview immer laden + Status pollen solange nicht terminal.
             .task {
-                guard previewImage == nil, !previewLoading,
-                      let client = ApiClientFactory.make(
-                        baseURL: settings.serverURL, token: settings.bearerToken) else { return }
-                previewLoading = true
-                defer { previewLoading = false }
-                if let data = try? await client.jobPreview(jobId: job.job_id),
-                   let img = UIImage(data: data) {
-                    previewImage = img
+                displayStatus = job.status
+                guard let client = ApiClientFactory.make(
+                    baseURL: settings.serverURL, token: settings.bearerToken) else { return }
+
+                // Preview laden (unabhängig von has_preview im gecachten Job-Objekt)
+                if previewImage == nil, !previewLoading {
+                    previewLoading = true
+                    if let data = try? await client.jobPreview(jobId: job.job_id),
+                       let img = UIImage(data: data) {
+                        previewImage = img
+                    }
+                    previewLoading = false
+                }
+
+                // Status pollen solange nicht terminal (max 15 × 20s = 5 min)
+                var retries = 0
+                while !PrintJob.isTerminal(displayStatus), retries < 15 {
+                    try? await Task.sleep(for: .seconds(20))
+                    guard !Task.isCancelled else { break }
+                    if let r = try? await client.jobStatus(jobId: job.job_id),
+                       r.status != displayStatus {
+                        displayStatus = r.status
+                        // Cache + Liste im Hintergrund aktualisieren
+                        let updated = job.withUpdatedStatus(r.status)
+                        if let idx = cache.jobs.firstIndex(where: { $0.job_id == job.job_id }) {
+                            cache.jobs[idx] = updated
+                        }
+                    }
+                    retries += 1
                 }
             }
         }
@@ -574,13 +596,19 @@ struct PrintJob: Decodable, Identifiable, Equatable {
         self.delegate_group_name  = delegate_group_name
     }
 
-    var badgeStyle: (Color, String) {
-        switch status.lowercased() {
-        case "queued":
-            return (.gray,   String(localized: "In Warteschlange"))
+    var badgeStyle: (Color, String) { PrintJob.badgeStyleFor(status) }
+
+    static func badgeStyleFor(_ s: String) -> (Color, String) {
+        switch s.lowercased() {
+        case "queued", "waiting_for_upload":
+            return (.gray,    String(localized: "In Warteschlange"))
         case "sent", "forwarded":
             return (MSP.cyan, String(localized: "An Printix gesendet"))
-        case "received", "pending", "processing":
+        case "converting":
+            return (.orange,  String(localized: "Konvertierung…"))
+        case "ready":
+            return (MSP.cyan, String(localized: "Bereit am Drucker"))
+        case "printing", "received", "pending", "processing":
             return (.orange,  String(localized: "Wird gedruckt…"))
         case "ok", "success", "completed", "printed":
             return (.green,   String(localized: "Erfolgreich gedruckt ✓"))
@@ -589,8 +617,22 @@ struct PrintJob: Decodable, Identifiable, Equatable {
         case "error", "failed":
             return (.red,     String(localized: "Fehler beim Drucken"))
         default:
-            return (.gray,   status)
+            return (.gray,    s)
         }
+    }
+
+    static func isTerminal(_ s: String) -> Bool {
+        ["printed", "ok", "success", "completed", "error", "failed", "expired", "deleted"]
+            .contains(s.lowercased())
+    }
+
+    func withUpdatedStatus(_ newStatus: String) -> PrintJob {
+        PrintJob(job_id: job_id, filename: filename, status: newStatus, queue: queue,
+                 created_at: created_at, forwarded_at: forwarded_at,
+                 error_message: error_message, source_identity: source_identity,
+                 delegated_from: delegated_from, hostname: hostname, data_size: data_size,
+                 has_preview: has_preview, delegate_recipients: delegate_recipients,
+                 delegate_group_name: delegate_group_name)
     }
 
     static func formatDate(_ raw: String, style: DateFormatter.Style) -> String {

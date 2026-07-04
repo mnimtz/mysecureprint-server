@@ -390,6 +390,21 @@ public final class ApiClient: @unchecked Sendable {
         return data
     }
 
+    /// Live-Status eines Jobs direkt von Printix. Gibt nil zurück bei 404 / Netzwerkfehler.
+    public func jobStatus(jobId: String) async throws -> JobStatusResponse {
+        log.info("GET /desktop/me/jobs/\(jobId)/status")
+        let url = baseUrl.appendingPathComponent("desktop/me/jobs/\(jobId)/status")
+        var req = URLRequest(url: url)
+        if let token = token, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.timeoutInterval = 15
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
+        return try JSONDecoder().decode(JobStatusResponse.self, from: data)
+    }
+
     // MARK: - Delegate Groups (v4.0)
 
     public func listDelegateGroups() async throws -> [DelegateGroup] {

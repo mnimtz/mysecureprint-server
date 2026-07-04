@@ -64,6 +64,22 @@ def _jobs_cache_invalidate(uid: str) -> None:
         del _jobs_cache[k]
 
 
+_PX_STATE_MAP = {
+    "WAITING_FOR_UPLOAD": "queued",
+    "CONVERTING":         "converting",
+    "READY":              "ready",
+    "PRINTING":           "printing",
+    "PRINTED":            "printed",
+    "DELETED":            "deleted",
+    "ERROR":              "error",
+}
+
+
+def _map_printix_state(px_state: str, fallback: str) -> str:
+    """Mappt Printix printJobState → internen DB-Status."""
+    return _PX_STATE_MAP.get(px_state.upper(), fallback)
+
+
 # ─── Auth-Helper ─────────────────────────────────────────────────────────────
 
 def _require_token(authorization: Optional[str]) -> Optional[dict]:
@@ -1384,6 +1400,92 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         except Exception as e:
             logger.warning("desktop_me_jobs_clear: %s", e)
             return _json_error(str(e)[:200], code="jobs_clear_failed", status=500)
+
+    @app.get("/desktop/me/jobs/{job_id}/status")
+    async def desktop_job_status(job_id: str, request: Request,
+                                  authorization: str = Header(default="")):
+        """v0.7.113: Live-Status eines Print-Jobs direkt von der Printix API.
+        Schlägt printix_job_id nach, ruft GET /jobs/{px_id} ab und mapped den
+        printJobState auf unseren internen Status. Aktualisiert die DB wenn sich
+        der Status geändert hat (ohne forwarded_at anzutasten).
+        Antwort: {job_id, status, printix_status, fresh}
+        """
+        _log_req(request, f"GET /me/jobs/{job_id}/status")
+        user = _require_token(authorization)
+        if not user:
+            return _json_error("token invalid", code="auth_required", status=401)
+        try:
+            from db import _conn, _resolve_tenant_owner_for
+            from cloudprint.db_extensions import get_tenant_for_user
+            uname  = (_user_descr(user) or "").lower()
+            uemail = (user.get("email") or "").lower()
+            pxid   = (user.get("printix_user_id") or "").lower()
+            with _conn() as conn:
+                row = conn.execute(
+                    """SELECT job_id, status, printix_job_id, error_message
+                       FROM cloudprint_jobs
+                       WHERE job_id = ?
+                         AND (
+                           LOWER(IFNULL(username,''))          IN (?,?,?)
+                           OR LOWER(IFNULL(detected_identity,'')) IN (?,?,?)
+                         )""",
+                    (job_id, uname, uemail, pxid, uname, uemail, pxid),
+                ).fetchone()
+            if not row:
+                return _json_error("job not found", code="not_found", status=404)
+
+            db_status  = row["status"] or ""
+            px_job_id  = row["printix_job_id"] or ""
+
+            if not px_job_id:
+                return JSONResponse({"job_id": job_id, "status": db_status,
+                                     "printix_status": None, "fresh": False})
+
+            # --- Printix API call ---
+            try:
+                from db import get_tenant_full_by_user_id
+                uid = user["user_id"]
+                parent_id = _resolve_tenant_owner_for(uid) or uid
+                tenant = get_tenant_full_by_user_id(parent_id)
+                if not tenant:
+                    return JSONResponse({"job_id": job_id, "status": db_status,
+                                         "printix_status": None, "fresh": False})
+                from printix_client import PrintixClient
+                client = PrintixClient(
+                    tenant_id=tenant["printix_tenant_id"],
+                    print_client_id=tenant.get("print_client_id", ""),
+                    print_client_secret=tenant.get("print_client_secret", ""),
+                    shared_client_id=tenant.get("shared_client_id", ""),
+                    shared_client_secret=tenant.get("shared_client_secret", ""),
+                    um_client_id=tenant.get("um_client_id", ""),
+                    um_client_secret=tenant.get("um_client_secret", ""),
+                )
+                job_data   = client.get_print_job(px_job_id)
+                px_state   = (job_data.get("printJobState") or "").upper()
+                new_status = _map_printix_state(px_state, db_status)
+                px_error   = ""
+                if isinstance(job_data.get("error"), dict):
+                    px_error = job_data["error"].get("message", "")[:500]
+                elif isinstance(job_data.get("error"), str):
+                    px_error = job_data["error"][:500]
+
+                if new_status != db_status:
+                    with _conn() as conn:
+                        conn.execute(
+                            "UPDATE cloudprint_jobs SET status = ?, error_message = ? WHERE job_id = ?",
+                            (new_status, px_error or row["error_message"] or "", job_id),
+                        )
+                    _jobs_cache_invalidate(uid)
+
+                return JSONResponse({"job_id": job_id, "status": new_status,
+                                     "printix_status": px_state, "fresh": True})
+            except Exception as px_err:
+                logger.debug("job_status Printix call failed for %s: %s", px_job_id, px_err)
+                return JSONResponse({"job_id": job_id, "status": db_status,
+                                     "printix_status": None, "fresh": False})
+        except Exception as e:
+            logger.warning("desktop_job_status: %s", e)
+            return _json_error(str(e)[:200], code="status_failed", status=500)
 
     @app.get("/desktop/me/jobs/{job_id}/preview")
     async def desktop_job_preview(job_id: str, request: Request,

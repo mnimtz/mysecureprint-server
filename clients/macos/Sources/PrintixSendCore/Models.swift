@@ -563,3 +563,17 @@ public struct DelegateGroup: Codable, Identifiable, Sendable {
 public struct DelegateGroupsResponse: Codable, Sendable {
     public let groups: [DelegateGroup]
 }
+
+public struct JobStatusResponse: Codable, Sendable {
+    public let jobId: String
+    public let status: String
+    public let printixStatus: String?
+    public let fresh: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case status
+        case printixStatus = "printix_status"
+        case fresh
+    }
+}
