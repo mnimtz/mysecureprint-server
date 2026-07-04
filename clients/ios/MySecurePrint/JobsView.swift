@@ -493,6 +493,27 @@ struct JobDetailView: View {
                             }
                             .padding(.vertical, 2)
                         }
+                        if let extraJson = job.ai_extra,
+                           !extraJson.isEmpty, extraJson != "{}",
+                           let data = extraJson.data(using: .utf8),
+                           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
+                            let sorted = dict.sorted { $0.key < $1.key }
+                            ForEach(sorted, id: \.key) { key, value in
+                                if !value.isEmpty {
+                                    HStack(alignment: .top) {
+                                        Text(key)
+                                            .foregroundColor(.secondary)
+                                            .font(.subheadline)
+                                        Spacer()
+                                        Text(value)
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                            .multilineTextAlignment(.trailing)
+                                            .textSelection(.enabled)
+                                    }
+                                }
+                            }
+                        }
                     } header: {
                         Label(String(localized: "Dokument-Analyse"), systemImage: "brain")
                     }
@@ -676,6 +697,7 @@ struct PrintJob: Decodable, Identifiable, Equatable {
     let ai_summary: String?
     let ai_tags: String?
     let ai_analyzed_at: String?
+    let ai_extra: String?
 
     var id: String { job_id }
 
@@ -688,7 +710,8 @@ struct PrintJob: Decodable, Identifiable, Equatable {
          delegate_recipients: [String]? = nil, delegate_group_name: String? = nil,
          ai_doc_type: String? = nil, ai_color_rec: String? = nil,
          ai_sensitivity: String? = nil, ai_summary: String? = nil,
-         ai_tags: String? = nil, ai_analyzed_at: String? = nil) {
+         ai_tags: String? = nil, ai_analyzed_at: String? = nil,
+         ai_extra: String? = nil) {
         self.job_id            = job_id
         self.filename          = filename
         self.status            = status
@@ -709,6 +732,7 @@ struct PrintJob: Decodable, Identifiable, Equatable {
         self.ai_summary        = ai_summary
         self.ai_tags           = ai_tags
         self.ai_analyzed_at    = ai_analyzed_at
+        self.ai_extra          = ai_extra
     }
 
     var badgeStyle: (Color, String) { PrintJob.badgeStyleFor(status) }
@@ -750,7 +774,8 @@ struct PrintJob: Decodable, Identifiable, Equatable {
                  delegate_group_name: delegate_group_name,
                  ai_doc_type: ai_doc_type, ai_color_rec: ai_color_rec,
                  ai_sensitivity: ai_sensitivity, ai_summary: ai_summary,
-                 ai_tags: ai_tags, ai_analyzed_at: ai_analyzed_at)
+                 ai_tags: ai_tags, ai_analyzed_at: ai_analyzed_at,
+                 ai_extra: ai_extra)
     }
 
     static func formatDate(_ raw: String, style: DateFormatter.Style) -> String {

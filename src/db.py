@@ -287,6 +287,13 @@ def init_db() -> None:
             conn.execute("ALTER TABLE tenants ADD COLUMN ai_ollama_url TEXT NOT NULL DEFAULT ''")
         if "ai_ollama_model" not in existing_t:
             conn.execute("ALTER TABLE tenants ADD COLUMN ai_ollama_model TEXT NOT NULL DEFAULT ''")
+        # v0.7.117: KI-Einstellungen erweitert
+        if "ai_enabled" not in existing_t:
+            conn.execute("ALTER TABLE tenants ADD COLUMN ai_enabled TEXT NOT NULL DEFAULT '0'")
+        if "ai_fields" not in existing_t:
+            conn.execute("ALTER TABLE tenants ADD COLUMN ai_fields TEXT NOT NULL DEFAULT ''")
+        if "ai_custom_prompts" not in existing_t:
+            conn.execute("ALTER TABLE tenants ADD COLUMN ai_custom_prompts TEXT NOT NULL DEFAULT '[]'")
     # v3.9.1: bearer_token_hash — indexierter SHA-256-Lookup (O(1) statt
     # Full-Table-Scan über alle Tenants bei jedem authenticated Request).
     # Der Hash ist nicht sensitiv: der Bearer-Token hat 48 Bytes Zufall (>384 Bit),
@@ -1864,6 +1871,15 @@ def get_tenant_full_by_user_id(user_id: str) -> Optional[dict]:
         # v7.2.17: notify_events fehlte im Result-Dict — damit war das
         # settings.html-Template blind und fiel auf Default zurueck.
         "notify_events":       d.get("notify_events", '["log_error"]'),
+        # v0.7.117: KI-Dokumentenanalyse — fehlten im Return-Dict (Bug-Fix)
+        "ai_enabled":          d.get("ai_enabled", "0"),
+        "ai_provider":         d.get("ai_provider", ""),
+        "ai_gemini_api_key":   d.get("ai_gemini_api_key", ""),
+        "ai_gemini_model":     d.get("ai_gemini_model", ""),
+        "ai_ollama_url":       d.get("ai_ollama_url", ""),
+        "ai_ollama_model":     d.get("ai_ollama_model", ""),
+        "ai_fields":           d.get("ai_fields", ""),
+        "ai_custom_prompts":   d.get("ai_custom_prompts", "[]"),
     }
 
 

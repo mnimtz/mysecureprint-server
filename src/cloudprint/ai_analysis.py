@@ -1,16 +1,19 @@
 """
-KI-Dokumentenanalyse (v0.7.115)
+KI-Dokumentenanalyse (v0.7.117)
 ================================
 Analysiert Print-Job-Dateien mit Gemini oder Ollama und speichert
 strukturierte Erkenntnisse in cloudprint_jobs.
 
-Felder nach Analyse:
+Standardfelder (konfigurierbar):
   ai_doc_type    — Dokumenttyp (Rechnung, Präsentation, Foto …)
   ai_color_rec   — Druckempfehlung: 'farbe' | 'schwarzweiss'
   ai_sensitivity — Vertraulichkeit: 'öffentlich' | 'intern' | 'vertraulich'
   ai_summary     — 2–3 Sätze Zusammenfassung / Bildbeschreibung
   ai_tags        — Nur bei Fotos: 2–3 Schlagwörter, kommagetrennt
   ai_analyzed_at — ISO-8601 Zeitstempel
+
+Zusatzfelder (Admin-konfiguriert):
+  ai_extra       — JSON-Dict mit custom-Feldern z.B. {"rechnungsnummer": "12345"}
 
 Einstiegspunkt: analyse_job(job_id, file_bytes, filename, ai_cfg)
 Wird als asyncio.to_thread() nach dem Job-Insert aufgerufen.
@@ -35,9 +38,11 @@ _GEMINI_MODELS_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
 )
 
-_MAX_BYTES_GEMINI  = 15 * 1024 * 1024   # 15 MB Limit vor Base64-Encoding
-_MAX_BYTES_OLLAMA  = 2 * 1024 * 1024    # 2 MB Text-Extraktion
-_MAX_TEXT_OLLAMA   = 5000               # Zeichen an Ollama-Prompt anhängen
+_MAX_BYTES_GEMINI  = 15 * 1024 * 1024
+_MAX_BYTES_OLLAMA  = 2 * 1024 * 1024
+_MAX_TEXT_OLLAMA   = 5000
+
+_ALL_STANDARD_FIELDS = {"doc_type", "color_rec", "sensitivity", "summary", "tags"}
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -71,7 +76,8 @@ def analyse_job(
     """Synchron — immer in asyncio.to_thread() aufrufen.
 
     ai_cfg wird direkt aus dem Tenant übergeben (bereits entschlüsselt):
-      ai_provider, gemini_key, gemini_model, ollama_url, ollama_model
+      provider, gemini_key, gemini_model, ollama_url, ollama_model,
+      fields (kommagetrennt, leer = alle), custom_prompts (list[dict])
     """
     try:
         provider     = (ai_cfg.get("provider") or "").strip()
@@ -79,7 +85,12 @@ def analyse_job(
         gemini_model = (ai_cfg.get("gemini_model") or "").strip()
         ollama_url   = (ai_cfg.get("ollama_url") or "").strip()
         ollama_model = (ai_cfg.get("ollama_model") or "").strip()
-        tenant_id    = (ai_cfg.get("tenant_id") or "").strip()
+
+        raw_fields = (ai_cfg.get("fields") or "").strip()
+        enabled_fields = (
+            set(raw_fields.split(",")) if raw_fields else _ALL_STANDARD_FIELDS
+        )
+        custom_prompts: list[dict] = ai_cfg.get("custom_prompts") or []
 
         if not provider:
             return
@@ -96,7 +107,8 @@ def analyse_job(
                     job_id, len(file_bytes) // (1024 * 1024), _MAX_BYTES_GEMINI // (1024 * 1024),
                 )
                 return
-            result = _analyse_gemini(file_bytes, mime, is_image, gemini_key, gemini_model)
+            prompt = _build_prompt(is_image, enabled_fields, custom_prompts)
+            result = _analyse_gemini(file_bytes, mime, prompt, gemini_key, gemini_model)
         elif provider == "ollama":
             if not ollama_url or not ollama_model:
                 return
@@ -109,7 +121,9 @@ def analyse_job(
                     job_id, len(file_bytes) // (1024 * 1024),
                 )
                 return
-            result = _analyse_ollama(file_bytes, mime, ollama_url, ollama_model)
+            prompt = _build_prompt(is_image=False, enabled_fields=enabled_fields,
+                                   custom_prompts=custom_prompts, for_ollama=True)
+            result = _analyse_ollama(file_bytes, mime, prompt, ollama_url, ollama_model)
         else:
             return
 
@@ -131,63 +145,114 @@ def analyse_job(
         else:
             tags_str = str(raw_tags)[:200]
 
+        # Custom-Felder aus result extrahieren → ai_extra JSON
+        extra: dict[str, str] = {}
+        for cp in custom_prompts:
+            name = (cp.get("name") or "").strip()
+            if name and name in result:
+                extra[name] = str(result[name])[:500]
+        extra_json = json.dumps(extra, ensure_ascii=False)
+
         with _conn() as conn:
             conn.execute(
                 """UPDATE cloudprint_jobs
                    SET ai_doc_type=?, ai_color_rec=?, ai_sensitivity=?,
-                       ai_summary=?, ai_tags=?, ai_analyzed_at=?
+                       ai_summary=?, ai_tags=?, ai_extra=?, ai_analyzed_at=?
                    WHERE job_id=?""",
                 (
-                    result.get("doc_type", "")[:80],
-                    result.get("color_rec", "")[:40],
-                    result.get("sensitivity", "")[:40],
-                    result.get("summary", "")[:1500],
-                    tags_str,
+                    result.get("doc_type", "")[:80]   if "doc_type"    in enabled_fields else "",
+                    result.get("color_rec", "")[:40]  if "color_rec"   in enabled_fields else "",
+                    result.get("sensitivity", "")[:40] if "sensitivity" in enabled_fields else "",
+                    result.get("summary", "")[:1500]  if "summary"     in enabled_fields else "",
+                    tags_str                           if "tags"        in enabled_fields else "",
+                    extra_json,
                     now,
                     job_id,
                 ),
             )
         logger.info(
-            "ai_analysis: job=%s provider=%s doc_type=%s color=%s sensitivity=%s tags=%s",
-            job_id, provider,
-            result.get("doc_type", ""), result.get("color_rec", ""),
-            result.get("sensitivity", ""), tags_str,
+            "ai_analysis: job=%s provider=%s fields=%s custom=%d doc_type=%s",
+            job_id, provider, ",".join(sorted(enabled_fields)), len(custom_prompts),
+            result.get("doc_type", ""),
         )
     except Exception as e:
         logger.warning("ai_analysis: job=%s error=%s", job_id, e)
 
 
+# ── Prompt-Builder ─────────────────────────────────────────────────────────────
+
+def _build_prompt(
+    is_image: bool,
+    enabled_fields: set[str],
+    custom_prompts: list[dict],
+    for_ollama: bool = False,
+) -> str:
+    """Baut einen dynamischen Prompt basierend auf aktivierten Feldern."""
+    fields: dict[str, str] = {}
+
+    if is_image and not for_ollama:
+        # Foto-Prompt
+        if "doc_type" in enabled_fields:
+            fields["doc_type"] = '"Foto"'
+        if "color_rec" in enabled_fields:
+            fields["color_rec"] = '"farbe"'
+        if "sensitivity" in enabled_fields:
+            fields["sensitivity"] = '"intern"'
+        if "tags" in enabled_fields:
+            fields["tags"] = '["<Schlagwort 1>", "<Schlagwort 2>", "<Schlagwort 3>"]'
+        if "summary" in enabled_fields:
+            fields["summary"] = '"<2–3 Sätze ausführliche Bildbeschreibung: Was ist zu sehen, Stimmung, besondere Details>"'
+    else:
+        # Dokument-Prompt
+        if "doc_type" in enabled_fields:
+            fields["doc_type"] = '"<Dokumenttyp, z.B. Rechnung, Präsentation, Vertrag, Bericht, Formular, Brief, Sonstiges>"'
+        if "color_rec" in enabled_fields:
+            fields["color_rec"] = '"<\'farbe\' oder \'schwarzweiss\'>"'
+        if "sensitivity" in enabled_fields:
+            fields["sensitivity"] = '"<\'öffentlich\', \'intern\' oder \'vertraulich\'>"'
+        if "tags" in enabled_fields:
+            fields["tags"] = "[]"
+        if "summary" in enabled_fields:
+            fields["summary"] = '"<2–3 Sätze Zusammenfassung des Inhalts>"'
+
+    # Custom-Felder anhängen
+    for cp in custom_prompts:
+        name = (cp.get("name") or "").strip()
+        cp_prompt = (cp.get("prompt") or "").strip()
+        if name and cp_prompt:
+            fields[name] = f'"<{cp_prompt}>"'
+
+    # JSON-Schema-String bauen
+    lines = []
+    for k, v in fields.items():
+        lines.append(f'  "{k}": {v}')
+    schema = "{\n" + ",\n".join(lines) + "\n}"
+
+    intro = (
+        "Beschreibe dieses Bild" if (is_image and not for_ollama)
+        else "Analysiere dieses Dokument" if not for_ollama
+        else "Analysiere den folgenden Dokumenttext"
+    )
+    hint = ""
+    if is_image and "tags" in enabled_fields and not for_ollama:
+        hint = "\nWähle 2–3 prägnante Schlagwörter die das Bild kategorisieren (z.B. Natur, Architektur, Personen, Essen, Tier, Landschaft, Innen, Außen …)."
+
+    base = f"{intro} und antworte NUR mit einem JSON-Objekt (kein Markdown, kein Text drumherum):\n{schema}{hint}"
+    if for_ollama:
+        base += "\n\nDokumenttext:\n"
+    return base
+
+
 # ── Gemini ────────────────────────────────────────────────────────────────────
-
-_GEMINI_PROMPT_PDF = """Analysiere dieses Dokument und antworte NUR mit einem JSON-Objekt (kein Markdown, kein Text drumherum):
-{
-  "doc_type": "<Dokumenttyp, z.B. Rechnung, Präsentation, Vertrag, Bericht, Formular, Brief, Sonstiges>",
-  "color_rec": "<'farbe' oder 'schwarzweiss'>",
-  "sensitivity": "<'öffentlich', 'intern' oder 'vertraulich'>",
-  "tags": [],
-  "summary": "<2–3 Sätze Zusammenfassung des Inhalts>"
-}"""
-
-_GEMINI_PROMPT_IMAGE = """Beschreibe dieses Bild und antworte NUR mit einem JSON-Objekt (kein Markdown, kein Text drumherum):
-{
-  "doc_type": "Foto",
-  "color_rec": "farbe",
-  "sensitivity": "intern",
-  "tags": ["<Schlagwort 1>", "<Schlagwort 2>", "<Schlagwort 3>"],
-  "summary": "<2–3 Sätze ausführliche Bildbeschreibung: Was ist zu sehen, Stimmung, besondere Details>"
-}
-Wähle 2–3 prägnante Schlagwörter die das Bild kategorisieren (z.B. Natur, Architektur, Personen, Essen, Tier, Landschaft, Innen, Außen …)."""
-
 
 def _analyse_gemini(
     file_bytes: bytes,
     mime: str,
-    is_image: bool,
+    prompt: str,
     api_key: str,
     model: str,
 ) -> dict | None:
     import base64
-    prompt = _GEMINI_PROMPT_IMAGE if is_image else _GEMINI_PROMPT_PDF
     encoded = base64.b64encode(file_bytes).decode()
     payload = {
         "contents": [{
@@ -229,32 +294,20 @@ def _analyse_gemini(
 
 # ── Ollama ────────────────────────────────────────────────────────────────────
 
-_OLLAMA_PROMPT = """Analysiere diesen Dokumenttext und antworte NUR mit einem JSON-Objekt (kein Markdown, kein Text drumherum):
-{
-  "doc_type": "<Dokumenttyp, z.B. Rechnung, Präsentation, Vertrag, Bericht, Formular, Brief, Sonstiges>",
-  "color_rec": "<'farbe' oder 'schwarzweiss'>",
-  "sensitivity": "<'öffentlich', 'intern' oder 'vertraulich'>",
-  "tags": [],
-  "summary": "<2–3 Sätze Zusammenfassung des Inhalts>"
-}
-
-Dokumenttext:
-"""
-
-
 def _analyse_ollama(
     file_bytes: bytes,
     mime: str,
+    prompt: str,
     base_url: str,
     model: str,
 ) -> dict | None:
     text = _extract_text(file_bytes, mime)
     if not text:
         return None
-    prompt = _OLLAMA_PROMPT + text[:_MAX_TEXT_OLLAMA]
+    full_prompt = prompt + text[:_MAX_TEXT_OLLAMA]
     payload = {
         "model": model,
-        "prompt": prompt,
+        "prompt": full_prompt,
         "stream": False,
         "options": {"temperature": 0.1},
     }
@@ -283,14 +336,11 @@ def _analyse_ollama(
 def _parse_json_response(text: str) -> dict:
     """Parst eine LLM-Antwort die entweder reines JSON oder Markdown-umhülltes JSON enthält."""
     text = text.strip()
-    # Markdown-Fence entfernen: ```json\n{...}\n``` oder ```\n{...}\n```
     fence_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     if fence_match:
         return json.loads(fence_match.group(1))
-    # Reines JSON
     if text.startswith("{"):
         return json.loads(text)
-    # JSON irgendwo im Text suchen
     brace_match = re.search(r"\{.*\}", text, re.DOTALL)
     if brace_match:
         return json.loads(brace_match.group(0))
@@ -336,7 +386,6 @@ def _extract_text(file_bytes: bytes, mime: str) -> str:
                     close = part.find(")")
                     if close > 0:
                         inner = part[:close]
-                        # Escape-Sequenzen \n \r \t → Leerzeichen
                         inner = re.sub(r"\\[nrt]", " ", inner)
                         text_parts.append(inner)
                 pos = et + 2

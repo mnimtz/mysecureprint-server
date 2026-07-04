@@ -1350,6 +1350,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                               IFNULL(ai_summary,'') AS ai_summary,
                               IFNULL(ai_tags,'') AS ai_tags,
                               IFNULL(ai_analyzed_at,'') AS ai_analyzed_at,
+                              IFNULL(ai_extra,'{}') AS ai_extra,
                               (SELECT GROUP_CONCAT(IFNULL(username,''),',')
                                FROM cloudprint_jobs _c2
                                WHERE _c2.parent_job_id = cloudprint_jobs.job_id
@@ -2093,16 +2094,26 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     _tnt = get_tenant_full_by_user_id(_pid) if _pid else None
                     if not _tnt:
                         return
+                    if (_tnt.get("ai_enabled") or "0") != "1":
+                        return
                     _provider = (_tnt.get("ai_provider") or "").strip()
                     if not _provider:
                         return
+                    import json as _json_ai_cfg
+                    _raw_cp = _tnt.get("ai_custom_prompts") or "[]"
+                    try:
+                        _custom_prompts = _json_ai_cfg.loads(_raw_cp)
+                    except Exception:
+                        _custom_prompts = []
                     _ai_cfg = {
-                        "tenant_id":    _tnt.get("id", "") or "",
-                        "provider":     _provider,
-                        "gemini_key":   _dec(_tnt.get("ai_gemini_api_key") or ""),
-                        "gemini_model": (_tnt.get("ai_gemini_model") or "").strip(),
-                        "ollama_url":   (_tnt.get("ai_ollama_url") or "").strip(),
-                        "ollama_model": (_tnt.get("ai_ollama_model") or "").strip(),
+                        "tenant_id":      _tnt.get("id", "") or "",
+                        "provider":       _provider,
+                        "gemini_key":     _dec(_tnt.get("ai_gemini_api_key") or ""),
+                        "gemini_model":   (_tnt.get("ai_gemini_model") or "").strip(),
+                        "ollama_url":     (_tnt.get("ai_ollama_url") or "").strip(),
+                        "ollama_model":   (_tnt.get("ai_ollama_model") or "").strip(),
+                        "fields":         (_tnt.get("ai_fields") or "").strip(),
+                        "custom_prompts": _custom_prompts,
                     }
                     from cloudprint.ai_analysis import analyse_job
                     analyse_job(
