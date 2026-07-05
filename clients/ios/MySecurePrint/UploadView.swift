@@ -440,6 +440,7 @@ struct UploadView: View {
                 (id: $0, display: settings.targetLabels[$0] ?? $0)
             }
 
+            var serverJobId: String? = nil
             if settings.backgroundUploadEnabled {
                 await BackgroundUploadManager.shared.enqueue(
                     fileData: data,
@@ -456,7 +457,8 @@ struct UploadView: View {
                 )
             } else {
                 // Foreground-Upload: wartet auf Antwort, zeigt Ergebnis inline.
-                try await BackgroundUploadManager.shared.sendForeground(
+                // Gibt echte job_id vom Server zurück (für optimistischen Insert).
+                serverJobId = try await BackgroundUploadManager.shared.sendForeground(
                     fileData: data,
                     filename: filename,
                     targets: targets,
@@ -476,12 +478,13 @@ struct UploadView: View {
             comment = ""
 
             // Optimistisch: Jobs-Tab sofort mit Platzhalter für das erste Ziel aktualisieren.
-            // Bei Multi-Target erscheinen die weiteren Jobs nach dem Hintergrund-Refresh.
+            // Wenn serverJobId bekannt, echte ID verwenden — damit der spätere Refresh
+            // den Eintrag an Ort und Stelle aktualisiert statt ihn zu duplizieren.
             if let (_, display) = targets.first {
                 let iso = ISO8601DateFormatter()
                 iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
                 cache.pendingJob = PrintJob(
-                    job_id: UUID().uuidString,
+                    job_id: serverJobId ?? UUID().uuidString,
                     filename: filename,
                     status: "queued",
                     queue: display,

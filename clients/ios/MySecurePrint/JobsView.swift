@@ -97,20 +97,22 @@ struct JobsView: View {
             }
             // Optimistic Insert: sobald UploadView einen Job erfolgreich gesendet
             // hat, setzt sie cache.pendingJob. Wir prependen ihn sofort oben in
-            // die Liste — ohne Wartezeit / Pull-to-Refresh. Deduplizierung via
-            // job_id falls ein Full-Refresh schon stattgefunden hat.
-            .onChange(of: cache.pendingJob) { _, newJob in
-                guard let job = newJob else { return }
-                guard !jobs.contains(where: { $0.job_id == job.job_id }) else { return }
-                jobs.insert(job, at: 0)
-                cache.jobs = jobs
+            // die Liste — ohne Wartezeit / Pull-to-Refresh.
+            .onChange(of: cache.pendingJob) { oldJob, newJob in
+                if let job = newJob {
+                    guard !jobs.contains(where: { $0.job_id == job.job_id }) else { return }
+                    jobs.insert(job, at: 0)
+                } else if let old = oldJob {
+                    // pendingJob wurde gelöscht (refreshJobs hat echte Daten) —
+                    // Platzhalter entfernen; der echte Job kommt via onChange(cache.jobs).
+                    jobs.removeAll { $0.job_id == old.job_id }
+                }
             }
-            // Status-Updates die JobDetailView per Polling ins Cache schreibt,
-            // sofort in der Liste sichtbar machen — ohne Full-Refresh.
+            // Cache-Update vom Server: volle Liste ersetzen damit neue Jobs
+            // sofort erscheinen (z.B. nach Foreground-Upload oder Hintergrund-Refresh).
             .onChange(of: cache.jobs) { _, newJobs in
-                let byId = Dictionary(newJobs.map { ($0.job_id, $0) },
-                                      uniquingKeysWith: { $1 })
-                jobs = jobs.map { byId[$0.job_id] ?? $0 }
+                jobs = newJobs
+                hasMore = cache.jobsHasMore
             }
             .sheet(item: $selectedJob) { job in
                 JobDetailView(job: job)

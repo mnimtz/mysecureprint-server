@@ -91,7 +91,8 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
     }
 
     /// Direkter Foreground-Upload — blockiert bis zur Antwort des Servers.
-    /// Wirft bei HTTP-Fehler oder Netzwerkfehler. Startet ebenfalls eine Live Activity.
+    /// Gibt die job_id des ersten Ziels zurück (aus der Server-Antwort).
+    /// Startet eine Live Activity und hält sie mindestens 3 Sekunden sichtbar.
     func sendForeground(
         fileData: Data,
         filename: String,
@@ -104,11 +105,12 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
         duplex: Bool,
         printImageSize: String,
         groupLabel: String?
-    ) async throws {
-        guard !targets.isEmpty else { return }
+    ) async throws -> String? {
+        guard !targets.isEmpty else { return nil }
 
         let batchID = UUID().uuidString
         let firstDisplay = targets.first?.display ?? ""
+        let activityStart = Date()
         if #available(iOS 16.2, *) {
             startActivity(batchID: batchID, filename: filename,
                           targetDisplay: firstDisplay, count: targets.count)
@@ -125,6 +127,7 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
         }
         let uploadURL = base.appendingPathComponent("desktop/send")
         do {
+            var firstJobId: String? = nil
             for (targetId, _) in targets {
                 let boundary = "Boundary-\(UUID().uuidString)"
                 let bodyData = buildMultipart(
@@ -139,16 +142,33 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
                              forHTTPHeaderField: "Content-Type")
                 req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
                 req.timeoutInterval = 180
-                let (_, response) = try await URLSession.shared.upload(for: req, from: bodyData)
+                let (data, response) = try await URLSession.shared.upload(for: req, from: bodyData)
                 if let http = response as? HTTPURLResponse,
                    !(200..<300).contains(http.statusCode) {
                     throw URLError(.badServerResponse)
                 }
+                if firstJobId == nil {
+                    struct Partial: Decodable { let job_id: String? }
+                    firstJobId = (try? JSONDecoder().decode(Partial.self, from: data))?.job_id
+                }
             }
             if #available(iOS 16.2, *) {
-                endActivity(batchID: batchID,
-                            finalState: .init(phase: .sent, targetDisplay: firstDisplay))
+                // Update zur Erfolgsanzeige — Activity noch NICHT beenden damit iOS sie
+                // rendern kann. Mindestens 3s sichtbar, dann erst end().
+                updateActivity(batchID: batchID,
+                               state: .init(phase: .sent, targetDisplay: firstDisplay))
+                let elapsed = Date().timeIntervalSince(activityStart)
+                let remaining = max(0, 3.0 - elapsed)
+                let bid = batchID, fd = firstDisplay
+                Task {
+                    if remaining > 0 {
+                        try? await Task.sleep(for: .seconds(remaining))
+                    }
+                    endActivity(batchID: bid,
+                                finalState: .init(phase: .sent, targetDisplay: fd))
+                }
             }
+            return firstJobId
         } catch {
             if #available(iOS 16.2, *) {
                 endActivity(batchID: batchID,
@@ -291,6 +311,16 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
             print("[LiveActivity] Started: \(activity.id)")
         } catch {
             print("[LiveActivity] Error starting activity: \(error)")
+        }
+    }
+
+    @available(iOS 16.2, *)
+    private func updateActivity(batchID: String,
+                                state: PrintUploadAttributes.ContentState) {
+        guard let any = batchActivities[batchID],
+              let activity = any as? Activity<PrintUploadAttributes> else { return }
+        Task {
+            await activity.update(.init(state: state, staleDate: nil))
         }
     }
 
