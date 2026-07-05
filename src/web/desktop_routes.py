@@ -1321,12 +1321,14 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
     async def desktop_me_jobs(request: Request,
                                  limit: int = 20,
                                  offset: int = 0,
+                                 no_cache: int = 0,
                                  authorization: str = Header(default="")):
         """v0.7.81: Job-History fuer den eingeloggten User.
         Liefert die letzten N Print-Jobs aus cloudprint_jobs gefiltert
         nach username / email / printix_user_id. Unterstuetzt jetzt
         Pagination via offset sowie zusaetzliche Felder:
         delegated_from, hostname, data_size.
+        no_cache=1 umgeht den In-Memory-Cache (für manuellen Sync).
         """
         _log_req(request, "GET /me/jobs")
         user = _require_token(authorization)
@@ -1337,10 +1339,11 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             limit_int  = max(1, min(int(limit  or 20),  200))
             offset_int = max(0,        int(offset or 0))
 
-            cached = _jobs_cache_get(uid, limit_int, offset_int)
-            if cached is not None:
-                return JSONResponse({"jobs": cached, "count": len(cached),
-                                     "offset": offset_int, "cached": True})
+            if not no_cache:
+                cached = _jobs_cache_get(uid, limit_int, offset_int)
+                if cached is not None:
+                    return JSONResponse({"jobs": cached, "count": len(cached),
+                                         "offset": offset_int, "cached": True})
 
             from db import _conn, _resolve_tenant_owner_for
             from cloudprint.db_extensions import get_tenant_for_user
@@ -2153,6 +2156,9 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     logger.warning("bg_ai_analysis job=%s: %s", internal_id, _ae)
             try:
                 await asyncio.to_thread(_do_ai)
+                # Cache invalidieren damit der nächste /me/jobs-Aufruf
+                # frische DB-Daten mit den KI-Feldern liefert.
+                _jobs_cache_invalidate(user.get("user_id", ""))
             except Exception as _outer:
                 logger.warning("bg_ai_analysis outer job=%s: %s", internal_id, _outer)
         asyncio.create_task(_bg_ai_analysis())

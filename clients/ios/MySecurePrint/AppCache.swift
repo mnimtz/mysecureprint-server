@@ -55,13 +55,13 @@ final class AppCache: ObservableObject {
         await sync(settings: settings, showSpinner: true)
     }
 
-    /// Nur die Jobs-Liste neu laden — für den Post-Submit-Refresh.
-    /// Kein Full-Sync, kein Spinner, kein Fluten. Einmal nach Abschluss
-    /// aller Sends aufrufen, damit echte Daten + has_preview ankommen.
-    func refreshJobs(settings: SettingsStore) async {
+    /// Nur die Jobs-Liste neu laden — für den Post-Submit-Refresh oder
+    /// manuellen Sync. noCache=true umgeht den Server-Cache (30s TTL),
+    /// damit KI-Flags + queue-Name sofort sichtbar sind.
+    func refreshJobs(settings: SettingsStore, noCache: Bool = false) async {
         guard let client = ApiClientFactory.make(
             baseURL: settings.serverURL, token: settings.bearerToken) else { return }
-        if let r = await fetchJobs(client: client) {
+        if let r = await fetchJobs(client: client, noCache: noCache) {
             jobs = r.items
             jobsHasMore = r.hasMore
             pendingJob = nil   // Optimistic-Eintrag ist jetzt von echten Daten abgelöst
@@ -196,9 +196,9 @@ final class AppCache: ObservableObject {
         } catch { return nil }
     }
 
-    private func fetchJobs(client: ApiClient) async -> JobResult? {
+    private func fetchJobs(client: ApiClient, noCache: Bool = false) async -> JobResult? {
         do {
-            let data = try await client.myJobs(limit: Self.jobPageSize, offset: 0)
+            let data = try await client.myJobs(limit: Self.jobPageSize, offset: 0, noCache: noCache)
             let resp = try JSONDecoder().decode(JobsResponse.self, from: data)
             return JobResult(items: resp.jobs, hasMore: resp.jobs.count >= Self.jobPageSize)
         } catch { return nil }

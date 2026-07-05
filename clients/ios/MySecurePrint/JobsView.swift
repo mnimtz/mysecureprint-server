@@ -200,7 +200,7 @@ struct JobsView: View {
         cache.isSyncing = true
         defer { loading = false; cache.isSyncing = false }
         do {
-            let result = try await fetchJobs(offset: 0)
+            let result = try await fetchJobs(offset: 0, noCache: true)
             jobs = result.jobs
             hasMore = result.jobs.count >= pageSize
             cache.jobs = result.jobs
@@ -233,12 +233,12 @@ struct JobsView: View {
         hasMore = false
     }
 
-    private func fetchJobs(offset: Int) async throws -> JobsResponse {
+    private func fetchJobs(offset: Int, noCache: Bool = false) async throws -> JobsResponse {
         guard let client = ApiClientFactory.make(baseURL: settings.serverURL,
                                                  token: settings.bearerToken) else {
             throw ApiError.invalidUrl
         }
-        let data = try await client.myJobs(limit: pageSize, offset: offset)
+        let data = try await client.myJobs(limit: pageSize, offset: offset, noCache: noCache)
         return try JSONDecoder().decode(JobsResponse.self, from: data)
     }
 }

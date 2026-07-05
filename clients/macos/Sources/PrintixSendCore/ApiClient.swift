@@ -334,17 +334,20 @@ public final class ApiClient: @unchecked Sendable {
 
     /// Letzte Druck-Jobs des angemeldeten Users. Server-Endpoint
     /// `/desktop/me/jobs` seit v0.6.0. `limit` ist optional und wird
-    /// als Query-Parameter angehaengt.
-    public func myJobs(limit: Int = 30, offset: Int = 0) async throws -> Data {
-        log.info("GET /desktop/me/jobs — limit=\(limit) offset=\(offset)")
+    /// als Query-Parameter angehaengt. `noCache=true` umgeht den
+    /// serverseitigen 30s-Cache (fuer manuellen Sync nach KI-Analyse).
+    public func myJobs(limit: Int = 30, offset: Int = 0, noCache: Bool = false) async throws -> Data {
+        log.info("GET /desktop/me/jobs — limit=\(limit) offset=\(offset) noCache=\(noCache)")
         var comps = URLComponents(
             url: baseUrl.appendingPathComponent("desktop/me/jobs"),
             resolvingAgainstBaseURL: false
         )
-        comps?.queryItems = [
+        var items: [URLQueryItem] = [
             URLQueryItem(name: "limit",  value: String(limit)),
             URLQueryItem(name: "offset", value: String(offset)),
         ]
+        if noCache { items.append(URLQueryItem(name: "no_cache", value: "1")) }
+        comps?.queryItems = items
         guard let url = comps?.url else { throw ApiError.invalidUrl }
         var req = URLRequest(url: url)
         if let token = token, !token.isEmpty {

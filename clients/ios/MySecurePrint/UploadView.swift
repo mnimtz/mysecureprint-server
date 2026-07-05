@@ -497,10 +497,10 @@ struct UploadView: View {
                 try? await Task.sleep(for: .seconds(5))
                 await cache.refreshJobs(settings: settings)
             }
-            // Zweiter Refresh nach 30s — AI-Analyse ist dann i.d.R. fertig.
+            // Zweiter Refresh nach 30s — AI-Analyse fertig; Cache umgehen.
             Task {
                 try? await Task.sleep(for: .seconds(30))
-                await cache.refreshJobs(settings: settings)
+                await cache.refreshJobs(settings: settings, noCache: true)
             }
         } catch {
             errorText = error.localizedDescription
