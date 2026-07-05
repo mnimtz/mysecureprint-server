@@ -25,6 +25,7 @@ struct MatrixSplashView: View {
 
     let style: MatrixStyle
     let onDismiss: () -> Void
+    var message: String? = nil
 
     @EnvironmentObject private var cache: AppCache
 
@@ -68,7 +69,7 @@ struct MatrixSplashView: View {
     // MARK: Body
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack(alignment: style == .overlay ? .center : .bottom) {
             Color.black.opacity(bgOpacity).ignoresSafeArea()
 
             if !columns.isEmpty {
@@ -82,22 +83,39 @@ struct MatrixSplashView: View {
             }
 
             if showLabel {
-                // Splash: App-Name + Statuszeile
-                VStack(spacing: 6) {
+                // Splash: App-Name + Spinner + Statuszeile
+                VStack(spacing: 10) {
                     Text("MySecurePrint")
-                        .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                        .foregroundColor(Self.green)
-                    Text(String(localized: "Initialisiere…"))
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(Self.green.opacity(0.55))
+                        .font(.system(size: 18, weight: .bold, design: .monospaced))
+                        .foregroundColor(Self.greenBright)
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: Self.green))
+                            .scaleEffect(0.85)
+                        Text(String(localized: "Initialisiere…"))
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundColor(Self.green.opacity(0.70))
+                    }
                 }
-                .padding(.bottom, 54)
+                .padding(.bottom, 58)
             } else {
-                // Overlay: kompaktes "Laden…"-Label unten-mittig
-                Text(String(localized: "Laden…"))
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundColor(Self.green.opacity(0.80))
-                    .padding(.bottom, 54)
+                // Overlay: prominente zentrierte Pill — gut sichtbar, klar kommuniziert
+                VStack(spacing: 10) {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: Self.green))
+                        .scaleEffect(1.1)
+                    Text(message ?? String(localized: "Aktualisiere Daten…"))
+                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .foregroundColor(Self.greenBright)
+                }
+                .padding(.horizontal, 30)
+                .padding(.vertical, 20)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(Self.green.opacity(0.35), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.4), radius: 20, y: 8)
             }
         }
         .opacity(opacity)
