@@ -1457,9 +1457,9 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         user = _require_token(authorization)
         if not user:
             return _json_error("token invalid", code="auth_required", status=401)
-        _audit(user, "job_status_called", extra={"job_id": job_id})
         try:
-            from db import _conn, _resolve_tenant_owner_for
+            from db import _conn, _resolve_tenant_owner_for, audit as _audit
+            _audit(user, "job_status_called", extra={"job_id": job_id})
             uname  = (user.get("username") or "").lower()
             uemail = (user.get("email") or "").lower()
             pxid   = (user.get("printix_user_id") or "").lower()
