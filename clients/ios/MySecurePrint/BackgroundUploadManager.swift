@@ -91,7 +91,7 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
     }
 
     /// Direkter Foreground-Upload — blockiert bis zur Antwort des Servers.
-    /// Wirft bei HTTP-Fehler oder Netzwerkfehler. Kein Live-Activity.
+    /// Wirft bei HTTP-Fehler oder Netzwerkfehler. Startet ebenfalls eine Live Activity.
     func sendForeground(
         fileData: Data,
         filename: String,
@@ -106,30 +106,56 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
         groupLabel: String?
     ) async throws {
         guard !targets.isEmpty else { return }
+
+        let batchID = UUID().uuidString
+        let firstDisplay = targets.first?.display ?? ""
+        if #available(iOS 16.2, *) {
+            startActivity(batchID: batchID, filename: filename,
+                          targetDisplay: firstDisplay, count: targets.count)
+        }
+
         let trimmed = serverURL.trimmingCharacters(in: .init(charactersIn: "/"))
         guard let base = URL(string: trimmed) else {
+            if #available(iOS 16.2, *) {
+                endActivity(batchID: batchID,
+                            finalState: .init(phase: .failed, targetDisplay: firstDisplay,
+                                             errorMessage: "Ungültige Server-URL"))
+            }
             throw URLError(.badURL)
         }
         let uploadURL = base.appendingPathComponent("desktop/send")
-        for (targetId, _) in targets {
-            let boundary = "Boundary-\(UUID().uuidString)"
-            let bodyData = buildMultipart(
-                boundary: boundary, fileData: fileData, filename: filename,
-                targetId: targetId, comment: comment, copies: copies,
-                color: color, duplex: duplex, printImageSize: printImageSize,
-                groupLabel: groupLabel
-            )
-            var req = URLRequest(url: uploadURL)
-            req.httpMethod = "POST"
-            req.setValue("multipart/form-data; boundary=\(boundary)",
-                         forHTTPHeaderField: "Content-Type")
-            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            req.timeoutInterval = 180
-            let (_, response) = try await URLSession.shared.upload(for: req, from: bodyData)
-            if let http = response as? HTTPURLResponse,
-               !(200..<300).contains(http.statusCode) {
-                throw URLError(.badServerResponse)
+        do {
+            for (targetId, _) in targets {
+                let boundary = "Boundary-\(UUID().uuidString)"
+                let bodyData = buildMultipart(
+                    boundary: boundary, fileData: fileData, filename: filename,
+                    targetId: targetId, comment: comment, copies: copies,
+                    color: color, duplex: duplex, printImageSize: printImageSize,
+                    groupLabel: groupLabel
+                )
+                var req = URLRequest(url: uploadURL)
+                req.httpMethod = "POST"
+                req.setValue("multipart/form-data; boundary=\(boundary)",
+                             forHTTPHeaderField: "Content-Type")
+                req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                req.timeoutInterval = 180
+                let (_, response) = try await URLSession.shared.upload(for: req, from: bodyData)
+                if let http = response as? HTTPURLResponse,
+                   !(200..<300).contains(http.statusCode) {
+                    throw URLError(.badServerResponse)
+                }
             }
+            if #available(iOS 16.2, *) {
+                endActivity(batchID: batchID,
+                            finalState: .init(phase: .sent, targetDisplay: firstDisplay))
+            }
+        } catch {
+            if #available(iOS 16.2, *) {
+                endActivity(batchID: batchID,
+                            finalState: .init(phase: .failed, targetDisplay: firstDisplay,
+                                             errorMessage: error.localizedDescription))
+            }
+            throw error
         }
     }
 
