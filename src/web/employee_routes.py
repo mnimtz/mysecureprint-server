@@ -785,6 +785,7 @@ def register_employee_routes(
                 if name and "anywhere" in name: return True
                 return False
             is_anywhere_target = _is_anywhere_eu(matched_printer_entry or {})
+            queue_display_name = (matched_printer_entry or {}).get("name", "") or target_queue
 
             # Tracking-Eintrag
             import uuid as _uuid
@@ -792,7 +793,7 @@ def register_employee_routes(
             create_cloudprint_job(
                 job_id=internal_id,
                 tenant_id=tenant.get("id", ""),
-                queue_name=tenant.get("printix_tenant_id", ""),
+                queue_name=queue_display_name,
                 username=user_printix_email,
                 hostname="web-upload",
                 job_name=display_filename,

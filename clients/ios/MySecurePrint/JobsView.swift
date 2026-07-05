@@ -94,6 +94,12 @@ struct JobsView: View {
                 } else if jobs.isEmpty {
                     await reload()
                 }
+                // pendingJob ggf. vorne einsetzen — onChange feuert nur bei
+                // Änderungen, nicht für bereits gesetzten Wert beim View-Aufbau.
+                if let pending = cache.pendingJob,
+                   !jobs.contains(where: { $0.job_id == pending.job_id }) {
+                    jobs.insert(pending, at: 0)
+                }
             }
             // Optimistic Insert: sobald UploadView einen Job erfolgreich gesendet
             // hat, setzt sie cache.pendingJob. Wir prependen ihn sofort oben in

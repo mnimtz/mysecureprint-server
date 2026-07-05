@@ -497,6 +497,11 @@ struct UploadView: View {
                 try? await Task.sleep(for: .seconds(5))
                 await cache.refreshJobs(settings: settings)
             }
+            // Zweiter Refresh nach 30s — AI-Analyse ist dann i.d.R. fertig.
+            Task {
+                try? await Task.sleep(for: .seconds(30))
+                await cache.refreshJobs(settings: settings)
+            }
         } catch {
             errorText = error.localizedDescription
             // Refresh job list so server-side failed entry becomes visible.

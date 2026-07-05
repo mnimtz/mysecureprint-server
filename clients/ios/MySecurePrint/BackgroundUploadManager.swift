@@ -153,12 +153,12 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
                 }
             }
             if #available(iOS 16.2, *) {
-                // Update zur Erfolgsanzeige — Activity noch NICHT beenden damit iOS sie
-                // rendern kann. Mindestens 3s sichtbar, dann erst end().
-                updateActivity(batchID: batchID,
-                               state: .init(phase: .sent, targetDisplay: firstDisplay))
+                // Update awaiten — sicherstellt dass iOS die Sent-Anzeige
+                // rendert bevor end() aufgerufen wird. Mindestens 5s sichtbar.
+                await updateActivityAsync(batchID: batchID,
+                                          state: .init(phase: .sent, targetDisplay: firstDisplay))
                 let elapsed = Date().timeIntervalSince(activityStart)
-                let remaining = max(0, 3.0 - elapsed)
+                let remaining = max(0, 5.0 - elapsed)
                 let bid = batchID, fd = firstDisplay
                 Task {
                     if remaining > 0 {
@@ -322,6 +322,14 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
         Task {
             await activity.update(.init(state: state, staleDate: nil))
         }
+    }
+
+    @available(iOS 16.2, *)
+    private func updateActivityAsync(batchID: String,
+                                     state: PrintUploadAttributes.ContentState) async {
+        guard let any = batchActivities[batchID],
+              let activity = any as? Activity<PrintUploadAttributes> else { return }
+        await activity.update(.init(state: state, staleDate: nil))
     }
 
     @available(iOS 16.2, *)

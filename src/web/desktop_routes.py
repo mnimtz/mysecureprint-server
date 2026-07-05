@@ -842,10 +842,12 @@ async def _process_desktop_send_bg(
             # auf "forwarding" updaten bzw. anlegen. create_cloudprint_job
             # ist idempotent genug: wir haben den Eintrag in desktop_send
             # bereits angelegt und aktualisieren hier nur das Ziel.
+            queue_display_name = (matched_printer_entry or {}).get("name", "") or target_queue
             try:
                 update_cloudprint_job_status(
                     internal_id, "forwarding",
                     target_queue=target_queue,
+                    queue_name=queue_display_name,
                     detected_identity=submit_user_email,
                     identity_source="desktop-send",
                 )
@@ -1360,7 +1362,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             with _conn() as conn:
                 rows = conn.execute(
                     f"""SELECT job_id, job_name AS filename, status,
-                              queue_name AS queue,
+                              COALESCE(NULLIF(queue_name,''), target_queue, '') AS queue,
                               created_at, forwarded_at, error_message,
                               detected_identity AS source_identity,
                               IFNULL(delegated_from,'') AS delegated_from,

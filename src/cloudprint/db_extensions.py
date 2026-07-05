@@ -499,6 +499,7 @@ def update_cloudprint_job_status(
     status: str,
     printix_job_id: str = "",
     target_queue: str = "",
+    queue_name: str = "",
     error_message: str = "",
     detected_identity: str = "",
     identity_source: str = "",
@@ -511,17 +512,21 @@ def update_cloudprint_job_status(
             conn.execute(
                 """UPDATE cloudprint_jobs
                    SET status = ?, printix_job_id = ?, target_queue = ?,
+                       queue_name = CASE WHEN ? != '' THEN ? ELSE queue_name END,
                        error_message = ?, detected_identity = ?, identity_source = ?, forwarded_at = ?
                    WHERE job_id = ?""",
-                (status, printix_job_id, target_queue, error_message[:500], detected_identity[:255], identity_source[:120], now, job_id),
+                (status, printix_job_id, target_queue, queue_name, queue_name,
+                 error_message[:500], detected_identity[:255], identity_source[:120], now, job_id),
             )
         else:
             conn.execute(
                 """UPDATE cloudprint_jobs
                    SET status = ?, printix_job_id = ?, target_queue = ?,
+                       queue_name = CASE WHEN ? != '' THEN ? ELSE queue_name END,
                        error_message = ?, forwarded_at = ?
                    WHERE job_id = ?""",
-                (status, printix_job_id, target_queue, error_message[:500], now, job_id),
+                (status, printix_job_id, target_queue, queue_name, queue_name,
+                 error_message[:500], now, job_id),
             )
 
 
