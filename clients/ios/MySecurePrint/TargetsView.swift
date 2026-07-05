@@ -51,9 +51,39 @@ struct TargetsView: View {
                 }
 
                 Section(String(localized: "targets_section_title")) {
+                    // Ausgewählte Picker-Queues oben in der gleichen Section anzeigen —
+                    // mit Checkmark-Icon und Swipe-to-Remove. So ist das aktive Ziel
+                    // immer sichtbar, egal ob Standard oder Queue.
+                    ForEach(selectedQueueTargetIds + selectedUserDelegationIds, id: \.self) { id in
+                        Button { } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(settings.targetLabels[id] ?? id).foregroundColor(.primary)
+                                    if id.hasPrefix("print:queue:") {
+                                        Text(String(localized: "Druckwarteschlange"))
+                                            .font(.caption).foregroundColor(.secondary)
+                                    } else {
+                                        Text(String(localized: "Delegation"))
+                                            .font(.caption).foregroundColor(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                Image(systemName: "checkmark.circle.fill").foregroundColor(MSP.cyan)
+                            }
+                        }
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                if id.hasPrefix("print:queue:") { removeQueueSelection(id) }
+                                else { removeUserDelegation(id) }
+                            } label: {
+                                Label(String(localized: "Entfernen"), systemImage: "xmark.circle")
+                            }
+                        }
+                    }
+
                     if cache.isSyncing && cache.targets.isEmpty {
                         HStack { ProgressView(); Text(String(localized: "targets_loading")) }
-                    } else if cache.targets.isEmpty {
+                    } else if cache.targets.isEmpty && selectedQueueTargetIds.isEmpty && selectedUserDelegationIds.isEmpty {
                         Text(String(localized: "targets_empty"))
                             .foregroundColor(.secondary)
                     } else {
@@ -69,10 +99,6 @@ struct TargetsView: View {
                                         }
                                     }
                                     Spacer()
-                                    // Multi-Select: Haken wenn das Ziel in der
-                                    // ausgewaehlten Liste steht. Tap toggelt
-                                    // Mitgliedschaft — so kann man mehrere
-                                    // Ziele gleichzeitig anvisieren.
                                     if settings.selectedTargetIds.contains(t.id) {
                                         Image(systemName: "checkmark.circle.fill")
                                             .foregroundColor(MSP.cyan)
@@ -211,22 +237,6 @@ struct TargetsView: View {
             }
             .padding(.vertical, 2)
 
-            // Bereits ausgewählte Queues mit Entfernen-X
-            ForEach(selectedQueueTargetIds, id: \.self) { id in
-                HStack {
-                    Image(systemName: "printer.dotmatrix")
-                        .foregroundColor(MSP.cyan)
-                    Text(settings.targetLabels[id] ?? id)
-                        .font(.body)
-                    Spacer()
-                    Button { removeQueueSelection(id) } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
             // Zuletzt verwendet (Ebene 1)
             if !recentQueues.isEmpty {
                 let visibleRecent = settings.anywhereOnly
@@ -333,22 +343,6 @@ struct TargetsView: View {
                 Spacer()
             }
             .padding(.vertical, 2)
-
-            // Bereits ausgewählte Delegation-Ziele mit Entfernen-X
-            ForEach(selectedUserDelegationIds, id: \.self) { id in
-                HStack {
-                    Image(systemName: "person.crop.circle.badge.checkmark")
-                        .foregroundColor(MSP.cyan)
-                    Text(settings.targetLabels[id] ?? id)
-                        .font(.body)
-                    Spacer()
-                    Button { removeUserDelegation(id) } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
 
             // Meine Teams (Phase F)
             if !cache.delegateGroups.isEmpty {
