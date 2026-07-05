@@ -2,6 +2,7 @@ import SwiftUI
 import Combine
 import UniformTypeIdentifiers
 import PhotosUI
+import ActivityKit
 import PrintixSendCore
 
 /// Haupt-Upload-Screen: Datei aus dem Files-Picker wählen, optional
@@ -21,6 +22,7 @@ struct UploadView: View {
 
     @State private var isSending: Bool = false
     @State private var sentConfirmation: Bool = false
+    @State private var liveActivitiesEnabled: Bool = true
     /// H-5: Letzter Fehler aus der Share-Extension oder Background-Upload.
     /// Wird beim Erscheinen aus der App-Group gelesen, als Alert gezeigt
     /// und danach gelöscht.
@@ -240,6 +242,28 @@ struct UploadView: View {
                     .buttonStyle(GoldButtonStyle())
                     .disabled(isSending || pickedURL == nil || settings.selectedTargetIds.isEmpty)
 
+                    // Hinweis wenn Dynamic Island / Live Activities deaktiviert sind
+                    if #available(iOS 16.2, *), !liveActivitiesEnabled {
+                        CardSection {
+                            CardFormRow(divider: false) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .foregroundColor(.orange)
+                                        .font(.title3)
+                                        .frame(width: 22)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(String(localized: "Dynamic Island deaktiviert"))
+                                            .fontWeight(.semibold)
+                                            .font(.system(size: 14))
+                                        Text(String(localized: "Aktiviere Live-Aktivitäten unter Einstellungen → MySecurePrint → Live-Aktivitäten, um den Upload-Fortschritt in der Dynamic Island zu sehen."))
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Erfolgs-Banner — erscheint kurz nach dem Enqueue
                     if sentConfirmation {
                         CardSection {
@@ -309,6 +333,9 @@ struct UploadView: View {
                     color = !settings.printBW
                     imageSize = settings.printImageSize
                     colorInitialized = true
+                }
+                if #available(iOS 16.2, *) {
+                    liveActivitiesEnabled = ActivityAuthorizationInfo().areActivitiesEnabled
                 }
             }
             .alert(String(localized: "Share-Fehler"),

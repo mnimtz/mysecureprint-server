@@ -86,19 +86,28 @@ struct JobsView: View {
             }
             .refreshable { await reload() }
             .task {
-                // Sofort Cache-Daten anzeigen, dann ggf. live nachladen
-                if !initializedFromCache && !cache.jobs.isEmpty {
-                    jobs = cache.jobs
-                    hasMore = cache.jobsHasMore
-                    initializedFromCache = true
-                } else if jobs.isEmpty {
-                    await reload()
-                }
-                // pendingJob ggf. vorne einsetzen — onChange feuert nur bei
-                // Änderungen, nicht für bereits gesetzten Wert beim View-Aufbau.
+                // 1. pendingJob SOFORT einsetzen — noch bevor irgendein
+                //    Netzwerkaufruf startet, damit der Platzhalter instant
+                //    sichtbar ist wenn der User nach dem Senden zum Jobs-Tab wechselt.
                 if let pending = cache.pendingJob,
                    !jobs.contains(where: { $0.job_id == pending.job_id }) {
                     jobs.insert(pending, at: 0)
+                }
+                // 2. Daten laden: erst Cache, dann Netzwerk falls nötig.
+                if !initializedFromCache && !cache.jobs.isEmpty {
+                    // Cache-Daten zeigen; pendingJob ggf. wieder vorne
+                    let cached = cache.jobs
+                    jobs = cached
+                    hasMore = cache.jobsHasMore
+                    initializedFromCache = true
+                    if let pending = cache.pendingJob,
+                       !jobs.contains(where: { $0.job_id == pending.job_id }) {
+                        jobs.insert(pending, at: 0)
+                    }
+                } else if !initializedFromCache {
+                    // Kein Cache vorhanden: Netzwerkabruf; pendingJob bleibt
+                    // sichtbar während reload() läuft.
+                    await reload()
                 }
             }
             // Optimistic Insert: sobald UploadView einen Job erfolgreich gesendet
