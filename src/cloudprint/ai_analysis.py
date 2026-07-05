@@ -336,13 +336,15 @@ def _analyse_gemini(
         err_body = e.read().decode(errors="replace")[:400]
         logger.warning("gemini HTTP %s: %s", e.code, err_body)
         if e.code == 429:
-            return {"_error": f"quota_exceeded_http_{e.code}"}
+            return {"_error": "gemini_kontingent_erschoepft"}
+        if e.code in (500, 502, 503, 504):
+            return {"_error": f"gemini_nicht_verfuegbar_{e.code}"}
         if e.code in (404, 400):
-            return {"_error": f"model_error_http_{e.code}"}
-        return {"_error": f"http_{e.code}"}
+            return {"_error": f"gemini_modell_fehler_{e.code}"}
+        return {"_error": f"gemini_http_{e.code}"}
     except Exception as e:
         logger.warning("gemini request failed: %s", e)
-        return {"_error": "request_failed"}
+        return {"_error": "gemini_netzwerkfehler"}
 
     # Safety / empty candidates check
     if not data.get("candidates"):
