@@ -1,5 +1,6 @@
 import Foundation
 import ActivityKit
+import Combine
 import UIKit
 
 /// Hintergrund-Upload via URLSession background configuration.

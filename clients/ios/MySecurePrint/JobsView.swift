@@ -770,7 +770,7 @@ private struct FullscreenImagePreview: View {
 
 // MARK: - Data Models  (internal — AppCache liest sie auch)
 
-struct PrintJob: Decodable, Identifiable, Equatable {
+struct PrintJob: Codable, Identifiable, Equatable {
     let job_id: String
     let filename: String
     let status: String
