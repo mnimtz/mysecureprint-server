@@ -26074,6 +26074,54 @@ for lang in ("fr", "it", "es", "nl", "no", "sv", "cockney", "us_south"):
 for lang in ("bar", "hessisch", "oesterreichisch", "schwiizerdütsch"):
     TRANSLATIONS.setdefault(lang, {}).update(EXTRA_TRANSLATIONS["de"])
 
+# Fix: ai_* EN-Keys landeten durch einen Strukturfehler im "us_south"-Block
+# statt im "en"-Block von EXTRA_TRANSLATIONS.  Explizites Update stellt
+# die korrekten englischen Übersetzungen für alle Sprachen sicher.
+_AI_EN: dict[str, str] = {
+    'ai_page_title':                    'Document Analysis (AI)',
+    'ai_page_subtitle':                 'Automatically analyses print jobs in the background. '
+                                        'Results appear in the job details of the iOS app. '
+                                        'Analysis runs exclusively via the selected provider — no external storage.',
+    'ai_settings_saved':                '✓ AI settings saved.',
+    'ai_section_config':                'Configuration',
+    'ai_enabled_label':                 'Document analysis enabled',
+    'ai_enabled_hint':                  'Can be disabled at any time without losing the configuration.',
+    'ai_provider_label':                'Provider',
+    'ai_provider_placeholder':          '— select —',
+    'ai_provider_ollama_label':         'Ollama (local)',
+    'ai_provider_hint':                 'Gemini supports PDFs and photos. Ollama for text documents only (local, free).',
+    'ai_gemini_api_key_label':          'Gemini API Key',
+    'ai_gemini_api_key_placeholder_saved': '● saved — leave blank to keep',
+    'ai_gemini_api_key_hint_saved':     '✓ API key stored. Only fill in to change.',
+    'ai_gemini_api_key_hint_link':      'API key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>.',
+    'ai_gemini_model_label':            'Gemini Model',
+    'ai_gemini_model_placeholder':      '— select model —',
+    'ai_gemini_load_models_btn':        'Load models',
+    'ai_gemini_model_hint':             'Recommendation: <code>gemini-2.0-flash-lite</code> (very affordable, fast, multimodal).',
+    'ai_ollama_url_label':              'Ollama Server URL',
+    'ai_ollama_model_label':            'Ollama Model',
+    'ai_ollama_model_hint':             'Run <code>ollama list</code> on the server to see available models.',
+    'ai_fields_label':                  'Analysis fields',
+    'ai_fields_hint':                   'Select which information the AI should extract from each document.',
+    'ai_field_doc_type':                'Document type',
+    'ai_field_color_rec':               'Colour recommendation',
+    'ai_field_sensitivity':             'Sensitivity',
+    'ai_field_summary':                 'Summary',
+    'ai_field_tags':                    'Tags',
+    'ai_custom_fields_label':           'Custom fields',
+    'ai_custom_fields_hint':            'Define additional fields the AI should extract. Each field becomes a separate prompt.',
+    'ai_add_field_btn':                 '+ Add field',
+    'ai_js_enter_key_first':            'Please enter the API key and save first.',
+    'ai_js_loading':                    'Loading…',
+    'ai_js_select_model':               '— select model —',
+    'ai_js_error_prefix':               'Error: ',
+    'ai_js_models_loaded':              ' models loaded',
+    'ai_js_network_error':              'Network error: ',
+}
+TRANSLATIONS.setdefault("en", {}).update(_AI_EN)
+for _lang in ("fr", "it", "es", "nl", "no", "sv", "cockney", "us_south"):
+    TRANSLATIONS.setdefault(_lang, {}).update(_AI_EN)
+
 # Per-language overrides for cache_last_loaded / cache_refresh_title
 # (must run after the EN/DE propagation loops above so they take effect)
 _CACHE_LAST_LOADED_OVERRIDES: dict[str, str] = {
