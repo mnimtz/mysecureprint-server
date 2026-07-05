@@ -62,6 +62,41 @@ struct UploadView: View {
             ScrollView {
                 VStack(spacing: 20) {
 
+                    // Live Activities Warnung — ganz oben damit User sie sofort sieht
+                    if #available(iOS 16.2, *), !liveActivitiesEnabled {
+                        HStack(spacing: 12) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                                .font(.title3)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(String(localized: "Dynamic Island deaktiviert"))
+                                    .fontWeight(.semibold)
+                                    .font(.system(size: 14))
+                                Text(String(localized: "Aktiviere Live-Aktivitäten damit der Upload-Fortschritt in der Dynamic Island erscheint."))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Button {
+                                if let url = URL(string: UIApplication.openSettingsURLString) {
+                                    UIApplication.shared.open(url)
+                                }
+                            } label: {
+                                Text(String(localized: "Öffnen"))
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(Color.orange.opacity(0.15))
+                                    .foregroundColor(.orange)
+                                    .clipShape(Capsule())
+                            }
+                        }
+                        .padding(14)
+                        .background(Color.orange.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+
                     CardSection(String(localized: "Datei")) {
                         CardFormRow {
                             Button { showImporter = true } label: {
@@ -241,28 +276,6 @@ struct UploadView: View {
                     }
                     .buttonStyle(GoldButtonStyle())
                     .disabled(isSending || pickedURL == nil || settings.selectedTargetIds.isEmpty)
-
-                    // Hinweis wenn Dynamic Island / Live Activities deaktiviert sind
-                    if #available(iOS 16.2, *), !liveActivitiesEnabled {
-                        CardSection {
-                            CardFormRow(divider: false) {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "exclamationmark.triangle.fill")
-                                        .foregroundColor(.orange)
-                                        .font(.title3)
-                                        .frame(width: 22)
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(String(localized: "Dynamic Island deaktiviert"))
-                                            .fontWeight(.semibold)
-                                            .font(.system(size: 14))
-                                        Text(String(localized: "Aktiviere Live-Aktivitäten unter Einstellungen → MySecurePrint → Live-Aktivitäten, um den Upload-Fortschritt in der Dynamic Island zu sehen."))
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                            }
-                        }
-                    }
 
                     // Erfolgs-Banner — erscheint kurz nach dem Enqueue
                     if sentConfirmation {
@@ -520,11 +533,13 @@ struct UploadView: View {
                 )
             }
 
+            // Nach 5s: Server hat den Job in DB — noCache:true damit der
+            // 30s-Server-Cache umgangen wird und der Job sofort erscheint.
             Task {
                 try? await Task.sleep(for: .seconds(5))
-                await cache.refreshJobs(settings: settings)
+                await cache.refreshJobs(settings: settings, noCache: true)
             }
-            // Zweiter Refresh nach 30s — AI-Analyse fertig; Cache umgehen.
+            // Nach 30s: KI-Analyse fertig, Cache erneut umgehen.
             Task {
                 try? await Task.sleep(for: .seconds(30))
                 await cache.refreshJobs(settings: settings, noCache: true)

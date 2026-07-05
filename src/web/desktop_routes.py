@@ -2109,6 +2109,9 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     logger.warning("initial cloudprint_job insert failed: %s", _cj)
             try:
                 await asyncio.to_thread(_do)
+                # Cache sofort invalidieren: der neue Job ist jetzt in der DB
+                # und der nächste /me/jobs-Aufruf (5s-iOS-Refresh) soll ihn sehen.
+                _jobs_cache_invalidate(user.get("user_id", ""))
             except Exception:
                 pass
         asyncio.create_task(_bg_create_tracking())
