@@ -166,8 +166,9 @@ def analyse_job(
         else:
             return
 
-        if not result:
-            _audit_ai("ai_analysis_failed", {"reason": "empty_result", "provider": provider,
+        if not result or "_error" in result:
+            reason = (result or {}).get("_error", "empty_result")
+            _audit_ai("ai_analysis_failed", {"reason": reason, "provider": provider,
                                               "filename": filename, "mime": mime})
             return
 
@@ -332,19 +333,37 @@ def _analyse_gemini(
         with urllib.request.urlopen(req, timeout=60) as resp:
             data = json.loads(resp.read())
     except urllib.error.HTTPError as e:
-        err_body = e.read().decode(errors="replace")[:300]
+        err_body = e.read().decode(errors="replace")[:400]
         logger.warning("gemini HTTP %s: %s", e.code, err_body)
-        return None
+        if e.code == 429:
+            return {"_error": f"quota_exceeded_http_{e.code}"}
+        if e.code in (404, 400):
+            return {"_error": f"model_error_http_{e.code}"}
+        return {"_error": f"http_{e.code}"}
     except Exception as e:
         logger.warning("gemini request failed: %s", e)
-        return None
+        return {"_error": "request_failed"}
+
+    # Safety / empty candidates check
+    if not data.get("candidates"):
+        block = (data.get("promptFeedback") or {}).get("blockReason", "no_candidates")
+        logger.warning("gemini no candidates: blockReason=%s", block)
+        return {"_error": f"safety_{block}" if block != "no_candidates" else "no_candidates"}
+
+    cand = data["candidates"][0]
+    finish = cand.get("finishReason", "")
+    if finish == "SAFETY":
+        logger.warning("gemini SAFETY finish: %s", cand.get("safetyRatings", ""))
+        return {"_error": "safety_SAFETY"}
+    if finish in ("RECITATION", "OTHER", "BLOCKLIST"):
+        return {"_error": f"finish_{finish}"}
 
     try:
-        text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        text = cand["content"]["parts"][0]["text"].strip()
         return _parse_json_response(text)
     except Exception as e:
-        logger.warning("gemini response parse error: %s — raw: %s", e, str(data)[:300])
-        return None
+        logger.warning("gemini response parse error: %s — raw: %s", e, str(data)[:400])
+        return {"_error": "parse_error"}
 
 
 # ── Ollama ────────────────────────────────────────────────────────────────────
