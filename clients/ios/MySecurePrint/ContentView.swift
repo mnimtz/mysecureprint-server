@@ -86,35 +86,44 @@ struct ContentView: View {
     }
 }
 
+// MARK: - Tab metadata (used for ordering + labels)
+
+struct AppTabDef {
+    let id: String
+    let title: LocalizedStringKey
+    let icon: String
+}
+
+private let tabDefs: [AppTabDef] = [
+    .init(id: "upload",  title: "Upload", icon: "paperplane.fill"),
+    .init(id: "targets", title: "Ziele",  icon: "printer.fill"),
+    .init(id: "jobs",    title: "Jobs",   icon: "clock.arrow.circlepath"),
+]
+
+func tabDef(for id: String) -> AppTabDef {
+    tabDefs.first(where: { $0.id == id })
+        ?? .init(id: id, title: LocalizedStringKey(id), icon: "questionmark")
+}
+
+// MARK: - MainTabs
+
 private struct MainTabs: View {
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var cache: AppCache
 
     var body: some View {
         TabView {
-            UploadView()
-                .tabItem { Label("Upload", systemImage: "paperplane.fill") }
+            // ── Sortierbare Haupt-Tabs (Upload / Ziele / Jobs) ──────────
+            orderedMainTabs()
 
-            TargetsView()
-                .tabItem { Label("Ziele", systemImage: "printer.fill") }
-
-            JobsView()
-                .tabItem { Label("Jobs", systemImage: "clock.arrow.circlepath") }
-
+            // ── Bedingte Tabs ────────────────────────────────────────────
+            // Tab-Limit: iOS bündelt Tabs 6+ automatisch in ein system-
+            // generiertes "More"-Menü → doppelte NavigationBar. Daher ≤ 5.
             if settings.hasManagementAccess {
                 ManagementView()
                     .tabItem { Label("Management", systemImage: "building.2.fill") }
             }
 
-            // Tab-Limit: iOS bündelt Tabs 6+ automatisch in ein system-
-            // generiertes "More"-Menü, das die eigenen NavigationStacks
-            // der Views in einen weiteren NavigationStack pusht →
-            // doppelte/überhöhte Navigationsleiste. Daher immer ≤ 5 Tabs:
-            //
-            // management + cards  → 5. Tab = eigenes MoreView (Cards + Konto)
-            // management + !cards → 5. Tab = Konto direkt
-            // !management + cards → 4+5. Tab = Cards + Konto direkt
-            // !management + !cards→ 4. Tab = Konto direkt
             if settings.hasManagementAccess && settings.hasCardsAccess {
                 MoreView()
                     .tabItem { Label(String(localized: "Mehr"), systemImage: "ellipsis") }
@@ -143,6 +152,36 @@ private struct MainTabs: View {
         .task {
             await refreshRole()
             await cache.preloadIfNeeded(settings: settings)
+        }
+    }
+
+    // Rendert die drei sortierbaren Tabs in der vom User gespeicherten Reihenfolge.
+    @ViewBuilder
+    private func orderedMainTabs() -> some View {
+        let order = settings.mainTabOrder
+        // Muss statisch expandiert werden — ForEach + tabItem verträgt kein
+        // dynamisches ViewBuilder-Dispatching über alle SwiftUI-Versionen.
+        let t0 = order.indices.contains(0) ? order[0] : "upload"
+        let t1 = order.indices.contains(1) ? order[1] : "targets"
+        let t2 = order.indices.contains(2) ? order[2] : "jobs"
+        singleTab(id: t0)
+        singleTab(id: t1)
+        singleTab(id: t2)
+    }
+
+    @ViewBuilder
+    private func singleTab(id: String) -> some View {
+        let def = tabDef(for: id)
+        switch id {
+        case "upload":
+            UploadView()
+                .tabItem { Label(def.title, systemImage: def.icon) }
+        case "targets":
+            TargetsView()
+                .tabItem { Label(def.title, systemImage: def.icon) }
+        default: // "jobs"
+            JobsView()
+                .tabItem { Label(def.title, systemImage: def.icon) }
         }
     }
 
@@ -185,6 +224,7 @@ private struct MainTabs: View {
 struct AccountContent: View {
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var l10n: L10n
+    @State private var showTabOrder = false
 
     var appVersionString: String {
         let info    = Bundle.main.infoDictionary
@@ -204,6 +244,37 @@ struct AccountContent: View {
 
     var body: some View {
         List {
+                // ── Startseite anpassen ─────────────────────────────────
+                Section {
+                    Button {
+                        showTabOrder = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "square.3.layers.3d")
+                                .foregroundColor(MSP.cyan)
+                                .frame(width: 24)
+                            Text(String(localized: "Tab-Reihenfolge anpassen"))
+                            Spacer()
+                            HStack(spacing: 4) {
+                                ForEach(settings.mainTabOrder, id: \.self) { id in
+                                    Image(systemName: tabDef(for: id).icon)
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                } header: {
+                    Text(String(localized: "Startseite"))
+                }
+                .sheet(isPresented: $showTabOrder) {
+                    TabOrderSheet(order: $settings.mainTabOrder)
+                }
+
                 // ── Avatar header ───────────────────────────────────────
                 Section {
                     HStack(spacing: 16) {
@@ -433,5 +504,53 @@ struct AccountContent: View {
 private struct AccountView: View {
     var body: some View {
         NavigationStack { AccountContent() }
+    }
+}
+
+// MARK: - Tab-Reihenfolge Sheet
+
+private struct TabOrderSheet: View {
+    @Binding var order: [String]
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(order, id: \.self) { id in
+                        let def = tabDef(for: id)
+                        HStack(spacing: 14) {
+                            Image(systemName: def.icon)
+                                .foregroundColor(MSP.cyan)
+                                .frame(width: 28)
+                            Text(def.title)
+                                .font(.system(size: 16))
+                            Spacer()
+                            Image(systemName: "line.3.horizontal")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    .onMove { from, to in
+                        order.move(fromOffsets: from, toOffset: to)
+                    }
+                } header: {
+                    Text(String(localized: "Ziehe die Tabs in die gewünschte Reihenfolge"))
+                } footer: {
+                    Text(String(localized: "Management, Karten und Konto werden immer am Ende angezeigt."))
+                }
+            }
+            .listStyle(.insetGrouped)
+            .environment(\.editMode, .constant(.active))
+            .navigationTitle(String(localized: "Tab-Reihenfolge"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "Fertig")) { dismiss() }
+                        .foregroundColor(MSP.cyan)
+                }
+            }
+        }
     }
 }

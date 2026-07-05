@@ -43,7 +43,11 @@ final class SettingsStore: ObservableObject {
         static let autoResetEnabled       = "autoResetEnabled"       // Auto-Reset: an/aus
         static let autoResetMinutes       = "autoResetMinutes"       // Auto-Reset: Dauer in Minuten
         static let backgroundUploadEnabled = "backgroundUploadEnabled" // Hintergrund-Senden
+        static let mainTabOrder          = "mainTabOrder"             // Tab-Reihenfolge
     }
+
+    /// Mögliche Haupt-Tab-IDs (immer sichtbar, vom User sortierbar).
+    static let reorderableTabIDs = ["upload", "targets", "jobs"]
 
     /// Default-Ziel, auf das der Auto-Reset-Timer zurueckfaellt.
     /// "print:self" ist die magische Printix-ID fuer das eigene
@@ -224,6 +228,16 @@ final class SettingsStore: ObservableObject {
         }
     }
 
+    /// Reihenfolge der drei sortierbare Haupt-Tabs. Enthält immer genau
+    /// die IDs ["upload","targets","jobs"] — nur die Reihenfolge variiert.
+    @Published var mainTabOrder: [String] {
+        didSet {
+            if let data = try? JSONEncoder().encode(mainTabOrder) {
+                defaults.set(data, forKey: Keys.mainTabOrder)
+            }
+        }
+    }
+
     @Published var recentDelegateIds: [String] {
         didSet {
             if let data = try? JSONEncoder().encode(recentDelegateIds) {
@@ -347,6 +361,14 @@ final class SettingsStore: ObservableObject {
             self.recentDelegateIds = arr
         } else {
             self.recentDelegateIds = []
+        }
+        // Tab-Reihenfolge — validieren: muss genau die drei IDs enthalten.
+        if let data = defaults.data(forKey: Keys.mainTabOrder),
+           let arr  = try? JSONDecoder().decode([String].self, from: data),
+           Set(arr) == Set(Self.reorderableTabIDs) {
+            self.mainTabOrder = arr
+        } else {
+            self.mainTabOrder = Self.reorderableTabIDs
         }
     }
 
