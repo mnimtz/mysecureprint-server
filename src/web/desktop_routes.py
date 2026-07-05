@@ -1508,7 +1508,24 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     um_client_id=tenant.get("um_client_id", ""),
                     um_client_secret=tenant.get("um_client_secret", ""),
                 )
-                job_data   = client.get_print_job(px_job_id)
+                try:
+                    job_data = client.get_print_job(px_job_id)
+                except Exception as _px404:
+                    from printix_client import PrintixAPIError
+                    if isinstance(_px404, PrintixAPIError) and _px404.status_code == 404:
+                        # Job bei Printix gelöscht → als "deleted" markieren
+                        with _conn() as conn:
+                            conn.execute(
+                                "UPDATE cloudprint_jobs SET status = 'deleted' WHERE job_id = ?",
+                                (job_id,),
+                            )
+                        _jobs_cache_invalidate(uid)
+                        _audit(user, "job_status_updated",
+                               extra={"job_id": job_id, "px_state": "DELETED_404",
+                                      "old_status": db_status, "new_status": "deleted"})
+                        return JSONResponse({"job_id": job_id, "status": "deleted",
+                                             "printix_status": "DELETED", "fresh": True})
+                    raise
                 px_state   = (job_data.get("printJobState") or "").upper()
                 new_status = _map_printix_state(px_state, db_status)
                 px_error   = ""
