@@ -2147,6 +2147,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                         file_bytes=data if isinstance(data, (bytes, bytearray)) else b"",
                         filename=file.filename or "",
                         ai_cfg=_ai_cfg,
+                        user_id=user.get("user_id", ""),
                     )
                 except Exception as _ae:
                     logger.warning("bg_ai_analysis job=%s: %s", internal_id, _ae)

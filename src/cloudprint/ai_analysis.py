@@ -84,6 +84,7 @@ def analyse_job(
     file_bytes: bytes,
     filename: str,
     ai_cfg: dict,
+    user_id: str = "",
 ) -> None:
     """Synchron — immer in asyncio.to_thread() aufrufen.
 
@@ -91,6 +92,26 @@ def analyse_job(
       provider, gemini_key, gemini_model, ollama_url, ollama_model,
       fields (kommagetrennt, leer = alle), custom_prompts (list[dict])
     """
+    import sys, os as _os
+    src_dir = _os.path.dirname(_os.path.dirname(__file__))
+    if src_dir not in sys.path:
+        sys.path.insert(0, src_dir)
+
+    def _audit_ai(action: str, details: dict) -> None:
+        try:
+            from db import audit as _db_audit
+            import json as _j
+            _db_audit(
+                user_id or None,
+                action,
+                details=_j.dumps(details, ensure_ascii=False)[:2000],
+                object_type="print_job",
+                object_id=job_id,
+                tenant_id=ai_cfg.get("tenant_id", ""),
+            )
+        except Exception as _ae:
+            logger.debug("audit(%s) failed: %s", action, _ae)
+
     try:
         provider     = (ai_cfg.get("provider") or "").strip()
         gemini_key   = (ai_cfg.get("gemini_key") or "").strip()
@@ -115,12 +136,17 @@ def analyse_job(
                 return
             if mime not in _GEMINI_ALLOWED_MIMES:
                 logger.info("ai_analysis: job=%s übersprungen — MIME '%s' nicht unterstützt", job_id, mime)
+                _audit_ai("ai_analysis_skipped", {"reason": "unsupported_mime", "mime": mime,
+                                                   "provider": provider, "filename": filename})
                 return
             if len(file_bytes) > _MAX_BYTES_GEMINI:
+                mb = len(file_bytes) // (1024 * 1024)
                 logger.info(
                     "ai_analysis: job=%s übersprungen — Datei zu groß (%d MB > %d MB Limit)",
-                    job_id, len(file_bytes) // (1024 * 1024), _MAX_BYTES_GEMINI // (1024 * 1024),
+                    job_id, mb, _MAX_BYTES_GEMINI // (1024 * 1024),
                 )
+                _audit_ai("ai_analysis_skipped", {"reason": "file_too_large", "size_mb": mb,
+                                                   "provider": provider, "filename": filename})
                 return
             prompt = _build_prompt(is_image, enabled_fields, custom_prompts)
             result = _analyse_gemini(file_bytes, mime, prompt, gemini_key, gemini_model)
@@ -131,10 +157,13 @@ def analyse_job(
                 logger.debug("ai_analysis: Ollama für Bild nicht unterstützt — überspringe %s", job_id)
                 return
             if len(file_bytes) > _MAX_BYTES_OLLAMA:
+                mb = len(file_bytes) // (1024 * 1024)
                 logger.info(
                     "ai_analysis: job=%s Datei zu groß für Ollama-Text-Extraktion (%d MB)",
-                    job_id, len(file_bytes) // (1024 * 1024),
+                    job_id, mb,
                 )
+                _audit_ai("ai_analysis_skipped", {"reason": "file_too_large", "size_mb": mb,
+                                                   "provider": provider, "filename": filename})
                 return
             prompt = _build_prompt(is_image=False, enabled_fields=enabled_fields,
                                    custom_prompts=custom_prompts, for_ollama=True)
@@ -143,12 +172,10 @@ def analyse_job(
             return
 
         if not result:
+            _audit_ai("ai_analysis_failed", {"reason": "empty_result", "provider": provider,
+                                              "filename": filename, "mime": mime})
             return
 
-        import sys, os as _os
-        src_dir = _os.path.dirname(_os.path.dirname(__file__))
-        if src_dir not in sys.path:
-            sys.path.insert(0, src_dir)
         from db import _conn
 
         import datetime
@@ -190,8 +217,20 @@ def analyse_job(
             job_id, provider, ",".join(sorted(enabled_fields)), len(custom_prompts),
             result.get("doc_type", ""),
         )
+        _audit_ai("ai_analysis_completed", {
+            "provider":   provider,
+            "model":      gemini_model or ollama_model,
+            "filename":   filename,
+            "doc_type":   result.get("doc_type", ""),
+            "sensitivity":result.get("sensitivity", ""),
+            "color_rec":  result.get("color_rec", ""),
+            "tags":       tags_str,
+            "fields":     ",".join(sorted(enabled_fields)),
+            "custom_fields": len(custom_prompts),
+        })
     except Exception as e:
         logger.warning("ai_analysis: job=%s error=%s", job_id, e)
+        _audit_ai("ai_analysis_failed", {"reason": str(e)[:300], "filename": filename})
 
 
 # ── Prompt-Builder ─────────────────────────────────────────────────────────────
