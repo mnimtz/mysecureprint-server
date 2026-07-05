@@ -40,6 +40,8 @@ final class SettingsStore: ObservableObject {
         static let anywhereOnly      = "anywhereOnly"      // Phase B: Anywhere-Filter
         static let printBW           = "printBW"           // Druckeinstellungen: Schwarzweiß
         static let printImageSize    = "printImageSize"    // Druckeinstellungen: Bildgröße
+        static let autoResetEnabled  = "autoResetEnabled"  // Auto-Reset: an/aus
+        static let autoResetMinutes  = "autoResetMinutes"  // Auto-Reset: Dauer in Minuten
     }
 
     /// Default-Ziel, auf das der Auto-Reset-Timer zurueckfaellt.
@@ -47,11 +49,8 @@ final class SettingsStore: ObservableObject {
     /// SecurePrint-Konto — immer vorhanden, kein API-Lookup noetig.
     static let defaultTargetId = "print:self"
 
-    /// Wie lange eine abweichende Zielauswahl (Delegate/...)
-    /// aktiv bleibt, bevor sie auf SecurePrint zurueckgestellt wird.
-    /// 10 min ist ein Kompromiss: lang genug um mehrere Dokumente
-    /// zu senden, kurz genug um "vergessen"-Drucke zu vermeiden.
-    static let autoResetInterval: TimeInterval = 10 * 60
+    /// Default-Dauer des Auto-Reset-Timers in Minuten.
+    static let defaultAutoResetMinutes = 10
 
     private let defaults: UserDefaults
 
@@ -198,6 +197,25 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(printImageSize, forKey: Keys.printImageSize) }
     }
 
+    /// Auto-Reset-Timer: ob er überhaupt aktiv ist. Default `true`.
+    @Published var autoResetEnabled: Bool {
+        didSet {
+            defaults.set(autoResetEnabled, forKey: Keys.autoResetEnabled)
+            applyAutoResetPolicy()
+        }
+    }
+
+    /// Auto-Reset-Timer: Dauer in Minuten. Default 10.
+    @Published var autoResetMinutes: Int {
+        didSet {
+            defaults.set(autoResetMinutes, forKey: Keys.autoResetMinutes)
+            // Wenn Timer läuft, Ablaufzeit mit neuer Dauer neu berechnen.
+            if selectionExpiresAt != nil {
+                selectionExpiresAt = Date().addingTimeInterval(TimeInterval(autoResetMinutes) * 60)
+            }
+        }
+    }
+
     @Published var recentDelegateIds: [String] {
         didSet {
             if let data = try? JSONEncoder().encode(recentDelegateIds) {
@@ -291,6 +309,15 @@ final class SettingsStore: ObservableObject {
         self.anywhereOnly     = defaults.bool(forKey: Keys.anywhereOnly)
         self.printBW          = defaults.bool(forKey: Keys.printBW)
         self.printImageSize   = defaults.string(forKey: Keys.printImageSize) ?? "full"
+        // Auto-Reset: default ON; minutes default 10.
+        // `object(forKey:) == nil` unterscheidet "nicht gesetzt" von false/0.
+        if defaults.object(forKey: Keys.autoResetEnabled) == nil {
+            self.autoResetEnabled = true
+        } else {
+            self.autoResetEnabled = defaults.bool(forKey: Keys.autoResetEnabled)
+        }
+        let storedMinutes = defaults.integer(forKey: Keys.autoResetMinutes)
+        self.autoResetMinutes = storedMinutes > 0 ? storedMinutes : Self.defaultAutoResetMinutes
         if let data = defaults.data(forKey: Keys.recentQueueIds),
            let arr  = try? JSONDecoder().decode([String].self, from: data) {
             self.recentQueueIds = arr
@@ -315,22 +342,18 @@ final class SettingsStore: ObservableObject {
     func applyAutoResetPolicy() {
         let isDefault = selectedTargetIds == [Self.defaultTargetId]
                      || selectedTargetIds.isEmpty
-        if isDefault {
+        if isDefault || !autoResetEnabled {
             selectionExpiresAt = nil
         } else if selectionExpiresAt == nil {
-            selectionExpiresAt = Date().addingTimeInterval(Self.autoResetInterval)
+            selectionExpiresAt = Date().addingTimeInterval(TimeInterval(autoResetMinutes) * 60)
         }
     }
 
     /// Prueft ob der Timer abgelaufen ist und setzt ggf. zurueck.
-    /// Wird von UploadView periodisch aufgerufen (TimelineView).
-    /// Rueckgabewert signalisiert, ob ein Reset passiert ist —
-    /// UploadView kann dann ein kurzes Toast/Feedback zeigen.
     @discardableResult
     func resetToDefaultIfExpired() -> Bool {
-        guard let expiry = selectionExpiresAt, Date() >= expiry else {
-            return false
-        }
+        guard autoResetEnabled else { return false }
+        guard let expiry = selectionExpiresAt, Date() >= expiry else { return false }
         selectedTargetIds = [Self.defaultTargetId]
         selectionExpiresAt = nil
         return true

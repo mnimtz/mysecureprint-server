@@ -296,15 +296,18 @@ struct TargetsView: View {
     }
 
     private func addQueueSelection(_ q: QueueItem) {
-        if settings.selectedTargetIds.contains(q.id) { return }
         let label: String = {
             if let p = q.printerName, !p.isEmpty, p != q.queueName {
                 return "\(q.queueName) (\(p))"
             }
             return q.queueName
         }()
+        // Alle bestehenden Ziele ersetzen (labels aufräumen), nur neue Queue behalten.
+        for id in settings.selectedTargetIds {
+            settings.targetLabels.removeValue(forKey: id)
+        }
+        settings.selectedTargetIds = [q.id]
         settings.targetLabels[q.id] = label
-        settings.selectedTargetIds.append(q.id)
         settings.addRecentQueue(id: q.id)
         settings.applyAutoResetPolicy()
     }

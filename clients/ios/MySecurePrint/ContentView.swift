@@ -284,6 +284,40 @@ struct AccountContent: View {
                     }
                 }
 
+                // ── Auto-Reset ──────────────────────────────────────────
+                Section(String(localized: "Auto-Reset Ziel")) {
+                    HStack(alignment: .top) {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .foregroundColor(MSP.cyan)
+                            .frame(width: 24)
+                            .padding(.top, 2)
+                        Toggle(isOn: $settings.autoResetEnabled) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(String(localized: "Auto-Reset aktiv"))
+                                    .font(.system(size: 15))
+                                Text(String(localized: "Zielauswahl nach Timer auf Secure Print zurücksetzen."))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .tint(MSP.cyan)
+                    }
+                    if settings.autoResetEnabled {
+                        HStack {
+                            Image(systemName: "timer")
+                                .foregroundColor(MSP.cyan)
+                                .frame(width: 24)
+                            Picker(String(localized: "Timer-Dauer"), selection: $settings.autoResetMinutes) {
+                                Text(String(localized: "5 Minuten")).tag(5)
+                                Text(String(localized: "10 Minuten")).tag(10)
+                                Text(String(localized: "15 Minuten")).tag(15)
+                                Text(String(localized: "30 Minuten")).tag(30)
+                                Text(String(localized: "60 Minuten")).tag(60)
+                            }
+                        }
+                    }
+                }
+
                 // ── Druckeinstellungen ──────────────────────────────────
                 Section(String(localized: "Druckeinstellungen")) {
                     HStack(alignment: .top) {

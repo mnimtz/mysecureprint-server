@@ -1750,6 +1750,114 @@
         }
       }
     },
+    "5 Minuten": {
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "5 Minuten" } },
+        "en": { "stringUnit": { "state": "translated", "value": "5 minutes" } },
+        "es": { "stringUnit": { "state": "translated", "value": "5 minutos" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "5 minutes" } },
+        "it": { "stringUnit": { "state": "translated", "value": "5 minuti" } },
+        "nb": { "stringUnit": { "state": "translated", "value": "5 minutter" } },
+        "nl": { "stringUnit": { "state": "translated", "value": "5 minuten" } },
+        "sv": { "stringUnit": { "state": "translated", "value": "5 minuter" } }
+      }
+    },
+    "10 Minuten": {
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "10 Minuten" } },
+        "en": { "stringUnit": { "state": "translated", "value": "10 minutes" } },
+        "es": { "stringUnit": { "state": "translated", "value": "10 minutos" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "10 minutes" } },
+        "it": { "stringUnit": { "state": "translated", "value": "10 minuti" } },
+        "nb": { "stringUnit": { "state": "translated", "value": "10 minutter" } },
+        "nl": { "stringUnit": { "state": "translated", "value": "10 minuten" } },
+        "sv": { "stringUnit": { "state": "translated", "value": "10 minuter" } }
+      }
+    },
+    "15 Minuten": {
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "15 Minuten" } },
+        "en": { "stringUnit": { "state": "translated", "value": "15 minutes" } },
+        "es": { "stringUnit": { "state": "translated", "value": "15 minutos" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "15 minutes" } },
+        "it": { "stringUnit": { "state": "translated", "value": "15 minuti" } },
+        "nb": { "stringUnit": { "state": "translated", "value": "15 minutter" } },
+        "nl": { "stringUnit": { "state": "translated", "value": "15 minuten" } },
+        "sv": { "stringUnit": { "state": "translated", "value": "15 minuter" } }
+      }
+    },
+    "30 Minuten": {
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "30 Minuten" } },
+        "en": { "stringUnit": { "state": "translated", "value": "30 minutes" } },
+        "es": { "stringUnit": { "state": "translated", "value": "30 minutos" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "30 minutes" } },
+        "it": { "stringUnit": { "state": "translated", "value": "30 minuti" } },
+        "nb": { "stringUnit": { "state": "translated", "value": "30 minutter" } },
+        "nl": { "stringUnit": { "state": "translated", "value": "30 minuten" } },
+        "sv": { "stringUnit": { "state": "translated", "value": "30 minuter" } }
+      }
+    },
+    "60 Minuten": {
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "60 Minuten" } },
+        "en": { "stringUnit": { "state": "translated", "value": "60 minutes" } },
+        "es": { "stringUnit": { "state": "translated", "value": "60 minutos" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "60 minutes" } },
+        "it": { "stringUnit": { "state": "translated", "value": "60 minuti" } },
+        "nb": { "stringUnit": { "state": "translated", "value": "60 minutter" } },
+        "nl": { "stringUnit": { "state": "translated", "value": "60 minuten" } },
+        "sv": { "stringUnit": { "state": "translated", "value": "60 minuter" } }
+      }
+    },
+    "Auto-Reset aktiv": {
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Auto-Reset aktiv" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Auto-reset active" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Restablecimiento automático activo" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Réinitialisation auto active" } },
+        "it": { "stringUnit": { "state": "translated", "value": "Reset automatico attivo" } },
+        "nb": { "stringUnit": { "state": "translated", "value": "Automatisk tilbakestilling aktiv" } },
+        "nl": { "stringUnit": { "state": "translated", "value": "Automatisch resetten actief" } },
+        "sv": { "stringUnit": { "state": "translated", "value": "Automatisk återställning aktiv" } }
+      }
+    },
+    "Auto-Reset Ziel": {
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Auto-Reset Ziel" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Auto-reset Target" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Destino con restablecimiento automático" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Réinitialisation auto de la cible" } },
+        "it": { "stringUnit": { "state": "translated", "value": "Reset automatico destinazione" } },
+        "nb": { "stringUnit": { "state": "translated", "value": "Automatisk tilbakestilling av mål" } },
+        "nl": { "stringUnit": { "state": "translated", "value": "Automatisch resetten bestemming" } },
+        "sv": { "stringUnit": { "state": "translated", "value": "Automatisk återställning av mål" } }
+      }
+    },
+    "Timer-Dauer": {
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Timer-Dauer" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Timer duration" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Duración del temporizador" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Durée du minuteur" } },
+        "it": { "stringUnit": { "state": "translated", "value": "Durata timer" } },
+        "nb": { "stringUnit": { "state": "translated", "value": "Timervarighet" } },
+        "nl": { "stringUnit": { "state": "translated", "value": "Timerduur" } },
+        "sv": { "stringUnit": { "state": "translated", "value": "Timerlängd" } }
+      }
+    },
+    "Zielauswahl nach Timer auf Secure Print zurücksetzen.": {
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Zielauswahl nach Timer auf Secure Print zurücksetzen." } },
+        "en": { "stringUnit": { "state": "translated", "value": "Reset target selection to Secure Print after timer expires." } },
+        "es": { "stringUnit": { "state": "translated", "value": "Restablecer destino a Secure Print cuando expire el temporizador." } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Réinitialiser la cible sur Secure Print après le minuteur." } },
+        "it": { "stringUnit": { "state": "translated", "value": "Reimposta destinazione su Secure Print allo scadere del timer." } },
+        "nb": { "stringUnit": { "state": "translated", "value": "Tilbakestill mål til Secure Print når timeren utløper." } },
+        "nl": { "stringUnit": { "state": "translated", "value": "Doel terugzetten naar Secure Print na het verstrijken van de timer." } },
+        "sv": { "stringUnit": { "state": "translated", "value": "Återställ mål till Secure Print när timern löper ut." } }
+      }
+    },
     "Base64": {
       "localizations": {
         "en": {
