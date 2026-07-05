@@ -249,10 +249,14 @@ struct UploadView: View {
                                         .font(.title3)
                                         .frame(width: 22)
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(String(localized: "Wird im Hintergrund gesendet"))
+                                        Text(settings.backgroundUploadEnabled
+                                             ? String(localized: "Wird im Hintergrund gesendet")
+                                             : String(localized: "Erfolgreich gesendet"))
                                             .fontWeight(.semibold)
                                             .font(.system(size: 14))
-                                        Text(String(localized: "Status in der Dynamic Island oder im Jobs-Tab sichtbar."))
+                                        Text(settings.backgroundUploadEnabled
+                                             ? String(localized: "Status in der Dynamic Island oder im Jobs-Tab sichtbar.")
+                                             : String(localized: "Auftrag wurde angenommen."))
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
@@ -393,9 +397,8 @@ struct UploadView: View {
         }
     }
 
-    /// Datei lesen → BackgroundUploadManager übergeben → sofort zurückkehren.
-    /// Die eigentliche HTTP-Übertragung läuft im Hintergrund via URLSession;
-    /// der Status erscheint in der Dynamic Island und im Jobs-Tab.
+    /// Datei lesen und abhängig von der Einstellung im Hintergrund oder
+    /// direkt (Foreground) hochladen.
     @MainActor
     private func enqueue() async {
         errorText = ""
@@ -429,22 +432,39 @@ struct UploadView: View {
                 (id: $0, display: settings.targetLabels[$0] ?? $0)
             }
 
-            await BackgroundUploadManager.shared.enqueue(
-                fileData: data,
-                filename: filename,
-                targets: targets,
-                serverURL: settings.serverURL,
-                token: settings.bearerToken,
-                comment: comment.isEmpty ? nil : comment,
-                copies: copies,
-                color: color,
-                duplex: duplex,
-                printImageSize: effectiveImageSize,
-                groupLabel: groupLabel
-            )
+            if settings.backgroundUploadEnabled {
+                await BackgroundUploadManager.shared.enqueue(
+                    fileData: data,
+                    filename: filename,
+                    targets: targets,
+                    serverURL: settings.serverURL,
+                    token: settings.bearerToken,
+                    comment: comment.isEmpty ? nil : comment,
+                    copies: copies,
+                    color: color,
+                    duplex: duplex,
+                    printImageSize: effectiveImageSize,
+                    groupLabel: groupLabel
+                )
+            } else {
+                // Foreground-Upload: wartet auf Antwort, zeigt Ergebnis inline.
+                try await BackgroundUploadManager.shared.sendForeground(
+                    fileData: data,
+                    filename: filename,
+                    targets: targets,
+                    serverURL: settings.serverURL,
+                    token: settings.bearerToken,
+                    comment: comment.isEmpty ? nil : comment,
+                    copies: copies,
+                    color: color,
+                    duplex: duplex,
+                    printImageSize: effectiveImageSize,
+                    groupLabel: groupLabel
+                )
+            }
 
             sentConfirmation = true
-            pickedURL = nil   // Dateiauswahl zurücksetzen
+            pickedURL = nil
             comment = ""
 
             // Optimistisch: Jobs-Tab sofort mit Platzhalter aktualisieren
@@ -460,10 +480,9 @@ struct UploadView: View {
                     data_size: data.count
                 )
                 cache.pendingJob = job
-                _ = targetId  // wird im BackgroundManager verwendet
+                _ = targetId
             }
 
-            // Refresh nach ein paar Sekunden — ersetzt Placeholder durch echte Daten
             Task {
                 try? await Task.sleep(for: .seconds(5))
                 await cache.refreshJobs(settings: settings)

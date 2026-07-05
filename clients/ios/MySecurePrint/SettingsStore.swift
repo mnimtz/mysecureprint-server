@@ -40,8 +40,9 @@ final class SettingsStore: ObservableObject {
         static let anywhereOnly      = "anywhereOnly"      // Phase B: Anywhere-Filter
         static let printBW           = "printBW"           // Druckeinstellungen: Schwarzweiß
         static let printImageSize    = "printImageSize"    // Druckeinstellungen: Bildgröße
-        static let autoResetEnabled  = "autoResetEnabled"  // Auto-Reset: an/aus
-        static let autoResetMinutes  = "autoResetMinutes"  // Auto-Reset: Dauer in Minuten
+        static let autoResetEnabled       = "autoResetEnabled"       // Auto-Reset: an/aus
+        static let autoResetMinutes       = "autoResetMinutes"       // Auto-Reset: Dauer in Minuten
+        static let backgroundUploadEnabled = "backgroundUploadEnabled" // Hintergrund-Senden
     }
 
     /// Default-Ziel, auf das der Auto-Reset-Timer zurueckfaellt.
@@ -197,6 +198,13 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(printImageSize, forKey: Keys.printImageSize) }
     }
 
+    /// Hintergrund-Senden: ob Uploads via URLSession-Background-Session
+    /// mit Dynamic-Island-Anzeige laufen. Default `true`.
+    /// Wenn aus: direkter Foreground-Upload mit inline Ergebnis.
+    @Published var backgroundUploadEnabled: Bool {
+        didSet { defaults.set(backgroundUploadEnabled, forKey: Keys.backgroundUploadEnabled) }
+    }
+
     /// Auto-Reset-Timer: ob er überhaupt aktiv ist. Default `true`.
     @Published var autoResetEnabled: Bool {
         didSet {
@@ -309,6 +317,12 @@ final class SettingsStore: ObservableObject {
         self.anywhereOnly     = defaults.bool(forKey: Keys.anywhereOnly)
         self.printBW          = defaults.bool(forKey: Keys.printBW)
         self.printImageSize   = defaults.string(forKey: Keys.printImageSize) ?? "full"
+        // Hintergrund-Senden: default ON.
+        if defaults.object(forKey: Keys.backgroundUploadEnabled) == nil {
+            self.backgroundUploadEnabled = true
+        } else {
+            self.backgroundUploadEnabled = defaults.bool(forKey: Keys.backgroundUploadEnabled)
+        }
         // Auto-Reset: default ON; minutes default 10.
         // `object(forKey:) == nil` unterscheidet "nicht gesetzt" von false/0.
         if defaults.object(forKey: Keys.autoResetEnabled) == nil {

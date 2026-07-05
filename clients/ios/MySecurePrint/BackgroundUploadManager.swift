@@ -90,6 +90,49 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
         pendingCount += targets.count
     }
 
+    /// Direkter Foreground-Upload — blockiert bis zur Antwort des Servers.
+    /// Wirft bei HTTP-Fehler oder Netzwerkfehler. Kein Live-Activity.
+    func sendForeground(
+        fileData: Data,
+        filename: String,
+        targets: [(id: String, display: String)],
+        serverURL: String,
+        token: String,
+        comment: String?,
+        copies: Int,
+        color: Bool,
+        duplex: Bool,
+        printImageSize: String,
+        groupLabel: String?
+    ) async throws {
+        guard !targets.isEmpty else { return }
+        let trimmed = serverURL.trimmingCharacters(in: .init(charactersIn: "/"))
+        guard let base = URL(string: trimmed) else {
+            throw URLError(.badURL)
+        }
+        let uploadURL = base.appendingPathComponent("desktop/send")
+        for (targetId, _) in targets {
+            let boundary = "Boundary-\(UUID().uuidString)"
+            let bodyData = buildMultipart(
+                boundary: boundary, fileData: fileData, filename: filename,
+                targetId: targetId, comment: comment, copies: copies,
+                color: color, duplex: duplex, printImageSize: printImageSize,
+                groupLabel: groupLabel
+            )
+            var req = URLRequest(url: uploadURL)
+            req.httpMethod = "POST"
+            req.setValue("multipart/form-data; boundary=\(boundary)",
+                         forHTTPHeaderField: "Content-Type")
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            req.timeoutInterval = 180
+            let (_, response) = try await URLSession.shared.upload(for: req, from: bodyData)
+            if let http = response as? HTTPURLResponse,
+               !(200..<300).contains(http.statusCode) {
+                throw URLError(.badServerResponse)
+            }
+        }
+    }
+
     /// Speichert den Completion-Handler den iOS nach Background-Wake liefert.
     /// Muss SOFORT aus handleEventsForBackgroundURLSession aufgerufen werden.
     func handleBackgroundEvents(identifier: String, completionHandler: @escaping () -> Void) {

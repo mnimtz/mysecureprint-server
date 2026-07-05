@@ -319,6 +319,26 @@ struct AccountContent: View {
                     }
                 }
 
+                // ── Upload ─────────────────────────────────────────────
+                Section(String(localized: "Upload")) {
+                    HStack(alignment: .top) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .foregroundColor(MSP.cyan)
+                            .frame(width: 24)
+                            .padding(.top, 2)
+                        Toggle(isOn: $settings.backgroundUploadEnabled) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(String(localized: "Hintergrund-Senden"))
+                                    .font(.system(size: 15))
+                                Text(String(localized: "Upload läuft im Hintergrund weiter. Dynamic Island zeigt den Fortschritt."))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .tint(MSP.cyan)
+                    }
+                }
+
                 // ── Druckeinstellungen ──────────────────────────────────
                 Section(String(localized: "Druckeinstellungen")) {
                     HStack(alignment: .top) {
