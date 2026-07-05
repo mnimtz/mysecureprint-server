@@ -263,6 +263,10 @@ private struct JobRow: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+            // KI-Analyse-Chips (Typ · Vertraulichkeit · Tags)
+            if hasAIData {
+                aiChipsRow
+            }
             // Delegiert-von-Flag (empfangener Delegate-Job)
             if let delegate = job.delegated_from, !delegate.isEmpty {
                 delegateTag(name: delegate)
@@ -280,6 +284,50 @@ private struct JobRow: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private var hasAIData: Bool {
+        (job.ai_doc_type.map { !$0.isEmpty } ?? false)
+        || (job.ai_sensitivity.map { !$0.isEmpty } ?? false)
+        || (job.ai_tags.map { !$0.isEmpty } ?? false)
+    }
+
+    @ViewBuilder
+    private var aiChipsRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 5) {
+                if let docType = job.ai_doc_type, !docType.isEmpty {
+                    miniChip(docType, color: .gray, icon: "doc.text.magnifyingglass")
+                }
+                if let sens = job.ai_sensitivity, !sens.isEmpty {
+                    let (c, label) = sensitivityStyle(sens)
+                    miniChip(label, color: c, icon: "lock.shield")
+                }
+                if let tags = job.ai_tags, !tags.isEmpty {
+                    let tagList = tags.split(separator: ",")
+                        .map { $0.trimmingCharacters(in: .whitespaces) }
+                        .filter { !$0.isEmpty }
+                        .prefix(3)
+                    ForEach(Array(tagList.enumerated()), id: \.offset) { _, tag in
+                        miniChip(tag, color: .purple, icon: "tag")
+                    }
+                }
+            }
+            .padding(.vertical, 1)
+        }
+    }
+
+    @ViewBuilder
+    private func miniChip(_ label: String, color: Color, icon: String) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon).font(.system(size: 9))
+            Text(label).font(.system(size: 11)).fontWeight(.medium).lineLimit(1)
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(color.opacity(0.12))
+        .foregroundColor(color)
+        .clipShape(Capsule())
     }
 
     @ViewBuilder
@@ -659,14 +707,17 @@ struct JobDetailView: View {
         return String(format: "%.1f MB", b / (1_024 * 1_024))
     }
 
-    private func sensitivityStyle(_ s: String) -> (Color, String) {
-        switch s.lowercased() {
-        case "öffentlich": return (.green,  String(localized: "Öffentlich"))
-        case "privat":     return (.purple, String(localized: "Privat"))
-        case "intern":     return (.orange, String(localized: "Intern"))
-        case "vertraulich": return (.red,  String(localized: "Vertraulich"))
-        default:           return (.gray, s)
-        }
+}
+
+// MARK: - Sensitivity Style (shared)
+
+private func sensitivityStyle(_ s: String) -> (Color, String) {
+    switch s.lowercased() {
+    case "öffentlich":  return (.green,  String(localized: "Öffentlich"))
+    case "privat":      return (.purple, String(localized: "Privat"))
+    case "intern":      return (.orange, String(localized: "Intern"))
+    case "vertraulich": return (.red,    String(localized: "Vertraulich"))
+    default:            return (.gray,   s)
     }
 }
 
