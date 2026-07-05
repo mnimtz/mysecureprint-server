@@ -1547,6 +1547,10 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 else:
                     logger.debug("job_status no change: job=%s px_state=%s status=%s",
                                  job_id, px_state, db_status)
+                    if os.environ.get("DEBUG_JOB_STATUS_AUDIT"):
+                        _audit(user, "job_status_checked",
+                               extra={"job_id": job_id, "px_state": px_state,
+                                      "status": db_status, "changed": False})
 
                 return JSONResponse({"job_id": job_id, "status": new_status,
                                      "printix_status": px_state, "fresh": True})
