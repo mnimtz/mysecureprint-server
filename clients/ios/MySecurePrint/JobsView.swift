@@ -98,6 +98,13 @@ struct JobsView: View {
                 jobs.insert(job, at: 0)
                 cache.jobs = jobs
             }
+            // Status-Updates die JobDetailView per Polling ins Cache schreibt,
+            // sofort in der Liste sichtbar machen — ohne Full-Refresh.
+            .onChange(of: cache.jobs) { _, newJobs in
+                let byId = Dictionary(newJobs.map { ($0.job_id, $0) },
+                                      uniquingKeysWith: { $1 })
+                jobs = jobs.map { byId[$0.job_id] ?? $0 }
+            }
             .sheet(item: $selectedJob) { job in
                 JobDetailView(job: job)
             }
@@ -340,6 +347,10 @@ struct JobDetailView: View {
     @State private var previewLoading = false
     @State private var previewFullscreen = false
     @State private var displayStatus: String = ""
+    // liveJob: befüllt vom AI-Refresh nach ~15s, damit AI-Felder ohne
+    // manuellen Refresh erscheinen sobald die Server-Analyse fertig ist.
+    @State private var liveJob: PrintJob? = nil
+    private var current: PrintJob { liveJob ?? job }
 
     var body: some View {
         NavigationStack {
@@ -429,9 +440,9 @@ struct JobDetailView: View {
                     }
                 }
 
-                if let _ = job.ai_analyzed_at.flatMap({ $0.isEmpty ? nil : $0 }) {
+                if let _ = current.ai_analyzed_at.flatMap({ $0.isEmpty ? nil : $0 }) {
                     Section {
-                        if let docType = job.ai_doc_type, !docType.isEmpty {
+                        if let docType = current.ai_doc_type, !docType.isEmpty {
                             HStack {
                                 Label(String(localized: "Dokumenttyp"), systemImage: "doc.text.magnifyingglass")
                                     .foregroundColor(.secondary)
@@ -441,7 +452,7 @@ struct JobDetailView: View {
                                     .fontWeight(.medium)
                             }
                         }
-                        if let color = job.ai_color_rec, !color.isEmpty {
+                        if let color = current.ai_color_rec, !color.isEmpty {
                             HStack {
                                 Label(String(localized: "Farbmodus"), systemImage: "paintpalette")
                                     .foregroundColor(.secondary)
@@ -457,7 +468,7 @@ struct JobDetailView: View {
                                     .clipShape(Capsule())
                             }
                         }
-                        if let sens = job.ai_sensitivity, !sens.isEmpty {
+                        if let sens = current.ai_sensitivity, !sens.isEmpty {
                             HStack {
                                 Label(String(localized: "Vertraulichkeit"), systemImage: "lock.shield")
                                     .foregroundColor(.secondary)
@@ -473,7 +484,7 @@ struct JobDetailView: View {
                                     .clipShape(Capsule())
                             }
                         }
-                        if let tags = job.ai_tags, !tags.isEmpty {
+                        if let tags = current.ai_tags, !tags.isEmpty {
                             VStack(alignment: .leading, spacing: 6) {
                                 Label(String(localized: "Schlagwörter"), systemImage: "tag")
                                     .foregroundColor(.secondary)
@@ -482,7 +493,7 @@ struct JobDetailView: View {
                                 FlowTagsView(tags: tagList)
                             }
                         }
-                        if let summary = job.ai_summary, !summary.isEmpty {
+                        if let summary = current.ai_summary, !summary.isEmpty {
                             VStack(alignment: .leading, spacing: 4) {
                                 Label(String(localized: "Beschreibung"), systemImage: "sparkles")
                                     .foregroundColor(.secondary)
@@ -493,7 +504,7 @@ struct JobDetailView: View {
                             }
                             .padding(.vertical, 2)
                         }
-                        if let extraJson = job.ai_extra,
+                        if let extraJson = current.ai_extra,
                            !extraJson.isEmpty, extraJson != "{}",
                            let data = extraJson.data(using: .utf8),
                            let dict = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
@@ -558,6 +569,28 @@ struct JobDetailView: View {
                         }
                     }
                     retries += 1
+                }
+            }
+            // Einmaliger AI-Refresh: falls Job noch keine Analyse hat,
+            // nach 20s den Cache neu laden — die Analyse läuft serverseitig
+            // im Hintergrund und ist dann fertig.
+            .task {
+                guard current.ai_analyzed_at == nil
+                    || (current.ai_analyzed_at?.isEmpty == true) else { return }
+                try? await Task.sleep(for: .seconds(20))
+                guard !Task.isCancelled else { return }
+                await cache.refreshJobs(settings: settings)
+                if let updated = cache.jobs.first(where: { $0.job_id == job.job_id }) {
+                    liveJob = updated
+                }
+            }
+            // Cache-Update von außen (z.B. Status-Polling anderer Instanz) übernehmen.
+            .onChange(of: cache.jobs) { _, newJobs in
+                if let updated = newJobs.first(where: { $0.job_id == job.job_id }) {
+                    liveJob = updated
+                    if displayStatus != updated.status, !updated.status.isEmpty {
+                        displayStatus = updated.status
+                    }
                 }
             }
         }

@@ -2123,11 +2123,11 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                         ai_cfg=_ai_cfg,
                     )
                 except Exception as _ae:
-                    logger.debug("bg_ai_analysis: %s", _ae)
+                    logger.warning("bg_ai_analysis job=%s: %s", internal_id, _ae)
             try:
                 await asyncio.to_thread(_do_ai)
-            except Exception:
-                pass
+            except Exception as _outer:
+                logger.warning("bg_ai_analysis outer job=%s: %s", internal_id, _outer)
         asyncio.create_task(_bg_ai_analysis())
 
         # v0.7.5: Wrapper mit 5-Min-Watchdog. Wenn die BG-Task laenger als
