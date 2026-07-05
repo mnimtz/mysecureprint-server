@@ -203,16 +203,25 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
     @available(iOS 16.2, *)
     private func startActivity(batchID: String, filename: String,
                                targetDisplay: String, count: Int) {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        let info = ActivityAuthorizationInfo()
+        print("[LiveActivity] areActivitiesEnabled=\(info.areActivitiesEnabled)")
+        guard info.areActivitiesEnabled else {
+            print("[LiveActivity] Activities disabled — skipping")
+            return
+        }
         let attrs = PrintUploadAttributes(filename: filename, targetCount: count)
         let state = PrintUploadAttributes.ContentState(
             phase: .uploading, targetDisplay: targetDisplay)
-        if let activity = try? Activity.request(
-            attributes: attrs,
-            content: .init(state: state, staleDate: nil),
-            pushType: nil
-        ) {
+        do {
+            let activity = try Activity.request(
+                attributes: attrs,
+                content: .init(state: state, staleDate: nil),
+                pushType: nil
+            )
             batchActivities[batchID] = activity
+            print("[LiveActivity] Started: \(activity.id)")
+        } catch {
+            print("[LiveActivity] Error starting activity: \(error)")
         }
     }
 
