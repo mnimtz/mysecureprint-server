@@ -496,6 +496,11 @@ struct UploadView: View {
             }
         } catch {
             errorText = error.localizedDescription
+            // Refresh job list so server-side failed entry becomes visible.
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                await cache.refreshJobs(settings: settings)
+            }
         }
     }
 

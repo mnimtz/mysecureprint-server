@@ -1781,6 +1781,52 @@
         }
       }
     },
+    "Auftrag wurde angenommen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Job has been accepted."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El trabajo ha sido aceptado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le travail a été accepté."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il lavoro è stato accettato."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jobben er mottatt."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opdracht is geaccepteerd."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jobbet har tagits emot."
+          }
+        }
+      }
+    },
     "Aus Dateien wählen" : {
       "localizations" : {
         "en" : {
@@ -2121,17 +2167,6 @@
             "value" : "Automatisk återställning av mål"
           }
         }
-      }
-    },
-    "Auftrag wurde angenommen." : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Job has been accepted." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "El trabajo ha sido aceptado." } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Le travail a été accepté." } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Il lavoro è stato accettato." } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Jobben er mottatt." } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Opdracht is geaccepteerd." } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Jobbet har tagits emot." } }
       }
     },
     "Base64" : {
@@ -3023,6 +3058,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Delegat: %@"
+          }
+        }
+      }
+    },
+    "Delegation" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delegation"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delegación"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Délégation"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delega"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delegering"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delegatie"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delegering"
           }
         }
       }
@@ -4116,6 +4197,52 @@
         }
       }
     },
+    "Druckwarteschlange" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Print queue"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cola de impresión"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File d'impression"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coda di stampa"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utskriftskø"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afdrukwachtrij"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utskriftskö"
+          }
+        }
+      }
+    },
     "Duplex" : {
       "localizations" : {
         "en" : {
@@ -4399,6 +4526,9 @@
     "Empfänger" : {
 
     },
+    "Entfernen" : {
+
+    },
     "Erfolgreich gedruckt ✓" : {
       "localizations" : {
         "en" : {
@@ -4447,13 +4577,48 @@
     },
     "Erfolgreich gesendet" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Successfully sent" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Enviado correctamente" } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Envoyé avec succès" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Inviato con successo" } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Sendt" } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Succesvol verzonden" } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Skickat" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Successfully sent"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviado correctamente"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoyé avec succès"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inviato con successo"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sendt"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Succesvol verzonden"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skickat"
+          }
+        }
       }
     },
     "Ergebnis" : {
@@ -5830,13 +5995,48 @@
     },
     "Hintergrund-Senden" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Background Sending" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Envío en segundo plano" } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Envoi en arrière-plan" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Invio in background" } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Sending i bakgrunnen" } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Verzenden op achtergrond" } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Skicka i bakgrunden" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Background Sending"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envío en segundo plano"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoi en arrière-plan"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invio in background"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending i bakgrunnen"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verzenden op achtergrond"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skicka i bakgrunden"
+          }
+        }
       }
     },
     "https://mysecureprint.example.com" : {
@@ -8449,37 +8649,50 @@
         }
       }
     },
-    "Delegation" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delegation" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Delegación" } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Délégation" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Delega" } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Delegering" } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Delegatie" } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Delegering" } }
-      }
-    },
-    "Druckwarteschlange" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Print queue" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cola de impresión" } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "File d'impression" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Coda di stampa" } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Utskriftskø" } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Afdrukwachtrij" } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Utskriftskö" } }
-      }
-    },
     "Mehr" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "More" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Más" } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Plus" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Altro" } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Mer" } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Meer" } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Mer" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plus"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Altro"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mer"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meer"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mer"
+          }
+        }
       }
     },
     "Mehr laden" : {
@@ -12715,13 +12928,48 @@
     },
     "Status in der Dynamic Island oder im Jobs-Tab sichtbar." : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Status visible in the Dynamic Island or in the Jobs tab." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Estado visible en la Dynamic Island o en la pestaña Trabajos." } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Statut visible dans la Dynamic Island ou dans l'onglet Travaux." } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Stato visibile nella Dynamic Island o nella scheda Lavori." } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Status vises i Dynamic Island eller i Jobs-fanen." } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Status zichtbaar in de Dynamic Island of op het tabblad Taken." } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Status visas i Dynamic Island eller på fliken Jobb." } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status visible in the Dynamic Island or in the Jobs tab."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estado visible en la Dynamic Island o en la pestaña Trabajos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Statut visible dans la Dynamic Island ou dans l'onglet Travaux."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stato visibile nella Dynamic Island o nella scheda Lavori."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status vises i Dynamic Island eller i Jobs-fanen."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status zichtbaar in de Dynamic Island of op het tabblad Taken."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status visas i Dynamic Island eller på fliken Jobb."
+          }
+        }
       }
     },
     "Tag-Typ %@ gefunden, aber keine UID lesbar." : {
@@ -13380,13 +13628,48 @@
     },
     "Upload läuft im Hintergrund weiter. Dynamic Island zeigt den Fortschritt." : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Upload continues in the background. Dynamic Island shows the progress." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "La carga continúa en segundo plano. La Dynamic Island muestra el progreso." } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "L'envoi continue en arrière-plan. La Dynamic Island affiche la progression." } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Il caricamento continua in background. La Dynamic Island mostra l'avanzamento." } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Opplastingen fortsetter i bakgrunnen. Dynamic Island viser fremdriften." } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Uploaden gaat door op de achtergrond. Dynamic Island toont de voortgang." } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Uppladdningen fortsätter i bakgrunden. Dynamic Island visar förloppet." } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upload continues in the background. Dynamic Island shows the progress."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La carga continúa en segundo plano. La Dynamic Island muestra el progreso."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'envoi continue en arrière-plan. La Dynamic Island affiche la progression."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il caricamento continua in background. La Dynamic Island mostra l'avanzamento."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opplastingen fortsetter i bakgrunnen. Dynamic Island viser fremdriften."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploaden gaat door op de achtergrond. Dynamic Island toont de voortgang."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uppladdningen fortsätter i bakgrunden. Dynamic Island visar förloppet."
+          }
+        }
       }
     },
     "users_loading" : {
@@ -14037,13 +14320,48 @@
     },
     "Wird im Hintergrund gesendet" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sending in the background" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Enviando en segundo plano" } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Envoi en arrière-plan en cours" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Invio in background in corso" } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Sender i bakgrunnen" } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Verzenden op de achtergrond" } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Skickar i bakgrunden" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending in the background"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviando en segundo plano"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoi en arrière-plan en cours"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invio in background in corso"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sender i bakgrunnen"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verzenden op de achtergrond"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skickar i bakgrunden"
+          }
+        }
       }
     },
     "Wird verarbeitet…" : {

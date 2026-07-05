@@ -81,8 +81,7 @@ struct UserListView: View {
     private func roleMatches(_ role: String?, filter: String) -> Bool {
         let r = (role ?? "").uppercased()
         switch filter {
-        case "admin":    return r.contains("ADMIN")
-        case "employee": return !r.contains("ADMIN") && !r.contains("GUEST")
+        case "employee": return !r.contains("GUEST")
         case "guest":    return r.contains("GUEST")
         default:         return true
         }
@@ -104,10 +103,9 @@ struct UserListView: View {
         List {
             Section {
                 HStack(spacing: 8) {
-                    mgmtFilterChip(String(localized: "Alle"),          selected: roleFilter == nil)          { roleFilter = nil }
-                    mgmtFilterChip(String(localized: "Administrator"), selected: roleFilter == "admin")    { roleFilter = "admin" }
-                    mgmtFilterChip(String(localized: "Mitarbeiter"),   selected: roleFilter == "employee") { roleFilter = "employee" }
-                    mgmtFilterChip(String(localized: "Gäste"),         selected: roleFilter == "guest")    { roleFilter = "guest" }
+                    mgmtFilterChip(String(localized: "Alle"),        selected: roleFilter == nil)          { roleFilter = nil }
+                    mgmtFilterChip(String(localized: "Mitarbeiter"), selected: roleFilter == "employee") { roleFilter = "employee" }
+                    mgmtFilterChip(String(localized: "Gäste"),       selected: roleFilter == "guest")    { roleFilter = "guest" }
                     Spacer()
                 }
             }
