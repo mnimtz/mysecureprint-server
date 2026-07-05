@@ -467,11 +467,12 @@ struct UploadView: View {
             pickedURL = nil
             comment = ""
 
-            // Optimistisch: Jobs-Tab sofort mit Platzhalter aktualisieren
-            let iso = ISO8601DateFormatter()
-            iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            for (targetId, display) in targets {
-                let job = PrintJob(
+            // Optimistisch: Jobs-Tab sofort mit Platzhalter für das erste Ziel aktualisieren.
+            // Bei Multi-Target erscheinen die weiteren Jobs nach dem Hintergrund-Refresh.
+            if let (_, display) = targets.first {
+                let iso = ISO8601DateFormatter()
+                iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                cache.pendingJob = PrintJob(
                     job_id: UUID().uuidString,
                     filename: filename,
                     status: "queued",
@@ -479,8 +480,6 @@ struct UploadView: View {
                     created_at: iso.string(from: Date()),
                     data_size: data.count
                 )
-                cache.pendingJob = job
-                _ = targetId
             }
 
             Task {
@@ -522,6 +521,7 @@ struct UploadView: View {
 /// dass die App gerade Daten lädt und noch kein Fehler vorliegt.
 private struct InitializingRow: View {
     @State private var dotCount = 0
+    @State private var ticker: Timer?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -534,10 +534,13 @@ private struct InitializingRow: View {
                 .animation(.none, value: dotCount)
         }
         .onAppear {
-            // Ticker: 0 → 1 → 2 → 0 → …
-            Timer.scheduledTimer(withTimeInterval: 0.45, repeats: true) { t in
+            ticker = Timer.scheduledTimer(withTimeInterval: 0.45, repeats: true) { _ in
                 dotCount = (dotCount + 1) % 3
             }
+        }
+        .onDisappear {
+            ticker?.invalidate()
+            ticker = nil
         }
     }
 }

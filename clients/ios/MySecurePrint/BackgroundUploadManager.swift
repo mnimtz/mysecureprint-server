@@ -214,8 +214,8 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
         }
         field("target_id",        targetId)
         field("copies",           "\(copies)")
-        field("color",            color  ? "1" : "")
-        field("duplex",           duplex ? "1" : "")
+        field("color",            color  ? "1" : "0")
+        field("duplex",           duplex ? "1" : "0")
         field("print_image_size", printImageSize)
         if let c = comment, !c.isEmpty { field("comment",     c) }
         if let g = groupLabel, !g.isEmpty { field("group_label", g) }
@@ -311,13 +311,10 @@ extension BackgroundUploadManager: URLSessionDataDelegate, URLSessionTaskDelegat
                                 didReceive data: Data) {
         let id = dataTask.taskIdentifier
         Task { @MainActor in
-            if taskResponseData[id] != nil {
-                taskResponseData[id]!.append(data)
-            } else {
-                taskResponseData[id] = data
-            }
+            taskResponseData[id, default: Data()].append(data)
         }
     }
+
 
     // Task abgeschlossen — Ergebnis auswerten, Activity beenden
     nonisolated func urlSession(_ session: URLSession,
@@ -340,9 +337,9 @@ extension BackgroundUploadManager: URLSessionDataDelegate, URLSessionTaskDelegat
 
             if isSuccess {
                 // Optimistischen Job in App-Group schreiben
-                struct Partial: Decodable { let jobId: String?; let status: String? }
+                struct Partial: Decodable { let job_id: String?; let status: String? }
                 let parsed = responseData.flatMap { try? JSONDecoder().decode(Partial.self, from: $0) }
-                let jobId  = parsed?.jobId ?? UUID().uuidString
+                let jobId  = parsed?.job_id ?? UUID().uuidString
                 let status = parsed?.status ?? "queued"
                 persistPendingJob(filename: meta.filename, status: status,
                                   targetDisplay: meta.targetDisplay, jobId: jobId)

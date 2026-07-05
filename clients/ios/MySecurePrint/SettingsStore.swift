@@ -255,6 +255,10 @@ final class SettingsStore: ObservableObject {
 
     init() {
         let appGroupDefaults = UserDefaults(suiteName: Self.appGroupID)
+        if appGroupDefaults == nil {
+            // App-Group-Entitlement fehlt — Share-Extension kann keinen Token lesen.
+            assertionFailure("[SettingsStore] App-Group '\(Self.appGroupID)' nicht verfügbar — Entitlements prüfen!")
+        }
         self.defaults = appGroupDefaults ?? .standard
 
         self.serverURL    = defaults.string(forKey: Keys.serverURL)    ?? ""
