@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}Dokumentenanalyse (KI) — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width: 920px; margin: 32px auto;">
+
+  <h1 style="color: var(--ta-navy); font-size: 1.8em; font-weight: 800; margin-bottom: 4px;">
+    Dokumentenanalyse (KI)
+  </h1>
+  <p style="color: var(--text-muted); margin-bottom: 24px;">
+    Analysiert Druckaufträge automatisch im Hintergrund. Ergebnisse erscheinen
+    in den Job-Details der iOS-App. Die Analyse läuft ausschließlich über den
+    gewählten Anbieter — keine externen Speicherungen.
+  </p>
+
+  {% if request.query_params.get('ok') == 'ai_saved' %}
+  <div class="alert alert-success" style="margin-bottom: 16px;">✓ KI-Einstellungen gespeichert.</div>
+  {% endif %}
+  {% if request.query_params.get('err') %}
+  <div class="alert alert-error" style="margin-bottom: 16px;">⚠ {{ request.query_params.get('err') }}</div>
+  {% endif %}
+
+  <div class="card" style="margin-bottom: 24px;">
+    <h2 class="section-title">Konfiguration</h2>
+
+    <form method="post" action="/admin/settings/ai-analysis/save">
+
+      {# ── An/Aus ── #}
+      <div class="form-group">
+        <label class="toggle-label" style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+          <input type="hidden" name="ai_enabled_present" value="1">
+          <input type="checkbox" name="ai_enabled" value="1" id="ai-enabled-toggle"
+                 {% if ai_enabled %}checked{% endif %}
+                 onchange="aiEnabledChange(this.checked)">
+          <span style="font-weight:600;">Dokumentenanalyse aktiviert</span>
+        </label>
+        <p class="form-hint">Kann jederzeit deaktiviert werden, ohne die Konfiguration zu verlieren.</p>
+      </div>
+
+      <div id="ai-config-block" style="{% if not ai_enabled %}opacity:0.5;pointer-events:none;{% endif %}">
+
+        {# ── Anbieter ── #}
+        <div class="form-group">
+          <label class="form-label">Anbieter</label>
+          <select name="ai_provider" id="ai-provider-select" class="form-select" onchange="aiProviderChange(this.value)">
+            <option value=""        {% if not ai_provider %}selected{% endif %}>— wählen —</option>
+            <option value="gemini"  {% if ai_provider == 'gemini' %}selected{% endif %}>Google Gemini</option>
+            <option value="ollama"  {% if ai_provider == 'ollama' %}selected{% endif %}>Ollama (lokal)</option>
+          </select>
+          <p class="form-hint">Gemini unterstützt PDFs und Fotos. Ollama nur Textdokumente (lokal, kostenlos).</p>
+        </div>
+
+        {# ── Gemini ── #}
+        <div id="ai-gemini-block" style="{% if ai_provider != 'gemini' %}display:none;{% endif %}border-left:3px solid var(--ta-cyan);padding-left:14px;margin-top:4px;margin-bottom:12px;">
+          <div class="form-group">
+            <label class="form-label">Gemini API-Key</label>
+            <input type="password" name="ai_gemini_api_key" class="form-input" autocomplete="new-password"
+                   placeholder="{% if ai_has_gemini_key %}● gespeichert — leer lassen um beizubehalten{% else %}AIza…{% endif %}">
+            {% if ai_has_gemini_key %}
+            <p class="form-hint">✓ API-Key hinterlegt. Nur ausfüllen zum Ändern.</p>
+            {% else %}
+            <p class="form-hint">API-Key von <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>.</p>
+            {% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Gemini Modell</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <select name="ai_gemini_model" id="ai-gemini-model" class="form-select" style="flex:1;">
+                {% if ai_gemini_model %}
+                <option value="{{ ai_gemini_model }}" selected>{{ ai_gemini_model }}</option>
+                {% else %}
+                <option value="">— Modell wählen —</option>
+                {% endif %}
+              </select>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="loadGeminiModels()" id="ai-load-models-btn">
+                Modelle laden
+              </button>
+            </div>
+            <p class="form-hint">Empfehlung: <code>gemini-2.0-flash-lite</code> (sehr günstig, schnell, multimodal).</p>
+          </div>
+        </div>
+
+        {# ── Ollama ── #}
+        <div id="ai-ollama-block" style="{% if ai_provider != 'ollama' %}display:none;{% endif %}border-left:3px solid var(--ta-navy);padding-left:14px;margin-top:4px;margin-bottom:12px;">
+          <div class="form-group">
+            <label class="form-label">Ollama Server-URL</label>
+            <input type="url" name="ai_ollama_url" class="form-input"
+                   value="{{ ai_ollama_url }}"
+                   placeholder="http://localhost:11434">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ollama Modell</label>
+            <input type="text" name="ai_ollama_model" class="form-input"
+                   value="{{ ai_ollama_model }}"
+                   placeholder="z.B. qwen2.5:3b oder phi3:mini">
+            <p class="form-hint">Text-Modell für Dokumentanalyse. Bilder werden bei Ollama übersprungen.</p>
+          </div>
+        </div>
+
+        {# ── Analysierte Felder ── #}
+        <div class="form-group" style="border-top:1px solid var(--border-color);padding-top:14px;margin-top:4px;">
+          <label class="form-label">Analysierte Felder</label>
+          <p class="form-hint" style="margin-bottom:8px;">Welche Informationen soll die KI zurückliefern? Alle abgewählten Felder werden nicht analysiert und nicht angezeigt.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:10px 20px;">
+            {% set af = ai_fields_active %}
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" name="ai_field_doc_type" value="1" {% if 'doc_type' in af %}checked{% endif %}> Dokumenttyp
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" name="ai_field_color_rec" value="1" {% if 'color_rec' in af %}checked{% endif %}> Farbmodus
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" name="ai_field_sensitivity" value="1" {% if 'sensitivity' in af %}checked{% endif %}> Vertraulichkeit
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" name="ai_field_summary" value="1" {% if 'summary' in af %}checked{% endif %}> Zusammenfassung
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" name="ai_field_tags" value="1" {% if 'tags' in af %}checked{% endif %}> Schlagwörter
+            </label>
+          </div>
+        </div>
+
+        {# ── Zusätzliche Felder (Custom Prompts) ── #}
+        <div class="form-group" style="border-top:1px solid var(--border-color);padding-top:14px;margin-top:4px;">
+          <label class="form-label">Zusätzliche Felder</label>
+          <p class="form-hint" style="margin-bottom:10px;">
+            Definiere eigene Felder mit einem Variablennamen und einer Frage an die KI.
+            Die Antworten erscheinen in den Job-Details. Variablenname: nur Buchstaben, Ziffern, Unterstrich. Max. 5 Felder.
+          </p>
+          <div id="ai-custom-prompts-list">
+            {% for cp in ai_custom_prompts %}
+            <div class="ai-cp-row" style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;">
+              <input type="text" name="ai_cp_name_{{ loop.index0 }}" class="form-input"
+                     style="width:140px;flex-shrink:0;" placeholder="variablenname"
+                     value="{{ cp.name }}" pattern="[a-zA-Z0-9_]+" maxlength="40">
+              <input type="text" name="ai_cp_prompt_{{ loop.index0 }}" class="form-input"
+                     style="flex:1;" placeholder="Frage / Anweisung an die KI (z.B. Extrahiere die Rechnungsnummer)"
+                     value="{{ cp.prompt }}" maxlength="500">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="aiRemoveCpRow(this)"
+                      style="flex-shrink:0;padding:6px 10px;">✕</button>
+            </div>
+            {% endfor %}
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="aiAddCpRow()" id="ai-add-cp-btn"
+                  {% if ai_custom_prompts|length >= 5 %}style="display:none;"{% endif %}>
+            + Feld hinzufügen
+          </button>
+        </div>
+
+      </div>{# end ai-config-block #}
+
+      <div style="margin-top:18px;">
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>
+  </div>
+
+</div>
+
+<script>
+function aiEnabledChange(on) {
+  const block = document.getElementById('ai-config-block');
+  block.style.opacity = on ? '1' : '0.5';
+  block.style.pointerEvents = on ? '' : 'none';
+}
+function aiProviderChange(v) {
+  document.getElementById('ai-gemini-block').style.display = v === 'gemini' ? '' : 'none';
+  document.getElementById('ai-ollama-block').style.display = v === 'ollama' ? '' : 'none';
+}
+function loadGeminiModels() {
+  const keyInput = document.querySelector('[name="ai_gemini_api_key"]');
+  const select   = document.getElementById('ai-gemini-model');
+  const btn      = document.getElementById('ai-load-models-btn');
+  const rawKey   = (keyInput.value || '').trim();
+  const hasSaved = {{ 'true' if ai_has_gemini_key else 'false' }};
+  if (!rawKey && !hasSaved) {
+    alert('Bitte zuerst den Gemini API-Key eingeben und speichern.');
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Lädt…';
+  const url = rawKey ? `/api/gemini-models?key=${encodeURIComponent(rawKey)}` : '/api/gemini-models?key=saved';
+  fetch(url)
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) { alert('Fehler: ' + d.error); return; }
+      const current = select.value;
+      select.innerHTML = '<option value="">— Modell wählen —</option>';
+      (d.models || []).forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m; opt.textContent = m;
+        if (m === current) opt.selected = true;
+        select.appendChild(opt);
+      });
+      btn.textContent = d.models.length + ' Modelle geladen';
+    })
+    .catch(e => { alert('Netzwerkfehler: ' + e); })
+    .finally(() => { btn.disabled = false; });
+}
+function aiAddCpRow() {
+  const list = document.getElementById('ai-custom-prompts-list');
+  const idx  = list.querySelectorAll('.ai-cp-row').length;
+  if (idx >= 5) return;
+  const row = document.createElement('div');
+  row.className = 'ai-cp-row';
+  row.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;';
+  row.innerHTML = `
+    <input type="text" name="ai_cp_name_${idx}" class="form-input"
+           style="width:140px;flex-shrink:0;" placeholder="variablenname"
+           pattern="[a-zA-Z0-9_]+" maxlength="40">
+    <input type="text" name="ai_cp_prompt_${idx}" class="form-input"
+           style="flex:1;" placeholder="Frage / Anweisung an die KI" maxlength="500">
+    <button type="button" class="btn btn-secondary btn-sm" onclick="aiRemoveCpRow(this)"
+            style="flex-shrink:0;padding:6px 10px;">✕</button>`;
+  list.appendChild(row);
+  document.getElementById('ai-add-cp-btn').style.display =
+    list.querySelectorAll('.ai-cp-row').length >= 5 ? 'none' : '';
+}
+function aiRemoveCpRow(btn) {
+  const row  = btn.closest('.ai-cp-row');
+  const list = document.getElementById('ai-custom-prompts-list');
+  row.remove();
+  list.querySelectorAll('.ai-cp-row').forEach((r, i) => {
+    r.querySelector('[name^="ai_cp_name_"]').name   = `ai_cp_name_${i}`;
+    r.querySelector('[name^="ai_cp_prompt_"]').name = `ai_cp_prompt_${i}`;
+  });
+  document.getElementById('ai-add-cp-btn').style.display = '';
+}
+</script>
+{% endblock %}

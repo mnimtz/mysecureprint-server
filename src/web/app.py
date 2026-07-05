@@ -296,6 +296,7 @@ def create_app(session_secret: str) -> FastAPI:
             "/admin/tunnel": "admin_tunnel",
             "/admin/settings": "admin_settings",
             "/admin/blob-backup": "admin_blob_backup",
+            "/admin/settings/ai-analysis": "admin_ai_analysis",
             "/admin/mcp-access": "admin_mcp_access",
             "/admin/mcp-permissions": "admin_rbac",
             "/admin/gdpr": "admin_gdpr",
@@ -7613,6 +7614,55 @@ def create_app(session_secret: str) -> FastAPI:
 
     # ─── KI-Dokumentenanalyse: Save + Gemini-Model-List ─────────────────────────
 
+    @app.get("/admin/settings/ai-analysis", response_class=HTMLResponse)
+    async def admin_ai_analysis_page(request: Request):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        try:
+            import json as _json_ai
+            from db import get_tenant_full_by_user_id, _dec as _dec_ai, _find_tenant_owner_user_id
+            tf = get_tenant_full_by_user_id(user["id"])
+            if not tf:
+                oid = _find_tenant_owner_user_id()
+                tf = get_tenant_full_by_user_id(oid) if oid else None
+            tf = tf or {}
+            ai_enabled       = tf.get("ai_enabled", "0") == "1"
+            ai_provider      = tf.get("ai_provider", "") or ""
+            ai_gemini_key    = tf.get("ai_gemini_api_key", "") or ""
+            ai_has_gemini_key = bool(_dec_ai(ai_gemini_key)) if ai_gemini_key else False
+            ai_gemini_model  = tf.get("ai_gemini_model", "") or ""
+            ai_ollama_url    = tf.get("ai_ollama_url", "") or ""
+            ai_ollama_model  = tf.get("ai_ollama_model", "") or ""
+            _raw_fields      = tf.get("ai_fields", "") or ""
+            ai_fields_set    = set(_raw_fields.split(",")) if _raw_fields else set()
+            _all_fields      = {"doc_type", "color_rec", "sensitivity", "summary", "tags"}
+            ai_fields_active = ai_fields_set if ai_fields_set else _all_fields
+            try:
+                ai_custom_prompts = _json_ai.loads(tf.get("ai_custom_prompts", "[]") or "[]")
+                if not isinstance(ai_custom_prompts, list):
+                    ai_custom_prompts = []
+            except Exception:
+                ai_custom_prompts = []
+        except Exception:
+            ai_enabled = False
+            ai_provider = ai_gemini_model = ai_ollama_url = ai_ollama_model = ""
+            ai_has_gemini_key = False
+            ai_fields_active = {"doc_type", "color_rec", "sensitivity", "summary", "tags"}
+            ai_custom_prompts = []
+        return templates.TemplateResponse("admin_ai_analysis.html", {
+            "request": request, "user": user,
+            "ai_enabled": ai_enabled,
+            "ai_provider": ai_provider,
+            "ai_has_gemini_key": ai_has_gemini_key,
+            "ai_gemini_model": ai_gemini_model,
+            "ai_ollama_url": ai_ollama_url,
+            "ai_ollama_model": ai_ollama_model,
+            "ai_fields_active": ai_fields_active,
+            "ai_custom_prompts": ai_custom_prompts,
+            **t_ctx(request),
+        })
+
     @app.post("/admin/settings/ai-analysis/save", response_class=HTMLResponse)
     async def admin_ai_analysis_save(request: Request):
         user = get_session_user(request)
@@ -7685,11 +7735,11 @@ def create_app(session_secret: str) -> FastAPI:
             logger.error("ai-analysis save: %s", e)
             from urllib.parse import quote_plus
             return RedirectResponse(
-                f"/admin/settings?section=ai_analysis&err={quote_plus(str(e)[:120])}#ai_analysis",
+                f"/admin/settings/ai-analysis?err={quote_plus(str(e)[:120])}",
                 status_code=302,
             )
         return RedirectResponse(
-            "/admin/settings?section=ai_analysis&ok=ai_saved#ai_analysis", status_code=302,
+            "/admin/settings/ai-analysis?ok=ai_saved", status_code=302,
         )
 
     @app.get("/api/gemini-models")
