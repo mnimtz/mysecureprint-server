@@ -442,7 +442,7 @@ struct UploadView: View {
 
             var serverJobId: String? = nil
             if settings.backgroundUploadEnabled {
-                await BackgroundUploadManager.shared.enqueue(
+                BackgroundUploadManager.shared.enqueue(
                     fileData: data,
                     filename: filename,
                     targets: targets,

@@ -80,9 +80,11 @@
       }
     },
 
-    "Gesendet ✓" : {
+    "GesendetErfolgreich" : {
+      "comment" : "Sent confirmation with checkmark — shown in Dynamic Island after successful upload",
       "extractionState" : "manual",
       "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Gesendet ✓" } },
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Sent ✓" } },
         "es" : { "stringUnit" : { "state" : "translated", "value" : "Enviado ✓" } },
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Envoyé ✓" } },

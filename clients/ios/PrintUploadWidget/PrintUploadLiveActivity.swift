@@ -121,7 +121,7 @@ struct PrintUploadLiveActivityWidget: Widget {
                 .font(.caption2)
                 .foregroundColor(.secondary)
         case .sent:
-            Text(NSLocalizedString("Gesendet ✓", comment: ""))
+            Text(NSLocalizedString("GesendetErfolgreich", comment: ""))
                 .font(.caption2)
                 .fontWeight(.semibold)
                 .foregroundColor(.green)
