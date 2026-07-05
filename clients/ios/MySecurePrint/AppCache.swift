@@ -103,12 +103,18 @@ final class AppCache: ObservableObject {
 
     private func pollNonTerminalJobsWithClient(_ client: ApiClient) async {
         let stale = jobs.filter { !PrintJob.isTerminal($0.status) }.prefix(8).map { $0.job_id }
+        print("[StatusPoll] polling \(stale.count) non-terminal jobs")
         for jobId in stale {
-            guard let r = try? await client.jobStatus(jobId: jobId) else { continue }
-            if let idx = jobs.firstIndex(where: { $0.job_id == jobId }),
-               r.status != jobs[idx].status {
-                jobs[idx] = jobs[idx].withUpdatedStatus(r.status)
-                updateWidgetState(jobs: jobs)
+            do {
+                let r = try await client.jobStatus(jobId: jobId)
+                print("[StatusPoll] job=\(jobId) → \(r.status) (fresh=\(r.fresh))")
+                if let idx = jobs.firstIndex(where: { $0.job_id == jobId }),
+                   r.status != jobs[idx].status {
+                    jobs[idx] = jobs[idx].withUpdatedStatus(r.status)
+                    updateWidgetState(jobs: jobs)
+                }
+            } catch {
+                print("[StatusPoll] ERROR job=\(jobId): \(error)")
             }
         }
     }

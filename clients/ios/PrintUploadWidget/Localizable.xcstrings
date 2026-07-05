@@ -192,6 +192,9 @@
         }
       }
     },
+    "Erfolgreich gesendet" : {
+
+    },
     "Fehler" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -238,6 +241,9 @@
           }
         }
       }
+    },
+    "Gedruckt" : {
+
     },
     "Gesendet" : {
       "extractionState" : "manual",
@@ -340,6 +346,12 @@
         }
       }
     },
+    "Job ausstehend" : {
+
+    },
+    "Jobs ausstehend" : {
+
+    },
     "Kein Job" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -434,6 +446,12 @@
         }
       }
     },
+    "Letzter Job" : {
+
+    },
+    "Noch kein Druckauftrag" : {
+
+    },
     "Secure Print" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -480,6 +498,12 @@
           }
         }
       }
+    },
+    "Warteschlange" : {
+
+    },
+    "Wird gesendet" : {
+
     },
     "Wird gesendet…" : {
       "extractionState" : "manual",

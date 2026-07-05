@@ -647,20 +647,27 @@ struct JobDetailView: View {
 
                 // Status pollen solange nicht terminal (max 15 × 20s = 5 min)
                 var retries = 0
+                print("[DetailPoll] starting for job=\(job.job_id) status=\(displayStatus)")
                 while !PrintJob.isTerminal(displayStatus), retries < 15 {
                     try? await Task.sleep(for: .seconds(20))
-                    guard !Task.isCancelled else { break }
-                    if let r = try? await client.jobStatus(jobId: job.job_id),
-                       r.status != displayStatus {
-                        displayStatus = r.status
-                        // Cache + Liste im Hintergrund aktualisieren
-                        let updated = job.withUpdatedStatus(r.status)
-                        if let idx = cache.jobs.firstIndex(where: { $0.job_id == job.job_id }) {
-                            cache.jobs[idx] = updated
+                    guard !Task.isCancelled else { print("[DetailPoll] cancelled"); break }
+                    print("[DetailPoll] polling job=\(job.job_id) retry=\(retries)")
+                    do {
+                        let r = try await client.jobStatus(jobId: job.job_id)
+                        print("[DetailPoll] result=\(r.status) fresh=\(r.fresh)")
+                        if r.status != displayStatus {
+                            displayStatus = r.status
+                            let updated = job.withUpdatedStatus(r.status)
+                            if let idx = cache.jobs.firstIndex(where: { $0.job_id == job.job_id }) {
+                                cache.jobs[idx] = updated
+                            }
                         }
+                    } catch {
+                        print("[DetailPoll] ERROR: \(error)")
                     }
                     retries += 1
                 }
+                print("[DetailPoll] done: final status=\(displayStatus)")
             }
             // Einmaliger AI-Refresh: falls Job noch keine Analyse hat,
             // nach 20s den Cache neu laden — die Analyse läuft serverseitig
