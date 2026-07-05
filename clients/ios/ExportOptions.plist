@@ -7,7 +7,18 @@
     <key>teamID</key>
     <string>KQGPPH4S33</string>
     <key>signingStyle</key>
-    <string>automatic</string>
+    <string>manual</string>
+    <key>signingCertificate</key>
+    <string>Apple Distribution</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>de.nimtz.mysecureprint</key>
+        <string>MSP AppStore mysecureprint</string>
+        <key>de.nimtz.mysecureprint.share</key>
+        <string>MSP AppStore share</string>
+        <key>de.nimtz.mysecureprint.PrintUploadWidget</key>
+        <string>MSP AppStore PrintUploadWidget</string>
+    </dict>
     <key>stripSwiftSymbols</key>
     <true/>
     <key>uploadSymbols</key>
