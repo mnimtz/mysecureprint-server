@@ -79,6 +79,10 @@ _PX_STATE_MAP = {
     "DELETED":            "deleted",
     "ERROR":              "error",
     "FAILED":             "error",
+    # Additional Printix states observed in the wild:
+    "RECEIVED":           "printing",   # Job received by printer hardware
+    "PENDING":            "queued",     # Queued but not yet dispatched
+    "FORWARDED":          "forwarded",  # Forwarded to another system
 }
 
 
@@ -1509,7 +1513,8 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     um_client_secret=tenant.get("um_client_secret", ""),
                 )
                 try:
-                    job_data = client.get_print_job(px_job_id)
+                    import asyncio as _asyncio
+                    job_data = await _asyncio.to_thread(client.get_print_job, px_job_id)
                 except Exception as _px404:
                     from printix_client import PrintixAPIError
                     if isinstance(_px404, PrintixAPIError) and _px404.status_code == 404:
@@ -1533,6 +1538,11 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     px_error = job_data["error"].get("message", "")[:500]
                 elif isinstance(job_data.get("error"), str):
                     px_error = job_data["error"][:500]
+
+                if os.environ.get("DEBUG_JOB_STATUS_AUDIT"):
+                    _audit(user, "job_status_printix_queried",
+                           extra={"job_id": job_id, "px_state": px_state,
+                                  "mapped_to": new_status, "db_status": db_status})
 
                 if new_status != db_status:
                     with _conn() as conn:
