@@ -8449,6 +8449,28 @@
         }
       }
     },
+    "Delegation" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delegation" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Delegación" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Délégation" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Delega" } },
+        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Delegering" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Delegatie" } },
+        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Delegering" } }
+      }
+    },
+    "Druckwarteschlange" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Print queue" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cola de impresión" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "File d'impression" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Coda di stampa" } },
+        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Utskriftskø" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Afdrukwachtrij" } },
+        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Utskriftskö" } }
+      }
+    },
     "Mehr" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "More" } },
