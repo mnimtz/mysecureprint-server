@@ -631,7 +631,7 @@ private struct AddCardView: View {
         }
         var groups: [String: [CardProfile]] = [:]
         for p in sorted {
-            let key = p.vendor.isEmpty ? "Generisch" : p.vendor
+            let key = p.vendor.isEmpty ? String(localized: "Generisch") : p.vendor
             groups[key, default: []].append(p)
         }
         return groups.keys.sorted().map { k in

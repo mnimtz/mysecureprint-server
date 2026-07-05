@@ -126,6 +126,8 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
             throw URLError(.badURL)
         }
         let uploadURL = base.appendingPathComponent("desktop/send")
+        // Holds the deferred endActivity task so it can be cancelled on error.
+        var endActivityTask: Task<Void, Never>? = nil
         do {
             var firstJobId: String? = nil
             for (targetId, _) in targets {
@@ -160,17 +162,22 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
                 let elapsed = Date().timeIntervalSince(activityStart)
                 let remaining = max(0, 5.0 - elapsed)
                 let bid = batchID, fd = firstDisplay
-                Task {
+                endActivityTask = Task {
                     if remaining > 0 {
                         try? await Task.sleep(for: .seconds(remaining))
                     }
-                    endActivity(batchID: bid,
-                                finalState: .init(phase: .sent, targetDisplay: fd))
+                    if !Task.isCancelled {
+                        endActivity(batchID: bid,
+                                    finalState: .init(phase: .sent, targetDisplay: fd))
+                    }
                 }
             }
             return firstJobId
         } catch {
             if #available(iOS 16.2, *) {
+                // Cancel the deferred endActivity task (if spawned) and end immediately
+                // with the failed state so the Live Activity reflects the error.
+                endActivityTask?.cancel()
                 endActivity(batchID: batchID,
                             finalState: .init(phase: .failed, targetDisplay: firstDisplay,
                                              errorMessage: error.localizedDescription))

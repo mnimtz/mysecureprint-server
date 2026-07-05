@@ -116,9 +116,15 @@ struct JobsView: View {
             }
             // Cache-Update vom Server: volle Liste ersetzen damit neue Jobs
             // sofort erscheinen (z.B. nach Foreground-Upload oder Hintergrund-Refresh).
+            // Falls cache.pendingJob noch nicht gelöscht wurde (echte Antwort enthält
+            // den Job noch nicht), Platzhalter nach dem Überschreiben wieder vorne
+            // einsetzen, um Flicker zu vermeiden.
             .onChange(of: cache.jobs) { _, newJobs in
                 jobs = newJobs
                 hasMore = cache.jobsHasMore
+                if let p = cache.pendingJob, !jobs.contains(where: { $0.job_id == p.job_id }) {
+                    jobs.insert(p, at: 0)
+                }
             }
             .sheet(item: $selectedJob) { job in
                 JobDetailView(job: job)
@@ -205,6 +211,7 @@ struct JobsView: View {
             hasMore = result.jobs.count >= pageSize
             cache.jobs = result.jobs
             cache.jobsHasMore = hasMore
+            cache.pendingJob = nil
         } catch {
             self.error = error.localizedDescription
         }

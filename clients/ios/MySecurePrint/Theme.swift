@@ -146,6 +146,19 @@ struct BrandHeader: View {
 // MARK: - Branded Navigation Title modifier
 
 extension View {
+    /// Overload for static/localizable string literals — the literal is looked
+    /// up in xcstrings via LocalizedStringKey.
+    func brandNavStyle(title: LocalizedStringKey) -> some View {
+        self
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(MSP.navy, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+    }
+
+    /// Overload for dynamic String values (e.g. printer.name, user.email)
+    /// that should not be looked up in xcstrings.
     func brandNavStyle(title: String) -> some View {
         self
             .navigationTitle(title)

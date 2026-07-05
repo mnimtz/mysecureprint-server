@@ -72,9 +72,9 @@
                  style="padding:8px;border:1px solid var(--border);border-radius:6px;">
           <select name="on_success"
                   style="padding:8px;border:1px solid var(--border);border-radius:6px;">
-            <option value="move">Bei Erfolg: in Processed-Ordner verschieben</option>
-            <option value="keep">Behalten (nur als gelesen markieren)</option>
-            <option value="delete">Löschen</option>
+            <option value="move">{{ _('guest_option_move') }}</option>
+            <option value="keep">{{ _('guest_option_keep') }}</option>
+            <option value="delete">{{ _('guest_option_delete') }}</option>
           </select>
           <button type="submit"
                   style="background:var(--accent);color:white;padding:8px;
@@ -157,9 +157,9 @@
                 <select name="on_success"
                         style="width:100%;padding:6px;border:1px solid var(--border);
                                border-radius:4px;">
-                  <option value="move" {% if selected.on_success == 'move' %}selected{% endif %}>Verschieben</option>
-                  <option value="keep" {% if selected.on_success == 'keep' %}selected{% endif %}>Behalten</option>
-                  <option value="delete" {% if selected.on_success == 'delete' %}selected{% endif %}>Löschen</option>
+                  <option value="move" {% if selected.on_success == 'move' %}selected{% endif %}>{{ _('guest_option_move') }}</option>
+                  <option value="keep" {% if selected.on_success == 'keep' %}selected{% endif %}>{{ _('guest_option_keep') }}</option>
+                  <option value="delete" {% if selected.on_success == 'delete' %}selected{% endif %}>{{ _('guest_option_delete') }}</option>
                 </select>
               </label>
               <label style="grid-column:1/-1;">
@@ -190,7 +190,7 @@
                   <th style="padding:8px;">Email</th>
                   <th style="padding:8px;">Name</th>
                   <th style="padding:8px;">Drucker</th>
-                  <th style="padding:8px;">Gültig bis</th>
+                  <th style="padding:8px;">{{ _('guest_valid_until') }}</th>
                   <th style="padding:8px;">Status</th>
                   <th style="padding:8px;"></th>
                 </tr>
@@ -201,27 +201,27 @@
                     <td style="padding:8px;"><code>{{ g.sender_email }}</code></td>
                     <td style="padding:8px;">{{ g.full_name or '—' }}</td>
                     <td style="padding:8px;font-size:.82em;color:var(--text-muted);">
-                      {{ g.printer_id or 'Standard' }}
+                      {{ g.printer_id or _('guest_standard') }}
                     </td>
                     <td style="padding:8px;font-size:.82em;color:var(--text-muted);">
                       {{ g.expires_at[:10] if g.expires_at else 'unbegrenzt' }}
                     </td>
                     <td style="padding:8px;">
                       {% if g.enabled %}
-                        <span style="color:#0a7a3a;">●</span> aktiv
+                        <span style="color:#0a7a3a;">●</span> {{ _('guest_status_active') }}
                       {% else %}
-                        <span style="color:var(--text-faint);">●</span> aus
+                        <span style="color:var(--text-faint);">●</span> {{ _('guest_status_inactive') }}
                       {% endif %}
                     </td>
                     <td style="padding:8px;">
                       <form method="post"
                             action="/admin/guestprint/guest/{{ g.id }}/delete"
-                            onsubmit="return confirm('Whitelist-Eintrag löschen?');"
+                            onsubmit="return confirm('{{ _("guest_confirm_whitelist_delete") | replace("'", "\\'") }}');"
                             style="display:inline;">
                         <button type="submit"
                                 style="background:transparent;border:none;
                                        color:#dc2626;cursor:pointer;font-size:.85em;">
-                          Entfernen
+                          {{ _('guest_remove_btn') }}
                         </button>
                       </form>
                     </td>
@@ -233,7 +233,7 @@
 
           <details>
             <summary style="cursor:pointer;font-weight:600;color:var(--accent);">
-              + Neuen Gast freischalten
+              + {{ _('guest_new_guest_btn') }}
             </summary>
             <form method="post"
                   action="/admin/guestprint/mailbox/{{ selected.id }}/guest"
@@ -245,17 +245,17 @@
                             border-radius:6px;">
               <input type="text" name="full_name" placeholder="{{ _('guest_full_name') }}"
                      style="padding:8px;border:1px solid var(--border);border-radius:6px;">
-              <input type="text" name="printer_id" placeholder="Drucker-ID (optional)"
+              <input type="text" name="printer_id" placeholder="{{ _('guest_printer_placeholder') }}"
                      style="padding:8px;border:1px solid var(--border);border-radius:6px;">
               <input type="number" name="expiration_days" value="7"
                      min="0" max="3650"
-                     placeholder="Gültig für Tage (0 = unbegrenzt)"
+                     placeholder="{{ _('guest_days_placeholder') }}"
                      style="padding:8px;border:1px solid var(--border);border-radius:6px;">
               <button type="submit"
                       style="grid-column:1/-1;padding:8px;background:#16a34a;
                              color:white;border:none;border-radius:6px;
                              cursor:pointer;font-weight:600;">
-                Whitelisten
+                {{ _('guest_whitelist_btn') }}
               </button>
             </form>
           </details>

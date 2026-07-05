@@ -12,8 +12,8 @@
 		CA13A1B12F9749BE001B6E19 /* PrintixSendCore in Frameworks */ = {isa = PBXBuildFile; productRef = CA13A1B02F9749BE001B6E19 /* PrintixSendCore */; };
 		CA40FC482FFA29AF00DBAAB8 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CA40FC472FFA29AF00DBAAB8 /* WidgetKit.framework */; };
 		CA40FC4A2FFA29AF00DBAAB8 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CA40FC492FFA29AF00DBAAB8 /* SwiftUI.framework */; };
-		CA40FC7A2FFB0000DEADBEEF /* WidgetKit.framework in Frameworks (MySecurePrint) */ = {isa = PBXBuildFile; fileRef = CA40FC472FFA29AF00DBAAB8 /* WidgetKit.framework */; };
 		CA40FC592FFA29B100DBAAB8 /* PrintUploadWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CA40FC462FFA29AF00DBAAB8 /* PrintUploadWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		CA40FC7A2FFB0000DEADBEEF /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CA40FC472FFA29AF00DBAAB8 /* WidgetKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -111,7 +111,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CA13A1B12F9749BE001B6E19 /* PrintixSendCore in Frameworks */,
-				CA40FC7A2FFB0000DEADBEEF /* WidgetKit.framework in Frameworks (MySecurePrint) */,
+				CA40FC7A2FFB0000DEADBEEF /* WidgetKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

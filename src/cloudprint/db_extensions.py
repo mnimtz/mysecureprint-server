@@ -97,8 +97,8 @@ def init_cloudprint_schema() -> None:
             or "delegate_full_name" not in cols_d
         )
         if needs_rebuild:
-            conn.executescript("""
-                PRAGMA foreign_keys = OFF;
+            conn.execute("PRAGMA foreign_keys = OFF")
+            conn.execute("""
                 CREATE TABLE delegations_new (
                     id                INTEGER PRIMARY KEY AUTOINCREMENT,
                     owner_user_id     TEXT NOT NULL REFERENCES users(id),
@@ -110,7 +110,7 @@ def init_cloudprint_schema() -> None:
                     created_by        TEXT NOT NULL DEFAULT '',
                     created_at        TEXT NOT NULL,
                     updated_at        TEXT NOT NULL
-                );
+                )
             """)
             # Daten aus der alten Tabelle übernehmen — best-effort mit den
             # Spalten die garantiert existieren.
@@ -134,19 +134,25 @@ def init_cloudprint_schema() -> None:
                     (SELECT full_name FROM users WHERE users.id = delegations_new.delegate_user_id), '')
                 WHERE delegate_user_id != ''
             """)
-            conn.executescript("""
-                DROP TABLE delegations;
-                ALTER TABLE delegations_new RENAME TO delegations;
-                CREATE INDEX IF NOT EXISTS idx_deleg_owner
-                    ON delegations (owner_user_id);
-                CREATE INDEX IF NOT EXISTS idx_deleg_delegate
-                    ON delegations (delegate_user_id);
-                CREATE INDEX IF NOT EXISTS idx_deleg_delegate_pxid
-                    ON delegations (delegate_printix_user_id);
-                CREATE INDEX IF NOT EXISTS idx_deleg_delegate_email
-                    ON delegations (LOWER(delegate_email));
-                PRAGMA foreign_keys = ON;
-            """)
+            conn.execute("DROP TABLE delegations")
+            conn.execute("ALTER TABLE delegations_new RENAME TO delegations")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_deleg_owner "
+                "ON delegations (owner_user_id)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_deleg_delegate "
+                "ON delegations (delegate_user_id)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_deleg_delegate_pxid "
+                "ON delegations (delegate_printix_user_id)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_deleg_delegate_email "
+                "ON delegations (LOWER(delegate_email))"
+            )
+            conn.execute("PRAGMA foreign_keys = ON")
             logger.info(
                 "Migration: delegations-Tabelle rebuild abgeschlossen "
                 "(neue Spalten delegate_printix_user_id/_email/_full_name)"
@@ -265,6 +271,24 @@ def init_cloudprint_schema() -> None:
                 "ALTER TABLE cloudprint_jobs ADD COLUMN ai_extra TEXT NOT NULL DEFAULT '{}'"
             )
             logger.info("Migration: cloudprint_jobs.ai_extra hinzugefügt")
+        # F04: UNIQUE-Index auf job_id — verhindert Duplicate-Key-Fehler wenn
+        # _bg_create_tracking und _process_desktop_send_bg (INSERT OR IGNORE)
+        # gleichzeitig anlaufen. CREATE UNIQUE INDEX IF NOT EXISTS ist idempotent.
+        idxs = {r[1] for r in conn.execute(
+            "SELECT * FROM sqlite_master WHERE type='index' AND tbl_name='cloudprint_jobs'"
+        ).fetchall()}
+        if "idx_cpjobs_job_id_unique" not in idxs:
+            try:
+                conn.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_cpjobs_job_id_unique "
+                    "ON cloudprint_jobs (job_id)"
+                )
+                logger.info("Migration: cloudprint_jobs.job_id UNIQUE-Index erstellt")
+            except Exception as _uidx_e:
+                logger.warning(
+                    "Migration: UNIQUE-Index auf cloudprint_jobs.job_id fehlgeschlagen "
+                    "(Duplikate vorhanden?): %s", _uidx_e
+                )
         logger.info("Migration: cloudprint_jobs-Tabelle geprüft/erstellt")
 
     # 5b) Delegate-Teams (v4.0): persönliche Empfänger-Gruppen pro User
@@ -513,20 +537,23 @@ def update_cloudprint_job_status(
                 """UPDATE cloudprint_jobs
                    SET status = ?, printix_job_id = ?, target_queue = ?,
                        queue_name = CASE WHEN ? != '' THEN ? ELSE queue_name END,
-                       error_message = ?, detected_identity = ?, identity_source = ?, forwarded_at = ?
+                       error_message = ?, detected_identity = ?, identity_source = ?,
+                       forwarded_at = CASE WHEN ? = 'forwarded' THEN ? ELSE forwarded_at END
                    WHERE job_id = ?""",
                 (status, printix_job_id, target_queue, queue_name, queue_name,
-                 error_message[:500], detected_identity[:255], identity_source[:120], now, job_id),
+                 error_message[:500], detected_identity[:255], identity_source[:120],
+                 status, now, job_id),
             )
         else:
             conn.execute(
                 """UPDATE cloudprint_jobs
                    SET status = ?, printix_job_id = ?, target_queue = ?,
                        queue_name = CASE WHEN ? != '' THEN ? ELSE queue_name END,
-                       error_message = ?, forwarded_at = ?
+                       error_message = ?,
+                       forwarded_at = CASE WHEN ? = 'forwarded' THEN ? ELSE forwarded_at END
                    WHERE job_id = ?""",
                 (status, printix_job_id, target_queue, queue_name, queue_name,
-                 error_message[:500], now, job_id),
+                 error_message[:500], status, now, job_id),
             )
 
 

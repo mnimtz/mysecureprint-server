@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import time
 from typing import Optional
 
@@ -40,28 +41,32 @@ logger = logging.getLogger("printix.desktop")
 # involviert, kein Rate-Limit-Problem.
 
 _jobs_cache: dict[tuple, tuple[float, list]] = {}  # (uid, limit, offset) → (ts, items)
+_jobs_cache_lock = threading.Lock()               # F02: schützt concurrent asyncio + to_thread Zugriffe
 _JOBS_TTL = 30.0   # Sekunden bis Eintrag als veraltet gilt
 _JOBS_MAX = 2000   # Sicherheits-Obergrenze für Cache-Einträge
 
 
 def _jobs_cache_get(uid: str, limit: int, offset: int) -> list | None:
-    entry = _jobs_cache.get((uid, limit, offset))
-    if entry and (time.monotonic() - entry[0]) < _JOBS_TTL:
-        return entry[1]
+    with _jobs_cache_lock:
+        entry = _jobs_cache.get((uid, limit, offset))
+        if entry and (time.monotonic() - entry[0]) < _JOBS_TTL:
+            return entry[1]
     return None
 
 
 def _jobs_cache_set(uid: str, limit: int, offset: int, items: list) -> None:
-    if len(_jobs_cache) >= _JOBS_MAX:
-        oldest = min(_jobs_cache, key=lambda k: _jobs_cache[k][0])
-        del _jobs_cache[oldest]
-    _jobs_cache[(uid, limit, offset)] = (time.monotonic(), items)
+    with _jobs_cache_lock:
+        if len(_jobs_cache) >= _JOBS_MAX:
+            oldest = min(_jobs_cache, key=lambda k: _jobs_cache[k][0])
+            del _jobs_cache[oldest]
+        _jobs_cache[(uid, limit, offset)] = (time.monotonic(), items)
 
 
 def _jobs_cache_invalidate(uid: str) -> None:
     """Alle Cache-Einträge für einen User löschen (nach Schreiboperation)."""
-    for k in [k for k in _jobs_cache if k[0] == uid]:
-        del _jobs_cache[k]
+    with _jobs_cache_lock:
+        for k in [k for k in _jobs_cache if k[0] == uid]:
+            del _jobs_cache[k]
 
 
 _PX_STATE_MAP = {
@@ -1350,7 +1355,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             parent_id = _resolve_tenant_owner_for(uid) or uid
             tenant = get_tenant_for_user(parent_id)
             tid = (tenant or {}).get("id", "")
-            uname = (_user_descr(user) or "").lower()
+            uname = (user.get("username") or "").lower()
             uemail = (user.get("email") or "").lower()
             pxid = (user.get("printix_user_id") or "").lower()
             _where = """(tenant_id = ? OR IFNULL(tenant_id,'') = '')
@@ -1416,7 +1421,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             parent_id = _resolve_tenant_owner_for(user["user_id"]) or user["user_id"]
             tenant = get_tenant_for_user(parent_id)
             tid = (tenant or {}).get("id", "")
-            uname  = (_user_descr(user) or "").lower()
+            uname  = (user.get("username") or "").lower()
             uemail = (user.get("email") or "").lower()
             pxid   = (user.get("printix_user_id") or "").lower()
             with _conn() as conn:
@@ -1454,7 +1459,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             return _json_error("token invalid", code="auth_required", status=401)
         try:
             from db import _conn, _resolve_tenant_owner_for
-            uname  = (_user_descr(user) or "").lower()
+            uname  = (user.get("username") or "").lower()
             uemail = (user.get("email") or "").lower()
             pxid   = (user.get("printix_user_id") or "").lower()
             if not uname and not uemail and not pxid:

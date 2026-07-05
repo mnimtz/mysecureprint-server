@@ -1,152 +1,533 @@
 {
   "sourceLanguage" : "de",
   "strings" : {
-
     "%d Ziele" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "%d targets" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "%d destinos" } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%d destinations" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "%d destinazioni" } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "%d mål" } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%d doelen" } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "%d mål" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d targets"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d destinos"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d destinations"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d destinazioni"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d mål"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d doelen"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d mål"
+          }
+        }
       }
     },
+    "%lld" : {
 
+    },
     "%lld ausstehend" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld pending" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "%lld pendiente" } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld en attente" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "%lld in attesa" } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "%lld ventende" } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld in behandeling" } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "%lld väntande" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld pending"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld pendiente"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld en attente"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld in attesa"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld ventende"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld in behandeling"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld väntande"
+          }
+        }
       }
     },
-
     "%lld Jobs ausstehend" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld jobs pending" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "%lld trabajos pendientes" } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld travaux en attente" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "%lld lavori in sospeso" } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "%lld jobber ventende" } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld taken in behandeling" } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "%lld jobb väntande" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld jobs pending"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld trabajos pendientes"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld travaux en attente"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld lavori in sospeso"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld jobber ventende"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld taken in behandeling"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld jobb väntande"
+          }
+        }
       }
     },
-
     "Druckstatus" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Print Status" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Estado de impresión" } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "État d'impression" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Stato di stampa" } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Utskriftsstatus" } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Afdrukstatus" } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Utskriftsstatus" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Print Status"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estado de impresión"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "État d'impression"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stato di stampa"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utskriftsstatus"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afdrukstatus"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utskriftsstatus"
+          }
+        }
       }
     },
-
     "Fehler" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Error" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Error" } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Erreur" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Errore" } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Feil" } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Fout" } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Fel" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erreur"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Errore"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Feil"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fout"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fel"
+          }
+        }
       }
     },
-
     "Gesendet" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sent" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Enviado" } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Envoyé" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Inviato" } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Sendt" } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Verzonden" } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Skickat" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sent"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviado"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoyé"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inviato"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sendt"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verzonden"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skickat"
+          }
+        }
       }
     },
-
     "GesendetErfolgreich" : {
       "comment" : "Sent confirmation with checkmark — shown in Dynamic Island after successful upload",
       "extractionState" : "manual",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Gesendet ✓" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sent ✓" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Enviado ✓" } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Envoyé ✓" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Inviato ✓" } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Sendt ✓" } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Verzonden ✓" } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Skickat ✓" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gesendet ✓"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sent ✓"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviado ✓"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoyé ✓"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inviato ✓"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sendt ✓"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verzonden ✓"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skickat ✓"
+          }
+        }
       }
     },
-
     "Kein Job" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No Job" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sin trabajo" } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucun travail" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Nessun lavoro" } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Ingen jobb" } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen taak" } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Inget jobb" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Job"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin trabajo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun travail"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun lavoro"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ingen jobb"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geen taak"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inget jobb"
+          }
+        }
       }
     },
-
     "Letzter Druckauftrag und ausstehende Jobs." : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Latest print job and pending jobs." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Último trabajo de impresión y trabajos pendientes." } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Dernier travail d'impression et travaux en attente." } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Ultimo lavoro di stampa e lavori in sospeso." } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Siste utskriftsjobb og ventende jobber." } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Laatste afdruktaak en openstaande taken." } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Senaste utskriftsjobb och väntande jobb." } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Latest print job and pending jobs."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Último trabajo de impresión y trabajos pendientes."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dernier travail d'impression et travaux en attente."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ultimo lavoro di stampa e lavori in sospeso."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Siste utskriftsjobb og ventende jobber."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laatste afdruktaak en openstaande taken."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Senaste utskriftsjobb och väntande jobb."
+          }
+        }
       }
     },
-
     "Secure Print" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Secure Print" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Secure Print" } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Secure Print" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Secure Print" } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Secure Print" } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Secure Print" } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Secure Print" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure Print"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure Print"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure Print"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure Print"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure Print"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure Print"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure Print"
+          }
+        }
       }
     },
-
     "Wird gesendet…" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sending…" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Enviando…" } },
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Envoi en cours…" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Invio in corso…" } },
-        "nb" : { "stringUnit" : { "state" : "translated", "value" : "Sender…" } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Wordt verzonden…" } },
-        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Skickar…" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviando…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoi en cours…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invio in corso…"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sender…"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wordt verzonden…"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skickar…"
+          }
+        }
       }
     }
-
   },
   "version" : "1.0"
 }

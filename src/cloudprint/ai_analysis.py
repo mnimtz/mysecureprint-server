@@ -92,11 +92,6 @@ def analyse_job(
       provider, gemini_key, gemini_model, ollama_url, ollama_model,
       fields (kommagetrennt, leer = alle), custom_prompts (list[dict])
     """
-    import sys, os as _os
-    src_dir = _os.path.dirname(_os.path.dirname(__file__))
-    if src_dir not in sys.path:
-        sys.path.insert(0, src_dir)
-
     def _audit_ai(action: str, details: dict) -> None:
         try:
             from db import audit as _db_audit
