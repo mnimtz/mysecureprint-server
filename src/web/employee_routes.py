@@ -750,11 +750,13 @@ def register_employee_routes(
             if not raw_list and isinstance(printers_data, dict):
                 raw_list = (printers_data.get("_embedded") or {}).get("printers", [])
             printer_id = ""
+            matched_printer_entry = None
             for p in raw_list:
                 href = (p.get("_links") or {}).get("self", {}).get("href", "")
                 m = _re.search(r"/printers/([^/]+)/queues/([^/?]+)", href)
                 if m and m.group(2) == target_queue:
                     printer_id = m.group(1)
+                    matched_printer_entry = p
                     break
             if not printer_id:
                 logger.warning("Web-Upload: Ziel-Queue %s nicht in Printix gefunden", target_queue)
@@ -762,6 +764,27 @@ def register_employee_routes(
                     f"/my/upload?flash=upload_error&err=queue-not-found",
                     status_code=302,
                 )
+            def _lc_eu(v) -> str:
+                return str(v or "").strip().lower()
+            def _is_anywhere_eu(p: dict) -> bool:
+                if not isinstance(p, dict):
+                    return False
+                for k in ("isAnywhere", "is_anywhere", "anywhere"):
+                    v = p.get(k)
+                    if isinstance(v, bool) and v:
+                        return True
+                if _lc_eu(p.get("vendor")) == "printix": return True
+                if _lc_eu(p.get("manufacturer")) == "printix": return True
+                if _lc_eu(p.get("brand")) == "printix": return True
+                for k in ("printerType", "type", "queueType"):
+                    s = _lc_eu(p.get(k))
+                    if "anywhere" in s or "virtual" in s:
+                        return True
+                if "anywhere" in _lc_eu(p.get("model")): return True
+                name = _lc_eu(p.get("name", ""))
+                if name and "anywhere" in name: return True
+                return False
+            is_anywhere_target = _is_anywhere_eu(matched_printer_entry or {})
 
             # Tracking-Eintrag
             import uuid as _uuid
@@ -787,7 +810,7 @@ def register_employee_routes(
                 title=display_filename,
                 user=user_printix_email,
                 pdl="PDF",
-                release_immediately=False,
+                release_immediately=not is_anywhere_target,
                 color=(color.strip().lower() in ("1", "true", "yes", "on")),
                 duplex=("LONG_EDGE" if duplex.strip().lower() in ("1", "true", "yes", "on") else "NONE"),
                 copies=max(1, min(99, int(copies or 1))),

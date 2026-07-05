@@ -816,11 +816,13 @@ async def _process_desktop_send_bg(
                 raw_list = (printers_data.get("_embedded") or {}).get("printers", [])
             printer_id = ""
             target_queue = config["lpr_target_queue"]
+            matched_printer_entry = None
             for p in raw_list:
                 href = (p.get("_links") or {}).get("self", {}).get("href", "")
                 m = _re.search(r"/printers/([^/]+)/queues/([^/?]+)", href)
                 if m and m.group(2) == target_queue:
                     printer_id = m.group(1)
+                    matched_printer_entry = p
                     break
             if not printer_id:
                 logger.error(
@@ -857,6 +859,28 @@ async def _process_desktop_send_bg(
             # mit UNKNOWN_ERROR — z.B. wenn duplex=NONE serverseitig
             # disallowed ist. Mit reduziertem Body sehen wir ob ein Feld
             # der Schuldige war.
+            # Anywhere Queue hält den Job (Secure Print); Direkt-Queue druckt sofort.
+            def _lc(v) -> str:
+                return str(v or "").strip().lower()
+            def _target_is_anywhere(p: dict) -> bool:
+                if not isinstance(p, dict):
+                    return False
+                for k in ("isAnywhere", "is_anywhere", "anywhere"):
+                    v = p.get(k)
+                    if isinstance(v, bool) and v:
+                        return True
+                if _lc(p.get("vendor")) == "printix": return True
+                if _lc(p.get("manufacturer")) == "printix": return True
+                if _lc(p.get("brand")) == "printix": return True
+                for k in ("printerType", "type", "queueType"):
+                    s = _lc(p.get(k))
+                    if "anywhere" in s or "virtual" in s:
+                        return True
+                name = _lc(p.get("name", ""))
+                if "anywhere" in _lc(p.get("model")): return True
+                if name and "anywhere" in name: return True
+                return False
+            is_anywhere_target = _target_is_anywhere(matched_printer_entry or {})
             from printix_client import PrintixAPIError as _PxErr
             def _do_submit(**extra):
                 return client.submit_print_job(
@@ -865,7 +889,7 @@ async def _process_desktop_send_bg(
                     title=display_filename,
                     user=submit_user_email,
                     pdl="PDF",
-                    release_immediately=False,
+                    release_immediately=not is_anywhere_target,
                     **extra,
                 )
             _full_kwargs = dict(
