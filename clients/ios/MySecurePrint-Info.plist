@@ -30,6 +30,16 @@
 	<string>MySecurePrint nutzt die Kamera, um den QR-Code aus dem Mitarbeiter-Portal zu scannen und den Server automatisch einzurichten.</string>
 	<key>NFCReaderUsageDescription</key>
 	<string>MySecurePrint liest die UID deiner RFID-Karte (z.B. Firmenausweis), damit du sie zum Druck-Release zuordnen kannst.</string>
+	<!-- Live Activities (Dynamic Island) aktivieren -->
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<!-- Background URLSession: iOS weckt die App nach abgeschlossenem Upload.
+	     "fetch" ist der Standard-Wert für background URLSession + events. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

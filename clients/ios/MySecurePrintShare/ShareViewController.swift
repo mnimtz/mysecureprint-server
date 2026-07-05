@@ -2,7 +2,6 @@ import UIKit
 import UniformTypeIdentifiers
 import Security
 import os.log
-import PrintixSendCore
 
 /// iOS Share-Extension fuer MySecurePrint.
 ///
@@ -215,32 +214,26 @@ final class ShareViewController: UIViewController {
         }
     }
 
-    // MARK: - Upload
+    // MARK: - Upload (Background URLSession)
+
+    // Extension und Haupt-App teilen dieselbe Session-ID — iOS verknüpft
+    // beide Prozesse und gibt Events an die Haupt-App weiter.
+    private static let bgSessionID = "de.nimtz.mysecureprint.bgupload"
 
     private func upload(data: Data, filename: String) {
         let defaults = UserDefaults(suiteName: Self.appGroupID)
         let serverURL = (defaults?.string(forKey: DefaultsKey.serverURL) ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // Bearer: zuerst Keychain (aktuelle App), dann Fallback UserDefaults
-        // (Legacy/Migration). Loest das v0.4.x-Migrationsproblem fuer User,
-        // die die Extension vor dem ersten Haupt-App-Start aufrufen.
         let bearerKeychain = readBearerFromKeychain()
         let bearerLegacy   = (defaults?.string(forKey: DefaultsKey.bearerTokenLegacy) ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let token = !bearerKeychain.isEmpty ? bearerKeychain : bearerLegacy
-
-        // Target: Multi-Array bevorzugt, dann Legacy-Single, dann print:self.
         let targetId = resolveTargetId(defaults: defaults)
 
-        os_log("Upload-Vorbereitung: server=%{public}@ tokenPresent=%{public}@ target=%{public}@ size=%{public}d filename=%{public}@",
-               log: Self.log,
-               type: .info,
-               serverURL.isEmpty ? "<leer>" : serverURL,
-               token.isEmpty ? "nein" : "ja",
-               targetId,
-               data.count,
-               filename)
+        os_log("BG-Upload: server=%{public}@ token=%{public}@ target=%{public}@ file=%{public}@",
+               log: Self.log, type: .info,
+               serverURL.isEmpty ? "<leer>" : serverURL, token.isEmpty ? "nein" : "ja",
+               targetId, filename)
 
         guard !serverURL.isEmpty else {
             finish(error: String(localized: "App ist nicht eingerichtet — bitte zuerst MySecurePrint starten und einloggen."))
@@ -250,42 +243,86 @@ final class ShareViewController: UIViewController {
             finish(error: String(localized: "Kein Login gefunden — bitte in MySecurePrint einloggen."))
             return
         }
-        guard let client = try? PrintixSendCore.ApiClient(baseUrl: serverURL, token: token) else {
+        guard let base = URL(string: serverURL.trimmingCharacters(in: .init(charactersIn: "/"))) else {
             finish(error: String(format: String(localized: "Server-URL ist ungueltig: %@"), serverURL))
             return
         }
 
-        statusLabel.text = String(format: String(localized: "Sende %@ …"), filename)
-
-        // Druckeinstellungen aus App-Group lesen (von Haupt-App konfiguriert).
         let printBW        = defaults?.bool(forKey: DefaultsKey.printBW) ?? false
         let printImageSize = defaults?.string(forKey: DefaultsKey.printImageSize) ?? "full"
 
-        Task.detached { [weak self] in
-            guard let self else { return }
-            do {
-                let result = try await client.sendData(
-                    data,
-                    filename: filename,
-                    targetId: targetId,
-                    comment: nil,
-                    copies: 1,
-                    color: !printBW,
-                    duplex: false,
-                    printImageSize: printImageSize
-                )
-                os_log("Upload OK: target=%{public}@ result=%{public}@",
-                       log: Self.log, type: .info, targetId, String(describing: result))
-                await MainActor.run {
-                    self.finish(success: true, message: String(format: String(localized: "Gesendet an %@"), targetId))
-                }
-            } catch {
-                os_log("Upload FEHLGESCHLAGEN: target=%{public}@ err=%{public}@",
-                       log: Self.log, type: .error, targetId, String(describing: error))
-                await MainActor.run {
-                    self.finish(error: String(format: String(localized: "Upload fehlgeschlagen: %@"), error.localizedDescription))
-                }
-            }
+        // Multipart-Body als Datei in App-Group schreiben
+        let boundary = "Boundary-\(UUID().uuidString)"
+        let bodyData = buildShareMultipart(
+            boundary: boundary, fileData: data, filename: filename,
+            targetId: targetId, color: !printBW, printImageSize: printImageSize
+        )
+        guard let container = FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: Self.appGroupID) else {
+            finish(error: String(localized: "App-Group nicht verfügbar."))
+            return
+        }
+        let dir = container.appendingPathComponent("uploads", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let tempFile = dir.appendingPathComponent("\(UUID().uuidString).mpfd")
+        guard (try? bodyData.write(to: tempFile)) != nil else {
+            finish(error: String(localized: "Temporäre Datei konnte nicht geschrieben werden."))
+            return
+        }
+
+        // Background URLSession mit derselben ID wie die Haupt-App
+        let cfg = URLSessionConfiguration.background(withIdentifier: Self.bgSessionID)
+        cfg.isDiscretionary = false
+        cfg.sessionSendsLaunchEvents = true
+        let bgSession = URLSession(configuration: cfg)
+
+        var req = URLRequest(url: base.appendingPathComponent("desktop/send"))
+        req.httpMethod = "POST"
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.timeoutInterval = 180
+
+        bgSession.uploadTask(with: req, fromFile: tempFile).resume()
+
+        os_log("BG-Upload-Task gestartet: file=%{public}@", log: Self.log, type: .info, filename)
+
+        // Extension sofort beenden — iOS übernimmt den Upload,
+        // die Haupt-App wird bei Abschluss aufgeweckt.
+        statusLabel.text = String(localized: "Wird im Hintergrund gesendet…")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+            self?.finish(success: true, message: String(localized: "Wird gesendet…"))
+        }
+    }
+
+    private func buildShareMultipart(boundary: String, fileData: Data, filename: String,
+                                      targetId: String, color: Bool,
+                                      printImageSize: String) -> Data {
+        var body = Data()
+        func field(_ name: String, _ value: String) {
+            let part = "--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n"
+            body.append(Data(part.utf8))
+        }
+        field("target_id",        targetId)
+        field("copies",           "1")
+        field("color",            color ? "1" : "")
+        field("duplex",           "")
+        field("print_image_size", printImageSize)
+        let ext  = (filename as NSString).pathExtension
+        let mime = guessMime(ext)
+        let hdr = "--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\nContent-Type: \(mime)\r\n\r\n"
+        body.append(Data(hdr.utf8))
+        body.append(fileData)
+        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
+        return body
+    }
+
+    private func guessMime(_ ext: String) -> String {
+        switch ext.lowercased() {
+        case "pdf":  return "application/pdf"
+        case "png":  return "image/png"
+        case "jpg", "jpeg": return "image/jpeg"
+        case "heic", "heif": return "image/heic"
+        default:     return "application/octet-stream"
         }
     }
 

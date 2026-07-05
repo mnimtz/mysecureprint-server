@@ -20,23 +20,15 @@ struct UploadView: View {
     @State private var comment: String = ""
 
     @State private var isSending: Bool = false
-    /// H-5: Letzter Fehler aus der Share-Extension. Wir lesen ihn beim
-    /// Erscheinen aus der App-Group, zeigen ihn als Alert und loeschen
-    /// den Key — sonst koennte derselbe Fehler bei jedem App-Wechsel
-    /// erneut hochpoppen.
+    @State private var sentConfirmation: Bool = false
+    /// H-5: Letzter Fehler aus der Share-Extension oder Background-Upload.
+    /// Wird beim Erscheinen aus der App-Group gelesen, als Alert gezeigt
+    /// und danach gelöscht.
     @State private var shareErrorAlert: String?
-    /// Ein Eintrag pro Ziel — strukturiert statt String-Soup, damit
-    /// wir pro Zeile Icon/Titel/Subzeile sauber rendern koennen.
-    @State private var sendResults: [SendOutcome] = []
     @State private var errorText: String = ""
     @State private var showImporter: Bool = false
 
-    struct SendOutcome: Identifiable {
-        let id = UUID()
-        let targetDisplay: String
-        let ok: Bool
-        let detail: String   // Status, Job-Id oder Fehlermeldung
-    }
+    @EnvironmentObject private var bgManager: BackgroundUploadManager
     // Foto-Picker nutzt PhotosUI, nicht fileImporter — die Fotos-
     // Mediathek kriegt man ueber den Files-Picker nicht erreicht.
     @State private var photoItem: PhotosPickerItem?
@@ -233,7 +225,7 @@ struct UploadView: View {
                     }
 
                     Button {
-                        Task { await sendNow() }
+                        Task { await enqueue() }
                     } label: {
                         HStack(spacing: 10) {
                             if isSending {
@@ -247,6 +239,28 @@ struct UploadView: View {
                     .buttonStyle(GoldButtonStyle())
                     .disabled(isSending || pickedURL == nil || settings.selectedTargetIds.isEmpty)
 
+                    // Erfolgs-Banner — erscheint kurz nach dem Enqueue
+                    if sentConfirmation {
+                        CardSection {
+                            CardFormRow(divider: false) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                        .font(.title3)
+                                        .frame(width: 22)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(String(localized: "Wird im Hintergrund gesendet"))
+                                            .fontWeight(.semibold)
+                                            .font(.system(size: 14))
+                                        Text(String(localized: "Status in der Dynamic Island oder im Jobs-Tab sichtbar."))
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     if !errorText.isEmpty {
                         CardSection(String(localized: "Fehler")) {
                             CardFormRow(divider: false) {
@@ -254,29 +268,6 @@ struct UploadView: View {
                                     .foregroundColor(.red)
                                     .textSelection(.enabled)
                                     .font(.system(size: 14))
-                            }
-                        }
-                    }
-
-                    if !sendResults.isEmpty {
-                        CardSection(String(localized: "Ergebnis")) {
-                            ForEach(Array(sendResults.enumerated()), id: \.element.id) { idx, r in
-                                CardFormRow(divider: idx < sendResults.count - 1) {
-                                    HStack(alignment: .top, spacing: 12) {
-                                        Image(systemName: r.ok
-                                              ? "checkmark.circle.fill"
-                                              : "exclamationmark.triangle.fill")
-                                            .foregroundColor(r.ok ? .green : .orange)
-                                            .font(.title3)
-                                            .frame(width: 22)
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(r.targetDisplay).fontWeight(.medium)
-                                            Text(r.detail)
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                        }
-                                    }
-                                }
                             }
                         }
                     }
@@ -402,21 +393,22 @@ struct UploadView: View {
         }
     }
 
+    /// Datei lesen → BackgroundUploadManager übergeben → sofort zurückkehren.
+    /// Die eigentliche HTTP-Übertragung läuft im Hintergrund via URLSession;
+    /// der Status erscheint in der Dynamic Island und im Jobs-Tab.
     @MainActor
-    private func sendNow() async {
+    private func enqueue() async {
         errorText = ""
-        sendResults = []
+        sentConfirmation = false
         guard let fileURL = pickedURL else {
             errorText = String(localized: "Bitte zuerst eine Datei auswählen.")
             return
         }
-        guard let client = ApiClientFactory.make(baseURL: settings.serverURL,
-                                                 token: settings.bearerToken) else {
+        guard !settings.serverURL.isEmpty, !settings.bearerToken.isEmpty else {
             errorText = String(localized: "Keine gültige Server-Konfiguration.")
             return
         }
 
-        // Security-scoped Zugriff: zwingend für Files-Picker-URLs.
         let secured = fileURL.startAccessingSecurityScopedResource()
         defer { if secured { fileURL.stopAccessingSecurityScopedResource() } }
 
@@ -424,74 +416,57 @@ struct UploadView: View {
         defer { isSending = false }
 
         do {
-            // v1.0.1: Data(contentsOf:) auf MainActor blockte bei grossen
-            // PDFs die UI und riskierte 0x8badf00d Watchdog-Kills. Auf
-            // Background-Thread lesen; die security-scope bleibt aktiv
-            // solange sendNow() nicht returnt (defer above).
             let localURL = fileURL
             let data = try await Task.detached(priority: .userInitiated) {
                 return try Data(contentsOf: localURL, options: [.mappedIfSafe])
             }.value
             let filename = fileURL.lastPathComponent
-            // Multi-Target: pro ausgewaehltem Ziel einmal senden.
-            // Wir sammeln Erfolge/Fehler pro Ziel und zeigen die Liste
-            // anschliessend an — ein Fehler bei einem Ziel bricht den
-            // Rest nicht ab (z.B. wenn ein Drucker offline ist, soll
-            // der andere trotzdem losgehen).
+
             let groupLabel = settings.activeGroupLabel.isEmpty ? nil : settings.activeGroupLabel
             settings.activeGroupLabel = ""
-            var outcomes: [SendOutcome] = []
-            for targetId in settings.selectedTargetIds {
-                let display = settings.targetLabels[targetId] ?? targetId
-                do {
-                    let result = try await client.sendData(data,
-                                                           filename: filename,
-                                                           targetId: targetId,
-                                                           comment: comment.isEmpty ? nil : comment,
-                                                           copies: copies,
-                                                           color: color,
-                                                           duplex: duplex,
-                                                           printImageSize: effectiveImageSize,
-                                                           groupLabel: groupLabel)
-                    if result.ok == true || result.status?.lowercased() == "queued" {
-                        outcomes.append(SendOutcome(targetDisplay: display,
-                                                    ok: true,
-                                                    detail: successDetail(result)))
-                        if let jobId = result.jobId, !jobId.isEmpty {
-                            let iso = ISO8601DateFormatter()
-                            iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                            let optimistic = PrintJob(
-                                job_id: jobId,
-                                filename: filename,
-                                status: result.status ?? "queued",
-                                queue: display,
-                                created_at: iso.string(from: Date()),
-                                data_size: data.count
-                            )
-                            cache.pendingJob = optimistic
-                        }
-                    } else {
-                        outcomes.append(SendOutcome(targetDisplay: display,
-                                                    ok: false,
-                                                    detail: result.error ?? result.message ?? String(localized: "Unbekannter Fehler")))
-                    }
-                } catch {
-                    outcomes.append(SendOutcome(targetDisplay: display,
-                                                ok: false,
-                                                detail: error.localizedDescription))
-                }
-            }
-            sendResults = outcomes
 
-            // Einmaliger Hintergrund-Refresh nach allen Sends — ersetzt
-            // optimistische Einträge durch echte Serverdaten inkl. has_preview.
-            // 4s Verzögerung: Server generiert Preview-PNG asynchron nach dem
-            // Job-Insert; früher würde has_preview noch false zurückkommen.
-            if outcomes.contains(where: { $0.ok }) {
-                Task {
-                    try? await Task.sleep(for: .seconds(4))
-                    await cache.refreshJobs(settings: settings)
-                }
+            let targets: [(id: String, display: String)] = settings.selectedTargetIds.map {
+                (id: $0, display: settings.targetLabels[$0] ?? $0)
+            }
+
+            await BackgroundUploadManager.shared.enqueue(
+                fileData: data,
+                filename: filename,
+                targets: targets,
+                serverURL: settings.serverURL,
+                token: settings.bearerToken,
+                comment: comment.isEmpty ? nil : comment,
+                copies: copies,
+                color: color,
+                duplex: duplex,
+                printImageSize: effectiveImageSize,
+                groupLabel: groupLabel
+            )
+
+            sentConfirmation = true
+            pickedURL = nil   // Dateiauswahl zurücksetzen
+            comment = ""
+
+            // Optimistisch: Jobs-Tab sofort mit Platzhalter aktualisieren
+            let iso = ISO8601DateFormatter()
+            iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            for (targetId, display) in targets {
+                let job = PrintJob(
+                    job_id: UUID().uuidString,
+                    filename: filename,
+                    status: "queued",
+                    queue: display,
+                    created_at: iso.string(from: Date()),
+                    data_size: data.count
+                )
+                cache.pendingJob = job
+                _ = targetId  // wird im BackgroundManager verwendet
+            }
+
+            // Refresh nach ein paar Sekunden — ersetzt Placeholder durch echte Daten
+            Task {
+                try? await Task.sleep(for: .seconds(5))
+                await cache.refreshJobs(settings: settings)
             }
         } catch {
             errorText = error.localizedDescription
@@ -516,16 +491,6 @@ struct UploadView: View {
         defaults.removeObject(forKey: key)
     }
 
-    /// Detailzeile fuer einen erfolgreichen Send — lesbar statt
-    /// "queued job=abc". Wir zeigen den Status kapitalisiert und
-    /// haengen die Job-Id nur an wenn vorhanden.
-    private func successDetail(_ r: SendResult) -> String {
-        let status = (r.status ?? String(localized: "gesendet")).capitalized
-        if let job = r.jobId, !job.isEmpty {
-            return "\(status) · Job \(job)"
-        }
-        return status
-    }
 
 }
 

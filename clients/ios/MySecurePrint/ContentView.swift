@@ -6,8 +6,8 @@ import PrintixSendCore
 /// - Eingeloggt → Tabs Upload / Ziele / Konto
 struct ContentView: View {
 
-    @StateObject private var settings = SettingsStore()
-    @StateObject private var cache    = AppCache()
+    @StateObject private var settings  = SettingsStore()
+    @StateObject private var cache     = AppCache()
     @State private var showSplash = false
 
     var body: some View {
@@ -33,6 +33,7 @@ struct ContentView: View {
         }
         .environmentObject(settings)
         .environmentObject(cache)
+        .environmentObject(BackgroundUploadManager.shared)
         // Push-Permission anfordern + Cache befüllen sobald eingeloggt.
         .onChange(of: settings.isLoggedIn) { _, loggedIn in
             if loggedIn {

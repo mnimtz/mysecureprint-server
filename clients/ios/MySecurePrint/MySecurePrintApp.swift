@@ -49,6 +49,23 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         return true
     }
 
+    // Background-URLSession Completion: iOS weckt die App, nachdem ein
+    // Hintergrund-Upload abgeschlossen wurde. Wir leiten den Handler an
+    // den BackgroundUploadManager weiter — der ruft ihn nach Verarbeitung
+    // aller Events auf, damit iOS den temporären Background-Task beendet.
+    func application(
+        _ application: UIApplication,
+        handleEventsForBackgroundURLSession identifier: String,
+        completionHandler: @escaping () -> Void
+    ) {
+        Task { @MainActor in
+            BackgroundUploadManager.shared.handleBackgroundEvents(
+                identifier: identifier,
+                completionHandler: completionHandler
+            )
+        }
+    }
+
     func application(
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
