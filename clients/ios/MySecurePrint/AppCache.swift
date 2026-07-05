@@ -88,20 +88,33 @@ final class AppCache: ObservableObject {
         WidgetCenter.shared.reloadTimelines(ofKind: "PrintJobStatusWidget")
     }
 
-    /// Feuert Hintergrund-Status-Abfragen für nicht-terminale Jobs ab (max 8).
-    /// Aktualisiert `jobs` sobald Printix eine neue State zurückgibt.
-    private func triggerStatusRefresh(client: ApiClient) {
+    /// Gibt true zurück wenn noch nicht-terminale Jobs im Cache sind.
+    var hasNonTerminalJobs: Bool {
+        jobs.contains { !PrintJob.isTerminal($0.status) }
+    }
+
+    /// Fragt für alle nicht-terminalen Jobs (max 8) den Live-Status von Printix ab
+    /// und aktualisiert den Cache. Awaitable — für die automatische Poll-Loop.
+    func pollNonTerminalJobs(settings: SettingsStore) async {
+        guard let client = ApiClientFactory.make(
+            baseURL: settings.serverURL, token: settings.bearerToken) else { return }
+        await pollNonTerminalJobsWithClient(client)
+    }
+
+    private func pollNonTerminalJobsWithClient(_ client: ApiClient) async {
         let stale = jobs.filter { !PrintJob.isTerminal($0.status) }.prefix(8).map { $0.job_id }
-        guard !stale.isEmpty else { return }
-        Task {
-            for jobId in stale {
-                guard let r = try? await client.jobStatus(jobId: jobId) else { continue }
-                if let idx = jobs.firstIndex(where: { $0.job_id == jobId }),
-                   r.status != jobs[idx].status {
-                    jobs[idx] = jobs[idx].withUpdatedStatus(r.status)
-                }
+        for jobId in stale {
+            guard let r = try? await client.jobStatus(jobId: jobId) else { continue }
+            if let idx = jobs.firstIndex(where: { $0.job_id == jobId }),
+               r.status != jobs[idx].status {
+                jobs[idx] = jobs[idx].withUpdatedStatus(r.status)
+                updateWidgetState(jobs: jobs)
             }
         }
+    }
+
+    private func triggerStatusRefresh(client: ApiClient) {
+        Task { await pollNonTerminalJobsWithClient(client) }
     }
 
     /// Cache bei Logout leeren.

@@ -135,6 +135,16 @@ struct JobsView: View {
                     jobs.insert(p, at: 0)
                 }
             }
+            // Automatische Poll-Loop: läuft solange nicht-terminale Jobs vorhanden.
+            // task(id:) startet neu sobald hasNonTerminalJobs umschaltet.
+            .task(id: cache.hasNonTerminalJobs) {
+                guard cache.hasNonTerminalJobs else { return }
+                while cache.hasNonTerminalJobs {
+                    try? await Task.sleep(for: .seconds(20))
+                    guard !Task.isCancelled else { return }
+                    await cache.pollNonTerminalJobs(settings: settings)
+                }
+            }
             .sheet(item: $selectedJob) { job in
                 JobDetailView(job: job)
             }
