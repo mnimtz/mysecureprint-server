@@ -9744,6 +9744,18 @@
         }
       }
     },
+    "Privat": {
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Privat" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Private" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Privado" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Privé" } },
+        "it": { "stringUnit": { "state": "translated", "value": "Privato" } },
+        "nb": { "stringUnit": { "state": "translated", "value": "Privat" } },
+        "nl": { "stringUnit": { "state": "translated", "value": "Privé" } },
+        "sv": { "stringUnit": { "state": "translated", "value": "Privat" } }
+      }
+    },
     "Öffentlich": {
       "localizations": {
         "en": {

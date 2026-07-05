@@ -23,12 +23,19 @@ struct JobsView: View {
     private var filteredJobs: [PrintJob] {
         guard !searchText.trimmingCharacters(in: .whitespaces).isEmpty else { return jobs }
         let q = searchText.lowercased()
-        return jobs.filter {
-            $0.filename.lowercased().contains(q)
-            || $0.queue.lowercased().contains(q)
-            || $0.status.lowercased().contains(q)
-            || ($0.delegated_from ?? "").lowercased().contains(q)
-            || ($0.hostname ?? "").lowercased().contains(q)
+        return jobs.filter { j in
+            j.filename.lowercased().contains(q)
+            || j.queue.lowercased().contains(q)
+            || j.status.lowercased().contains(q)
+            || (j.delegated_from ?? "").lowercased().contains(q)
+            || (j.hostname ?? "").lowercased().contains(q)
+            || (j.source_identity ?? "").lowercased().contains(q)
+            || (j.error_message ?? "").lowercased().contains(q)
+            || (j.ai_doc_type ?? "").lowercased().contains(q)
+            || (j.ai_sensitivity ?? "").lowercased().contains(q)
+            || (j.ai_summary ?? "").lowercased().contains(q)
+            || (j.ai_tags ?? "").lowercased().contains(q)
+            || (j.ai_extra ?? "").lowercased().contains(q)
         }
     }
 
@@ -383,63 +390,7 @@ struct JobDetailView: View {
                     }
                 }
 
-                // File
-                Section(String(localized: "Datei")) {
-                    if !job.filename.isEmpty {
-                        detailRow(String(localized: "Name"), value: job.filename)
-                    }
-                    if let size = job.data_size, size > 0 {
-                        detailRow(String(localized: "Größe"), value: formatBytes(size))
-                    }
-                }
-
-                // Target
-                Section(String(localized: "Ziel")) {
-                    if !job.queue.isEmpty {
-                        detailRow(String(localized: "Queue"), value: job.queue, icon: "printer.fill")
-                    }
-                    if let delegate = job.delegated_from, !delegate.isEmpty {
-                        detailRow(String(localized: "Delegiert von"), value: delegate,
-                                  icon: "person.2.fill", iconColor: MSP.cyan)
-                    }
-                    if let recipients = job.delegate_recipients, !recipients.isEmpty {
-                        if let g = job.delegate_group_name, !g.isEmpty {
-                            detailRow(String(localized: "Team"), value: "\(g) (\(recipients.count))",
-                                      icon: "person.3.fill", iconColor: .orange)
-                        }
-                        ForEach(recipients, id: \.self) { r in
-                            detailRow(String(localized: "Empfänger"), value: r,
-                                      icon: "person.fill.badge.plus", iconColor: .orange)
-                        }
-                    }
-                    if let src = job.source_identity, !src.isEmpty {
-                        detailRow(String(localized: "Absender"), value: src, icon: "person.fill")
-                    }
-                }
-
-                // Device / timing
-                Section(String(localized: "Details")) {
-                    if let host = job.hostname, !host.isEmpty {
-                        detailRow(String(localized: "Gerät"), value: host, icon: "desktopcomputer")
-                    }
-                    detailRow(String(localized: "Erstellt"),
-                              value: PrintJob.formatDate(job.created_at, style: .medium))
-                    if let fwd = job.forwarded_at, !fwd.isEmpty {
-                        detailRow(String(localized: "Weitergeleitet"),
-                                  value: PrintJob.formatDate(fwd, style: .medium))
-                    }
-                    detailRow(String(localized: "Job-ID"), value: job.job_id)
-                }
-
-                if let err = job.error_message, !err.isEmpty {
-                    Section(String(localized: "Fehler")) {
-                        Text(err)
-                            .foregroundColor(.red)
-                            .font(.caption)
-                            .textSelection(.enabled)
-                    }
-                }
-
+                // Dokument-Analyse — direkt nach Status
                 if let _ = current.ai_analyzed_at.flatMap({ $0.isEmpty ? nil : $0 }) {
                     Section {
                         if let docType = current.ai_doc_type, !docType.isEmpty {
@@ -529,6 +480,64 @@ struct JobDetailView: View {
                         Label(String(localized: "Dokument-Analyse"), systemImage: "brain")
                     }
                 }
+
+                // File
+                Section(String(localized: "Datei")) {
+                    if !job.filename.isEmpty {
+                        detailRow(String(localized: "Name"), value: job.filename)
+                    }
+                    if let size = job.data_size, size > 0 {
+                        detailRow(String(localized: "Größe"), value: formatBytes(size))
+                    }
+                }
+
+                // Target
+                Section(String(localized: "Ziel")) {
+                    if !job.queue.isEmpty {
+                        detailRow(String(localized: "Queue"), value: job.queue, icon: "printer.fill")
+                    }
+                    if let delegate = job.delegated_from, !delegate.isEmpty {
+                        detailRow(String(localized: "Delegiert von"), value: delegate,
+                                  icon: "person.2.fill", iconColor: MSP.cyan)
+                    }
+                    if let recipients = job.delegate_recipients, !recipients.isEmpty {
+                        if let g = job.delegate_group_name, !g.isEmpty {
+                            detailRow(String(localized: "Team"), value: "\(g) (\(recipients.count))",
+                                      icon: "person.3.fill", iconColor: .orange)
+                        }
+                        ForEach(recipients, id: \.self) { r in
+                            detailRow(String(localized: "Empfänger"), value: r,
+                                      icon: "person.fill.badge.plus", iconColor: .orange)
+                        }
+                    }
+                    if let src = job.source_identity, !src.isEmpty {
+                        detailRow(String(localized: "Absender"), value: src, icon: "person.fill")
+                    }
+                }
+
+                // Device / timing
+                Section(String(localized: "Details")) {
+                    if let host = job.hostname, !host.isEmpty {
+                        detailRow(String(localized: "Gerät"), value: host, icon: "desktopcomputer")
+                    }
+                    detailRow(String(localized: "Erstellt"),
+                              value: PrintJob.formatDate(job.created_at, style: .medium))
+                    if let fwd = job.forwarded_at, !fwd.isEmpty {
+                        detailRow(String(localized: "Weitergeleitet"),
+                                  value: PrintJob.formatDate(fwd, style: .medium))
+                    }
+                    detailRow(String(localized: "Job-ID"), value: job.job_id)
+                }
+
+                if let err = job.error_message, !err.isEmpty {
+                    Section(String(localized: "Fehler")) {
+                        Text(err)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                            .textSelection(.enabled)
+                    }
+                }
+
             }
             .listStyle(.insetGrouped)
             .navigationTitle(job.filename.isEmpty ? String(localized: "Job-Details") : job.filename)
@@ -652,9 +661,10 @@ struct JobDetailView: View {
 
     private func sensitivityStyle(_ s: String) -> (Color, String) {
         switch s.lowercased() {
-        case "öffentlich": return (.green, String(localized: "Öffentlich"))
+        case "öffentlich": return (.green,  String(localized: "Öffentlich"))
+        case "privat":     return (.purple, String(localized: "Privat"))
         case "intern":     return (.orange, String(localized: "Intern"))
-        case "vertraulich": return (.red, String(localized: "Vertraulich"))
+        case "vertraulich": return (.red,  String(localized: "Vertraulich"))
         default:           return (.gray, s)
         }
     }

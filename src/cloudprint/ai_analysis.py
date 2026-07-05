@@ -197,7 +197,13 @@ def _build_prompt(
         if "color_rec" in enabled_fields:
             fields["color_rec"] = '"farbe"'
         if "sensitivity" in enabled_fields:
-            fields["sensitivity"] = '"intern"'
+            fields["sensitivity"] = (
+                '"<Wähle eine Kategorie: \'privat\' (persönliches Foto: Essen, Familie, '
+                'Freizeit, alltägliche Szenen), \'öffentlich\' (öffentliche Veranstaltung, '
+                'Natur, allgemeine Szene ohne Personenbezug), \'intern\' (Berufliches, '
+                'Büro, Arbeitsplatz, Geschäftstreffen), \'vertraulich\' '
+                '(sensible Geschäftsdaten, vertrauliche Inhalte)>"'
+            )
         if "tags" in enabled_fields:
             fields["tags"] = '["<Schlagwort 1>", "<Schlagwort 2>", "<Schlagwort 3>"]'
         if "summary" in enabled_fields:
@@ -209,7 +215,7 @@ def _build_prompt(
         if "color_rec" in enabled_fields:
             fields["color_rec"] = '"<\'farbe\' oder \'schwarzweiss\'>"'
         if "sensitivity" in enabled_fields:
-            fields["sensitivity"] = '"<\'öffentlich\', \'intern\' oder \'vertraulich\'>"'
+            fields["sensitivity"] = '"<\'öffentlich\', \'privat\', \'intern\' oder \'vertraulich\'>"'
         if "tags" in enabled_fields:
             fields["tags"] = "[]"
         if "summary" in enabled_fields:
