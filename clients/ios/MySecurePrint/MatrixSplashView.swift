@@ -69,7 +69,7 @@ struct MatrixSplashView: View {
     // MARK: Body
 
     var body: some View {
-        ZStack(alignment: style == .overlay ? .center : .bottom) {
+        ZStack {
             Color.black.opacity(bgOpacity).ignoresSafeArea()
 
             if !columns.isEmpty {
@@ -82,41 +82,33 @@ struct MatrixSplashView: View {
                 .ignoresSafeArea()
             }
 
-            if showLabel {
-                // Splash: App-Name + Spinner + Statuszeile
-                VStack(spacing: 10) {
+            // Prominente zentrierte Status-Karte — für Splash und Overlay gleich
+            VStack(spacing: showLabel ? 14 : 10) {
+                if showLabel {
                     Text("MySecurePrint")
-                        .font(.system(size: 18, weight: .bold, design: .monospaced))
+                        .font(.system(size: 20, weight: .bold, design: .monospaced))
                         .foregroundColor(Self.greenBright)
-                    HStack(spacing: 8) {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: Self.green))
-                            .scaleEffect(0.85)
-                        Text(String(localized: "Initialisiere…"))
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundColor(Self.green.opacity(0.70))
-                    }
                 }
-                .padding(.bottom, 58)
-            } else {
-                // Overlay: prominente zentrierte Pill — gut sichtbar, klar kommuniziert
-                VStack(spacing: 10) {
+                HStack(spacing: 10) {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: Self.green))
-                        .scaleEffect(1.1)
-                    Text(message ?? String(localized: "Aktualisiere Daten…"))
-                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .scaleEffect(showLabel ? 0.9 : 1.1)
+                    Text(showLabel
+                         ? String(localized: "Initialisiere…")
+                         : (message ?? String(localized: "Aktualisiere Daten…")))
+                        .font(.system(size: showLabel ? 13 : 13,
+                                      weight: .semibold, design: .monospaced))
                         .foregroundColor(Self.greenBright)
                 }
-                .padding(.horizontal, 30)
-                .padding(.vertical, 20)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18)
-                        .stroke(Self.green.opacity(0.35), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.4), radius: 20, y: 8)
             }
+            .padding(.horizontal, 32)
+            .padding(.vertical, 22)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Self.green.opacity(0.40), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.5), radius: 24, y: 10)
         }
         .opacity(opacity)
         .onAppear {
