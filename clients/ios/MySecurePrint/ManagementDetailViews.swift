@@ -78,11 +78,21 @@ struct UserListView: View {
     @State private var query = ""
     @State private var roleFilter: String? = nil
 
+    private func roleMatches(_ role: String?, filter: String) -> Bool {
+        let r = (role ?? "").uppercased()
+        switch filter {
+        case "admin":    return r.contains("ADMIN")
+        case "employee": return !r.contains("ADMIN") && !r.contains("GUEST")
+        case "guest":    return r.contains("GUEST")
+        default:         return true
+        }
+    }
+
     private var filtered: [MgmtUser] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return users.filter { u in
             if let rf = roleFilter {
-                guard (u.role ?? "").lowercased() == rf else { return false }
+                guard roleMatches(u.role, filter: rf) else { return false }
             }
             guard !q.isEmpty else { return true }
             return (u.name ?? "").lowercased().contains(q)
@@ -94,10 +104,10 @@ struct UserListView: View {
         List {
             Section {
                 HStack(spacing: 8) {
-                    mgmtFilterChip(String(localized: "Alle"),     selected: roleFilter == nil)        { roleFilter = nil }
-                    mgmtFilterChip("Admin",                        selected: roleFilter == "admin")    { roleFilter = "admin" }
-                    mgmtFilterChip("User",                         selected: roleFilter == "user")     { roleFilter = "user" }
-                    mgmtFilterChip("Employee",                     selected: roleFilter == "employee") { roleFilter = "employee" }
+                    mgmtFilterChip(String(localized: "Alle"),          selected: roleFilter == nil)          { roleFilter = nil }
+                    mgmtFilterChip(String(localized: "Administrator"), selected: roleFilter == "admin")    { roleFilter = "admin" }
+                    mgmtFilterChip(String(localized: "Mitarbeiter"),   selected: roleFilter == "employee") { roleFilter = "employee" }
+                    mgmtFilterChip(String(localized: "Gäste"),         selected: roleFilter == "guest")    { roleFilter = "guest" }
                     Spacer()
                 }
             }

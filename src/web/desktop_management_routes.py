@@ -436,7 +436,7 @@ def register_desktop_management_routes(app: FastAPI) -> None:
         try:
             client = _make_client(tenant)
             raw = await asyncio.to_thread(
-                lambda: client.list_users(role="USER,GUEST_USER", page_size=200))
+                lambda: client.list_users(role="TENANT_ADMIN,USER,GUEST_USER", page_size=200))
             items = _extract_users(raw)
             logger.info(
                 "Desktop-Mgmt users OK — user='%s' count=%d peer=%s",
