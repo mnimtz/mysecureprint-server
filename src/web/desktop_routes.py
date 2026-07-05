@@ -1482,6 +1482,9 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             px_job_id  = row["printix_job_id"] or ""
 
             if not px_job_id:
+                logger.warning("job_status: no printix_job_id for job=%s status=%s", job_id, db_status)
+                _audit(user, "job_status_no_px_id",
+                       extra={"job_id": job_id, "db_status": db_status})
                 return JSONResponse({"job_id": job_id, "status": db_status,
                                      "printix_status": None, "fresh": False})
 
@@ -1520,11 +1523,20 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                             (new_status, px_error or row["error_message"] or "", job_id),
                         )
                     _jobs_cache_invalidate(uid)
+                    _audit(user, "job_status_updated",
+                           extra={"job_id": job_id, "px_state": px_state,
+                                  "old_status": db_status, "new_status": new_status})
+                else:
+                    logger.debug("job_status no change: job=%s px_state=%s status=%s",
+                                 job_id, px_state, db_status)
 
                 return JSONResponse({"job_id": job_id, "status": new_status,
                                      "printix_status": px_state, "fresh": True})
             except Exception as px_err:
-                logger.debug("job_status Printix call failed for %s: %s", px_job_id, px_err)
+                logger.warning("job_status Printix call failed for %s: %s", px_job_id, px_err)
+                _audit(user, "job_status_failed",
+                       extra={"job_id": job_id, "px_job_id": px_job_id,
+                              "error": str(px_err)[:200]})
                 return JSONResponse({"job_id": job_id, "status": db_status,
                                      "printix_status": None, "fresh": False})
         except Exception as e:
