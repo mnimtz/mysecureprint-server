@@ -14,12 +14,5 @@
     <true/>
     <key>destination</key>
     <string>export</string>
-    <key>provisioningProfiles</key>
-    <dict>
-        <key>de.nimtz.mysecureprint</key>
-        <string></string>
-        <key>de.nimtz.mysecureprint.share</key>
-        <string></string>
-    </dict>
 </dict>
 </plist>
