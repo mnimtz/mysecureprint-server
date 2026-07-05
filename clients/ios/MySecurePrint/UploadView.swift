@@ -56,6 +56,7 @@ struct UploadView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             ScrollView {
                 VStack(spacing: 20) {
 
@@ -263,6 +264,7 @@ struct UploadView: View {
                                 }
                             }
                         }
+                        .id("confirmationBanner")
                     }
 
                     if !errorText.isEmpty {
@@ -281,6 +283,12 @@ struct UploadView: View {
                 .padding(.vertical, 20)
             }
             .background(Color(.systemGroupedBackground))
+            .onChange(of: sentConfirmation) { _, confirmed in
+                if confirmed {
+                    withAnimation { proxy.scrollTo("confirmationBanner", anchor: .bottom) }
+                }
+            }
+            } // ScrollViewReader
             .brandNavStyle(title: "Upload")
             .fileImporter(isPresented: $showImporter,
                           allowedContentTypes: allowedTypes,
