@@ -65,6 +65,23 @@ final class AppCache: ObservableObject {
             jobsHasMore = r.hasMore
             pendingJob = nil   // Optimistic-Eintrag ist jetzt von echten Daten abgelöst
         }
+        triggerStatusRefresh(client: client)
+    }
+
+    /// Feuert Hintergrund-Status-Abfragen für nicht-terminale Jobs ab (max 8).
+    /// Aktualisiert `jobs` sobald Printix eine neue State zurückgibt.
+    private func triggerStatusRefresh(client: ApiClient) {
+        let stale = jobs.filter { !PrintJob.isTerminal($0.status) }.prefix(8).map { $0.job_id }
+        guard !stale.isEmpty else { return }
+        Task {
+            for jobId in stale {
+                guard let r = try? await client.jobStatus(jobId: jobId) else { continue }
+                if let idx = jobs.firstIndex(where: { $0.job_id == jobId }),
+                   r.status != jobs[idx].status {
+                    jobs[idx] = jobs[idx].withUpdatedStatus(r.status)
+                }
+            }
+        }
     }
 
     /// Cache bei Logout leeren.
@@ -115,7 +132,7 @@ final class AppCache: ObservableObject {
             applyTargetLabels(r.items, settings: settings)
         }
         if let newQueues = q { queues = newQueues }
-        if let r = j { jobs = r.items; jobsHasMore = r.hasMore }
+        if let r = j { jobs = r.items; jobsHasMore = r.hasMore; triggerStatusRefresh(client: client) }
         if let r = m {
             mgmtStats         = r.stats
             mgmtPrinters      = r.printers
