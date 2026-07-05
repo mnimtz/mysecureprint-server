@@ -12,5 +12,6 @@ import SwiftUI
 struct PrintUploadWidgetBundle: WidgetBundle {
     var body: some Widget {
         PrintUploadLiveActivityWidget()
+        PrintJobStatusWidget()
     }
 }

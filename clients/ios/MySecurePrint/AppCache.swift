@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import WidgetKit
 import PrintixSendCore
 
 /// Zentraler In-Memory-Cache für alle Tab-Daten.
@@ -64,8 +65,27 @@ final class AppCache: ObservableObject {
             jobs = r.items
             jobsHasMore = r.hasMore
             pendingJob = nil   // Optimistic-Eintrag ist jetzt von echten Daten abgelöst
+            updateWidgetState(jobs: r.items)
         }
         triggerStatusRefresh(client: client)
+    }
+
+    /// Schreibt den aktuellen Job-Zustand ins App Group und weist WidgetKit
+    /// an, die Lock Screen Widget Timeline sofort neu zu rendern.
+    func updateWidgetState(jobs: [PrintJob]) {
+        let pending = jobs.filter {
+            ["queued", "forwarding"].contains($0.status.lowercased())
+        }.count
+        let last = jobs.first
+        let state = WidgetJobState(
+            pendingCount: pending,
+            lastFilename: last?.filename,
+            lastStatus: last?.status,
+            lastQueue: last?.queue,
+            updatedAt: Date()
+        )
+        state.save(appGroupID: SettingsStore.appGroupID)
+        WidgetCenter.shared.reloadTimelines(ofKind: "PrintJobStatusWidget")
     }
 
     /// Feuert Hintergrund-Status-Abfragen für nicht-terminale Jobs ab (max 8).
@@ -132,7 +152,12 @@ final class AppCache: ObservableObject {
             applyTargetLabels(r.items, settings: settings)
         }
         if let newQueues = q { queues = newQueues }
-        if let r = j { jobs = r.items; jobsHasMore = r.hasMore; triggerStatusRefresh(client: client) }
+        if let r = j {
+            jobs = r.items
+            jobsHasMore = r.hasMore
+            triggerStatusRefresh(client: client)
+            updateWidgetState(jobs: r.items)
+        }
         if let r = m {
             mgmtStats         = r.stats
             mgmtPrinters      = r.printers
