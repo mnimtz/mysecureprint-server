@@ -886,8 +886,10 @@ struct PrintJob: Codable, Identifiable, Equatable {
             return (.orange,  String(localized: "Wird gedruckt…"))
         case "ok", "success", "completed", "printed":
             return (.green,   String(localized: "Erfolgreich gedruckt ✓"))
-        case "expired", "deleted":
+        case "expired":
             return (.gray,    String(localized: "Abgelaufen"))
+        case "deleted":
+            return (.gray,    String(localized: "Bei Printix gelöscht"))
         case "error", "failed":
             return (.red,     String(localized: "Fehler beim Drucken"))
         default:
