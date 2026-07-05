@@ -44,6 +44,11 @@ _MAX_TEXT_OLLAMA   = 5000
 
 _ALL_STANDARD_FIELDS = {"doc_type", "color_rec", "sensitivity", "summary", "tags"}
 
+_GEMINI_ALLOWED_MIMES = {
+    "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic",
+    "application/pdf", "text/plain",
+}
+
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
@@ -88,7 +93,7 @@ def analyse_job(
 
         raw_fields = (ai_cfg.get("fields") or "").strip()
         enabled_fields = (
-            set(raw_fields.split(",")) if raw_fields else _ALL_STANDARD_FIELDS
+            set(raw_fields.split(",")) & _ALL_STANDARD_FIELDS if raw_fields else _ALL_STANDARD_FIELDS
         )
         custom_prompts: list[dict] = ai_cfg.get("custom_prompts") or []
 
@@ -100,6 +105,9 @@ def analyse_job(
 
         if provider == "gemini":
             if not gemini_key or not gemini_model:
+                return
+            if mime not in _GEMINI_ALLOWED_MIMES:
+                logger.info("ai_analysis: job=%s übersprungen — MIME '%s' nicht unterstützt", job_id, mime)
                 return
             if len(file_bytes) > _MAX_BYTES_GEMINI:
                 logger.info(
@@ -226,7 +234,7 @@ def _build_prompt(
         name = (cp.get("name") or "").strip()
         cp_prompt = (cp.get("prompt") or "").strip()
         if name and cp_prompt:
-            fields[name] = f'"<{cp_prompt}>"'
+            fields[name] = json.dumps(f"<{cp_prompt}>")
 
     # JSON-Schema-String bauen
     lines = []
@@ -317,6 +325,11 @@ def _analyse_ollama(
         "stream": False,
         "options": {"temperature": 0.1},
     }
+    from urllib.parse import urlparse as _urlparse
+    _parsed = _urlparse(base_url)
+    if _parsed.scheme not in ("http", "https"):
+        logger.warning("ollama: ungültiges URL-Schema '%s' — abgebrochen", _parsed.scheme)
+        return None
     url = base_url.rstrip("/") + "/api/generate"
     body = json.dumps(payload).encode()
     req = urllib.request.Request(

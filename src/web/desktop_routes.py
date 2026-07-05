@@ -2108,7 +2108,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     _ai_cfg = {
                         "tenant_id":      _tnt.get("id", "") or "",
                         "provider":       _provider,
-                        "gemini_key":     _dec(_tnt.get("ai_gemini_api_key") or ""),
+                        "gemini_key":     (_tnt.get("ai_gemini_api_key") or "").strip(),
                         "gemini_model":   (_tnt.get("ai_gemini_model") or "").strip(),
                         "ollama_url":     (_tnt.get("ai_ollama_url") or "").strip(),
                         "ollama_model":   (_tnt.get("ai_ollama_model") or "").strip(),

@@ -1874,7 +1874,7 @@ def get_tenant_full_by_user_id(user_id: str) -> Optional[dict]:
         # v0.7.117: KI-Dokumentenanalyse — fehlten im Return-Dict (Bug-Fix)
         "ai_enabled":          d.get("ai_enabled", "0"),
         "ai_provider":         d.get("ai_provider", ""),
-        "ai_gemini_api_key":   d.get("ai_gemini_api_key", ""),
+        "ai_gemini_api_key":   _dec(d.get("ai_gemini_api_key", "")),
         "ai_gemini_model":     d.get("ai_gemini_model", ""),
         "ai_ollama_url":       d.get("ai_ollama_url", ""),
         "ai_ollama_model":     d.get("ai_ollama_model", ""),

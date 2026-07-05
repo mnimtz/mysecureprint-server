@@ -7743,20 +7743,18 @@ def create_app(session_secret: str) -> FastAPI:
         )
 
     @app.get("/api/gemini-models")
-    async def api_gemini_models(request: Request, key: str = ""):
+    async def api_gemini_models(request: Request):
         from fastapi.responses import JSONResponse
         user = get_session_user(request)
         if not user or not user.get("is_admin"):
             return JSONResponse({"error": "Unauthorized"}, status_code=401)
-        resolved_key = key.strip()
-        if not resolved_key or resolved_key == "saved":
-            try:
-                from db import _dec, _find_tenant_owner_user_id, get_tenant_full_by_user_id
-                oid = _find_tenant_owner_user_id()
-                t = get_tenant_full_by_user_id(oid) if oid else None
-                resolved_key = _dec((t or {}).get("ai_gemini_api_key", "") or "") if t else ""
-            except Exception:
-                resolved_key = ""
+        try:
+            from db import _find_tenant_owner_user_id, get_tenant_full_by_user_id
+            oid = _find_tenant_owner_user_id()
+            t = get_tenant_full_by_user_id(oid) if oid else None
+            resolved_key = ((t or {}).get("ai_gemini_api_key", "") or "").strip() if t else ""
+        except Exception:
+            resolved_key = ""
         if not resolved_key:
             return JSONResponse({"models": [], "error": "Kein API-Key hinterlegt"})
         try:
