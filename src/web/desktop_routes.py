@@ -1492,7 +1492,8 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 return _json_error("job not found", code="not_found", status=404)
             with _conn() as conn:
                 row = conn.execute(
-                    """SELECT job_id, status, printix_job_id, error_message, last_px_poll
+                    """SELECT job_id, status, printix_job_id, error_message, last_px_poll,
+                              created_at, forwarded_at
                        FROM cloudprint_jobs
                        WHERE job_id = ?
                          AND (
@@ -1553,6 +1554,32 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 except Exception as _px404:
                     from printix_client import PrintixAPIError
                     if isinstance(_px404, PrintixAPIError) and _px404.status_code == 404:
+                        # Grace Period: frisch hochgeladene Jobs erst nach 3 min als deleted markieren
+                        _GRACE_SECS = 180
+                        _created_raw = row["forwarded_at"] or row["created_at"] or ""
+                        _job_age = _GRACE_SECS + 1
+                        try:
+                            import datetime as _dt
+                            _created_dt = _dt.datetime.fromisoformat(
+                                _created_raw.replace("Z", "+00:00")) if _created_raw else None
+                            if _created_dt:
+                                _now_dt = _dt.datetime.now(_dt.timezone.utc)
+                                if _created_dt.tzinfo is None:
+                                    _created_dt = _created_dt.replace(tzinfo=_dt.timezone.utc)
+                                _job_age = (_now_dt - _created_dt).total_seconds()
+                        except Exception:
+                            pass
+                        if _job_age < _GRACE_SECS:
+                            logger.info(
+                                "job_status: 404 für %s, aber %.0fs jung → Grace",
+                                px_job_id, _job_age)
+                            with _conn() as conn:
+                                conn.execute(
+                                    "UPDATE cloudprint_jobs SET last_px_poll = ? WHERE job_id = ?",
+                                    (_time.time(), job_id),
+                                )
+                            return JSONResponse({"job_id": job_id, "status": db_status,
+                                                 "printix_status": None, "fresh": False})
                         # Job bei Printix gelöscht → als "deleted" markieren
                         with _conn() as conn:
                             conn.execute(
@@ -1604,6 +1631,36 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                         None,
                     )
                     if job_obj is None:
+                        # Prüfen ob der Job zu neu ist — Printix braucht manchmal
+                        # 30–60s um einen frisch hochgeladenen Job in der API sichtbar
+                        # zu machen. Innerhalb von 3 Minuten nach Erstellung nicht als
+                        # deleted markieren (Race Condition direkt nach Upload).
+                        _GRACE_SECS = 180
+                        _created_raw = row["forwarded_at"] or row["created_at"] or ""
+                        _job_age = _GRACE_SECS + 1  # Default: außerhalb Grace
+                        try:
+                            import datetime as _dt
+                            _created_dt = _dt.datetime.fromisoformat(
+                                _created_raw.replace("Z", "+00:00")) if _created_raw else None
+                            if _created_dt:
+                                _now_dt = _dt.datetime.now(_dt.timezone.utc)
+                                if _created_dt.tzinfo is None:
+                                    _created_dt = _created_dt.replace(tzinfo=_dt.timezone.utc)
+                                _job_age = (_now_dt - _created_dt).total_seconds()
+                        except Exception:
+                            pass
+                        if _job_age < _GRACE_SECS:
+                            # Noch in Grace Period — Cooldown setzen, Status unverändert lassen
+                            logger.info(
+                                "job_status: job %s nicht in Printix-Liste, aber %.0fs jung → Grace",
+                                px_job_id, _job_age)
+                            with _conn() as conn:
+                                conn.execute(
+                                    "UPDATE cloudprint_jobs SET last_px_poll = ? WHERE job_id = ?",
+                                    (_time.time(), job_id),
+                                )
+                            return JSONResponse({"job_id": job_id, "status": db_status,
+                                                 "printix_status": None, "fresh": False})
                         # Job nicht in der Liste → wurde bei Printix gelöscht/abgelaufen
                         logger.warning(
                             "job_status: job %s nicht in Printix-Liste (%d Jobs) → deleted",
