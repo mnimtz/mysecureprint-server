@@ -1550,12 +1550,18 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                         return JSONResponse({"job_id": job_id, "status": "deleted",
                                              "printix_status": "DELETED", "fresh": True})
                     raise
-                # Feld-Kandidaten prüfen — Printix nutzt je nach API-Version unterschiedliche Namen
+                # Printix gibt {"job": {...}} oder direkt das Job-Objekt zurück —
+                # je nach Endpoint-Version. Normalisieren:
+                job_obj = job_data
+                if isinstance(job_data, dict) and "job" in job_data:
+                    job_obj = job_data["job"] or job_data
+
+                # Feld-Kandidaten: Docs sagen "status", ältere Versionen "printJobState"
                 px_state = (
-                    job_data.get("printJobState")
-                    or job_data.get("state")
-                    or job_data.get("jobState")
-                    or job_data.get("status")
+                    job_obj.get("status")
+                    or job_obj.get("printJobState")
+                    or job_obj.get("state")
+                    or job_obj.get("jobState")
                     or ""
                 )
                 if isinstance(px_state, str):
@@ -1564,10 +1570,10 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     px_state = str(px_state).upper()
                 new_status = _map_printix_state(px_state, db_status)
                 px_error   = ""
-                if isinstance(job_data.get("error"), dict):
-                    px_error = job_data["error"].get("message", "")[:500]
-                elif isinstance(job_data.get("error"), str):
-                    px_error = job_data["error"][:500]
+                if isinstance(job_obj.get("error"), dict):
+                    px_error = job_obj["error"].get("message", "")[:500]
+                elif isinstance(job_obj.get("error"), str):
+                    px_error = job_obj["error"][:500]
 
                 # Immer loggen — inkl. aller Response-Keys für Diagnose
                 if px_state and px_state not in _PX_STATE_MAP:
@@ -1577,7 +1583,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                        details=_json.dumps({"job_id": job_id, "px_state": px_state,
                                            "mapped_to": new_status, "db_status": db_status,
                                            "changed": new_status != db_status,
-                                           "response_keys": list(job_data.keys()) if isinstance(job_data, dict) else []},
+                                           "response_keys": list(job_obj.keys()) if isinstance(job_obj, dict) else []},
                                           ensure_ascii=False))
 
                 if new_status != db_status:
