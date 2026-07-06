@@ -1378,15 +1378,12 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             uname = (user.get("username") or "").lower()
             uemail = (user.get("email") or "").lower()
             pxid = (user.get("printix_user_id") or "").lower()
-            _where = """(tenant_id = ? OR IFNULL(tenant_id,'') = '')
-                         AND (
-                           LOWER(IFNULL(username,'')) = ?
-                           OR LOWER(IFNULL(username,'')) = ?
-                           OR LOWER(IFNULL(detected_identity,'')) = ?
-                           OR LOWER(IFNULL(detected_identity,'')) = ?
-                           OR LOWER(IFNULL(detected_identity,'')) = ?
+            _where = """(
+                           (tenant_id = ? OR IFNULL(tenant_id,'') = '')
+                           OR LOWER(IFNULL(username,''))          IN (?,?,?)
+                           OR LOWER(IFNULL(detected_identity,'')) IN (?,?,?)
                          )"""
-            _params = (tid, uname, uemail, uname, uemail, pxid)
+            _params = (tid, uname, uemail, pxid, uname, uemail, pxid)
             with _conn() as conn:
                 rows = conn.execute(
                     f"""SELECT job_id, job_name AS filename, status,
