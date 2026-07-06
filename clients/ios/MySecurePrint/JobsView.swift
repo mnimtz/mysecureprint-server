@@ -118,9 +118,14 @@ struct JobsView: View {
                     guard !jobs.contains(where: { $0.job_id == job.job_id }) else { return }
                     jobs.insert(job, at: 0)
                 } else if let old = oldJob {
-                    // pendingJob wurde gelöscht (refreshJobs hat echte Daten) —
-                    // Platzhalter entfernen; der echte Job kommt via onChange(cache.jobs).
-                    jobs.removeAll { $0.job_id == old.job_id }
+                    // pendingJob wurde gelöscht — Platzhalter nur entfernen wenn der
+                    // echte Job noch NICHT in cache.jobs ist. Falls onChange(cache.jobs)
+                    // schon gefeuert hat (passiert zuerst, da jobs vor pendingJob gesetzt
+                    // wird), ist der echte Eintrag bereits in der Liste und darf nicht
+                    // durch removeAll wieder gelöscht werden.
+                    if !cache.jobs.contains(where: { $0.job_id == old.job_id }) {
+                        jobs.removeAll { $0.job_id == old.job_id }
+                    }
                 }
             }
             // Cache-Update vom Server: volle Liste ersetzen damit neue Jobs
