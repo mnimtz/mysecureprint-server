@@ -7773,6 +7773,29 @@ def create_app(session_secret: str) -> FastAPI:
             "/admin/settings/ai-analysis?ok=ai_saved", status_code=302,
         )
 
+    @app.get("/api/openai-models")
+    async def api_openai_models(request: Request):
+        from fastapi.responses import JSONResponse
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return JSONResponse({"error": "Unauthorized"}, status_code=401)
+        try:
+            from db import _find_tenant_owner_user_id, get_tenant_full_by_user_id
+            oid = _find_tenant_owner_user_id()
+            t = get_tenant_full_by_user_id(oid) if oid else None
+            resolved_key = ((t or {}).get("ai_openai_api_key", "") or "").strip() if t else ""
+        except Exception:
+            resolved_key = ""
+        if not resolved_key:
+            return JSONResponse({"models": [], "error": "Kein API-Key hinterlegt"})
+        try:
+            import asyncio as _aio_ai
+            from cloudprint.ai_analysis import fetch_openai_models
+            models = await _aio_ai.to_thread(fetch_openai_models, resolved_key)
+            return JSONResponse({"models": models})
+        except Exception as e:
+            return JSONResponse({"error": str(e)[:120], "models": []})
+
     @app.get("/api/gemini-models")
     async def api_gemini_models(request: Request):
         from fastapi.responses import JSONResponse

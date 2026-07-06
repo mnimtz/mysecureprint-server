@@ -92,12 +92,20 @@
           </div>
           <div class="form-group">
             <label class="form-label">Modell</label>
-            <select name="ai_openai_model" class="form-select">
-              <option value="gpt-4o"      {% if ai_openai_model == 'gpt-4o' %}selected{% endif %}>gpt-4o (empfohlen — Vision + Text)</option>
-              <option value="gpt-4o-mini" {% if ai_openai_model == 'gpt-4o-mini' %}selected{% endif %}>gpt-4o-mini (günstiger)</option>
-              <option value="gpt-4-turbo" {% if ai_openai_model == 'gpt-4-turbo' %}selected{% endif %}>gpt-4-turbo</option>
-            </select>
-            <p class="form-hint">gpt-4o unterstützt Bilder (JPEG, PNG, GIF, WebP) sowie Text-Extraktion aus PDFs.</p>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <select name="ai_openai_model" id="ai-openai-model" class="form-select" style="flex:1;">
+                {% if ai_openai_model %}
+                <option value="{{ ai_openai_model }}" selected>{{ ai_openai_model }}</option>
+                {% else %}
+                <option value="gpt-4o-mini" selected>gpt-4o-mini (empfohlen)</option>
+                <option value="gpt-4o">gpt-4o (höchste Qualität)</option>
+                {% endif %}
+              </select>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="loadOpenAIModels()" id="ai-load-openai-models-btn">
+                Modelle laden
+              </button>
+            </div>
+            <p class="form-hint">gpt-4o-mini ist für Dokumentanalyse ausreichend und deutlich günstiger. gpt-4o für komplexe Bilder.</p>
           </div>
         </div>
 
@@ -194,6 +202,37 @@ function aiProviderChange(v) {
   document.getElementById('ai-gemini-block').style.display = v === 'gemini' ? '' : 'none';
   document.getElementById('ai-openai-block').style.display = v === 'openai' ? '' : 'none';
   document.getElementById('ai-ollama-block').style.display = v === 'ollama' ? '' : 'none';
+}
+function loadOpenAIModels() {
+  const keyInput = document.querySelector('[name="ai_openai_api_key"]');
+  const select   = document.getElementById('ai-openai-model');
+  const btn      = document.getElementById('ai-load-openai-models-btn');
+  const rawKey   = (keyInput.value || '').trim();
+  const hasSaved = {{ 'true' if ai_has_openai_key else 'false' }};
+  if (!rawKey && !hasSaved) {
+    alert(_i18n.enterKeyFirst);
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = _i18n.loading;
+  const url = rawKey ? `/api/openai-models?key=${encodeURIComponent(rawKey)}` : '/api/openai-models?key=saved';
+  fetch(url)
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) { alert(_i18n.errorPrefix + d.error); return; }
+      const current = select.value;
+      select.innerHTML = '';
+      (d.models || []).forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m; opt.textContent = m;
+        if (m === current) opt.selected = true;
+        select.appendChild(opt);
+      });
+      if (!select.value && d.models.includes('gpt-4o-mini')) select.value = 'gpt-4o-mini';
+      btn.textContent = d.models.length + _i18n.modelsLoaded;
+    })
+    .catch(e => { alert(_i18n.networkError + e); })
+    .finally(() => { btn.disabled = false; });
 }
 function loadGeminiModels() {
   const keyInput = document.querySelector('[name="ai_gemini_api_key"]');

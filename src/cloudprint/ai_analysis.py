@@ -60,6 +60,27 @@ _OPENAI_ALLOWED_MIMES = {
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
+def fetch_openai_models(api_key: str) -> list[str]:
+    """Gibt OpenAI-Modelle zurück die für Chat/Vision geeignet sind (gpt-* prefix)."""
+    url = "https://api.openai.com/v1/models"
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={"Authorization": f"Bearer {api_key}", "Accept": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+        models = []
+        for m in data.get("data", []):
+            mid = m.get("id", "")
+            if mid.startswith("gpt-") and "instruct" not in mid and "realtime" not in mid:
+                models.append(mid)
+        return sorted(models)
+    except Exception as e:
+        logger.warning("fetch_openai_models: %s", e)
+        return []
+
+
 def fetch_gemini_models(api_key: str) -> list[str]:
     """Gibt alle Gemini-Modelle zurück, die generateContent unterstützen."""
     url = _GEMINI_MODELS_URL.format(api_key=api_key)
