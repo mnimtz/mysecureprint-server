@@ -57,7 +57,7 @@ struct JobsView: View {
                             .contentShape(Rectangle())
                             .onTapGesture { selectedJob = job }
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                if !PrintJob.isTerminal(job.status) || job.status == "deleted" {
+                                if job.status != "deleted" {
                                     Button(role: .destructive) {
                                         Task { await deleteJob(job) }
                                     } label: {
@@ -296,6 +296,7 @@ struct JobsView: View {
         do {
             let result = try await fetchJobs(offset: jobs.count)
             jobs.append(contentsOf: result.jobs)
+            cache.jobs = jobs
             hasMore = result.jobs.count >= pageSize
         } catch {
             self.error = error.localizedDescription
@@ -309,6 +310,8 @@ struct JobsView: View {
         _ = try? await client.deleteMyJobs()
         jobs = []
         hasMore = false
+        cache.jobs = []
+        cache.updateWidgetState(jobs: [])
     }
 
     @MainActor
@@ -742,7 +745,7 @@ struct JobDetailView: View {
                     || (current.ai_analyzed_at?.isEmpty == true) else { return }
                 try? await Task.sleep(for: .seconds(20))
                 guard !Task.isCancelled else { return }
-                await cache.refreshJobs(settings: settings)
+                await cache.refreshJobs(settings: settings, noCache: true)
                 if let updated = cache.jobs.first(where: { $0.job_id == job.job_id }) {
                     liveJob = updated
                 }
@@ -901,7 +904,8 @@ struct PrintJob: Codable, Identifiable, Equatable {
 
     var id: String { job_id }
 
-    static func == (lhs: PrintJob, rhs: PrintJob) -> Bool { lhs.job_id == rhs.job_id }
+    // Kein custom == — Swift synthesisiert Vergleich aller Felder, damit
+    // onChange(of: cache.jobs) bei AI-Feld-Updates korrekt feuert.
 
     init(job_id: String, filename: String, status: String, queue: String,
          created_at: String, forwarded_at: String? = nil, error_message: String? = nil,

@@ -1494,8 +1494,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             db_tid = row["db_tid"]
             tid_ok = (not db_tid) or (not tid) or (db_tid == tid)
             id_ok = (row["db_uname"] in identities or
-                     row["db_identity"] in identities or
-                     not row["db_uname"])  # ohne username = kein Filter
+                     row["db_identity"] in identities)
             if not (tid_ok and id_ok):
                 logger.warning(
                     "job_delete: Ownership-Mismatch job=%s db_tid=%r req_tid=%r "
@@ -1524,6 +1523,8 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     "DELETE FROM cloudprint_jobs WHERE job_id = ?", (job_id,)
                 )
             _jobs_cache_invalidate(user["user_id"])
+            import json as _json
+            from db import audit as _audit
             _audit(user.get("user_id"), "job_deleted_by_user",
                    details=_json.dumps({"job_id": job_id, "px_job_id": px_job_id}, ensure_ascii=False))
             return JSONResponse({"deleted": True, "job_id": job_id})
@@ -1568,11 +1569,10 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                        FROM cloudprint_jobs
                        WHERE job_id = ?
                          AND (
-                           (tenant_id = ? OR IFNULL(tenant_id,'') = '')
-                           OR LOWER(IFNULL(username,''))          IN (?,?,?)
+                           LOWER(IFNULL(username,''))          IN (?,?,?)
                            OR LOWER(IFNULL(detected_identity,'')) IN (?,?,?)
                          )""",
-                    (job_id, _tid, uname, uemail, pxid, uname, uemail, pxid),
+                    (job_id, uname, uemail, pxid, uname, uemail, pxid),
                 ).fetchone()
             if not row:
                 return _json_error("job not found", code="not_found", status=404)
@@ -1842,7 +1842,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             return _json_error("token invalid", code="auth_required", status=401)
         try:
             from db import _conn
-            uname  = (_user_descr(user) or "").lower()
+            uname  = (user.get("username") or "").lower()
             uemail = (user.get("email") or "").lower()
             pxid   = (user.get("printix_user_id") or "").lower()
             with _conn() as conn:

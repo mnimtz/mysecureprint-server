@@ -73,7 +73,7 @@ LISTING_DE = {
         "Markenzeichen von Tungsten Automation Corp. und wird hier "
         "ausschliesslich zur Beschreibung der API-Kompatibilitaet genannt."
     ),
-    "whatsNew": "Delegate-Teams: persönliche Empfänger-Gruppen anlegen und mit einem Tap an alle senden. Jobs zeigen jetzt den Teamname und Empfänger-Badge.",
+    "whatsNew": "Jobs können jetzt per Wisch (Swipe) aus der Job-Liste gelöscht werden. Verbesserte Statusanzeige und Stabilitäts-Fixes.",
     "supportUrl": "https://github.com/mnimtz/mysecureprint-server/issues",
     "marketingUrl": "https://github.com/mnimtz/mysecureprint-server",
     "privacyPolicyUrl": "https://printix-sp.azurewebsites.net/privacy",

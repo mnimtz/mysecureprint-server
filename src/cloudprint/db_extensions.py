@@ -659,8 +659,8 @@ def get_recent_cloudprint_jobs_debug(tenant_id: str, limit: int = 10) -> list[di
 
 def get_cloudprint_config(user_id: str) -> Optional[dict]:
     """Gibt die Cloud-Print-Konfiguration eines Tenants zurück."""
-    from db import _conn, _resolve_tenant_owner_for
-    parent_id = _resolve_tenant_owner_for(user_id) or user_id
+    from db import _conn
+    parent_id = get_parent_user_id(user_id) or user_id
     with _conn() as conn:
         row = conn.execute(
             """SELECT t.id AS tenant_id, t.printix_tenant_id,
@@ -678,8 +678,8 @@ def update_cloudprint_config(user_id: str, target_queue: str, lpr_port: int | No
     lpr_port bleibt aus Kompatibilitätsgründen optional, wird aber nicht mehr
     pro Tenant erzwungen überschrieben, wenn kein Wert übergeben wird.
     """
-    from db import _conn, _resolve_tenant_owner_for
-    parent_id = _resolve_tenant_owner_for(user_id) or user_id
+    from db import _conn
+    parent_id = get_parent_user_id(user_id) or user_id
     with _conn() as conn:
         if lpr_port is None:
             conn.execute(
