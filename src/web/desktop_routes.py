@@ -1550,7 +1550,18 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                         return JSONResponse({"job_id": job_id, "status": "deleted",
                                              "printix_status": "DELETED", "fresh": True})
                     raise
-                px_state   = (job_data.get("printJobState") or "").upper()
+                # Feld-Kandidaten prüfen — Printix nutzt je nach API-Version unterschiedliche Namen
+                px_state = (
+                    job_data.get("printJobState")
+                    or job_data.get("state")
+                    or job_data.get("jobState")
+                    or job_data.get("status")
+                    or ""
+                )
+                if isinstance(px_state, str):
+                    px_state = px_state.upper()
+                else:
+                    px_state = str(px_state).upper()
                 new_status = _map_printix_state(px_state, db_status)
                 px_error   = ""
                 if isinstance(job_data.get("error"), dict):
@@ -1558,14 +1569,16 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 elif isinstance(job_data.get("error"), str):
                     px_error = job_data["error"][:500]
 
-                # Immer loggen — so sehen wir was Printix tatsächlich zurückgibt.
+                # Immer loggen — inkl. aller Response-Keys für Diagnose
                 if px_state and px_state not in _PX_STATE_MAP:
                     logger.warning("job_status: unbekannter Printix-State '%s' für job=%s — "
                                    "bitte in _PX_STATE_MAP ergänzen", px_state, job_id)
                 _audit(user.get("user_id"), "job_status_printix_queried",
                        details=_json.dumps({"job_id": job_id, "px_state": px_state,
                                            "mapped_to": new_status, "db_status": db_status,
-                                           "changed": new_status != db_status}, ensure_ascii=False))
+                                           "changed": new_status != db_status,
+                                           "response_keys": list(job_data.keys()) if isinstance(job_data, dict) else []},
+                                          ensure_ascii=False))
 
                 if new_status != db_status:
                     with _conn() as conn:
