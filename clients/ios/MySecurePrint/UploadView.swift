@@ -518,19 +518,32 @@ struct UploadView: View {
             comment = ""
 
             // Optimistisch: Jobs-Tab sofort mit Platzhalter für das erste Ziel aktualisieren.
-            // Nur wenn serverJobId bekannt (Foreground-Upload), sonst stimmt die ID nicht
-            // mit dem Server-Eintrag überein und der Platzhalter klebt ewig in der Liste.
-            if let jobId = serverJobId, let (_, display) = targets.first {
+            // Foreground-Upload: echte serverJobId → Platzhalter wird via pendingFoundInList
+            // automatisch ersetzt sobald der echte Job in der Serverliste erscheint.
+            // Background-Upload: keine serverJobId → Platzhalter mit temp-UUID; wird nach
+            // 30s automatisch gelöscht (echter Job ist dann über den refreshJobs sichtbar).
+            if let (_, display) = targets.first {
                 let iso = ISO8601DateFormatter()
                 iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                let pendingId = serverJobId ?? UUID().uuidString
                 cache.pendingJob = PrintJob(
-                    job_id: jobId,
+                    job_id: pendingId,
                     filename: filename,
                     status: "queued",
                     queue: display,
                     created_at: iso.string(from: Date()),
                     data_size: data.count
                 )
+                // Background-Upload: Platzhalter nach 30s entfernen (echter Job ist dann da).
+                if serverJobId == nil {
+                    let capturedId = pendingId
+                    Task {
+                        try? await Task.sleep(for: .seconds(30))
+                        if cache.pendingJob?.job_id == capturedId {
+                            cache.pendingJob = nil
+                        }
+                    }
+                }
             }
 
             // Nach 5s: Server hat den Job in DB — noCache:true damit der
