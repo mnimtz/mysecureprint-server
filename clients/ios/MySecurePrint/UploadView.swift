@@ -539,9 +539,15 @@ struct UploadView: View {
                 try? await Task.sleep(for: .seconds(5))
                 await cache.refreshJobs(settings: settings, noCache: true)
             }
-            // Nach 30s: KI-Analyse fertig, Cache erneut umgehen.
+            // Nach 30s: KI-Analyse fertig (Normalfall), Cache erneut umgehen.
             Task {
                 try? await Task.sleep(for: .seconds(30))
+                await cache.refreshJobs(settings: settings, noCache: true)
+            }
+            // Nach 90s: Fallback falls KI-Analyse länger dauert (z.B. große PDFs,
+            // Azure cold-start). Schadet nicht wenn Tags bereits sichtbar sind.
+            Task {
+                try? await Task.sleep(for: .seconds(90))
                 await cache.refreshJobs(settings: settings, noCache: true)
             }
         } catch {
