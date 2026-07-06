@@ -583,6 +583,7 @@ def register_desktop_management_routes(app: FastAPI) -> None:
             if isinstance(modified, (int, float)):
                 modified = str(modified)
             id_code = str(raw.get("idCode") or "")
+            pin = str(raw.get("pin") or "")
             expiry_raw = raw.get("expirationTimestamp")
             expiry = str(expiry_raw) if expiry_raw is not None else ""
             groups_raw = raw.get("groups") or []
@@ -598,6 +599,7 @@ def register_desktop_management_routes(app: FastAPI) -> None:
                 "created": created,
                 "modified": modified,
                 "id_code": id_code,
+                "pin": pin,
                 "expiry": expiry,
                 "groups": groups,
                 "cards": cards_raw,

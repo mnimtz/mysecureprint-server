@@ -412,6 +412,9 @@ struct UserDetailView: View {
                 if let code = detail?.idCode, !code.isEmpty {
                     infoRow(icon: "number", label: String(localized: "ID-Code"), value: code)
                 }
+                if let pin = detail?.pin, !pin.isEmpty {
+                    infoRow(icon: "lock.fill", label: String(localized: "PIN"), value: pin)
+                }
                 if let lang = detail?.language, !lang.isEmpty {
                     infoRow(icon: "globe", label: String(localized: "Sprache"), value: lang.uppercased())
                 }

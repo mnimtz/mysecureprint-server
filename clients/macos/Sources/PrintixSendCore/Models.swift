@@ -366,12 +366,13 @@ public struct MgmtUserDetail: Codable, Sendable {
     public let created: String?
     public let modified: String?
     public let idCode: String?
+    public let pin: String?
     public let expiry: String?
     public let groups: [String]?
     public let cards: [MgmtUserCard]?
 
     enum CodingKeys: String, CodingKey {
-        case id, email, name, role, language, roles, created, modified, expiry, groups, cards
+        case id, email, name, role, language, roles, created, modified, expiry, groups, cards, pin
         case authMethods = "auth_methods"
         case idCode = "id_code"
     }
