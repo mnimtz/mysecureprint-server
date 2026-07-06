@@ -207,6 +207,28 @@ def _extract_workstations(raw: Any) -> list[dict]:
     return out
 
 
+def _safe_list_cards(client: Any, user_id: str) -> list[dict]:
+    """Fetch and normalize the card list for a user. Returns [] on any error."""
+    try:
+        raw = client.list_user_cards(user_id)
+        if not isinstance(raw, dict):
+            return []
+        items = raw.get("cards") or []
+        if not isinstance(items, list):
+            return []
+        result = []
+        for c in items:
+            if not isinstance(c, dict):
+                continue
+            cid   = str(c.get("id") or "")
+            ctype = str(c.get("cardType") or c.get("type") or "")
+            num   = str(c.get("number") or c.get("cardNumber") or "")
+            result.append({"id": cid, "card_type": ctype, "number": num})
+        return result
+    except Exception:
+        return []
+
+
 # ─── Registrierung ───────────────────────────────────────────────────────────
 
 def register_desktop_management_routes(app: FastAPI) -> None:
@@ -495,6 +517,16 @@ def register_desktop_management_routes(app: FastAPI) -> None:
             last_seen = raw.get("lastActiveTime") or raw.get("lastSeen") or ""
             last_connect = raw.get("lastConnectTime") or ""
             last_disconnect = raw.get("lastDisconnectTime") or ""
+            site_id = raw.get("siteId") or ""
+            description = raw.get("description") or ""
+            # networkIds may come as a list or single string
+            nids_raw = raw.get("networkIds") or raw.get("networkId") or []
+            if isinstance(nids_raw, str):
+                network_ids = [nids_raw] if nids_raw else []
+            elif isinstance(nids_raw, list):
+                network_ids = [str(n) for n in nids_raw if n]
+            else:
+                network_ids = []
             return JSONResponse({
                 "id": workstation_id,
                 "hostname": hostname or workstation_id,
@@ -503,6 +535,9 @@ def register_desktop_management_routes(app: FastAPI) -> None:
                 "last_seen": last_seen,
                 "last_connect_time": last_connect,
                 "last_disconnect_time": last_disconnect,
+                "site_id": site_id,
+                "description": description,
+                "network_ids": network_ids,
             })
         except Exception as e:
             logger.warning("mgmt workstation detail: %s", e)
@@ -522,7 +557,10 @@ def register_desktop_management_routes(app: FastAPI) -> None:
             return _json_error("Card API not configured", code="not_configured", status=404)
         try:
             client = _make_client(tenant)
-            raw = await asyncio.to_thread(lambda: client.get_user(user_id))
+            raw, cards_raw = await asyncio.gather(
+                asyncio.to_thread(lambda: client.get_user(user_id)),
+                asyncio.to_thread(lambda: _safe_list_cards(client, user_id)),
+            )
             if not isinstance(raw, dict):
                 return _json_error("unexpected response", code="parse_error", status=502)
             email = (raw.get("email") or raw.get("username") or "").strip()
@@ -539,6 +577,11 @@ def register_desktop_management_routes(app: FastAPI) -> None:
                 created = str(created)
             if isinstance(modified, (int, float)):
                 modified = str(modified)
+            id_code = str(raw.get("idCode") or "")
+            expiry_raw = raw.get("expirationTimestamp")
+            expiry = str(expiry_raw) if expiry_raw is not None else ""
+            groups_raw = raw.get("groups") or []
+            groups = [str(g) for g in groups_raw] if isinstance(groups_raw, list) else []
             return JSONResponse({
                 "id": user_id,
                 "email": email,
@@ -549,6 +592,10 @@ def register_desktop_management_routes(app: FastAPI) -> None:
                 "auth_methods": auth_methods,
                 "created": created,
                 "modified": modified,
+                "id_code": id_code,
+                "expiry": expiry,
+                "groups": groups,
+                "cards": cards_raw,
             })
         except Exception as e:
             logger.warning("mgmt user detail: %s", e)

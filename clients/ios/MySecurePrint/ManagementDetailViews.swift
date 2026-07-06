@@ -409,6 +409,9 @@ struct UserDetailView: View {
                 if let role = effectiveRole {
                     infoRow(icon: "person.badge.key", label: String(localized: "Rolle"), value: role.capitalized)
                 }
+                if let code = detail?.idCode, !code.isEmpty {
+                    infoRow(icon: "number", label: String(localized: "ID-Code"), value: code)
+                }
                 if let lang = detail?.language, !lang.isEmpty {
                     infoRow(icon: "globe", label: String(localized: "Sprache"), value: lang.uppercased())
                 }
@@ -416,6 +419,11 @@ struct UserDetailView: View {
                     infoRow(icon: "key.fill",
                             label: String(localized: "Anmeldung"),
                             value: methods.map { $0.capitalized }.joined(separator: ", "))
+                }
+                if let exp = detail?.expiry, !exp.isEmpty {
+                    infoRow(icon: "clock.badge.exclamationmark",
+                            label: String(localized: "Ablaufdatum"),
+                            value: formatTimestamp(exp))
                 }
                 if let created = detail?.created, !created.isEmpty {
                     infoRow(icon: "calendar",
@@ -437,6 +445,42 @@ struct UserDetailView: View {
                                 .foregroundStyle(MSP.cyan)
                                 .frame(width: 26)
                             Text(r.capitalized)
+                        }
+                    }
+                }
+            }
+
+            if let groups = detail?.groups, !groups.isEmpty {
+                Section(String(localized: "Gruppen")) {
+                    ForEach(groups, id: \.self) { g in
+                        HStack {
+                            Image(systemName: "person.2.fill")
+                                .foregroundStyle(MSP.cyan)
+                                .frame(width: 26)
+                            Text(g)
+                                .font(.subheadline)
+                        }
+                    }
+                }
+            }
+
+            if let cards = detail?.cards, !cards.isEmpty {
+                Section(String(localized: "RFID-Karten")) {
+                    ForEach(cards, id: \.id) { card in
+                        HStack {
+                            Image(systemName: "creditcard.fill")
+                                .foregroundStyle(MSP.cyan)
+                                .frame(width: 26)
+                            VStack(alignment: .leading, spacing: 2) {
+                                if let num = card.number, !num.isEmpty {
+                                    Text(num).font(.subheadline.monospacedDigit())
+                                } else {
+                                    Text(card.id).font(.subheadline).foregroundStyle(.secondary)
+                                }
+                                if let t = card.cardType, !t.isEmpty {
+                                    Text(t).font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
                         }
                     }
                 }
@@ -536,6 +580,12 @@ struct WorkstationDetailView: View {
                         infoRow(icon: "person", label: String(localized: "Benutzer"), value: e)
                     }
                 }
+                if let desc = detail?.description, !desc.isEmpty {
+                    infoRow(icon: "text.alignleft", label: String(localized: "Beschreibung"), value: desc)
+                }
+                if let sid = detail?.siteId, !sid.isEmpty {
+                    infoRow(icon: "building.2", label: String(localized: "Site-ID"), value: sid)
+                }
                 let lastSeen = detail?.lastSeen ?? workstation.lastSeen
                 if let ls = lastSeen, !ls.isEmpty {
                     infoRow(icon: "clock", label: String(localized: "Zuletzt aktiv"),
@@ -548,6 +598,19 @@ struct WorkstationDetailView: View {
                 if let ld = detail?.lastDisconnectTime, !ld.isEmpty {
                     infoRow(icon: "network.slash", label: String(localized: "Getrennt"),
                             value: formatTimestamp(ld))
+                }
+            }
+
+            if let netIds = detail?.networkIds, !netIds.isEmpty {
+                Section(String(localized: "Netzwerke")) {
+                    ForEach(netIds, id: \.self) { nid in
+                        HStack {
+                            Image(systemName: "wifi")
+                                .foregroundStyle(MSP.cyan)
+                                .frame(width: 26)
+                            Text(nid).font(.subheadline)
+                        }
+                    }
                 }
             }
 

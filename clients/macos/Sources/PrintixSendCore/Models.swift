@@ -326,18 +326,34 @@ public struct MgmtWorkstationDetail: Codable, Sendable {
     public let lastSeen: String?
     public let lastConnectTime: String?
     public let lastDisconnectTime: String?
+    public let siteId: String?
+    public let description: String?
+    public let networkIds: [String]?
 
     enum CodingKeys: String, CodingKey {
-        case id, hostname
+        case id, hostname, description
         case userEmail = "user_email"
         case isOnline = "is_online"
         case lastSeen = "last_seen"
         case lastConnectTime = "last_connect_time"
         case lastDisconnectTime = "last_disconnect_time"
+        case siteId = "site_id"
+        case networkIds = "network_ids"
     }
 }
 
 // MARK: - User Detail (GET /desktop/management/users/{id})
+
+public struct MgmtUserCard: Codable, Sendable {
+    public let id: String
+    public let cardType: String?
+    public let number: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, number
+        case cardType = "card_type"
+    }
+}
 
 public struct MgmtUserDetail: Codable, Sendable {
     public let id: String
@@ -349,10 +365,15 @@ public struct MgmtUserDetail: Codable, Sendable {
     public let authMethods: [String]?
     public let created: String?
     public let modified: String?
+    public let idCode: String?
+    public let expiry: String?
+    public let groups: [String]?
+    public let cards: [MgmtUserCard]?
 
     enum CodingKeys: String, CodingKey {
-        case id, email, name, role, language, roles, created, modified
+        case id, email, name, role, language, roles, created, modified, expiry, groups, cards
         case authMethods = "auth_methods"
+        case idCode = "id_code"
     }
 }
 
