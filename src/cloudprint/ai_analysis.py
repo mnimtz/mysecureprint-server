@@ -43,19 +43,29 @@ _MAX_BYTES_GEMINI  = 15 * 1024 * 1024
 _MAX_BYTES_OLLAMA  = 2 * 1024 * 1024
 _MAX_TEXT_OLLAMA   = 5000
 _MAX_TEXT_OPENAI   = 8000
+_MAX_TEXT_GEMINI   = 8000
 
 _ALL_STANDARD_FIELDS = {"doc_type", "color_rec", "sensitivity", "summary", "tags"}
 
-_GEMINI_ALLOWED_MIMES = {
+# Direkt als inline_data an Gemini schickbar:
+_GEMINI_INLINE_MIMES = {
     "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic",
     "application/pdf", "text/plain",
-    # Office-Formate (docx, xlsx, pptx) werden von Gemini inline_data NICHT
-    # unterstützt (400-Fehler) — werden als unsupported_mime übersprungen.
 }
+# Office-Formate: Text-Extraktion → als Text-Prompt an Gemini:
+_GEMINI_TEXT_EXTRACT_MIMES = {
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # docx
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",        # xlsx
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation", # pptx
+    "application/msword",       # doc (alt)
+    "application/vnd.ms-excel", # xls (alt)
+}
+_GEMINI_ALLOWED_MIMES = _GEMINI_INLINE_MIMES | _GEMINI_TEXT_EXTRACT_MIMES
+
 _OPENAI_ALLOWED_MIMES = {
     "image/jpeg", "image/png", "image/gif", "image/webp",
     "application/pdf", "text/plain",
-}
+} | _GEMINI_TEXT_EXTRACT_MIMES
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -167,8 +177,20 @@ def analyse_job(
                 _audit_ai("ai_analysis_skipped", {"reason": "file_too_large", "size_mb": mb,
                                                    "provider": provider, "filename": filename})
                 return
-            prompt = _build_prompt(is_image, enabled_fields, custom_prompts)
-            result = _analyse_gemini(file_bytes, mime, prompt, gemini_key, gemini_model)
+            if mime in _GEMINI_TEXT_EXTRACT_MIMES:
+                # Office-Dokumente: Text extrahieren → als Text-Prompt an Gemini
+                text = _extract_text(file_bytes, mime)
+                if not text:
+                    _audit_ai("ai_analysis_skipped", {"reason": "text_extraction_failed",
+                                                       "mime": mime, "provider": provider,
+                                                       "filename": filename})
+                    return
+                prompt = _build_prompt(is_image=False, enabled_fields=enabled_fields,
+                                       custom_prompts=custom_prompts, for_ollama=True)
+                result = _analyse_gemini_text(text[:_MAX_TEXT_GEMINI], prompt, gemini_key, gemini_model)
+            else:
+                prompt = _build_prompt(is_image, enabled_fields, custom_prompts)
+                result = _analyse_gemini(file_bytes, mime, prompt, gemini_key, gemini_model)
         elif provider == "ollama":
             if not ollama_url or not ollama_model:
                 return
@@ -341,6 +363,53 @@ def _build_prompt(
 
 
 # ── Gemini ────────────────────────────────────────────────────────────────────
+
+def _analyse_gemini_text(
+    text: str,
+    prompt: str,
+    api_key: str,
+    model: str,
+) -> dict | None:
+    """Gemini-Analyse für reinen Text (Office-Dokumente nach Extraktion)."""
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt + "\n\nDokumenttext:\n" + text}]
+        }],
+        "generationConfig": {"maxOutputTokens": 1024, "temperature": 0.1},
+    }
+    url = _GEMINI_GENERATE_URL.format(model=model, api_key=api_key)
+    body = json.dumps(payload).encode()
+    req = urllib.request.Request(
+        url, data=body,
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode(errors="replace")[:400]
+        logger.warning("gemini_text HTTP %s: %s", e.code, err_body)
+        if e.code == 429:
+            return {"_error": "gemini_kontingent_erschoepft"}
+        if e.code in (500, 502, 503, 504):
+            return {"_error": f"gemini_nicht_verfuegbar_{e.code}"}
+        return {"_error": f"gemini_http_{e.code}"}
+    except Exception as e:
+        logger.warning("gemini_text request failed: %s", e)
+        return {"_error": "gemini_netzwerkfehler"}
+    if not data.get("candidates"):
+        block = (data.get("promptFeedback") or {}).get("blockReason", "no_candidates")
+        return {"_error": f"safety_{block}" if block != "no_candidates" else "no_candidates"}
+    cand = data["candidates"][0]
+    if cand.get("finishReason") == "SAFETY":
+        return {"_error": "safety_SAFETY"}
+    try:
+        raw = cand["content"]["parts"][0]["text"]
+    except (KeyError, IndexError):
+        return {"_error": "empty_response"}
+    return _parse_json_response(raw)
+
 
 def _analyse_gemini(
     file_bytes: bytes,
@@ -556,8 +625,40 @@ def _guess_mime(filename: str) -> str:
     }.get(ext, "application/octet-stream")
 
 
+def _extract_office_text(file_bytes: bytes, mime: str) -> str:
+    """Text-Extraktion aus Office-Dokumenten via ZIP+XML (keine externen Libs)."""
+    import zipfile, io
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(file_bytes))
+    except Exception:
+        return ""
+    parts: list[str] = []
+    # Welche XML-Dateien je nach Format lesen:
+    if "wordprocessingml" in mime or mime == "application/msword":
+        targets = ["word/document.xml"]
+    elif "spreadsheetml" in mime or mime == "application/vnd.ms-excel":
+        targets = ["xl/sharedStrings.xml", "xl/workbook.xml"]
+    elif "presentationml" in mime:
+        targets = [n for n in zf.namelist()
+                   if n.startswith("ppt/slides/slide") and n.endswith(".xml")]
+    else:
+        targets = [n for n in zf.namelist() if n.endswith(".xml")][:5]
+    for target in targets:
+        try:
+            xml = zf.read(target).decode("utf-8", errors="replace")
+            # XML-Tags entfernen, Whitespace normalisieren
+            text = re.sub(r"<[^>]+>", " ", xml)
+            text = re.sub(r"\s+", " ", text).strip()
+            parts.append(text)
+        except Exception:
+            continue
+    return " ".join(parts)[:_MAX_TEXT_OLLAMA]
+
+
 def _extract_text(file_bytes: bytes, mime: str) -> str:
-    """Text-Extraktion für Ollama (PDFs ohne externe Bibliotheken)."""
+    """Text-Extraktion für Ollama/Gemini (ohne externe Bibliotheken)."""
+    if mime in _GEMINI_TEXT_EXTRACT_MIMES:
+        return _extract_office_text(file_bytes, mime)
     if mime == "application/pdf":
         try:
             text_parts: list[str] = []
