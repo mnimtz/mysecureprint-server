@@ -7,6 +7,7 @@ struct JobsView: View {
 
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var cache: AppCache
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var jobs: [PrintJob] = []
     @State private var loading = false
@@ -151,6 +152,14 @@ struct JobsView: View {
                     guard !Task.isCancelled else { return }
                     await cache.pollNonTerminalJobs(settings: settings)
                 }
+            }
+            // Foreground-Wiedereintritt: task(id:) startet NICHT neu wenn die App aus
+            // dem Hintergrund kommt und hasNonTerminalJobs unverändert true bleibt —
+            // der gecancelte Loop wird dann nie fortgesetzt. scenePhase-Observer
+            // triggert einen sofortigen einmaligen Poll als Reparatur-Kickstart.
+            .onChange(of: scenePhase) { _, newPhase in
+                guard newPhase == .active, cache.hasNonTerminalJobs else { return }
+                Task { await cache.pollNonTerminalJobs(settings: settings) }
             }
             .sheet(item: $selectedJob) { job in
                 JobDetailView(job: job)
