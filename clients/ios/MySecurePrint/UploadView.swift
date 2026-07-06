@@ -518,13 +518,13 @@ struct UploadView: View {
             comment = ""
 
             // Optimistisch: Jobs-Tab sofort mit Platzhalter für das erste Ziel aktualisieren.
-            // Wenn serverJobId bekannt, echte ID verwenden — damit der spätere Refresh
-            // den Eintrag an Ort und Stelle aktualisiert statt ihn zu duplizieren.
-            if let (_, display) = targets.first {
+            // Nur wenn serverJobId bekannt (Foreground-Upload), sonst stimmt die ID nicht
+            // mit dem Server-Eintrag überein und der Platzhalter klebt ewig in der Liste.
+            if let jobId = serverJobId, let (_, display) = targets.first {
                 let iso = ISO8601DateFormatter()
                 iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
                 cache.pendingJob = PrintJob(
-                    job_id: serverJobId ?? UUID().uuidString,
+                    job_id: jobId,
                     filename: filename,
                     status: "queued",
                     queue: display,

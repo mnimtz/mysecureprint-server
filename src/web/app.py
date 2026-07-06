@@ -8207,6 +8207,91 @@ def create_app(session_secret: str) -> FastAPI:
         except Exception as e:
             logger.warning("Job-Status Hintergrund-Poller startup failed: %s", e)
 
+    # v0.7.194: KI-Analyse-Recovery — Jobs ohne ai_analyzed_at nach Server-Restart
+    # neu analysieren. Verhindert verlorene Tags wenn Azure mid-Task neu startet.
+    @app.on_event("startup")
+    async def _recover_missing_ai_analysis():
+        import asyncio as _asyncio
+
+        def _do_recovery():
+            try:
+                from db import _conn, _dec, get_tenant_full_by_user_id, _resolve_tenant_owner_for
+                import datetime as _dt, json as _jj
+                cutoff = (_dt.datetime.now(_dt.timezone.utc)
+                          - _dt.timedelta(hours=24)).isoformat()
+                with _conn() as c:
+                    rows = c.execute(
+                        """SELECT job_id, job_name, data_blob, username,
+                                  detected_identity
+                           FROM cloudprint_jobs
+                           WHERE printix_job_id != '' AND printix_job_id IS NOT NULL
+                             AND (ai_analyzed_at IS NULL OR ai_analyzed_at = '')
+                             AND status NOT IN ('error','failed','deleted')
+                             AND (data_blob IS NOT NULL AND LENGTH(data_blob) > 0)
+                             AND created_at > ?
+                           LIMIT 10""",
+                        (cutoff,),
+                    ).fetchall()
+                if not rows:
+                    return
+                logger.info("AI-Recovery: %d Jobs ohne KI-Analyse", len(rows))
+                from cloudprint.ai_analysis import analyse_job
+                for row in rows:
+                    try:
+                        job_id   = row["job_id"]
+                        filename = row["job_name"] or ""
+                        uid_raw  = row["username"] or row["detected_identity"] or ""
+                        file_bytes = bytes(row["data_blob"]) if row["data_blob"] else b""
+                        if not file_bytes:
+                            continue
+                        # Tenant + AI-Config laden
+                        pid = _resolve_tenant_owner_for(uid_raw) or uid_raw
+                        tnt = get_tenant_full_by_user_id(pid) if pid else None
+                        if not tnt:
+                            continue
+                        if (tnt.get("ai_enabled") or "0") != "1":
+                            continue
+                        provider = (tnt.get("ai_provider") or "").strip()
+                        if not provider:
+                            continue
+                        try:
+                            cp = _jj.loads(tnt.get("ai_custom_prompts") or "[]")
+                        except Exception:
+                            cp = []
+                        ai_cfg = {
+                            "tenant_id":      tnt.get("id", "") or "",
+                            "provider":       provider,
+                            "gemini_key":     (tnt.get("ai_gemini_api_key") or "").strip(),
+                            "gemini_model":   (tnt.get("ai_gemini_model") or "").strip(),
+                            "ollama_url":     (tnt.get("ai_ollama_url") or "").strip(),
+                            "ollama_model":   (tnt.get("ai_ollama_model") or "").strip(),
+                            "openai_key":     (tnt.get("ai_openai_api_key") or "").strip(),
+                            "openai_model":   (tnt.get("ai_openai_model") or "").strip(),
+                            "fields":         (tnt.get("ai_fields") or "").strip(),
+                            "custom_prompts": cp,
+                        }
+                        analyse_job(
+                            job_id=job_id,
+                            file_bytes=file_bytes,
+                            filename=filename,
+                            ai_cfg=ai_cfg,
+                            user_id=uid_raw,
+                        )
+                        logger.info("AI-Recovery: job=%s re-analysiert", job_id)
+                    except Exception as _je:
+                        logger.debug("AI-Recovery job=%s: %s", row["job_id"], _je)
+            except Exception as _e:
+                logger.warning("AI-Recovery Fehler: %s", _e)
+
+        async def _run():
+            await _asyncio.sleep(30)
+            await _asyncio.to_thread(_do_recovery)
+
+        try:
+            _track_bg(_asyncio.create_task(_run()))
+        except Exception as e:
+            logger.warning("AI-Recovery startup failed: %s", e)
+
     # v0.3.0: Blob auto-backup — daily scheduler. Opt-in via
     # blob_backup_enabled=1. First tick fires 60s after startup so the DB
     # is initialised; subsequent ticks are 24h apart. Errors are logged
