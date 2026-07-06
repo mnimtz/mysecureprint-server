@@ -7773,6 +7773,13 @@ def create_app(session_secret: str) -> FastAPI:
             "/admin/settings/ai-analysis?ok=ai_saved", status_code=302,
         )
 
+    def _resolve_ai_key(request: Request, tenant_key: str) -> str:
+        """Nimmt Key aus ?key= param (wenn nicht 'saved'), sonst den gespeicherten DB-Key."""
+        param = (request.query_params.get("key") or "").strip()
+        if param and param != "saved":
+            return param
+        return tenant_key
+
     @app.get("/api/openai-models")
     async def api_openai_models(request: Request):
         from fastapi.responses import JSONResponse
@@ -7783,9 +7790,10 @@ def create_app(session_secret: str) -> FastAPI:
             from db import _find_tenant_owner_user_id, get_tenant_full_by_user_id
             oid = _find_tenant_owner_user_id()
             t = get_tenant_full_by_user_id(oid) if oid else None
-            resolved_key = ((t or {}).get("ai_openai_api_key", "") or "").strip() if t else ""
+            db_key = ((t or {}).get("ai_openai_api_key", "") or "").strip() if t else ""
         except Exception:
-            resolved_key = ""
+            db_key = ""
+        resolved_key = _resolve_ai_key(request, db_key)
         if not resolved_key:
             return JSONResponse({"models": [], "error": "Kein API-Key hinterlegt"})
         try:
@@ -7806,9 +7814,10 @@ def create_app(session_secret: str) -> FastAPI:
             from db import _find_tenant_owner_user_id, get_tenant_full_by_user_id
             oid = _find_tenant_owner_user_id()
             t = get_tenant_full_by_user_id(oid) if oid else None
-            resolved_key = ((t or {}).get("ai_gemini_api_key", "") or "").strip() if t else ""
+            db_key = ((t or {}).get("ai_gemini_api_key", "") or "").strip() if t else ""
         except Exception:
-            resolved_key = ""
+            db_key = ""
+        resolved_key = _resolve_ai_key(request, db_key)
         if not resolved_key:
             return JSONResponse({"models": [], "error": "Kein API-Key hinterlegt"})
         try:

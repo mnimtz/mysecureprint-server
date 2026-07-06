@@ -9,7 +9,7 @@ Standardfelder (konfigurierbar):
   ai_color_rec   — Druckempfehlung: 'farbe' | 'schwarzweiss'
   ai_sensitivity — Vertraulichkeit: 'öffentlich' | 'intern' | 'vertraulich'
   ai_summary     — 2–3 Sätze Zusammenfassung / Bildbeschreibung
-  ai_tags        — Nur bei Fotos: 2–3 Schlagwörter, kommagetrennt
+  ai_tags        — 2–3 Schlagwörter zur inhaltlichen Kategorisierung (Bilder + Dokumente)
   ai_analyzed_at — ISO-8601 Zeitstempel
 
 Zusatzfelder (Admin-konfiguriert):
@@ -305,7 +305,7 @@ def _build_prompt(
         if "sensitivity" in enabled_fields:
             fields["sensitivity"] = '"<\'öffentlich\', \'privat\', \'intern\' oder \'vertraulich\'>"'
         if "tags" in enabled_fields:
-            fields["tags"] = "[]"
+            fields["tags"] = '["<Schlagwort 1>", "<Schlagwort 2>"]'
         if "summary" in enabled_fields:
             fields["summary"] = '"<2–3 Sätze Zusammenfassung des Inhalts>"'
 
@@ -328,8 +328,11 @@ def _build_prompt(
         else "Analysiere den folgenden Dokumenttext"
     )
     hint = ""
-    if is_image and "tags" in enabled_fields and not for_ollama:
-        hint = "\nWähle 2–3 prägnante Schlagwörter die das Bild kategorisieren (z.B. Natur, Architektur, Personen, Essen, Tier, Landschaft, Innen, Außen …)."
+    if "tags" in enabled_fields and not for_ollama:
+        if is_image:
+            hint = "\nWähle 2–3 prägnante Schlagwörter die das Bild kategorisieren (z.B. Natur, Architektur, Personen, Essen, Tier, Landschaft, Innen, Außen …)."
+        else:
+            hint = "\nWähle 2–3 prägnante Schlagwörter die den Inhalt des Dokuments kategorisieren (z.B. Rechnung, Vertrag, HR, Finanzen, Bericht, Präsentation, Formular …)."
 
     base = f"{intro} und antworte NUR mit einem JSON-Objekt (kein Markdown, kein Text drumherum):\n{schema}{hint}"
     if for_ollama:
