@@ -1464,10 +1464,9 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
     @app.delete("/desktop/me/jobs/{job_id}")
     async def desktop_job_delete(job_id: str, request: Request,
                                   authorization: str = Header(default="")):
-        """v0.7.197: Einzelnen Job löschen — ruft Printix delete_print_job auf
-        und markiert Job lokal als 'deleted'. Printix ändert den API-Status
-        nach Löschung nicht (bleibt CONVERTED), daher muss die Löschung
-        serverseitig getracked werden."""
+        """v0.7.201: Einzelnen Job löschen — ruft Printix delete_print_job auf
+        und löscht den DB-Row. Ownership-Prüfung in Python statt per WHERE-Clause
+        damit Logging bei Mismatch möglich ist."""
         _log_req(request, f"DELETE /me/jobs/{job_id}")
         user = _require_token(authorization)
         if not user:
@@ -1483,20 +1482,31 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             tid = (tenant or {}).get("id", "")
             with _conn() as conn:
                 row = conn.execute(
-                    """SELECT job_id, printix_job_id, status
+                    """SELECT job_id, printix_job_id, status,
+                              LOWER(IFNULL(username,'')) as db_uname,
+                              LOWER(IFNULL(detected_identity,'')) as db_identity,
+                              IFNULL(tenant_id,'') as db_tid
                        FROM cloudprint_jobs
-                       WHERE job_id = ?
-                         AND (tenant_id = ? OR IFNULL(tenant_id,'') = '')
-                         AND (
-                           LOWER(IFNULL(username,'')) = ?
-                           OR LOWER(IFNULL(username,'')) = ?
-                           OR LOWER(IFNULL(detected_identity,'')) = ?
-                           OR LOWER(IFNULL(detected_identity,'')) = ?
-                           OR LOWER(IFNULL(detected_identity,'')) = ?
-                         )""",
-                    (job_id, tid, uname, uemail, uname, uemail, pxid),
+                       WHERE job_id = ?""",
+                    (job_id,),
                 ).fetchone()
             if not row:
+                logger.warning("job_delete: job %s nicht in DB", job_id)
+                return _json_error("Job nicht gefunden", code="not_found", status=404)
+            # Ownership-Prüfung: tenant_id muss passen (oder leer) UND
+            # username / detected_identity muss zur anfragenden Identität gehören
+            identities = {uname, uemail, pxid} - {""}
+            db_tid = row["db_tid"]
+            tid_ok = (not db_tid) or (not tid) or (db_tid == tid)
+            id_ok = (row["db_uname"] in identities or
+                     row["db_identity"] in identities or
+                     not row["db_uname"])  # ohne username = kein Filter
+            if not (tid_ok and id_ok):
+                logger.warning(
+                    "job_delete: Ownership-Mismatch job=%s db_tid=%r req_tid=%r "
+                    "db_uname=%r db_identity=%r identities=%r",
+                    job_id, db_tid, tid, row["db_uname"], row["db_identity"], identities,
+                )
                 return _json_error("Job nicht gefunden", code="not_found", status=404)
             px_job_id = row["printix_job_id"]
             if px_job_id and tenant:

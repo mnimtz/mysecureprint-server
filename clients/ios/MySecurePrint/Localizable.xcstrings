@@ -9626,6 +9626,9 @@
         }
       }
     },
+    "Löschen" : {
+
+    },
     "Management" : {
       "localizations" : {
         "en" : {
@@ -12456,6 +12459,9 @@
           }
         }
       }
+    },
+    "PIN" : {
+
     },
     "Printix" : {
       "localizations" : {
