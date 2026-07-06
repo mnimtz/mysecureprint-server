@@ -67,7 +67,9 @@ final class AppCache: ObservableObject {
             pendingJob = nil   // Optimistic-Eintrag ist jetzt von echten Daten abgelöst
             updateWidgetState(jobs: r.items)
         }
-        triggerStatusRefresh(client: client)
+        // Kein triggerStatusRefresh hier — refreshJobs liefert bereits aktuelle
+        // Statuses und der .task(id:)-Loop in JobsView übernimmt weiteres Polling.
+        // Ein extra triggerStatusRefresh würde parallele Poll-Instanzen erzeugen.
     }
 
     /// Schreibt den aktuellen Job-Zustand ins App Group und weist WidgetKit

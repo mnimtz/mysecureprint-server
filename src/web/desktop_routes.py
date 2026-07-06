@@ -1480,8 +1480,9 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             from db import _conn, _resolve_tenant_owner_for, audit as _audit, get_setting as _gs_dbg
             _debug_audit = bool(os.environ.get("DEBUG_JOB_STATUS_AUDIT")
                                 or (_gs_dbg("debug_job_status_audit", "0") == "1"))
-            _audit(user.get("user_id"), "job_status_called",
-                   details=_json.dumps({"job_id": job_id}, ensure_ascii=False))
+            if _debug_audit:
+                _audit(user.get("user_id"), "job_status_called",
+                       details=_json.dumps({"job_id": job_id}, ensure_ascii=False))
             uname  = (user.get("username") or "").lower()
             uemail = (user.get("email") or "").lower()
             pxid   = (user.get("printix_user_id") or "").lower()

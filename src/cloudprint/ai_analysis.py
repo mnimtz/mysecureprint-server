@@ -47,13 +47,8 @@ _ALL_STANDARD_FIELDS = {"doc_type", "color_rec", "sensitivity", "summary", "tags
 _GEMINI_ALLOWED_MIMES = {
     "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic",
     "application/pdf", "text/plain",
-    # Microsoft Office
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    "application/msword",
-    "application/vnd.ms-excel",
-    "application/vnd.ms-powerpoint",
+    # Office-Formate (docx, xlsx, pptx) werden von Gemini inline_data NICHT
+    # unterstützt (400-Fehler) — werden als unsupported_mime übersprungen.
 }
 
 
