@@ -65,9 +65,15 @@ final class AppCache: ObservableObject {
         guard let client = ApiClientFactory.make(
             baseURL: settings.serverURL, token: settings.bearerToken) else { return }
         if let r = await fetchJobs(client: client, noCache: noCache) {
+            // Pending nur löschen wenn der echte Job schon in der Server-Liste ist.
+            // Printix braucht 30–60s zum Indexieren — zu früh gecleart führt dazu
+            // dass der Platzhalter aus der UI verschwindet bevor der echte Eintrag da ist.
+            let pendingFoundInList = pendingJob.map { p in
+                r.items.contains(where: { $0.job_id == p.job_id })
+            } ?? true
             jobs = r.items
             jobsHasMore = r.hasMore
-            pendingJob = nil   // Optimistic-Eintrag ist jetzt von echten Daten abgelöst
+            if pendingFoundInList { pendingJob = nil }
             updateWidgetState(jobs: r.items)
         }
         // Bei manuellem Refresh: einmaligen Status-Poll starten damit nicht auf

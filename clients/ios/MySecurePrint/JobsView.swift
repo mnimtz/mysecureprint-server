@@ -237,7 +237,11 @@ struct JobsView: View {
             hasMore = result.jobs.count >= pageSize
             cache.jobs = result.jobs
             cache.jobsHasMore = hasMore
-            cache.pendingJob = nil
+            // Pending nur löschen wenn der echte Job schon sichtbar ist (gleiche
+            // Logik wie refreshJobs — Printix braucht 30–60s zum Indexieren).
+            if cache.pendingJob.map({ p in result.jobs.contains(where: { $0.job_id == p.job_id }) }) ?? true {
+                cache.pendingJob = nil
+            }
             // Sofortiger Status-Poll nach manuellem Reload — damit nicht auf das
             // nächste adaptive Intervall gewartet wird (bis 30 min bei alten Jobs).
             await cache.pollNonTerminalJobs(settings: settings)

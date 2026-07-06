@@ -961,6 +961,9 @@
         }
       }
     },
+    "Ablaufdatum" : {
+
+    },
     "Abmelden" : {
       "localizations" : {
         "en" : {
@@ -6416,6 +6419,9 @@
         }
       }
     },
+    "Gruppen" : {
+
+    },
     "Hersteller" : {
       "localizations" : {
         "en" : {
@@ -6787,6 +6793,9 @@
         }
       },
       "shouldTranslate" : false
+    },
+    "ID-Code" : {
+
     },
     "In Warteschlange" : {
       "localizations" : {
@@ -10991,6 +11000,9 @@
         }
       }
     },
+    "Netzwerke" : {
+
+    },
     "Neue Karte" : {
       "localizations" : {
         "en" : {
@@ -13356,6 +13368,9 @@
         }
       }
     },
+    "RFID-Karten" : {
+
+    },
     "Roh-Wert (Hex, Dezimal oder Text)" : {
       "localizations" : {
         "en" : {
@@ -14571,6 +14586,9 @@
           }
         }
       }
+    },
+    "Site-ID" : {
+
     },
     "Speichern" : {
       "localizations" : {
