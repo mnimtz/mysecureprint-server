@@ -2212,19 +2212,36 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                         "gemini_model":   (_tnt.get("ai_gemini_model") or "").strip(),
                         "ollama_url":     (_tnt.get("ai_ollama_url") or "").strip(),
                         "ollama_model":   (_tnt.get("ai_ollama_model") or "").strip(),
+                        "openai_key":     (_tnt.get("ai_openai_api_key") or "").strip(),
+                        "openai_model":   (_tnt.get("ai_openai_model") or "").strip(),
                         "fields":         (_tnt.get("ai_fields") or "").strip(),
                         "custom_prompts": _custom_prompts,
                     }
+                    _file_bytes = data if isinstance(data, (bytes, bytearray)) else b""
+                    if not _file_bytes:
+                        logger.warning("bg_ai_analysis job=%s: file_bytes leer — KI übersprungen", internal_id)
+                        return
                     from cloudprint.ai_analysis import analyse_job
                     analyse_job(
                         job_id=internal_id,
-                        file_bytes=data if isinstance(data, (bytes, bytearray)) else b"",
+                        file_bytes=_file_bytes,
                         filename=file.filename or "",
                         ai_cfg=_ai_cfg,
                         user_id=user.get("user_id", ""),
                     )
                 except Exception as _ae:
                     logger.warning("bg_ai_analysis job=%s: %s", internal_id, _ae)
+                    try:
+                        from db import audit as _audit_exc
+                        import json as _jex
+                        _audit_exc(user.get("user_id"), "ai_analysis_failed",
+                                   details=_jex.dumps({"reason": "exception",
+                                                        "error": str(_ae)[:200],
+                                                        "filename": getattr(file, "filename", "") or ""},
+                                                       ensure_ascii=False),
+                                   object_type="print_job", object_id=internal_id)
+                    except Exception:
+                        pass
             try:
                 await asyncio.to_thread(_do_ai)
                 # Cache invalidieren damit der nächste /me/jobs-Aufruf

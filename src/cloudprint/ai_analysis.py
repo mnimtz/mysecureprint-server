@@ -37,10 +37,12 @@ _GEMINI_GENERATE_URL = (
 _GEMINI_MODELS_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
 )
+_OPENAI_GENERATE_URL = "https://api.openai.com/v1/chat/completions"
 
 _MAX_BYTES_GEMINI  = 15 * 1024 * 1024
 _MAX_BYTES_OLLAMA  = 2 * 1024 * 1024
 _MAX_TEXT_OLLAMA   = 5000
+_MAX_TEXT_OPENAI   = 8000
 
 _ALL_STANDARD_FIELDS = {"doc_type", "color_rec", "sensitivity", "summary", "tags"}
 
@@ -49,6 +51,10 @@ _GEMINI_ALLOWED_MIMES = {
     "application/pdf", "text/plain",
     # Office-Formate (docx, xlsx, pptx) werden von Gemini inline_data NICHT
     # unterstützt (400-Fehler) — werden als unsupported_mime übersprungen.
+}
+_OPENAI_ALLOWED_MIMES = {
+    "image/jpeg", "image/png", "image/gif", "image/webp",
+    "application/pdf", "text/plain",
 }
 
 
@@ -108,6 +114,8 @@ def analyse_job(
         gemini_model = (ai_cfg.get("gemini_model") or "").strip()
         ollama_url   = (ai_cfg.get("ollama_url") or "").strip()
         ollama_model = (ai_cfg.get("ollama_model") or "").strip()
+        openai_key   = (ai_cfg.get("openai_key") or "").strip()
+        openai_model = (ai_cfg.get("openai_model") or "").strip()
 
         raw_fields = (ai_cfg.get("fields") or "").strip()
         enabled_fields = (
@@ -158,6 +166,20 @@ def analyse_job(
             prompt = _build_prompt(is_image=False, enabled_fields=enabled_fields,
                                    custom_prompts=custom_prompts, for_ollama=True)
             result = _analyse_ollama(file_bytes, mime, prompt, ollama_url, ollama_model)
+        elif provider == "openai":
+            if not openai_key or not openai_model:
+                return
+            if mime not in _OPENAI_ALLOWED_MIMES:
+                _audit_ai("ai_analysis_skipped", {"reason": "unsupported_mime", "mime": mime,
+                                                   "provider": provider, "filename": filename})
+                return
+            if is_image and len(file_bytes) > _MAX_BYTES_GEMINI:
+                mb = len(file_bytes) // (1024 * 1024)
+                _audit_ai("ai_analysis_skipped", {"reason": "file_too_large", "size_mb": mb,
+                                                   "provider": provider, "filename": filename})
+                return
+            prompt = _build_prompt(is_image, enabled_fields, custom_prompts)
+            result = _analyse_openai(file_bytes, mime, prompt, openai_key, openai_model)
         else:
             return
 
@@ -361,6 +383,74 @@ def _analyse_gemini(
     except Exception as e:
         logger.warning("gemini response parse error: %s — raw: %s", e, str(data)[:400])
         return {"_error": "parse_error"}
+
+
+# ── OpenAI ───────────────────────────────────────────────────────────────────
+
+def _analyse_openai(
+    file_bytes: bytes,
+    mime: str,
+    prompt: str,
+    api_key: str,
+    model: str,
+) -> dict | None:
+    import base64
+    is_image = mime.startswith("image/")
+    if is_image:
+        encoded = base64.b64encode(file_bytes).decode()
+        content: object = [
+            {"type": "text", "text": prompt},
+            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{encoded}"}},
+        ]
+    else:
+        text = _extract_text(file_bytes, mime)
+        if not text:
+            return {"_error": "text_extraction_failed"}
+        content = prompt + "\n\n" + text[:_MAX_TEXT_OPENAI]
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": content}],
+        "max_tokens": 1024,
+        "temperature": 0.1,
+    }
+    body = json.dumps(payload).encode()
+    req = urllib.request.Request(
+        _OPENAI_GENERATE_URL,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode(errors="replace")[:400]
+        logger.warning("openai HTTP %s: %s", e.code, err_body)
+        if e.code == 429:
+            return {"_error": "openai_kontingent_erschoepft"}
+        if e.code in (500, 502, 503):
+            return {"_error": f"openai_nicht_verfuegbar_{e.code}"}
+        return {"_error": f"openai_fehler_{e.code}"}
+    except Exception as e:
+        logger.warning("openai request failed: %s", e)
+        return {"_error": "openai_netzwerkfehler"}
+
+    choices = data.get("choices") or []
+    if not choices:
+        return {"_error": "openai_no_choices"}
+    finish = choices[0].get("finish_reason", "")
+    if finish == "content_filter":
+        return {"_error": "openai_content_filter"}
+    try:
+        text = choices[0]["message"]["content"].strip()
+        return _parse_json_response(text)
+    except Exception as e:
+        logger.warning("openai response parse error: %s — raw: %s", e, str(data)[:400])
+        return {"_error": "openai_parse_error"}
 
 
 # ── Ollama ────────────────────────────────────────────────────────────────────

@@ -5984,6 +5984,9 @@ def create_app(session_secret: str) -> FastAPI:
             ai_gemini_model = _tf.get("ai_gemini_model", "") or ""
             ai_ollama_url   = _tf.get("ai_ollama_url", "") or ""
             ai_ollama_model = _tf.get("ai_ollama_model", "") or ""
+            ai_openai_key   = _tf.get("ai_openai_api_key", "") or ""
+            ai_has_openai_key = bool(_dec_ai(ai_openai_key)) if ai_openai_key else False
+            ai_openai_model = _tf.get("ai_openai_model", "") or ""
             # v0.7.117: Feldselektion + Custom-Prompts
             _raw_fields     = _tf.get("ai_fields", "") or ""
             ai_fields_set   = set(_raw_fields.split(",")) if _raw_fields else set()
@@ -6000,6 +6003,8 @@ def create_app(session_secret: str) -> FastAPI:
             ai_enabled = False
             ai_provider = ai_gemini_model = ai_ollama_url = ai_ollama_model = ""
             ai_has_gemini_key = False
+            ai_openai_model = ""
+            ai_has_openai_key = False
             ai_fields_active = {"doc_type", "color_rec", "sensitivity", "summary", "tags"}
             ai_custom_prompts = []
         return {
@@ -6034,13 +6039,15 @@ def create_app(session_secret: str) -> FastAPI:
             "push_relay_token":       push_relay_token,
             "push_relay_registered":  push_relay_registered,
             "push_token_count":       push_token_count,
-            # v0.7.114/117: KI-Dokumentenanalyse
+            # v0.7.114/117/169: KI-Dokumentenanalyse
             "ai_enabled":         ai_enabled,
             "ai_provider":        ai_provider,
             "ai_has_gemini_key":  ai_has_gemini_key,
             "ai_gemini_model":    ai_gemini_model,
             "ai_ollama_url":      ai_ollama_url,
             "ai_ollama_model":    ai_ollama_model,
+            "ai_has_openai_key":  ai_has_openai_key,
+            "ai_openai_model":    ai_openai_model,
             "ai_fields_active":   ai_fields_active,
             "ai_custom_prompts":  ai_custom_prompts,
             "auto_setup_success": auto_setup_success,
@@ -7642,6 +7649,9 @@ def create_app(session_secret: str) -> FastAPI:
             ai_gemini_model  = tf.get("ai_gemini_model", "") or ""
             ai_ollama_url    = tf.get("ai_ollama_url", "") or ""
             ai_ollama_model  = tf.get("ai_ollama_model", "") or ""
+            ai_openai_key    = tf.get("ai_openai_api_key", "") or ""
+            ai_has_openai_key = bool(_dec_ai(ai_openai_key)) if ai_openai_key else False
+            ai_openai_model  = tf.get("ai_openai_model", "") or ""
             _raw_fields      = tf.get("ai_fields", "") or ""
             ai_fields_set    = set(_raw_fields.split(",")) if _raw_fields else set()
             _all_fields      = {"doc_type", "color_rec", "sensitivity", "summary", "tags"}
@@ -7656,6 +7666,8 @@ def create_app(session_secret: str) -> FastAPI:
             ai_enabled = False
             ai_provider = ai_gemini_model = ai_ollama_url = ai_ollama_model = ""
             ai_has_gemini_key = False
+            ai_openai_model = ""
+            ai_has_openai_key = False
             ai_fields_active = {"doc_type", "color_rec", "sensitivity", "summary", "tags"}
             ai_custom_prompts = []
         return templates.TemplateResponse("admin_ai_analysis.html", {
@@ -7666,6 +7678,8 @@ def create_app(session_secret: str) -> FastAPI:
             "ai_gemini_model": ai_gemini_model,
             "ai_ollama_url": ai_ollama_url,
             "ai_ollama_model": ai_ollama_model,
+            "ai_has_openai_key": ai_has_openai_key,
+            "ai_openai_model": ai_openai_model,
             "ai_fields_active": ai_fields_active,
             "ai_custom_prompts": ai_custom_prompts,
             **t_ctx(request),
@@ -7698,6 +7712,7 @@ def create_app(session_secret: str) -> FastAPI:
             gemini_model = (form.get("ai_gemini_model") or "").strip()
             ollama_url   = (form.get("ai_ollama_url") or "").strip()
             ollama_model = (form.get("ai_ollama_model") or "").strip()
+            openai_model = (form.get("ai_openai_model") or "").strip()
 
             # Feldselektion: Checkboxen → kommagetrennte Liste
             all_known = ["doc_type", "color_rec", "sensitivity", "summary", "tags"]
@@ -7717,25 +7732,33 @@ def create_app(session_secret: str) -> FastAPI:
                     custom_prompts.append({"name": n, "prompt": p[:500]})
             custom_prompts = custom_prompts[:5]  # max 5 Felder
 
-            raw_key = (form.get("ai_gemini_api_key") or "").strip()
+            raw_gemini_key = (form.get("ai_gemini_api_key") or "").strip()
+            raw_openai_key = (form.get("ai_openai_api_key") or "").strip()
             with _conn() as conn:
-                if raw_key:
-                    conn.execute(
-                        "UPDATE tenants SET ai_enabled=?, ai_provider=?, ai_gemini_api_key=?, "
-                        "ai_gemini_model=?, ai_ollama_url=?, ai_ollama_model=?, "
-                        "ai_fields=?, ai_custom_prompts=? WHERE id=?",
-                        (enabled, provider, _enc(raw_key), gemini_model,
-                         ollama_url, ollama_model, fields_str,
-                         _json_save.dumps(custom_prompts, ensure_ascii=False), tid),
-                    )
-                else:
-                    conn.execute(
-                        "UPDATE tenants SET ai_enabled=?, ai_provider=?, "
-                        "ai_gemini_model=?, ai_ollama_url=?, ai_ollama_model=?, "
-                        "ai_fields=?, ai_custom_prompts=? WHERE id=?",
-                        (enabled, provider, gemini_model, ollama_url, ollama_model,
-                         fields_str, _json_save.dumps(custom_prompts, ensure_ascii=False), tid),
-                    )
+                # Nur Schlüssel updaten wenn neuer Wert eingegeben wurde
+                set_parts = [
+                    "ai_enabled=?", "ai_provider=?",
+                    "ai_gemini_model=?", "ai_ollama_url=?", "ai_ollama_model=?",
+                    "ai_openai_model=?",
+                    "ai_fields=?", "ai_custom_prompts=?",
+                ]
+                params: list = [
+                    enabled, provider,
+                    gemini_model, ollama_url, ollama_model,
+                    openai_model,
+                    fields_str, _json_save.dumps(custom_prompts, ensure_ascii=False),
+                ]
+                if raw_gemini_key:
+                    set_parts.append("ai_gemini_api_key=?")
+                    params.append(_enc(raw_gemini_key))
+                if raw_openai_key:
+                    set_parts.append("ai_openai_api_key=?")
+                    params.append(_enc(raw_openai_key))
+                params.append(tid)
+                conn.execute(
+                    f"UPDATE tenants SET {', '.join(set_parts)} WHERE id=?",
+                    params,
+                )
             audit(user["id"], "ai_analysis_settings",
                   f"enabled={enabled} provider={provider} fields={fields_str or 'all'} "
                   f"custom={len(custom_prompts)}")

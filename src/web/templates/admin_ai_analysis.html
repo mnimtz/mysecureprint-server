@@ -42,6 +42,7 @@
           <select name="ai_provider" id="ai-provider-select" class="form-select" onchange="aiProviderChange(this.value)">
             <option value=""        {% if not ai_provider %}selected{% endif %}>{{ _('ai_provider_placeholder') }}</option>
             <option value="gemini"  {% if ai_provider == 'gemini' %}selected{% endif %}>Google Gemini</option>
+            <option value="openai"  {% if ai_provider == 'openai' %}selected{% endif %}>OpenAI (GPT-4o)</option>
             <option value="ollama"  {% if ai_provider == 'ollama' %}selected{% endif %}>{{ _('ai_provider_ollama_label') }}</option>
           </select>
           <p class="form-hint">{{ _('ai_provider_hint') }}</p>
@@ -74,6 +75,29 @@
               </button>
             </div>
             <p class="form-hint">{{ _('ai_gemini_model_hint') | safe }}</p>
+          </div>
+        </div>
+
+        {# ── OpenAI ── #}
+        <div id="ai-openai-block" style="{% if ai_provider != 'openai' %}display:none;{% endif %}border-left:3px solid var(--ta-green, #22c55e);padding-left:14px;margin-top:4px;margin-bottom:12px;">
+          <div class="form-group">
+            <label class="form-label">OpenAI API Key</label>
+            <input type="password" name="ai_openai_api_key" class="form-input" autocomplete="new-password"
+                   placeholder="{% if ai_has_openai_key %}(gespeichert — leer lassen zum Behalten){% else %}sk-…{% endif %}">
+            {% if ai_has_openai_key %}
+            <p class="form-hint">API Key gespeichert. Nur neu eingeben um zu ändern.</p>
+            {% else %}
+            <p class="form-hint">API Key unter <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a> erstellen.</p>
+            {% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Modell</label>
+            <select name="ai_openai_model" class="form-select">
+              <option value="gpt-4o"      {% if ai_openai_model == 'gpt-4o' %}selected{% endif %}>gpt-4o (empfohlen — Vision + Text)</option>
+              <option value="gpt-4o-mini" {% if ai_openai_model == 'gpt-4o-mini' %}selected{% endif %}>gpt-4o-mini (günstiger)</option>
+              <option value="gpt-4-turbo" {% if ai_openai_model == 'gpt-4-turbo' %}selected{% endif %}>gpt-4-turbo</option>
+            </select>
+            <p class="form-hint">gpt-4o unterstützt Bilder (JPEG, PNG, GIF, WebP) sowie Text-Extraktion aus PDFs.</p>
           </div>
         </div>
 
@@ -168,6 +192,7 @@ function aiEnabledChange(on) {
 }
 function aiProviderChange(v) {
   document.getElementById('ai-gemini-block').style.display = v === 'gemini' ? '' : 'none';
+  document.getElementById('ai-openai-block').style.display = v === 'openai' ? '' : 'none';
   document.getElementById('ai-ollama-block').style.display = v === 'ollama' ? '' : 'none';
 }
 function loadGeminiModels() {
