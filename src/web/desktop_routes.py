@@ -1552,7 +1552,17 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 )
                 try:
                     import asyncio as _asyncio
-                    job_data = await _asyncio.to_thread(client.get_print_job, px_job_id)
+                    try:
+                        job_data = await _asyncio.wait_for(
+                            _asyncio.to_thread(client.get_print_job, px_job_id),
+                            timeout=10.0,
+                        )
+                    except _asyncio.TimeoutError:
+                        # Printix API antwortet nicht innerhalb von 10s — DB-Status zurückgeben.
+                        # Background-Poller holt den echten Status beim nächsten Lauf.
+                        logger.warning("job_status: Printix API timeout für %s — DB-Status", px_job_id)
+                        return JSONResponse({"job_id": job_id, "status": db_status,
+                                             "printix_status": None, "fresh": False})
                 except Exception as _px404:
                     from printix_client import PrintixAPIError
                     if isinstance(_px404, PrintixAPIError) and _px404.status_code == 404:
