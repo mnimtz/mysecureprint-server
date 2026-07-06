@@ -1474,7 +1474,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             return _json_error("token invalid", code="auth_required", status=401)
         try:
             from db import _conn, _resolve_tenant_owner_for
-            from cloudprint.db_extensions import get_tenant_for_user, update_cloudprint_job_status
+            from cloudprint.db_extensions import get_tenant_for_user
             uname  = (user.get("username") or "").lower()
             uemail = (user.get("email") or "").lower()
             pxid   = (user.get("printix_user_id") or "").lower()
@@ -1514,7 +1514,10 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     client.delete_print_job(px_job_id)
                 except Exception as _pe:
                     logger.info("job_delete: Printix delete fehlgeschlagen job=%s: %s", job_id, _pe)
-            update_cloudprint_job_status(job_id, "deleted")
+            with _conn() as conn:
+                conn.execute(
+                    "DELETE FROM cloudprint_jobs WHERE job_id = ?", (job_id,)
+                )
             _jobs_cache_invalidate(user["user_id"])
             _audit(user.get("user_id"), "job_deleted_by_user",
                    details=_json.dumps({"job_id": job_id, "px_job_id": px_job_id}, ensure_ascii=False))
