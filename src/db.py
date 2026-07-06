@@ -1882,7 +1882,7 @@ def get_tenant_full_by_user_id(user_id: str) -> Optional[dict]:
         "ai_gemini_model":     d.get("ai_gemini_model", ""),
         "ai_ollama_url":       d.get("ai_ollama_url", ""),
         "ai_ollama_model":     d.get("ai_ollama_model", ""),
-        "ai_openai_api_key":   d.get("ai_openai_api_key", ""),
+        "ai_openai_api_key":   _dec(d.get("ai_openai_api_key", "")),
         "ai_openai_model":     d.get("ai_openai_model", ""),
         "ai_fields":           d.get("ai_fields", ""),
         "ai_custom_prompts":   d.get("ai_custom_prompts", "[]"),
