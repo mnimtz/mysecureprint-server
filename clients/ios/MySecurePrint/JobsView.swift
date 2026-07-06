@@ -905,7 +905,7 @@ struct PrintJob: Codable, Identifiable, Equatable {
     static func badgeStyleFor(_ s: String) -> (Color, String) {
         switch s.lowercased() {
         case "queued", "waiting_for_upload":
-            return (.gray,    String(localized: "In Warteschlange"))
+            return (Color(red: 0.2, green: 0.75, blue: 0.4), String(localized: "In Warteschlange"))
         case "sent", "forwarded":
             return (MSP.cyan, String(localized: "An Printix gesendet"))
         case "converting":

@@ -8079,6 +8079,134 @@ def create_app(session_secret: str) -> FastAPI:
                 "Printix user-sync scheduler startup failed: %s", e)
 
 
+    # v0.7.190: Proaktiver Job-Status-Poller — läuft alle 2 Minuten server-
+    # seitig und aktualisiert nicht-terminale cloudprint_jobs gegen die
+    # Printix API, unabhängig davon ob die iOS App aktiv pollt. Verhindert
+    # dass Status ewig auf "forwarded" bleibt wenn die App geschlossen ist.
+    # Respektiert denselben 60s-Cooldown pro Job wie der iOS-getriggerte Pfad.
+    @app.on_event("startup")
+    async def _start_job_status_bg_poller():
+        import asyncio as _asyncio
+
+        async def _loop():
+            await _asyncio.sleep(90)  # Boot-Delay
+            while True:
+                try:
+                    await _asyncio.to_thread(_poll_nonterminal_jobs_once)
+                except Exception as _e:
+                    logger.debug("job-status-bg-poller iteration error: %s", _e)
+                await _asyncio.sleep(120)
+
+        def _poll_nonterminal_jobs_once():
+            import time as _t
+            try:
+                from db import _conn, _dec
+                from printix_client import PrintixClient, PrintixAPIError
+                from cloudprint.db_extensions import update_cloudprint_job_status
+            except Exception:
+                return
+            _COOLDOWN = 60
+            try:
+                with _conn() as _c:
+                    tenant_rows = _c.execute("SELECT * FROM tenants").fetchall()
+                tenants = []
+                for _r in (tenant_rows or []):
+                    _d = dict(_r)
+                    tenants.append({
+                        "id":                   _d.get("id", ""),
+                        "printix_tenant_id":    _d.get("printix_tenant_id", ""),
+                        "print_client_id":      _d.get("print_client_id", ""),
+                        "print_client_secret":  _dec(_d.get("print_client_secret", "")),
+                        "shared_client_id":     _d.get("shared_client_id", ""),
+                        "shared_client_secret": _dec(_d.get("shared_client_secret", "")),
+                        "um_client_id":         _d.get("um_client_id", ""),
+                        "um_client_secret":     _dec(_d.get("um_client_secret", "")),
+                    })
+            except Exception:
+                return
+            for tenant in tenants:
+                try:
+                    _poll_tenant_jobs(
+                        tenant, _COOLDOWN, _TERMINAL,
+                        _conn, PrintixClient, PrintixAPIError,
+                        update_cloudprint_job_status, _t, logger)
+                except Exception as _te:
+                    logger.debug("job-status-bg-poller tenant=%s: %s",
+                                 tenant.get("id", "?"), _te)
+
+        def _poll_tenant_jobs(tenant, cooldown, terminal,
+                              _conn, PrintixClient, PrintixAPIError,
+                              update_status, _t, log):
+            tid = tenant.get("id", "")
+            with _conn() as conn:
+                rows = conn.execute(
+                    """SELECT job_id, printix_job_id, status, last_px_poll
+                       FROM cloudprint_jobs
+                       WHERE (tenant_id = ? OR IFNULL(tenant_id,'') = '')
+                         AND LOWER(IFNULL(status,'')) NOT IN
+                             ('printed','ok','success','completed',
+                              'error','failed','expired','deleted')
+                         AND printix_job_id != ''
+                         AND printix_job_id IS NOT NULL
+                         AND (last_px_poll IS NULL
+                              OR (? - last_px_poll) >= ?)
+                       ORDER BY last_px_poll ASC
+                       LIMIT 20""",
+                    (tid, _t.time(), cooldown),
+                ).fetchall()
+            if not rows:
+                return
+            client = PrintixClient(
+                tenant_id=tenant["printix_tenant_id"],
+                print_client_id=tenant.get("print_client_id", ""),
+                print_client_secret=tenant.get("print_client_secret", ""),
+                shared_client_id=tenant.get("shared_client_id", ""),
+                shared_client_secret=tenant.get("shared_client_secret", ""),
+                um_client_id=tenant.get("um_client_id", ""),
+                um_client_secret=tenant.get("um_client_secret", ""),
+            )
+            _PX_STATE_MAP = {
+                "READY": "ready", "CONVERTED": "ready",
+                "PRINTED": "printed", "PROCESSED": "printed",
+                "DELETED": "deleted", "FORWARDED": "forwarded",
+                "STORED": "forwarded", "PROCESSING": "forwarded",
+                "ERROR": "error", "FAILED": "error",
+            }
+            for row in rows:
+                job_id   = row["job_id"]
+                px_id    = row["printix_job_id"]
+                db_status = (row["status"] or "").lower()
+                try:
+                    job_data = client.get_print_job(px_id)
+                    px_state = (job_data.get("printJobState")
+                                or job_data.get("status") or "").upper()
+                    mapped = _PX_STATE_MAP.get(px_state, "")
+                    now = _t.time()
+                    if mapped and mapped != db_status:
+                        update_status(job_id, mapped)
+                        log.info("job-status-bg-poller: job=%s %s→%s",
+                                 job_id, db_status, mapped)
+                    with _conn() as conn:
+                        conn.execute(
+                            "UPDATE cloudprint_jobs SET last_px_poll=? WHERE job_id=?",
+                            (now, job_id))
+                except PrintixAPIError as _pae:
+                    if _pae.status_code == 404:
+                        update_status(job_id, "deleted")
+                        log.info("job-status-bg-poller: job=%s 404→deleted", job_id)
+                        with _conn() as conn:
+                            conn.execute(
+                                "UPDATE cloudprint_jobs SET last_px_poll=? WHERE job_id=?",
+                                (_t.time(), job_id))
+                except Exception as _je:
+                    log.debug("job-status-bg-poller job=%s: %s", job_id, _je)
+
+        try:
+            _track_bg(_asyncio.create_task(_loop()))
+            logger.info("Job-Status Hintergrund-Poller gestartet (120s Intervall)")
+        except Exception as e:
+            logger.warning("Job-Status Hintergrund-Poller startup failed: %s", e)
+
     # v0.3.0: Blob auto-backup — daily scheduler. Opt-in via
     # blob_backup_enabled=1. First tick fires 60s after startup so the DB
     # is initialised; subsequent ticks are 24h apart. Errors are logged
