@@ -238,6 +238,9 @@ struct JobsView: View {
             cache.jobs = result.jobs
             cache.jobsHasMore = hasMore
             cache.pendingJob = nil
+            // Sofortiger Status-Poll nach manuellem Reload — damit nicht auf das
+            // nächste adaptive Intervall gewartet wird (bis 30 min bei alten Jobs).
+            await cache.pollNonTerminalJobs(settings: settings)
         } catch {
             self.error = error.localizedDescription
         }

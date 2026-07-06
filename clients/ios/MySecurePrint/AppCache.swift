@@ -58,7 +58,10 @@ final class AppCache: ObservableObject {
     /// Nur die Jobs-Liste neu laden — für den Post-Submit-Refresh oder
     /// manuellen Sync. noCache=true umgeht den Server-Cache (30s TTL),
     /// damit KI-Flags + queue-Name sofort sichtbar sind.
-    func refreshJobs(settings: SettingsStore, noCache: Bool = false) async {
+    /// pollStatusNow=true: einmaliger sofortiger Status-Poll nach dem Laden
+    /// (sinnvoll bei manuellem Refresh, damit ältere Jobs sofort live-Status zeigen).
+    func refreshJobs(settings: SettingsStore, noCache: Bool = false,
+                     pollStatusNow: Bool = false) async {
         guard let client = ApiClientFactory.make(
             baseURL: settings.serverURL, token: settings.bearerToken) else { return }
         if let r = await fetchJobs(client: client, noCache: noCache) {
@@ -67,9 +70,12 @@ final class AppCache: ObservableObject {
             pendingJob = nil   // Optimistic-Eintrag ist jetzt von echten Daten abgelöst
             updateWidgetState(jobs: r.items)
         }
-        // Kein triggerStatusRefresh hier — refreshJobs liefert bereits aktuelle
-        // Statuses und der .task(id:)-Loop in JobsView übernimmt weiteres Polling.
-        // Ein extra triggerStatusRefresh würde parallele Poll-Instanzen erzeugen.
+        // Bei manuellem Refresh: einmaligen Status-Poll starten damit nicht auf
+        // das nächste adaptive Intervall gewartet werden muss (könnte 5–30 min sein).
+        // Das ist KEIN Loop — erzeugt keine parallele Poll-Instanz.
+        if pollStatusNow && hasNonTerminalJobs {
+            await pollNonTerminalJobsWithClient(client)
+        }
     }
 
     /// Schreibt den aktuellen Job-Zustand ins App Group und weist WidgetKit

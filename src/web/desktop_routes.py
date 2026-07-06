@@ -1564,10 +1564,26 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                         return JSONResponse({"job_id": job_id, "status": "deleted",
                                              "printix_status": "DELETED", "fresh": True})
                     raise
-                # Printix gibt {"job": {...}} oder direkt das Job-Objekt zurück —
-                # je nach Endpoint-Version. Normalisieren:
+                # Printix Print-API gibt je nach Version zurück:
+                #  (a) {"job": {...}}           → einzelner Job (wrapped)
+                #  (b) direkt das Job-Dict      → einzelner Job (unwrapped)
+                #  (c) {"jobs": [...], "page":} → Listen-Response (GET /jobs/{id} ignoriert die ID!)
+                # Fall (c) tritt bei der Print-API v1 auf — Job in der Liste suchen:
                 job_obj = job_data
-                if isinstance(job_data, dict) and "job" in job_data:
+                if isinstance(job_data, dict) and "jobs" in job_data:
+                    jobs_list = job_data.get("jobs") or []
+                    job_obj = next(
+                        (j for j in jobs_list
+                         if isinstance(j, dict) and j.get("id") == px_job_id),
+                        None,
+                    )
+                    if job_obj is None:
+                        logger.warning(
+                            "job_status: job %s nicht in Printix-Liste (%d Jobs) — "
+                            "DB-Status behalten", px_job_id, len(jobs_list))
+                        return JSONResponse({"job_id": job_id, "status": db_status,
+                                             "printix_status": None, "fresh": False})
+                elif isinstance(job_data, dict) and "job" in job_data:
                     job_obj = job_data["job"] or job_data
 
                 # Feld-Kandidaten: Docs sagen "status", ältere Versionen "printJobState"
