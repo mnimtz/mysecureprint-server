@@ -176,7 +176,6 @@ final class AppCache: ObservableObject {
         if let r = j {
             jobs = r.items
             jobsHasMore = r.hasMore
-            triggerStatusRefresh(client: client)
             updateWidgetState(jobs: r.items)
         }
         if let r = m {

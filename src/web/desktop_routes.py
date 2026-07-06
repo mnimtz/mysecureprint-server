@@ -1558,10 +1558,14 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 elif isinstance(job_data.get("error"), str):
                     px_error = job_data["error"][:500]
 
-                if _debug_audit:
-                    _audit(user.get("user_id"), "job_status_printix_queried",
-                           details=_json.dumps({"job_id": job_id, "px_state": px_state,
-                                               "mapped_to": new_status, "db_status": db_status}, ensure_ascii=False))
+                # Immer loggen — so sehen wir was Printix tatsächlich zurückgibt.
+                if px_state and px_state not in _PX_STATE_MAP:
+                    logger.warning("job_status: unbekannter Printix-State '%s' für job=%s — "
+                                   "bitte in _PX_STATE_MAP ergänzen", px_state, job_id)
+                _audit(user.get("user_id"), "job_status_printix_queried",
+                       details=_json.dumps({"job_id": job_id, "px_state": px_state,
+                                           "mapped_to": new_status, "db_status": db_status,
+                                           "changed": new_status != db_status}, ensure_ascii=False))
 
                 if new_status != db_status:
                     with _conn() as conn:
@@ -1573,13 +1577,6 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     _audit(user.get("user_id"), "job_status_updated",
                            details=_json.dumps({"job_id": job_id, "px_state": px_state,
                                                "old_status": db_status, "new_status": new_status}, ensure_ascii=False))
-                else:
-                    logger.debug("job_status no change: job=%s px_state=%s status=%s",
-                                 job_id, px_state, db_status)
-                    if _debug_audit:
-                        _audit(user.get("user_id"), "job_status_checked",
-                               details=_json.dumps({"job_id": job_id, "px_state": px_state,
-                                                   "status": db_status, "changed": False}, ensure_ascii=False))
 
                 return JSONResponse({"job_id": job_id, "status": new_status,
                                      "printix_status": px_state, "fresh": True})
