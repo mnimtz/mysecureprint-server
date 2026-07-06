@@ -86,6 +86,13 @@ struct JobsView: View {
                 }
             }
             .refreshable { await reload() }
+            .onAppear {
+                // Tab-Wechsel: sofortiger Poll wenn nicht-terminale Jobs vorhanden.
+                // .task(id:) startet nur bei Bool-Wechsel neu — onAppear triggert
+                // bei jedem Tab-Wechsel und liefert sofortiges Status-Update.
+                guard cache.hasNonTerminalJobs else { return }
+                Task { await cache.pollNonTerminalJobs(settings: settings) }
+            }
             .task {
                 // 1. pendingJob SOFORT einsetzen — noch bevor irgendein
                 //    Netzwerkaufruf startet, damit der Platzhalter instant

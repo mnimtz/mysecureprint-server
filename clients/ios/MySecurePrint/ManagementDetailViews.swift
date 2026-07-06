@@ -474,8 +474,11 @@ struct UserDetailView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 if let num = card.number, !num.isEmpty {
                                     Text(num).font(.subheadline.monospacedDigit())
-                                } else {
-                                    Text(card.id).font(.subheadline).foregroundStyle(.secondary)
+                                } else if !card.id.isEmpty {
+                                    // UUID-Suffix als lesbarer Fallback
+                                    Text("…" + card.id.suffix(8).uppercased())
+                                        .font(.subheadline.monospacedDigit())
+                                        .foregroundStyle(.secondary)
                                 }
                                 if let t = card.cardType, !t.isEmpty {
                                     Text(t).font(.caption).foregroundStyle(.secondary)

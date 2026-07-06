@@ -213,16 +213,21 @@ def _safe_list_cards(client: Any, user_id: str) -> list[dict]:
         raw = client.list_user_cards(user_id)
         if not isinstance(raw, dict):
             return []
-        items = raw.get("cards") or []
+        items = raw.get("cards") or raw.get("content") or raw.get("items") or []
         if not isinstance(items, list):
             return []
         result = []
         for c in items:
             if not isinstance(c, dict):
                 continue
-            cid   = str(c.get("id") or "")
-            ctype = str(c.get("cardType") or c.get("type") or "")
-            num   = str(c.get("number") or c.get("cardNumber") or "")
+            # ID: _links.self.href hat Vorrang (verlässlichste Quelle), dann cardId, id
+            href    = ((c.get("_links") or {}).get("self") or {}).get("href", "")
+            href_id = href.rsplit("/", 1)[-1] if href else ""
+            cid     = href_id or str(c.get("cardId") or c.get("card_id") or c.get("id") or "")
+            ctype   = str(c.get("cardType") or c.get("type") or c.get("card_type") or "")
+            num     = str(c.get("number") or c.get("cardNumber") or c.get("secret") or "")
+            if not cid:
+                continue  # Karte ohne jede ID überspringen
             result.append({"id": cid, "card_type": ctype, "number": num})
         return result
     except Exception:
