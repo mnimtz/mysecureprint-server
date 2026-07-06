@@ -1508,14 +1508,14 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             db_status  = row["status"] or ""
             px_job_id  = row["printix_job_id"] or ""
 
-            # Cooldown: max 1 Printix-API-Call pro Job alle 3 Minuten.
+            # Cooldown: max 1 Printix-API-Call pro Job pro Minute.
             # Schützt die Printix-API bei vielen parallelen Nutzern (100 User ×
             # adaptives Polling = potenziell viele Requests). Terminal-Jobs
             # sind nach der ersten 404/Update nicht mehr erreichbar, kein Cooldown nötig.
             import time as _time
             _TERMINAL_STATUSES = {"printed", "ok", "success", "completed", "error",
                                   "failed", "expired", "deleted"}
-            _POLL_COOLDOWN_SECS = 180  # 3 Minuten
+            _POLL_COOLDOWN_SECS = 60  # 1 Minute
             if db_status.lower() not in _TERMINAL_STATUSES and px_job_id:
                 last_poll = row["last_px_poll"] or 0
                 if (_time.time() - last_poll) < _POLL_COOLDOWN_SECS:
@@ -1554,8 +1554,9 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 except Exception as _px404:
                     from printix_client import PrintixAPIError
                     if isinstance(_px404, PrintixAPIError) and _px404.status_code == 404:
-                        # Grace Period: frisch hochgeladene Jobs erst nach 3 min als deleted markieren
-                        _GRACE_SECS = 180
+                        # Grace Period: frisch hochgeladene Jobs erst nach 1 min als deleted markieren
+                        # (Printix braucht typisch 10–30s zum Indexieren).
+                        _GRACE_SECS = 60
                         _created_raw = row["forwarded_at"] or row["created_at"] or ""
                         _job_age = _GRACE_SECS + 1
                         try:
@@ -1573,10 +1574,13 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                             logger.info(
                                 "job_status: 404 für %s, aber %.0fs jung → Grace",
                                 px_job_id, _job_age)
+                            # last_px_poll auf created_at setzen, damit der Cooldown genau
+                            # dann ausläuft wenn die Grace Period endet (kein zusätzliches Warten).
+                            _grace_adjusted_poll = _time.time() - _job_age
                             with _conn() as conn:
                                 conn.execute(
                                     "UPDATE cloudprint_jobs SET last_px_poll = ? WHERE job_id = ?",
-                                    (_time.time(), job_id),
+                                    (_grace_adjusted_poll, job_id),
                                 )
                             return JSONResponse({"job_id": job_id, "status": db_status,
                                                  "printix_status": None, "fresh": False})
@@ -1632,10 +1636,10 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     )
                     if job_obj is None:
                         # Prüfen ob der Job zu neu ist — Printix braucht manchmal
-                        # 30–60s um einen frisch hochgeladenen Job in der API sichtbar
-                        # zu machen. Innerhalb von 3 Minuten nach Erstellung nicht als
+                        # 10–30s um einen frisch hochgeladenen Job in der API sichtbar
+                        # zu machen. Innerhalb von 1 Minute nach Erstellung nicht als
                         # deleted markieren (Race Condition direkt nach Upload).
-                        _GRACE_SECS = 180
+                        _GRACE_SECS = 60
                         _created_raw = row["forwarded_at"] or row["created_at"] or ""
                         _job_age = _GRACE_SECS + 1  # Default: außerhalb Grace
                         try:
@@ -1650,14 +1654,16 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                         except Exception:
                             pass
                         if _job_age < _GRACE_SECS:
-                            # Noch in Grace Period — Cooldown setzen, Status unverändert lassen
+                            # Noch in Grace Period — last_px_poll auf created_at setzen damit
+                            # der Cooldown genau dann ausläuft wenn die Grace Period endet.
                             logger.info(
                                 "job_status: job %s nicht in Printix-Liste, aber %.0fs jung → Grace",
                                 px_job_id, _job_age)
+                            _grace_adjusted_poll = _time.time() - _job_age
                             with _conn() as conn:
                                 conn.execute(
                                     "UPDATE cloudprint_jobs SET last_px_poll = ? WHERE job_id = ?",
-                                    (_time.time(), job_id),
+                                    (_grace_adjusted_poll, job_id),
                                 )
                             return JSONResponse({"job_id": job_id, "status": db_status,
                                                  "printix_status": None, "fresh": False})
