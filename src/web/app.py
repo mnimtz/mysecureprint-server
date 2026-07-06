@@ -8178,8 +8178,35 @@ def create_app(session_secret: str) -> FastAPI:
                 db_status = (row["status"] or "").lower()
                 try:
                     job_data = client.get_print_job(px_id)
-                    px_state = (job_data.get("printJobState")
-                                or job_data.get("status") or "").upper()
+                    # Printix Print-API v1 liefert {"jobs": [...]} statt einzelnem Job.
+                    # Job anhand der px_id in der Liste suchen.
+                    job_obj = job_data
+                    if isinstance(job_data, dict) and "jobs" in job_data:
+                        jobs_list = job_data.get("jobs") or []
+                        job_obj = next(
+                            (j for j in jobs_list
+                             if isinstance(j, dict) and (
+                                 j.get("id") == px_id
+                                 or j.get("jobId") == px_id
+                                 or j.get("printJobId") == px_id
+                             )),
+                            None,
+                        )
+                        if job_obj is None:
+                            # Job nicht in Liste → bei Printix gelöscht
+                            update_status(job_id, "deleted")
+                            log.info("job-status-bg-poller: job=%s not-in-list→deleted", job_id)
+                            with _conn() as conn:
+                                conn.execute(
+                                    "UPDATE cloudprint_jobs SET last_px_poll=? WHERE job_id=?",
+                                    (_t.time(), job_id))
+                            continue
+                    elif isinstance(job_data, dict) and "job" in job_data:
+                        job_obj = job_data["job"] or job_data
+                    if not isinstance(job_obj, dict):
+                        continue
+                    px_state = (job_obj.get("printJobState")
+                                or job_obj.get("status") or "").upper()
                     mapped = _PX_STATE_MAP.get(px_state, "")
                     now = _t.time()
                     if mapped and mapped != db_status:
