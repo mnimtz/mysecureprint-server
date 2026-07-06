@@ -1370,20 +1370,21 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     return JSONResponse({"jobs": cached, "count": len(cached),
                                          "offset": offset_int, "cached": True})
 
-            from db import _conn, _resolve_tenant_owner_for
-            from cloudprint.db_extensions import get_tenant_for_user
-            parent_id = _resolve_tenant_owner_for(uid) or uid
-            tenant = get_tenant_for_user(parent_id)
-            tid = (tenant or {}).get("id", "")
+            from db import _conn
             uname = (user.get("username") or "").lower()
             uemail = (user.get("email") or "").lower()
             pxid = (user.get("printix_user_id") or "").lower()
-            _where = """(tenant_id = ? OR IFNULL(tenant_id,'') = '')
-                         AND (
+            if not uname and not uemail and not pxid:
+                return JSONResponse({"jobs": [], "count": 0, "offset": 0})
+            # v0.7.203: tenant_id-Bedingung entfernt — get_tenant_for_user kann bei
+            # unvollständiger Account-Struktur None zurückgeben (tid=''), was dann
+            # alle Jobs mit echtem tenant_id ausschließt. Identity-Check alleine
+            # reicht für Ownership im Single-Tenant-Modell.
+            _where = """(
                            LOWER(IFNULL(username,''))          IN (?,?,?)
                            OR LOWER(IFNULL(detected_identity,'')) IN (?,?,?)
                          )"""
-            _params = (tid, uname, uemail, pxid, uname, uemail, pxid)
+            _params = (uname, uemail, pxid, uname, uemail, pxid)
             with _conn() as conn:
                 rows = conn.execute(
                     f"""SELECT job_id, job_name AS filename, status,
@@ -1433,26 +1434,20 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         if not user:
             return _json_error("token invalid", code="auth_required", status=401)
         try:
-            from db import _conn, _resolve_tenant_owner_for
-            from cloudprint.db_extensions import get_tenant_for_user
-            parent_id = _resolve_tenant_owner_for(user["user_id"]) or user["user_id"]
-            tenant = get_tenant_for_user(parent_id)
-            tid = (tenant or {}).get("id", "")
+            from db import _conn
             uname  = (user.get("username") or "").lower()
             uemail = (user.get("email") or "").lower()
             pxid   = (user.get("printix_user_id") or "").lower()
+            if not uname and not uemail and not pxid:
+                return _json_error("identity missing", code="auth_required", status=401)
             with _conn() as conn:
                 result = conn.execute(
                     """DELETE FROM cloudprint_jobs
-                       WHERE (tenant_id = ? OR IFNULL(tenant_id,'') = '')
-                         AND (
-                           LOWER(IFNULL(username,'')) = ?
-                           OR LOWER(IFNULL(username,'')) = ?
-                           OR LOWER(IFNULL(detected_identity,'')) = ?
-                           OR LOWER(IFNULL(detected_identity,'')) = ?
-                           OR LOWER(IFNULL(detected_identity,'')) = ?
-                         )""",
-                    (tid, uname, uemail, uname, uemail, pxid),
+                       WHERE (
+                           LOWER(IFNULL(username,''))          IN (?,?,?)
+                           OR LOWER(IFNULL(detected_identity,'')) IN (?,?,?)
+                       )""",
+                    (uname, uemail, pxid, uname, uemail, pxid),
                 )
                 deleted = result.rowcount
             _jobs_cache_invalidate(user["user_id"])
