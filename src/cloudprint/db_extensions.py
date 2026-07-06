@@ -271,6 +271,12 @@ def init_cloudprint_schema() -> None:
                 "ALTER TABLE cloudprint_jobs ADD COLUMN ai_extra TEXT NOT NULL DEFAULT '{}'"
             )
             logger.info("Migration: cloudprint_jobs.ai_extra hinzugefügt")
+        # v0.7.176 — Printix-API-Cooldown: Unix-Timestamp des letzten Printix-Calls pro Job
+        if "last_px_poll" not in cols:
+            conn.execute(
+                "ALTER TABLE cloudprint_jobs ADD COLUMN last_px_poll REAL NOT NULL DEFAULT 0"
+            )
+            logger.info("Migration: cloudprint_jobs.last_px_poll hinzugefügt")
         # F04: UNIQUE-Index auf job_id — verhindert Duplicate-Key-Fehler wenn
         # _bg_create_tracking und _process_desktop_send_bg (INSERT OR IGNORE)
         # gleichzeitig anlaufen. CREATE UNIQUE INDEX IF NOT EXISTS ist idempotent.

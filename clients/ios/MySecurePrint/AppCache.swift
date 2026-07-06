@@ -95,6 +95,29 @@ final class AppCache: ObservableObject {
         jobs.contains { !PrintJob.isTerminal($0.status) }
     }
 
+    /// Adaptives Poll-Intervall basierend auf dem Alter des jüngsten nicht-terminalen Jobs.
+    /// Anywhere-Queue-Jobs können Stunden am Drucker warten — seltener pollen spart API-Calls.
+    var nextPollInterval: TimeInterval {
+        let nonTerminal = jobs.filter { !PrintJob.isTerminal($0.status) }
+        guard !nonTerminal.isEmpty else { return 60 }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let isoFallback = ISO8601DateFormatter()
+        let now = Date()
+        let minAge: TimeInterval = nonTerminal.compactMap { job -> TimeInterval? in
+            let raw = job.forwarded_at ?? job.created_at
+            let date = iso.date(from: raw) ?? isoFallback.date(from: raw)
+            return date.map { now.timeIntervalSince($0) }
+        }.min() ?? 600
+        switch minAge {
+        case ..<180:    return 20     // < 3 min: sofortiger Feedback (Sofortdruck/Fehler)
+        case ..<600:    return 60     // 3–10 min: Nutzer läuft zum Drucker
+        case ..<7200:   return 300    // 10 min–2h: Anywhere-Job wartet auf Release
+        case ..<28800:  return 900    // 2h–8h: seltener, Job vielleicht vergessen
+        default:        return 1800   // 8h+: alle 30 min bis Printix löscht (~72h)
+        }
+    }
+
     /// Fragt für alle nicht-terminalen Jobs (max 8) den Live-Status von Printix ab
     /// und aktualisiert den Cache. Awaitable — für die automatische Poll-Loop.
     func pollNonTerminalJobs(settings: SettingsStore) async {

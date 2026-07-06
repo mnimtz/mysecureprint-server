@@ -142,10 +142,12 @@ struct JobsView: View {
             }
             // Automatische Poll-Loop: läuft solange nicht-terminale Jobs vorhanden.
             // task(id:) startet neu sobald hasNonTerminalJobs umschaltet.
+            // Das Intervall ist adaptiv: frische Jobs alle 20s, alte Anywhere-Jobs alle 30min.
             .task(id: cache.hasNonTerminalJobs) {
                 guard cache.hasNonTerminalJobs else { return }
                 while cache.hasNonTerminalJobs {
-                    try? await Task.sleep(for: .seconds(20))
+                    let interval = cache.nextPollInterval
+                    try? await Task.sleep(for: .seconds(interval))
                     guard !Task.isCancelled else { return }
                     await cache.pollNonTerminalJobs(settings: settings)
                 }

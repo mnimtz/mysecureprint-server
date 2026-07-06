@@ -1490,7 +1490,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 return _json_error("job not found", code="not_found", status=404)
             with _conn() as conn:
                 row = conn.execute(
-                    """SELECT job_id, status, printix_job_id, error_message
+                    """SELECT job_id, status, printix_job_id, error_message, last_px_poll
                        FROM cloudprint_jobs
                        WHERE job_id = ?
                          AND (
@@ -1504,6 +1504,20 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
 
             db_status  = row["status"] or ""
             px_job_id  = row["printix_job_id"] or ""
+
+            # Cooldown: max 1 Printix-API-Call pro Job alle 3 Minuten.
+            # Schützt die Printix-API bei vielen parallelen Nutzern (100 User ×
+            # adaptives Polling = potenziell viele Requests). Terminal-Jobs
+            # sind nach der ersten 404/Update nicht mehr erreichbar, kein Cooldown nötig.
+            import time as _time
+            _TERMINAL_STATUSES = {"printed", "ok", "success", "completed", "error",
+                                  "failed", "expired", "deleted"}
+            _POLL_COOLDOWN_SECS = 180  # 3 Minuten
+            if db_status.lower() not in _TERMINAL_STATUSES and px_job_id:
+                last_poll = row["last_px_poll"] or 0
+                if (_time.time() - last_poll) < _POLL_COOLDOWN_SECS:
+                    return JSONResponse({"job_id": job_id, "status": db_status,
+                                         "printix_status": None, "fresh": False})
 
             if not px_job_id:
                 logger.warning("job_status: no printix_job_id for job=%s status=%s", job_id, db_status)
@@ -1586,12 +1600,19 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                                            "response_keys": list(job_obj.keys()) if isinstance(job_obj, dict) else []},
                                           ensure_ascii=False))
 
-                if new_status != db_status:
-                    with _conn() as conn:
+                # Immer last_px_poll aktualisieren (Cooldown-Tracking)
+                with _conn() as conn:
+                    if new_status != db_status:
                         conn.execute(
-                            "UPDATE cloudprint_jobs SET status = ?, error_message = ? WHERE job_id = ?",
-                            (new_status, px_error or row["error_message"] or "", job_id),
+                            "UPDATE cloudprint_jobs SET status = ?, error_message = ?, last_px_poll = ? WHERE job_id = ?",
+                            (new_status, px_error or row["error_message"] or "", _time.time(), job_id),
                         )
+                    else:
+                        conn.execute(
+                            "UPDATE cloudprint_jobs SET last_px_poll = ? WHERE job_id = ?",
+                            (_time.time(), job_id),
+                        )
+                if new_status != db_status:
                     _jobs_cache_invalidate(uid)
                     _audit(user.get("user_id"), "job_status_updated",
                            details=_json.dumps({"job_id": job_id, "px_state": px_state,
