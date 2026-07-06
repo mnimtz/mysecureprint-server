@@ -2342,9 +2342,16 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     if not _tnt:
                         return
                     if (_tnt.get("ai_enabled") or "0") != "1":
-                        return
+                        return  # KI deaktiviert — kein Audit-Eintrag gewollt
                     _provider = (_tnt.get("ai_provider") or "").strip()
                     if not _provider:
+                        from db import audit as _audit_skip
+                        import json as _js
+                        _audit_skip(user.get("user_id"), "ai_analysis_skipped",
+                                    details=_js.dumps({"reason": "no_provider_configured",
+                                                       "filename": getattr(file, "filename", "") or ""},
+                                                      ensure_ascii=False),
+                                    object_type="print_job", object_id=internal_id)
                         return
                     import json as _json_ai_cfg
                     _raw_cp = _tnt.get("ai_custom_prompts") or "[]"
@@ -2367,6 +2374,13 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     _file_bytes = data if isinstance(data, (bytes, bytearray)) else b""
                     if not _file_bytes:
                         logger.warning("bg_ai_analysis job=%s: file_bytes leer — KI übersprungen", internal_id)
+                        from db import audit as _audit_skip2
+                        import json as _js2
+                        _audit_skip2(user.get("user_id"), "ai_analysis_skipped",
+                                     details=_js2.dumps({"reason": "file_bytes_empty",
+                                                          "filename": getattr(file, "filename", "") or ""},
+                                                         ensure_ascii=False),
+                                     object_type="print_job", object_id=internal_id)
                         return
                     from cloudprint.ai_analysis import analyse_job
                     analyse_job(

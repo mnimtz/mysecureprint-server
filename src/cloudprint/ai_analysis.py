@@ -155,13 +155,15 @@ def analyse_job(
         custom_prompts: list[dict] = ai_cfg.get("custom_prompts") or []
 
         if not provider:
-            return
+            return  # KI deaktiviert auf Tenant-Ebene — kein Audit
 
         mime = _guess_mime(filename)
         is_image = mime.startswith("image/")
 
         if provider == "gemini":
             if not gemini_key or not gemini_model:
+                _audit_ai("ai_analysis_skipped", {"reason": "gemini_not_configured",
+                                                   "provider": provider, "filename": filename})
                 return
             if mime not in _GEMINI_ALLOWED_MIMES:
                 logger.info("ai_analysis: job=%s übersprungen — MIME '%s' nicht unterstützt", job_id, mime)
@@ -193,6 +195,8 @@ def analyse_job(
                 result = _analyse_gemini(file_bytes, mime, prompt, gemini_key, gemini_model)
         elif provider == "ollama":
             if not ollama_url or not ollama_model:
+                _audit_ai("ai_analysis_skipped", {"reason": "ollama_not_configured",
+                                                   "provider": provider, "filename": filename})
                 return
             if is_image:
                 logger.debug("ai_analysis: Ollama für Bild nicht unterstützt — überspringe %s", job_id)
@@ -211,6 +215,8 @@ def analyse_job(
             result = _analyse_ollama(file_bytes, mime, prompt, ollama_url, ollama_model)
         elif provider == "openai":
             if not openai_key or not openai_model:
+                _audit_ai("ai_analysis_skipped", {"reason": "openai_not_configured",
+                                                   "provider": provider, "filename": filename})
                 return
             if mime not in _OPENAI_ALLOWED_MIMES:
                 _audit_ai("ai_analysis_skipped", {"reason": "unsupported_mime", "mime": mime,
@@ -275,7 +281,7 @@ def analyse_job(
         )
         _audit_ai("ai_analysis_completed", {
             "provider":   provider,
-            "model":      gemini_model or ollama_model,
+            "model":      gemini_model or openai_model or ollama_model,
             "filename":   filename,
             "doc_type":   result.get("doc_type", ""),
             "sensitivity":result.get("sensitivity", ""),
