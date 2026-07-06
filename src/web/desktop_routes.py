@@ -1620,7 +1620,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     try:
                         job_data = await _asyncio.wait_for(
                             _asyncio.to_thread(client.get_print_job, px_job_id),
-                            timeout=10.0,
+                            timeout=8.0,
                         )
                     except _asyncio.TimeoutError:
                         # Printix API antwortet nicht innerhalb von 10s — DB-Status zurückgeben.
