@@ -1490,6 +1490,10 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             pxid   = (user.get("printix_user_id") or "").lower()
             if not uname and not uemail and not pxid:
                 return _json_error("job not found", code="not_found", status=404)
+            from cloudprint.db_extensions import get_tenant_for_user
+            _parent_id = _resolve_tenant_owner_for(user["user_id"]) or user["user_id"]
+            _tenant    = get_tenant_for_user(_parent_id)
+            _tid       = (_tenant or {}).get("id", "")
             with _conn() as conn:
                 row = conn.execute(
                     """SELECT job_id, status, printix_job_id, error_message, last_px_poll,
@@ -1497,10 +1501,11 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                        FROM cloudprint_jobs
                        WHERE job_id = ?
                          AND (
-                           LOWER(IFNULL(username,''))          IN (?,?,?)
+                           (tenant_id = ? OR IFNULL(tenant_id,'') = '')
+                           OR LOWER(IFNULL(username,''))          IN (?,?,?)
                            OR LOWER(IFNULL(detected_identity,'')) IN (?,?,?)
                          )""",
-                    (job_id, uname, uemail, pxid, uname, uemail, pxid),
+                    (job_id, _tid, uname, uemail, pxid, uname, uemail, pxid),
                 ).fetchone()
             if not row:
                 return _json_error("job not found", code="not_found", status=404)
