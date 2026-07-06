@@ -1523,7 +1523,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     )
                     client.delete_print_job(px_job_id)
                 except Exception as _pe:
-                    logger.info("job_delete: Printix delete fehlgeschlagen job=%s: %s", job_id, _pe)
+                    logger.warning("job_delete: Printix delete fehlgeschlagen job=%s: %s", job_id, _pe)
             with _conn() as conn:
                 conn.execute(
                     "DELETE FROM cloudprint_jobs WHERE job_id = ?", (job_id,)

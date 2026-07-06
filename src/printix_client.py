@@ -526,10 +526,11 @@ class PrintixClient:
 
     def delete_print_job(self, job_id: str) -> Any:
         """Delete a submitted or failed print job.
-        Endpoint: DELETE /jobs/{job_id}/delete"""
+        Endpoint: POST /jobs/{job_id}/delete  (Action-Pattern — kein HTTP DELETE!)
+        Printix-API gibt 405 auf HTTP-DELETE zurück."""
         tm = self._require_tm(self._print_tm, "Print API")
         try:
-            return self._delete(tm, f"/jobs/{job_id}/delete")
+            return self._post(tm, f"/jobs/{job_id}/delete")
         except PrintixAPIError as e:
             if e.status_code == 404:
                 return {
