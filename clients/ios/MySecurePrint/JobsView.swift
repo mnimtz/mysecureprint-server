@@ -113,9 +113,13 @@ struct JobsView: View {
                         jobs.insert(pending, at: 0)
                     }
                 } else if !initializedFromCache {
-                    // Kein Cache vorhanden: Netzwerkabruf; pendingJob bleibt
-                    // sichtbar während reload() läuft.
-                    await reload()
+                    // Kein Cache: stiller Hintergrund-Abruf ohne Spinner.
+                    // reload() würde loading=true setzen und die Liste
+                    // verdecken — refreshJobs lädt still und zeigt pendingJob.
+                    await cache.refreshJobs(settings: settings,
+                                            noCache: true,
+                                            pollStatusNow: true)
+                    initializedFromCache = true
                 }
             }
             // Optimistic Insert: sobald UploadView einen Job erfolgreich gesendet
