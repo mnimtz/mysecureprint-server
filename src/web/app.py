@@ -5875,9 +5875,13 @@ def create_app(session_secret: str) -> FastAPI:
                 (_gs_del("employees_can_manage_cards", "0") or "0").strip()
                 in ("1", "true", "yes", "on")
             )
+            current_debug_job_status_audit = (
+                (_gs_del("debug_job_status_audit", "0") or "0").strip() == "1"
+            )
         except Exception:
             current_delegation_allowed = False
             current_employees_can_manage_cards = False
+            current_debug_job_status_audit = False
         queues_for_picker: list = []
 
         # v0.4.5: Tenant-Record laden fuer Printix-Credentials-Editor.
@@ -6008,6 +6012,7 @@ def create_app(session_secret: str) -> FastAPI:
             "current_allow_user_override":        current_allow_user_override,
             "current_delegation_allowed":         current_delegation_allowed,
             "current_employees_can_manage_cards": current_employees_can_manage_cards,
+            "current_debug_job_status_audit":     current_debug_job_status_audit,
             "queues_for_picker":                  _load_printix_queues_for_admin(tenant_full) if tenant_full else [],
             "capture_public_url": capture_public_url,
             "ipps_public_url": ipps_public_url,
@@ -6787,6 +6792,7 @@ def create_app(session_secret: str) -> FastAPI:
         allow_user_queue_override:     str = Form(default=""),
         delegation_print_allowed:      str = Form(default=""),
         employees_can_manage_cards:    str = Form(default=""),
+        debug_job_status_audit:        str = Form(default=""),
     ):
         user = get_session_user(request)
         if not user or not user.get("is_admin"):
@@ -6804,6 +6810,8 @@ def create_app(session_secret: str) -> FastAPI:
         set_setting("delegation_print_allowed", _del_new)
         _cards_new = "1" if employees_can_manage_cards in ("1","on","true") else "0"
         set_setting("employees_can_manage_cards", _cards_new)
+        _debug_new = "1" if debug_job_status_audit in ("1","on","true") else "0"
+        set_setting("debug_job_status_audit", _debug_new)
         audit(user["id"], "queue_defaults_saved",
               f"global={default_queue_id} override={allow_user_queue_override or 'off'} "
               f"delegation={_del_new}")

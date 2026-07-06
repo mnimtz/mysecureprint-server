@@ -1061,6 +1061,20 @@ async def _process_desktop_send_bg(
                 identity_source="desktop-send",
             )
 
+            # Delegations-Tracking: Absender-Email in delegated_from speichern,
+            # damit Empfänger in iOS "Delegiert von X" sehen.
+            if target_type in ("print_user_delegation", "print_delegate"):
+                try:
+                    _sender_email = (user.get("email") or "")[:255]
+                    if _sender_email:
+                        with _dconn() as _c:
+                            _c.execute(
+                                "UPDATE cloudprint_jobs SET delegated_from=? WHERE job_id=?",
+                                (_sender_email, internal_id),
+                            )
+                except Exception as _df_e:
+                    logger.warning("delegated_from update failed: %s", _df_e)
+
             # v6.7.115: Audit-Trail für erfolgreich weitergeleitete iOS-Print-Jobs.
             try:
                 import json as _json
@@ -1463,7 +1477,9 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             return _json_error("token invalid", code="auth_required", status=401)
         try:
             import json as _json
-            from db import _conn, _resolve_tenant_owner_for, audit as _audit
+            from db import _conn, _resolve_tenant_owner_for, audit as _audit, get_setting as _gs_dbg
+            _debug_audit = bool(os.environ.get("DEBUG_JOB_STATUS_AUDIT")
+                                or (_gs_dbg("debug_job_status_audit", "0") == "1"))
             _audit(user.get("user_id"), "job_status_called",
                    details=_json.dumps({"job_id": job_id}, ensure_ascii=False))
             uname  = (user.get("username") or "").lower()
@@ -1541,7 +1557,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 elif isinstance(job_data.get("error"), str):
                     px_error = job_data["error"][:500]
 
-                if os.environ.get("DEBUG_JOB_STATUS_AUDIT"):
+                if _debug_audit:
                     _audit(user.get("user_id"), "job_status_printix_queried",
                            details=_json.dumps({"job_id": job_id, "px_state": px_state,
                                                "mapped_to": new_status, "db_status": db_status}, ensure_ascii=False))
@@ -1559,7 +1575,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 else:
                     logger.debug("job_status no change: job=%s px_state=%s status=%s",
                                  job_id, px_state, db_status)
-                    if os.environ.get("DEBUG_JOB_STATUS_AUDIT"):
+                    if _debug_audit:
                         _audit(user.get("user_id"), "job_status_checked",
                                details=_json.dumps({"job_id": job_id, "px_state": px_state,
                                                    "status": db_status, "changed": False}, ensure_ascii=False))

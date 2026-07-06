@@ -123,6 +123,19 @@
         <small class="hint" style="margin-left:24px;">{{ _('employee_card_help') }}</small>
       </div>
 
+      <div class="form-group">
+        <label style="display:flex; align-items:center; gap:8px; font-weight:600;">
+          <input type="checkbox" name="debug_job_status_audit" value="1"
+                 {% if current_debug_job_status_audit %}checked{% endif %}>
+          Job-Status API-Aufrufe protokollieren
+        </label>
+        <small class="hint" style="margin-left:24px;">
+          Jeden Printix-API-Aufruf beim automatischen Job-Status-Poll im Audit-Log erfassen
+          (<code>job_status_printix_queried</code>, <code>job_status_checked</code>).
+          Nur temporär aktivieren — erzeugt bei vielen Jobs viele Einträge.
+        </small>
+      </div>
+
       <button type="submit" class="btn btn-primary">{{ _('btn_save') }}</button>
       <a href="/admin/groups" style="margin-left:12px; color:var(--ta-cyan-dark); font-weight:600;">
         {{ _('queue_manage_groups') }} →
