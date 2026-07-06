@@ -1462,8 +1462,10 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         if not user:
             return _json_error("token invalid", code="auth_required", status=401)
         try:
+            import json as _json
             from db import _conn, _resolve_tenant_owner_for, audit as _audit
-            _audit(user, "job_status_called", extra={"job_id": job_id})
+            _audit(user.get("user_id"), "job_status_called",
+                   details=_json.dumps({"job_id": job_id}, ensure_ascii=False))
             uname  = (user.get("username") or "").lower()
             uemail = (user.get("email") or "").lower()
             pxid   = (user.get("printix_user_id") or "").lower()
@@ -1488,8 +1490,8 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
 
             if not px_job_id:
                 logger.warning("job_status: no printix_job_id for job=%s status=%s", job_id, db_status)
-                _audit(user, "job_status_no_px_id",
-                       extra={"job_id": job_id, "db_status": db_status})
+                _audit(user.get("user_id"), "job_status_no_px_id",
+                       details=_json.dumps({"job_id": job_id, "db_status": db_status}, ensure_ascii=False))
                 return JSONResponse({"job_id": job_id, "status": db_status,
                                      "printix_status": None, "fresh": False})
 
@@ -1525,9 +1527,9 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                                 (job_id,),
                             )
                         _jobs_cache_invalidate(uid)
-                        _audit(user, "job_status_updated",
-                               extra={"job_id": job_id, "px_state": "DELETED_404",
-                                      "old_status": db_status, "new_status": "deleted"})
+                        _audit(user.get("user_id"), "job_status_updated",
+                               details=_json.dumps({"job_id": job_id, "px_state": "DELETED_404",
+                                                    "old_status": db_status, "new_status": "deleted"}, ensure_ascii=False))
                         return JSONResponse({"job_id": job_id, "status": "deleted",
                                              "printix_status": "DELETED", "fresh": True})
                     raise
@@ -1540,9 +1542,9 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                     px_error = job_data["error"][:500]
 
                 if os.environ.get("DEBUG_JOB_STATUS_AUDIT"):
-                    _audit(user, "job_status_printix_queried",
-                           extra={"job_id": job_id, "px_state": px_state,
-                                  "mapped_to": new_status, "db_status": db_status})
+                    _audit(user.get("user_id"), "job_status_printix_queried",
+                           details=_json.dumps({"job_id": job_id, "px_state": px_state,
+                                               "mapped_to": new_status, "db_status": db_status}, ensure_ascii=False))
 
                 if new_status != db_status:
                     with _conn() as conn:
@@ -1551,24 +1553,24 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                             (new_status, px_error or row["error_message"] or "", job_id),
                         )
                     _jobs_cache_invalidate(uid)
-                    _audit(user, "job_status_updated",
-                           extra={"job_id": job_id, "px_state": px_state,
-                                  "old_status": db_status, "new_status": new_status})
+                    _audit(user.get("user_id"), "job_status_updated",
+                           details=_json.dumps({"job_id": job_id, "px_state": px_state,
+                                               "old_status": db_status, "new_status": new_status}, ensure_ascii=False))
                 else:
                     logger.debug("job_status no change: job=%s px_state=%s status=%s",
                                  job_id, px_state, db_status)
                     if os.environ.get("DEBUG_JOB_STATUS_AUDIT"):
-                        _audit(user, "job_status_checked",
-                               extra={"job_id": job_id, "px_state": px_state,
-                                      "status": db_status, "changed": False})
+                        _audit(user.get("user_id"), "job_status_checked",
+                               details=_json.dumps({"job_id": job_id, "px_state": px_state,
+                                                   "status": db_status, "changed": False}, ensure_ascii=False))
 
                 return JSONResponse({"job_id": job_id, "status": new_status,
                                      "printix_status": px_state, "fresh": True})
             except Exception as px_err:
                 logger.warning("job_status Printix call failed for %s: %s", px_job_id, px_err)
-                _audit(user, "job_status_failed",
-                       extra={"job_id": job_id, "px_job_id": px_job_id,
-                              "error": str(px_err)[:200]})
+                _audit(user.get("user_id"), "job_status_failed",
+                       details=_json.dumps({"job_id": job_id, "px_job_id": px_job_id,
+                                           "error": str(px_err)[:200]}, ensure_ascii=False))
                 return JSONResponse({"job_id": job_id, "status": db_status,
                                      "printix_status": None, "fresh": False})
         except Exception as e:
