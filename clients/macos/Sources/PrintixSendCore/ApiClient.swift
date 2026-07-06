@@ -376,6 +376,20 @@ public final class ApiClient: @unchecked Sendable {
         return (json?["deleted"] as? Int) ?? 0
     }
 
+    /// Einzelnen Job löschen — ruft DELETE /desktop/me/jobs/{jobId} auf.
+    public func deleteJob(jobId: String) async throws {
+        log.info("DELETE /desktop/me/jobs/\(jobId)")
+        let url = baseUrl.appendingPathComponent("desktop/me/jobs/\(jobId)")
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        if let token = token, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.timeoutInterval = 15
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
+    }
+
     /// Seite-1-Vorschau eines Jobs als PNG-Data.
     /// Gibt nil zurück wenn kein Preview vorhanden (HTTP 404).
     public func jobPreview(jobId: String) async throws -> Data? {

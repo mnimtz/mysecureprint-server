@@ -18,6 +18,7 @@ struct JobsView: View {
     @State private var selectedJob: PrintJob? = nil
     @State private var showClearConfirm = false
     @State private var initializedFromCache = false
+    @State private var deletingJobIds: Set<String> = []
 
     private let pageSize = 30
 
@@ -55,6 +56,16 @@ struct JobsView: View {
                         JobRow(job: job)
                             .contentShape(Rectangle())
                             .onTapGesture { selectedJob = job }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                if !PrintJob.isTerminal(job.status) || job.status == "deleted" {
+                                    Button(role: .destructive) {
+                                        Task { await deleteJob(job) }
+                                    } label: {
+                                        Label(String(localized: "Löschen"), systemImage: "trash")
+                                    }
+                                    .disabled(deletingJobIds.contains(job.job_id))
+                                }
+                            }
                     }
                     if hasMore && searchText.trimmingCharacters(in: .whitespaces).isEmpty {
                         loadMoreButton
@@ -298,6 +309,19 @@ struct JobsView: View {
         _ = try? await client.deleteMyJobs()
         jobs = []
         hasMore = false
+    }
+
+    @MainActor
+    private func deleteJob(_ job: PrintJob) async {
+        guard !deletingJobIds.contains(job.job_id) else { return }
+        deletingJobIds.insert(job.job_id)
+        defer { deletingJobIds.remove(job.job_id) }
+        guard let client = ApiClientFactory.make(baseURL: settings.serverURL,
+                                                  token: settings.bearerToken) else { return }
+        try? await client.deleteJob(jobId: job.job_id)
+        jobs.removeAll { $0.job_id == job.job_id }
+        cache.jobs.removeAll { $0.job_id == job.job_id }
+        cache.updateWidgetState(jobs: cache.jobs)
     }
 
     private func fetchJobs(offset: Int, noCache: Bool = false) async throws -> JobsResponse {

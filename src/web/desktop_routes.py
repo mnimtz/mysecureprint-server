@@ -1461,6 +1461,68 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
             logger.warning("desktop_me_jobs_clear: %s", e)
             return _json_error(str(e)[:200], code="jobs_clear_failed", status=500)
 
+    @app.delete("/desktop/me/jobs/{job_id}")
+    async def desktop_job_delete(job_id: str, request: Request,
+                                  authorization: str = Header(default="")):
+        """v0.7.197: Einzelnen Job löschen — ruft Printix delete_print_job auf
+        und markiert Job lokal als 'deleted'. Printix ändert den API-Status
+        nach Löschung nicht (bleibt CONVERTED), daher muss die Löschung
+        serverseitig getracked werden."""
+        _log_req(request, f"DELETE /me/jobs/{job_id}")
+        user = _require_token(authorization)
+        if not user:
+            return _json_error("token invalid", code="auth_required", status=401)
+        try:
+            from db import _conn, _resolve_tenant_owner_for
+            from cloudprint.db_extensions import get_tenant_for_user, update_cloudprint_job_status
+            uname  = (user.get("username") or "").lower()
+            uemail = (user.get("email") or "").lower()
+            pxid   = (user.get("printix_user_id") or "").lower()
+            parent_id = _resolve_tenant_owner_for(user["user_id"]) or user["user_id"]
+            tenant = get_tenant_for_user(parent_id)
+            tid = (tenant or {}).get("id", "")
+            with _conn() as conn:
+                row = conn.execute(
+                    """SELECT job_id, printix_job_id, status
+                       FROM cloudprint_jobs
+                       WHERE job_id = ?
+                         AND (tenant_id = ? OR IFNULL(tenant_id,'') = '')
+                         AND (
+                           LOWER(IFNULL(username,'')) = ?
+                           OR LOWER(IFNULL(username,'')) = ?
+                           OR LOWER(IFNULL(detected_identity,'')) = ?
+                           OR LOWER(IFNULL(detected_identity,'')) = ?
+                           OR LOWER(IFNULL(detected_identity,'')) = ?
+                         )""",
+                    (job_id, tid, uname, uemail, uname, uemail, pxid),
+                ).fetchone()
+            if not row:
+                return _json_error("Job nicht gefunden", code="not_found", status=404)
+            px_job_id = row["printix_job_id"]
+            if px_job_id and tenant:
+                try:
+                    from printix_client import PrintixClient, PrintixAPIError
+                    client = PrintixClient(
+                        tenant_id=tenant["printix_tenant_id"],
+                        print_client_id=tenant.get("print_client_id", ""),
+                        print_client_secret=tenant.get("print_client_secret", ""),
+                        shared_client_id=tenant.get("shared_client_id", ""),
+                        shared_client_secret=tenant.get("shared_client_secret", ""),
+                        um_client_id=tenant.get("um_client_id", ""),
+                        um_client_secret=tenant.get("um_client_secret", ""),
+                    )
+                    client.delete_print_job(px_job_id)
+                except Exception as _pe:
+                    logger.info("job_delete: Printix delete fehlgeschlagen job=%s: %s", job_id, _pe)
+            update_cloudprint_job_status(job_id, "deleted")
+            _jobs_cache_invalidate(user["user_id"])
+            _audit(user.get("user_id"), "job_deleted_by_user",
+                   details=_json.dumps({"job_id": job_id, "px_job_id": px_job_id}, ensure_ascii=False))
+            return JSONResponse({"deleted": True, "job_id": job_id})
+        except Exception as e:
+            logger.warning("desktop_job_delete: %s", e)
+            return _json_error(str(e)[:200], code="job_delete_failed", status=500)
+
     @app.get("/desktop/me/jobs/{job_id}/status")
     async def desktop_job_status(job_id: str, request: Request,
                                   authorization: str = Header(default="")):
