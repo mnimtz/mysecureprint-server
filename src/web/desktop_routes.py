@@ -71,7 +71,9 @@ def _jobs_cache_invalidate(uid: str) -> None:
 
 _PX_STATE_MAP = {
     "WAITING_FOR_UPLOAD": "queued",
+    "UPLOADING":          "queued",     # File upload in progress
     "CONVERTING":         "converting",
+    "CONVERTED":          "ready",      # Conversion done, awaiting printer release
     "READY":              "ready",
     "PRINTING":           "printing",
     "PRINTED":            "printed",
