@@ -1572,17 +1572,52 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 job_obj = job_data
                 if isinstance(job_data, dict) and "jobs" in job_data:
                     jobs_list = job_data.get("jobs") or []
+                    # Diagnose: ersten Job in der Liste loggen damit wir die Feldnamen sehen
+                    first_job_sample = jobs_list[0] if jobs_list else {}
+                    _audit(user.get("user_id"), "job_status_list_response",
+                           details=_json.dumps({
+                               "job_id": job_id,
+                               "px_job_id_looking_for": px_job_id,
+                               "list_count": len(jobs_list),
+                               "first_job_keys": list(first_job_sample.keys()) if first_job_sample else [],
+                               "first_job_id_candidates": {
+                                   k: first_job_sample.get(k)
+                                   for k in ("id","jobId","printJobId","uuid","jobUuid")
+                                   if k in first_job_sample
+                               },
+                               "our_job_in_list_by_id": any(
+                                   j.get("id") == px_job_id for j in jobs_list
+                                   if isinstance(j, dict)
+                               ),
+                           }, ensure_ascii=False))
+                    # Suche nach verschiedenen möglichen ID-Feldern
                     job_obj = next(
                         (j for j in jobs_list
-                         if isinstance(j, dict) and j.get("id") == px_job_id),
+                         if isinstance(j, dict) and (
+                             j.get("id") == px_job_id
+                             or j.get("jobId") == px_job_id
+                             or j.get("printJobId") == px_job_id
+                             or j.get("uuid") == px_job_id
+                         )),
                         None,
                     )
                     if job_obj is None:
+                        # Job nicht in der Liste → wurde bei Printix gelöscht/abgelaufen
                         logger.warning(
-                            "job_status: job %s nicht in Printix-Liste (%d Jobs) — "
-                            "DB-Status behalten", px_job_id, len(jobs_list))
-                        return JSONResponse({"job_id": job_id, "status": db_status,
-                                             "printix_status": None, "fresh": False})
+                            "job_status: job %s nicht in Printix-Liste (%d Jobs) → deleted",
+                            px_job_id, len(jobs_list))
+                        with _conn() as conn:
+                            conn.execute(
+                                "UPDATE cloudprint_jobs SET status = 'deleted', last_px_poll = ? WHERE job_id = ?",
+                                (_time.time(), job_id),
+                            )
+                        _jobs_cache_invalidate(uid)
+                        _audit(user.get("user_id"), "job_status_updated",
+                               details=_json.dumps({"job_id": job_id, "px_state": "NOT_IN_LIST",
+                                                    "old_status": db_status,
+                                                    "new_status": "deleted"}, ensure_ascii=False))
+                        return JSONResponse({"job_id": job_id, "status": "deleted",
+                                             "printix_status": "DELETED", "fresh": True})
                 elif isinstance(job_data, dict) and "job" in job_data:
                     job_obj = job_data["job"] or job_data
 
