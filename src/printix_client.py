@@ -526,13 +526,10 @@ class PrintixClient:
 
     def delete_print_job(self, job_id: str) -> Any:
         """Delete a submitted or failed print job.
-        Endpoint: POST /jobs/{job_id}/delete  (POST with /delete suffix, not DELETE verb)
-        Note: Jobs that completed or were removed after complete_upload return 404 — treated
-        as success since the job no longer exists."""
+        Endpoint: DELETE /jobs/{job_id}/delete"""
         tm = self._require_tm(self._print_tm, "Print API")
         try:
-            return self._post(tm, f"/jobs/{job_id}/delete",
-                              content_type="application/x-www-form-urlencoded")
+            return self._delete(tm, f"/jobs/{job_id}/delete")
         except PrintixAPIError as e:
             if e.status_code == 404:
                 return {
