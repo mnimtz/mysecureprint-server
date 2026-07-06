@@ -1211,7 +1211,7 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
 
   {# ── 🔔 Push Notifications — v0.7.78 ───────────────────────────────── #}
   {% if not section or section == 'push' %}
-  <div class="settings-card" id="push">
+  <div class="card" id="push" style="max-width:680px;margin:0 auto 20px auto;">
     <h2 class="section-title">🔔 {{ _('push_section_title') }}</h2>
 
     {# i18n strings for pushTest() JavaScript #}
