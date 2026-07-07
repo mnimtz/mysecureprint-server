@@ -638,7 +638,7 @@
                 </span>
               </label>
               <label style="display:flex;align-items:flex-start;gap:8px;font-size:.85em;color:var(--text-muted);margin-top:8px;cursor:pointer;">
-                <input type="checkbox" id="entra-perm-userreadall" style="margin-top:3px;">
+                <input type="checkbox" id="entra-perm-userreadall" checked style="margin-top:3px;">
                 <span>
                   <strong>{{ _('entra_perm_card_sync_label') }}</strong>
                   (<code>User.Read.All</code> Application-Permission)
@@ -647,9 +647,8 @@
                   </span>
                 </span>
               </label>
-              <div style="font-size:.78em;color:#92400e;background:#fef3c7;border-radius:6px;padding:6px 10px;margin-top:8px;">
-                Achtung: Diese Permissions erfordern <strong>Admin-Consent</strong>
-                (im Azure-Portal &rarr; API-Berechtigungen &rarr; „Grant admin consent").
+              <div style="font-size:.78em;color:#166534;background:#dcfce7;border-radius:6px;padding:6px 10px;margin-top:8px;">
+                Admin-Consent für aktivierte Application-Permissions wird automatisch mit dem Einrichtungsschritt erteilt. Kein manueller Schritt im Azure-Portal nötig.
               </div>
             </div>
 
