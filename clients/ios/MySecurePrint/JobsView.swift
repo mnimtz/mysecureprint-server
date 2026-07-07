@@ -109,7 +109,7 @@ struct JobsView: View {
                 //    Netzwerkaufruf startet, damit der Platzhalter instant
                 //    sichtbar ist wenn der User nach dem Senden zum Jobs-Tab wechselt.
                 if let pending = cache.pendingJob,
-                   !jobs.contains(where: { $0.job_id == pending.job_id }) {
+                   !jobs.contains(where: { $0.job_id == pending.job_id || $0.filename == pending.filename }) {
                     jobs.insert(pending, at: 0)
                 }
                 // 2. Daten laden: erst Cache, dann Netzwerk falls nötig.
@@ -120,7 +120,7 @@ struct JobsView: View {
                     hasMore = cache.jobsHasMore
                     initializedFromCache = true
                     if let pending = cache.pendingJob,
-                       !jobs.contains(where: { $0.job_id == pending.job_id }) {
+                       !jobs.contains(where: { $0.job_id == pending.job_id || $0.filename == pending.filename }) {
                         jobs.insert(pending, at: 0)
                     }
                 } else if !initializedFromCache {
@@ -159,7 +159,8 @@ struct JobsView: View {
             .onChange(of: cache.jobs) { _, newJobs in
                 jobs = newJobs
                 hasMore = cache.jobsHasMore
-                if let p = cache.pendingJob, !jobs.contains(where: { $0.job_id == p.job_id }) {
+                if let p = cache.pendingJob,
+                   !jobs.contains(where: { $0.job_id == p.job_id || $0.filename == p.filename }) {
                     jobs.insert(p, at: 0)
                 }
             }
@@ -270,12 +271,12 @@ struct JobsView: View {
             cache.jobsHasMore = hasMore
             // Pending nur löschen wenn der echte Job schon sichtbar ist.
             let pendingFoundInList = cache.pendingJob.map { p in
-                result.jobs.contains(where: { $0.job_id == p.job_id })
+                result.jobs.contains(where: { $0.job_id == p.job_id || $0.filename == p.filename })
             } ?? true
             if pendingFoundInList {
                 cache.pendingJob = nil
             } else if let p = cache.pendingJob,
-                      !jobs.contains(where: { $0.job_id == p.job_id }) {
+                      !jobs.contains(where: { $0.job_id == p.job_id || $0.filename == p.filename }) {
                 // Job noch nicht in Server-Liste — Platzhalter sofort wieder vorne
                 // einsetzen bevor onChange(of: cache.jobs) asynchron feuert und ihn
                 // vergessen würde.

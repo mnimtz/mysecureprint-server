@@ -69,7 +69,7 @@ final class AppCache: ObservableObject {
             // Printix braucht 30–60s zum Indexieren — zu früh gecleart führt dazu
             // dass der Platzhalter aus der UI verschwindet bevor der echte Eintrag da ist.
             let pendingFoundInList = pendingJob.map { p in
-                r.items.contains(where: { $0.job_id == p.job_id })
+                r.items.contains(where: { $0.job_id == p.job_id || $0.filename == p.filename })
             } ?? true
             jobs = r.items
             jobsHasMore = r.hasMore
