@@ -4344,6 +4344,7 @@ def create_app(session_secret: str) -> FastAPI:
         cfg = _get_printix_sync_cfg()
         run_result = _get_printix_sync_last_result()
         saved = request.query_params.get("saved") == "1"
+        ran = request.query_params.get("ran") == "1"
         return templates.TemplateResponse(
             "admin_printix_sync.html",
             {
@@ -4352,6 +4353,7 @@ def create_app(session_secret: str) -> FastAPI:
                 "cfg": cfg,
                 "run_result": run_result,
                 "saved": saved,
+                "ran": ran,
                 **t_ctx(request),
             },
         )
@@ -4403,7 +4405,7 @@ def create_app(session_secret: str) -> FastAPI:
             await _asyncio.to_thread(_run_printix_user_sync_once, admin["id"])
         except Exception as e:
             logger.warning("printix-sync run-now failed: %s", e)
-        return RedirectResponse("/admin/printix-sync?saved=1", status_code=302)
+        return RedirectResponse("/admin/printix-sync?ran=1", status_code=302)
 
     # ── v0.2.0: Public Redemption Endpoints ──────────────────────────────────
 
