@@ -81,31 +81,31 @@
         {# ── OpenAI ── #}
         <div id="ai-openai-block" style="{% if ai_provider != 'openai' %}display:none;{% endif %}border-left:3px solid var(--ta-green, #22c55e);padding-left:14px;margin-top:4px;margin-bottom:12px;">
           <div class="form-group">
-            <label class="form-label">OpenAI API Key</label>
+            <label class="form-label">{{ _('ai_openai_api_key_label') }}</label>
             <input type="password" name="ai_openai_api_key" class="form-input" autocomplete="new-password"
-                   placeholder="{% if ai_has_openai_key %}(gespeichert — leer lassen zum Behalten){% else %}sk-…{% endif %}">
+                   placeholder="{% if ai_has_openai_key %}{{ _('ai_openai_api_key_placeholder_saved') }}{% else %}sk-…{% endif %}">
             {% if ai_has_openai_key %}
-            <p class="form-hint">API Key gespeichert. Nur neu eingeben um zu ändern.</p>
+            <p class="form-hint">{{ _('ai_openai_api_key_hint_saved') }}</p>
             {% else %}
-            <p class="form-hint">API Key unter <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a> erstellen.</p>
+            <p class="form-hint">{{ _('ai_openai_api_key_hint_link') | safe }}</p>
             {% endif %}
           </div>
           <div class="form-group">
-            <label class="form-label">Modell</label>
+            <label class="form-label">{{ _('ai_openai_model_label') }}</label>
             <div style="display:flex;gap:8px;align-items:center;">
               <select name="ai_openai_model" id="ai-openai-model" class="form-select" style="flex:1;">
                 {% if ai_openai_model %}
                 <option value="{{ ai_openai_model }}" selected>{{ ai_openai_model }}</option>
                 {% else %}
-                <option value="gpt-4o-mini" selected>gpt-4o-mini (empfohlen)</option>
-                <option value="gpt-4o">gpt-4o (höchste Qualität)</option>
+                <option value="gpt-4o-mini" selected>{{ _('ai_openai_model_mini_label') }}</option>
+                <option value="gpt-4o">{{ _('ai_openai_model_full_label') }}</option>
                 {% endif %}
               </select>
               <button type="button" class="btn btn-secondary btn-sm" onclick="loadOpenAIModels()" id="ai-load-openai-models-btn">
-                Modelle laden
+                {{ _('ai_openai_load_models_btn') }}
               </button>
             </div>
-            <p class="form-hint">gpt-4o-mini ist für Dokumentanalyse (PDF, Word) und einfache Bilder ausreichend und ~16× günstiger als gpt-4o.</p>
+            <p class="form-hint">{{ _('ai_openai_model_hint') }}</p>
           </div>
         </div>
 
@@ -121,7 +121,7 @@
             <label class="form-label">{{ _('ai_ollama_model_label') }}</label>
             <input type="text" name="ai_ollama_model" class="form-input"
                    value="{{ ai_ollama_model }}"
-                   placeholder="z.B. qwen2.5:3b oder phi3:mini">
+                   placeholder="{{ _('ai_ollama_model_placeholder') }}">
             <p class="form-hint">{{ _('ai_ollama_model_hint') }}</p>
           </div>
         </div>
@@ -162,7 +162,8 @@
                      value="{{ cp.name }}" pattern="[a-zA-Z0-9_]+" maxlength="40">
               <input type="text" name="ai_cp_prompt_{{ loop.index0 }}" class="form-input"
                      style="flex:1;" placeholder="Frage / Anweisung an die KI (z.B. Extrahiere die Rechnungsnummer)"
-                     value="{{ cp.prompt }}" maxlength="500">
+                     value="{{ cp.prompt }}" maxlength="500"
+                     placeholder="{{ _('ai_cp_prompt_placeholder') }}">
               <button type="button" class="btn btn-secondary btn-sm" onclick="aiRemoveCpRow(this)"
                       style="flex-shrink:0;padding:6px 10px;">✕</button>
             </div>
@@ -276,7 +277,7 @@ function aiAddCpRow() {
            style="width:140px;flex-shrink:0;" placeholder="variablenname"
            pattern="[a-zA-Z0-9_]+" maxlength="40">
     <input type="text" name="ai_cp_prompt_${idx}" class="form-input"
-           style="flex:1;" placeholder="Frage / Anweisung an die KI" maxlength="500">
+           style="flex:1;" placeholder="{{ _('ai_cp_prompt_placeholder_short') }}" maxlength="500">
     <button type="button" class="btn btn-secondary btn-sm" onclick="aiRemoveCpRow(this)"
             style="flex-shrink:0;padding:6px 10px;">✕</button>`;
   list.appendChild(row);

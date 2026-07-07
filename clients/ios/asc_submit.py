@@ -113,16 +113,40 @@ def find_app(token: str) -> str:
 
 
 def find_or_create_version(token: str, app_id: str, version: str) -> str:
-    # Existierende Versionen pruefen
+    # Alle bearbeitbaren Versionen laden (nicht nur die gesuchte)
     r = api("GET", f"/v1/apps/{app_id}/appStoreVersions", token,
-            params={"filter[versionString]": version,
-                    "fields[appStoreVersions]": "versionString,appStoreState,platform"})
+            params={"fields[appStoreVersions]": "versionString,appStoreState,platform",
+                    "limit": 10})
     r.raise_for_status()
-    for v in r.json().get("data", []):
+    all_versions = r.json().get("data", [])
+
+    # Exakte Übereinstimmung zuerst
+    for v in all_versions:
         if v["attributes"].get("versionString") == version:
-            print(f"  ✓ Version {version} existiert: {v['id']} state={v['attributes'].get('appStoreState')}")
+            state = v["attributes"].get("appStoreState")
+            print(f"  ✓ Version {version} existiert: {v['id']} state={state}")
             return v["id"]
-    # Anlegen
+
+    # DEVELOPER_REJECTED-Version wiederverwenden: versionString auf gewünschte Version setzen
+    editable_states = {"DEVELOPER_REJECTED", "PREPARE_FOR_SUBMISSION", "REJECTED"}
+    for v in all_versions:
+        state = v["attributes"].get("appStoreState", "")
+        if state in editable_states:
+            old_ver = v["attributes"].get("versionString")
+            vid = v["id"]
+            print(f"  ⚠ Gefunden: Version {old_ver} in state={state} — umbenennen zu {version}")
+            r2 = api("PATCH", f"/v1/appStoreVersions/{vid}", token, json={
+                "data": {
+                    "type": "appStoreVersions",
+                    "id": vid,
+                    "attributes": {"versionString": version},
+                }
+            })
+            r2.raise_for_status()
+            print(f"  ✓ Version umbenannt: {old_ver} → {version} (id={vid})")
+            return vid
+
+    # Neu anlegen
     r = api("POST", "/v1/appStoreVersions", token, json={
         "data": {
             "type": "appStoreVersions",

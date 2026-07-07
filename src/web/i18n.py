@@ -26062,6 +26062,21 @@ EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
         'ai_js_error_prefix': 'Fehler: ',
         'ai_js_models_loaded': ' Modelle geladen',
         'ai_js_network_error': 'Netzwerkfehler: ',
+        # OpenAI block
+        'ai_openai_api_key_label':          'OpenAI API Key',
+        'ai_openai_api_key_placeholder_saved': '● gespeichert — leer lassen zum Behalten',
+        'ai_openai_api_key_hint_saved':     '✓ API-Key hinterlegt. Nur ausfüllen zum Ändern.',
+        'ai_openai_api_key_hint_link':      'API-Key erstellen unter <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>.',
+        'ai_openai_model_label':            'Modell',
+        'ai_openai_model_mini_label':       'gpt-4o-mini (empfohlen)',
+        'ai_openai_model_full_label':       'gpt-4o (höchste Qualität)',
+        'ai_openai_load_models_btn':        'Modelle laden',
+        'ai_openai_model_hint':             'gpt-4o-mini ist für Dokumentenanalyse (PDF, Word) und einfache Bilder ausreichend und ~16× günstiger als gpt-4o.',
+        'ai_ollama_model_placeholder':      'z.B. qwen2.5:3b oder phi3:mini',
+        'ai_cp_prompt_placeholder':         'Frage / Anweisung an die KI (z.B. Extrahiere die Rechnungsnummer)',
+        'ai_cp_prompt_placeholder_short':   'Frage / Anweisung an die KI',
+        # Sidebar nav
+        'nav_ai_analysis':                  'Dokumentenanalyse',
     },
 }
 
@@ -26117,6 +26132,21 @@ _AI_EN: dict[str, str] = {
     'ai_js_error_prefix':               'Error: ',
     'ai_js_models_loaded':              ' models loaded',
     'ai_js_network_error':              'Network error: ',
+    # OpenAI block
+    'ai_openai_api_key_label':          'OpenAI API Key',
+    'ai_openai_api_key_placeholder_saved': '● saved — leave blank to keep',
+    'ai_openai_api_key_hint_saved':     '✓ API key stored. Only fill in to change.',
+    'ai_openai_api_key_hint_link':      'Create API key at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>.',
+    'ai_openai_model_label':            'Model',
+    'ai_openai_model_mini_label':       'gpt-4o-mini (recommended)',
+    'ai_openai_model_full_label':       'gpt-4o (highest quality)',
+    'ai_openai_load_models_btn':        'Load models',
+    'ai_openai_model_hint':             'gpt-4o-mini is sufficient for document analysis (PDF, Word) and simple images, and ~16× cheaper than gpt-4o.',
+    'ai_ollama_model_placeholder':      'e.g. qwen2.5:3b or phi3:mini',
+    'ai_cp_prompt_placeholder':         'Question / instruction for AI (e.g. Extract the invoice number)',
+    'ai_cp_prompt_placeholder_short':   'Question / instruction for AI',
+    # Sidebar nav
+    'nav_ai_analysis':                  'Document Analysis',
 }
 TRANSLATIONS.setdefault("en", {}).update(_AI_EN)
 for _lang in ("fr", "it", "es", "nl", "no", "sv", "cockney", "us_south"):
