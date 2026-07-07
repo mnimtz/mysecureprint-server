@@ -1483,9 +1483,11 @@ def _register_card_via_printix(tenant: dict, px_uid: str, card_uid: str) -> str:
 
     # Karten-Liste vorher merken, um neue card_id nach Register zu erkennen
     before_ids: set = set()
+    before_cards: list = []
     try:
         before = client.list_user_cards(px_uid)
-        for c in before.get("cards", before.get("content", [])) or []:
+        before_cards = before.get("cards", before.get("content", [])) or []
+        for c in before_cards:
             cid = (c.get("id") or c.get("cardId") or "")
             if cid:
                 before_ids.add(cid)
@@ -1493,6 +1495,7 @@ def _register_card_via_printix(tenant: dict, px_uid: str, card_uid: str) -> str:
         pass
 
     # In Printix registrieren
+    _was_dup = False
     try:
         client.register_card(px_uid, uid_upper)
     except PrintixAPIError as e:
@@ -1502,16 +1505,36 @@ def _register_card_via_printix(tenant: dict, px_uid: str, card_uid: str) -> str:
                   or "already registered" in msg)
         if not is_dup:
             raise
+        _was_dup = True
 
-    # Neue card_id ermitteln (Diff vor/nach)
+    # Neue card_id ermitteln: Diff vor/nach (frisch registriert)
+    # oder bei Duplicate: aktuelle Liste nach UID durchsuchen.
     new_card_id = ""
     try:
         after = client.list_user_cards(px_uid)
-        for c in after.get("cards", after.get("content", [])) or []:
-            cid = (c.get("id") or c.get("cardId") or "")
-            if cid and cid not in before_ids:
-                new_card_id = cid
-                break
+        cards_after = after.get("cards", after.get("content", [])) or []
+        if not _was_dup:
+            # Frisch registriert: neue card_id ist die die vorher nicht da war
+            for c in cards_after:
+                cid = (c.get("id") or c.get("cardId") or "")
+                if cid and cid not in before_ids:
+                    new_card_id = cid
+                    break
+        else:
+            # Duplicate: Karte war schon in Printix — in der before-Liste
+            # nach UID suchen (dort muss sie stecken).
+            _uid_fields = ("cardValue", "value", "uid", "number")
+            for c in before_cards:
+                cid = (c.get("id") or c.get("cardId") or "")
+                cval = next((str(c.get(f) or "").upper()
+                             for f in _uid_fields if c.get(f)), "")
+                if cid and cval == uid_upper:
+                    new_card_id = cid
+                    break
+            # Fallback: genau eine Karte vorhanden → die muss es sein
+            if not new_card_id and len(before_cards) == 1:
+                new_card_id = (before_cards[0].get("id")
+                               or before_cards[0].get("cardId") or "")
     except Exception:
         pass
 
