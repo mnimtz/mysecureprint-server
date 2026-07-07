@@ -2417,6 +2417,8 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
         # v0.7.115: KI-Dokumentenanalyse — fire-and-forget nach Job-Insert.
         # ai_cfg wird einmalig hier gebaut (Tenant schon aus _bg_create_tracking
         # bekannt), damit analyse_job() keinen zweiten DB-Lookup braucht.
+        # Accept-Language muss jetzt aus dem Request gelesen werden (nicht im Thread).
+        _upload_accept_lang = request.headers.get("accept-language", "de")
         async def _bg_ai_analysis():
             def _do_ai():
                 try:
@@ -2477,6 +2479,7 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                         filename=file.filename or "",
                         ai_cfg=_ai_cfg,
                         user_id=user.get("user_id", ""),
+                        lang=_upload_accept_lang,
                     )
                 except Exception as _ae:
                     logger.warning("bg_ai_analysis job=%s: %s", internal_id, _ae)

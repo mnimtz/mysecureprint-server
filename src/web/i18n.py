@@ -26073,6 +26073,7 @@ EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
         'ai_openai_load_models_btn':        'Modelle laden',
         'ai_openai_model_hint':             'gpt-4o-mini ist für Dokumentenanalyse (PDF, Word) und einfache Bilder ausreichend und ~16× günstiger als gpt-4o.',
         'ai_ollama_model_placeholder':      'z.B. qwen2.5:3b oder phi3:mini',
+        'ai_cp_name_placeholder':           'variablenname',
         'ai_cp_prompt_placeholder':         'Frage / Anweisung an die KI (z.B. Extrahiere die Rechnungsnummer)',
         'ai_cp_prompt_placeholder_short':   'Frage / Anweisung an die KI',
         # Sidebar nav
@@ -26143,6 +26144,7 @@ _AI_EN: dict[str, str] = {
     'ai_openai_load_models_btn':        'Load models',
     'ai_openai_model_hint':             'gpt-4o-mini is sufficient for document analysis (PDF, Word) and simple images, and ~16× cheaper than gpt-4o.',
     'ai_ollama_model_placeholder':      'e.g. qwen2.5:3b or phi3:mini',
+    'ai_cp_name_placeholder':           'variable_name',
     'ai_cp_prompt_placeholder':         'Question / instruction for AI (e.g. Extract the invoice number)',
     'ai_cp_prompt_placeholder_short':   'Question / instruction for AI',
     # Sidebar nav

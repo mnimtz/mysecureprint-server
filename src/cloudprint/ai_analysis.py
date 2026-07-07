@@ -117,6 +117,7 @@ def analyse_job(
     filename: str,
     ai_cfg: dict,
     user_id: str = "",
+    lang: str = "de",
 ) -> None:
     """Synchron — immer in asyncio.to_thread() aufrufen.
 
@@ -188,10 +189,10 @@ def analyse_job(
                                                        "filename": filename})
                     return
                 prompt = _build_prompt(is_image=False, enabled_fields=enabled_fields,
-                                       custom_prompts=custom_prompts, for_ollama=True)
+                                       custom_prompts=custom_prompts, for_ollama=True, lang=lang)
                 result = _analyse_gemini_text(text[:_MAX_TEXT_GEMINI], prompt, gemini_key, gemini_model)
             else:
-                prompt = _build_prompt(is_image, enabled_fields, custom_prompts)
+                prompt = _build_prompt(is_image, enabled_fields, custom_prompts, lang=lang)
                 result = _analyse_gemini(file_bytes, mime, prompt, gemini_key, gemini_model)
         elif provider == "ollama":
             if not ollama_url or not ollama_model:
@@ -211,7 +212,7 @@ def analyse_job(
                                                    "provider": provider, "filename": filename})
                 return
             prompt = _build_prompt(is_image=False, enabled_fields=enabled_fields,
-                                   custom_prompts=custom_prompts, for_ollama=True)
+                                   custom_prompts=custom_prompts, for_ollama=True, lang=lang)
             result = _analyse_ollama(file_bytes, mime, prompt, ollama_url, ollama_model)
         elif provider == "openai":
             if not openai_key or not openai_model:
@@ -227,7 +228,7 @@ def analyse_job(
                 _audit_ai("ai_analysis_skipped", {"reason": "file_too_large", "size_mb": mb,
                                                    "provider": provider, "filename": filename})
                 return
-            prompt = _build_prompt(is_image, enabled_fields, custom_prompts)
+            prompt = _build_prompt(is_image, enabled_fields, custom_prompts, lang=lang)
             result = _analyse_openai(file_bytes, mime, prompt, openai_key, openai_model)
         else:
             return
@@ -297,22 +298,65 @@ def analyse_job(
 
 # ── Prompt-Builder ─────────────────────────────────────────────────────────────
 
+_PROMPT_L10N: dict[str, dict[str, str]] = {
+    "de": {
+        "intro_image":    "Beschreibe dieses Bild",
+        "intro_doc":      "Analysiere dieses Dokument",
+        "intro_text":     "Analysiere den folgenden Dokumenttext",
+        "respond":        "antworte NUR mit einem JSON-Objekt (kein Markdown, kein Text drumherum)",
+        "doc_type_img":   '"Foto"',
+        "doc_type_doc":   '"<Dokumenttyp, z.B. Rechnung, Präsentation, Vertrag, Bericht, Formular, Brief, Sonstiges>"',
+        "tags_img":       '["<Schlagwort 1>", "<Schlagwort 2>", "<Schlagwort 3>"]',
+        "tags_doc":       '["<Schlagwort 1>", "<Schlagwort 2>"]',
+        "summary_img":    '"<2–3 Sätze ausführliche Bildbeschreibung: Was ist zu sehen, Stimmung, besondere Details>"',
+        "summary_doc":    '"<2–3 Sätze Zusammenfassung des Inhalts>"',
+        "tags_hint_img":  "\nWähle 2–3 prägnante Schlagwörter die das Bild kategorisieren (z.B. Natur, Architektur, Personen, Essen, Tier, Landschaft, Innen, Außen …).",
+        "tags_hint_doc":  "\nWähle 2–3 prägnante Schlagwörter die den Inhalt des Dokuments kategorisieren (z.B. Rechnung, Vertrag, HR, Finanzen, Bericht, Präsentation, Formular …).",
+        "doc_text":       "\n\nDokumenttext:\n",
+    },
+    "en": {
+        "intro_image":    "Describe this image",
+        "intro_doc":      "Analyse this document",
+        "intro_text":     "Analyse the following document text",
+        "respond":        "respond ONLY with a JSON object (no Markdown, no surrounding text)",
+        "doc_type_img":   '"Photo"',
+        "doc_type_doc":   '"<document type, e.g. Invoice, Presentation, Contract, Report, Form, Letter, Other>"',
+        "tags_img":       '["<keyword 1>", "<keyword 2>", "<keyword 3>"]',
+        "tags_doc":       '["<keyword 1>", "<keyword 2>"]',
+        "summary_img":    '"<2–3 detailed sentences describing the image: what is visible, mood, notable details>"',
+        "summary_doc":    '"<2–3 sentences summarising the document content>"',
+        "tags_hint_img":  "\nChoose 2–3 concise keywords categorising the image (e.g. Nature, Architecture, People, Food, Animal, Landscape, Indoor, Outdoor …).",
+        "tags_hint_doc":  "\nChoose 2–3 concise keywords categorising the document (e.g. Invoice, Contract, HR, Finance, Report, Presentation, Form …).",
+        "doc_text":       "\n\nDocument text:\n",
+    },
+}
+
+
 def _build_prompt(
     is_image: bool,
     enabled_fields: set[str],
     custom_prompts: list[dict],
     for_ollama: bool = False,
+    lang: str = "de",
 ) -> str:
-    """Baut einen dynamischen Prompt basierend auf aktivierten Feldern."""
+    """Baut einen dynamischen Prompt basierend auf aktivierten Feldern und Sprache.
+
+    color_rec / sensitivity bleiben immer als deutsche Codes (iOS parst sie).
+    Alle freien Textfelder (doc_type, tags, summary) folgen dem lang-Parameter.
+    """
+    # Normalisieren: "en-US" → "en", unbekannte Sprachen → "en"
+    _lc = (lang or "de").split("-")[0].lower()
+    _p = _PROMPT_L10N.get(_lc, _PROMPT_L10N["en"])
+
     fields: dict[str, str] = {}
 
     if is_image and not for_ollama:
-        # Foto-Prompt
         if "doc_type" in enabled_fields:
-            fields["doc_type"] = '"Foto"'
+            fields["doc_type"] = _p["doc_type_img"]
         if "color_rec" in enabled_fields:
             fields["color_rec"] = '"farbe"'
         if "sensitivity" in enabled_fields:
+            # Feste deutsche Codes — iOS sensitivityStyle() parst sie
             fields["sensitivity"] = (
                 '"<Wähle eine Kategorie: \'privat\' (persönliches Foto: Essen, Familie, '
                 'Freizeit, alltägliche Szenen), \'öffentlich\' (öffentliche Veranstaltung, '
@@ -321,21 +365,20 @@ def _build_prompt(
                 '(sensible Geschäftsdaten, vertrauliche Inhalte)>"'
             )
         if "tags" in enabled_fields:
-            fields["tags"] = '["<Schlagwort 1>", "<Schlagwort 2>", "<Schlagwort 3>"]'
+            fields["tags"] = _p["tags_img"]
         if "summary" in enabled_fields:
-            fields["summary"] = '"<2–3 Sätze ausführliche Bildbeschreibung: Was ist zu sehen, Stimmung, besondere Details>"'
+            fields["summary"] = _p["summary_img"]
     else:
-        # Dokument-Prompt
         if "doc_type" in enabled_fields:
-            fields["doc_type"] = '"<Dokumenttyp, z.B. Rechnung, Präsentation, Vertrag, Bericht, Formular, Brief, Sonstiges>"'
+            fields["doc_type"] = _p["doc_type_doc"]
         if "color_rec" in enabled_fields:
             fields["color_rec"] = '"<\'farbe\' oder \'schwarzweiss\'>"'
         if "sensitivity" in enabled_fields:
             fields["sensitivity"] = '"<\'öffentlich\', \'privat\', \'intern\' oder \'vertraulich\'>"'
         if "tags" in enabled_fields:
-            fields["tags"] = '["<Schlagwort 1>", "<Schlagwort 2>"]'
+            fields["tags"] = _p["tags_doc"]
         if "summary" in enabled_fields:
-            fields["summary"] = '"<2–3 Sätze Zusammenfassung des Inhalts>"'
+            fields["summary"] = _p["summary_doc"]
 
     # Custom-Felder anhängen
     for cp in custom_prompts:
@@ -344,27 +387,25 @@ def _build_prompt(
         if name and cp_prompt:
             fields[name] = json.dumps(f"<{cp_prompt}>")
 
-    # JSON-Schema-String bauen
     lines = []
     for k, v in fields.items():
         lines.append(f'  "{k}": {v}')
     schema = "{\n" + ",\n".join(lines) + "\n}"
 
-    intro = (
-        "Beschreibe dieses Bild" if (is_image and not for_ollama)
-        else "Analysiere dieses Dokument" if not for_ollama
-        else "Analysiere den folgenden Dokumenttext"
-    )
+    if is_image and not for_ollama:
+        intro = _p["intro_image"]
+    elif not for_ollama:
+        intro = _p["intro_doc"]
+    else:
+        intro = _p["intro_text"]
+
     hint = ""
     if "tags" in enabled_fields and not for_ollama:
-        if is_image:
-            hint = "\nWähle 2–3 prägnante Schlagwörter die das Bild kategorisieren (z.B. Natur, Architektur, Personen, Essen, Tier, Landschaft, Innen, Außen …)."
-        else:
-            hint = "\nWähle 2–3 prägnante Schlagwörter die den Inhalt des Dokuments kategorisieren (z.B. Rechnung, Vertrag, HR, Finanzen, Bericht, Präsentation, Formular …)."
+        hint = _p["tags_hint_img"] if is_image else _p["tags_hint_doc"]
 
-    base = f"{intro} und antworte NUR mit einem JSON-Objekt (kein Markdown, kein Text drumherum):\n{schema}{hint}"
+    base = f"{intro} {_p['respond']}:\n{schema}{hint}"
     if for_ollama:
-        base += "\n\nDokumenttext:\n"
+        base += _p["doc_text"]
     return base
 
 

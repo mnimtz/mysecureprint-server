@@ -158,12 +158,11 @@
             {% for cp in ai_custom_prompts %}
             <div class="ai-cp-row" style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;">
               <input type="text" name="ai_cp_name_{{ loop.index0 }}" class="form-input"
-                     style="width:140px;flex-shrink:0;" placeholder="variablenname"
+                     style="width:140px;flex-shrink:0;" placeholder="{{ _('ai_cp_name_placeholder') }}"
                      value="{{ cp.name }}" pattern="[a-zA-Z0-9_]+" maxlength="40">
               <input type="text" name="ai_cp_prompt_{{ loop.index0 }}" class="form-input"
-                     style="flex:1;" placeholder="Frage / Anweisung an die KI (z.B. Extrahiere die Rechnungsnummer)"
-                     value="{{ cp.prompt }}" maxlength="500"
-                     placeholder="{{ _('ai_cp_prompt_placeholder') }}">
+                     style="flex:1;" placeholder="{{ _('ai_cp_prompt_placeholder') }}"
+                     value="{{ cp.prompt }}" maxlength="500">
               <button type="button" class="btn btn-secondary btn-sm" onclick="aiRemoveCpRow(this)"
                       style="flex-shrink:0;padding:6px 10px;">✕</button>
             </div>
@@ -274,7 +273,7 @@ function aiAddCpRow() {
   row.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;';
   row.innerHTML = `
     <input type="text" name="ai_cp_name_${idx}" class="form-input"
-           style="width:140px;flex-shrink:0;" placeholder="variablenname"
+           style="width:140px;flex-shrink:0;" placeholder="{{ _('ai_cp_name_placeholder') }}"
            pattern="[a-zA-Z0-9_]+" maxlength="40">
     <input type="text" name="ai_cp_prompt_${idx}" class="form-input"
            style="flex:1;" placeholder="{{ _('ai_cp_prompt_placeholder_short') }}" maxlength="500">
