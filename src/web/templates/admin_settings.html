@@ -413,6 +413,7 @@
     {% endif %}
 
     <form method="post" action="/admin/settings">
+      <input type="hidden" name="_section" value="{{ request.query_params.get('section', '') }}">
 
       {# v0.5.2: Server-URL + Mail unter section=general/general-only;
          Entra unter section=entra. Wenn beide gefiltert sind, zeigen

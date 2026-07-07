@@ -6279,7 +6279,11 @@ def create_app(session_secret: str) -> FastAPI:
             return templates.TemplateResponse("admin_settings.html",
                 _admin_settings_ctx(request, user, error=str(e)))
 
-        return RedirectResponse("/admin/settings?ok=saved", status_code=303)
+        _back_section = (form.get("_section") or
+                         request.query_params.get("section") or "")
+        _back_url = ("/admin/settings?section=" + _back_section + "&ok=saved"
+                     if _back_section else "/admin/settings?ok=saved")
+        return RedirectResponse(_back_url, status_code=303)
 
     @app.post("/admin/entra/sync-cards")
     async def admin_entra_sync_cards(request: Request):
