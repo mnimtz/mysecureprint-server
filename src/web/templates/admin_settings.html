@@ -912,6 +912,7 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
               <small style="color:var(--text-muted);font-weight:400;">({{ _('entra_card_uid_attr_sub') }})</small>
             </label>
             <input type="text" name="entra_card_uid_attribute"
+                   id="entra-card-attr-input"
                    value="{{ entra.card_uid_attribute }}"
                    list="entra-card-attr-suggestions"
                    placeholder="{{ _('entra_card_uid_attr_placeholder') }}"
@@ -965,7 +966,7 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
             <div style="font-weight:600;margin-bottom:8px;font-size:.95em;">
               {{ _('entra_card_sync_title') }}
               <span style="font-weight:400;color:var(--text-muted);">
-                — Attribut: <code>{{ entra.card_uid_attribute }}</code>
+                — Attribut: <code id="entra-sync-attr-label">{{ entra.card_uid_attribute }}</code>
               </span>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
@@ -1036,9 +1037,13 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
 
       function entraCardSync(dryRun) {
         var box = document.getElementById('entra-sync-result');
+        var attrInput = document.getElementById('entra-card-attr-input');
+        var attrVal = (attrInput ? attrInput.value : '').trim();
         box.style.display = 'block';
         box.innerHTML = '<span style="color:#6b7280;">{{ _("entra_card_sync_syncing") }}</span>';
-        fetch('/admin/entra/sync-cards?dry_run=' + (dryRun ? '1' : '0'), {method:'POST'})
+        var url = '/admin/entra/sync-cards?dry_run=' + (dryRun ? '1' : '0');
+        if (attrVal) url += '&attribute=' + encodeURIComponent(attrVal);
+        fetch(url, {method:'POST'})
           .then(function(r){ return r.json(); })
           .then(function(d) {
             if (d.error) {
@@ -1046,6 +1051,10 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
                 + _escHtml(d.error) + '</div>';
               return;
             }
+            // Attribut-Titel dynamisch aktualisieren
+            var titleAttr = document.getElementById('entra-sync-attr-label');
+            if (titleAttr && attrVal) titleAttr.textContent = attrVal;
+
             var html = dryRun
               ? '<div class="alert alert-info" style="font-size:.85em;"><strong>{{ _("entra_card_sync_preview_title") }}</strong> — {{ _("entra_card_sync_preview_note") }}</div>'
               : '<div class="alert alert-success" style="font-size:.85em;">{{ _("entra_card_sync_success") }}</div>';
@@ -1055,6 +1064,43 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
             html += '<strong>' + (d.errors||[]).length + '</strong> {{ _("entra_card_sync_errors") }}';
             html += ' (von ' + (d.total_entra||0) + ' Entra-Usern)';
             html += '</div>';
+
+            // Felder aus dem Dry-Run sammeln und Datalist aktualisieren
+            if (dryRun) {
+              var fieldCounts = {};
+              (d.skipped||[]).forEach(function(s){
+                if (s.gefundene_felder) {
+                  Object.keys(s.gefundene_felder).forEach(function(f){
+                    fieldCounts[f] = (fieldCounts[f]||0) + 1;
+                  });
+                }
+              });
+              var foundFields = Object.keys(fieldCounts).sort(function(a,b){ return fieldCounts[b]-fieldCounts[a]; });
+              if (foundFields.length) {
+                var dl = document.getElementById('entra-card-attr-suggestions');
+                if (dl) {
+                  // Gefundene Felder oben in der Datalist einfügen
+                  foundFields.forEach(function(f){
+                    if (!dl.querySelector('option[value="' + f + '"]')) {
+                      var opt = document.createElement('option');
+                      opt.value = f;
+                      dl.insertBefore(opt, dl.firstChild);
+                    }
+                  });
+                }
+                // Hinweis-Banner wenn das aktuelle Attribut leer war
+                var syncedCount = (d.synced||[]).length;
+                if (syncedCount === 0 && foundFields.length > 0) {
+                  var bestField = foundFields[0];
+                  html += '<div style="background:#fef3c7;border-radius:6px;padding:8px 12px;margin-top:10px;font-size:.85em;">';
+                  html += '💡 Kein User synchronisiert. Gefundene Felder mit Daten: ';
+                  html += foundFields.map(function(f){ return '<strong><a href="#" style="text-decoration:none;color:#92400e;" onclick="document.getElementById(\'entra-card-attr-input\').value=\'' + f + '\';return false;">' + _escHtml(f) + '</a></strong> (' + fieldCounts[f] + ' User)'; }).join(', ');
+                  html += '. Klick auf den Feldnamen übernimmt ihn direkt.';
+                  html += '</div>';
+                }
+              }
+            }
+
             if ((d.synced||[]).length) {
               html += '<details style="margin-top:8px;font-size:.83em;"><summary style="cursor:pointer;color:#00A0FB;">{{ _("entra_card_sync_details") }}</summary><ul style="margin:6px 0 0 16px;">';
               d.synced.forEach(function(s){ html += '<li>' + _escHtml(s.user||s.entra) + ' → <code>' + _escHtml(s.uid) + '</code>' + (s.dry_run?' (dry-run)':'') + '</li>'; });
@@ -1065,7 +1111,7 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
               d.skipped.forEach(function(s){
                 var extra = '';
                 if (s.gefundene_felder && Object.keys(s.gefundene_felder).length) {
-                  extra = ' <span style="color:#92400e;font-size:.9em;">→ gefundene Felder: ';
+                  extra = ' <span style="color:#92400e;font-size:.9em;">→ ';
                   extra += Object.entries(s.gefundene_felder).map(function(kv){ return '<code>' + _escHtml(kv[0]) + '</code>=<code>' + _escHtml(kv[1]) + '</code>'; }).join(', ');
                   extra += '</span>';
                 }

@@ -6291,12 +6291,16 @@ def create_app(session_secret: str) -> FastAPI:
         if not user or not user.get("is_admin"):
             return JSONResponse({"error": "Nicht autorisiert"}, status_code=401)
         dry_run = request.query_params.get("dry_run", "0") in ("1", "true", "yes")
+        attribute_override = (request.query_params.get("attribute", "") or "").strip()
         try:
             import sys, os
             sys.path.insert(0, os.path.dirname(os.path.dirname(
                 os.path.abspath(__file__))))
             from entra import sync_card_uids_from_entra
             import asyncio as _aio_cs
+            if attribute_override:
+                from db import set_setting as _ss_ca
+                _ss_ca("entra_card_uid_attribute", attribute_override)
             result = await _aio_cs.to_thread(sync_card_uids_from_entra, dry_run)
             if not dry_run and "error" not in result:
                 from db import audit
