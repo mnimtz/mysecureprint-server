@@ -1734,6 +1734,8 @@ def create_app(session_secret: str) -> FastAPI:
                         "1" if _inc_send else "0")
             set_setting("entra_mail_read_enabled",
                         "1" if _inc_read else "0")
+            set_setting("entra_user_read_all_enabled",
+                        "1" if _inc_ura else "0")
             # E-Mail-to-Print bleibt v0.7.0 noch deaktiviert — Feature
             # kommt erst in v0.8.0; wir registrieren nur die Permission.
             if _inc_read and not get_setting("email_to_print_enabled", ""):
@@ -5943,13 +5945,15 @@ def create_app(session_secret: str) -> FastAPI:
         try:
             mail_provider           = _gs2("mail_provider", "") or "resend"
             mail_graph_sender       = _gs2("mail_graph_sender", "")
-            entra_mail_send_enabled = _gs2("entra_mail_send_enabled", "0") == "1"
-            entra_mail_read_enabled = _gs2("entra_mail_read_enabled", "0") == "1"
-            email_to_print_enabled  = _gs2("email_to_print_enabled", "0") == "1"
+            entra_mail_send_enabled     = _gs2("entra_mail_send_enabled", "0") == "1"
+            entra_mail_read_enabled     = _gs2("entra_mail_read_enabled", "0") == "1"
+            entra_user_read_all_enabled = _gs2("entra_user_read_all_enabled", "0") == "1"
+            email_to_print_enabled      = _gs2("email_to_print_enabled", "0") == "1"
         except Exception:
             mail_provider = "resend"
             mail_graph_sender = ""
             entra_mail_send_enabled = entra_mail_read_enabled = False
+            entra_user_read_all_enabled = False
             email_to_print_enabled = False
         # Entra-Konfiguration
         try:
@@ -6042,9 +6046,10 @@ def create_app(session_secret: str) -> FastAPI:
             # v0.7.0: Microsoft-Graph Mail-Provider
             "mail_provider":           mail_provider,
             "mail_graph_sender":       mail_graph_sender,
-            "entra_mail_send_enabled": entra_mail_send_enabled,
-            "entra_mail_read_enabled": entra_mail_read_enabled,
-            "email_to_print_enabled":  email_to_print_enabled,
+            "entra_mail_send_enabled":     entra_mail_send_enabled,
+            "entra_mail_read_enabled":     entra_mail_read_enabled,
+            "entra_user_read_all_enabled": entra_user_read_all_enabled,
+            "email_to_print_enabled":      email_to_print_enabled,
             "entra": entra_cfg,
             "entra_redirect_uri": saved_redirect,
             "push_enabled":           push_enabled,

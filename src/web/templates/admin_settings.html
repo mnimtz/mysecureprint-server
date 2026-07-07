@@ -609,7 +609,8 @@
                 Optionale Microsoft-Graph-Berechtigungen
               </div>
               <label style="display:flex;align-items:flex-start;gap:8px;font-size:.85em;color:var(--text-muted);margin-bottom:8px;cursor:pointer;">
-                <input type="checkbox" id="entra-perm-mailsend" style="margin-top:3px;">
+                <input type="checkbox" id="entra-perm-mailsend" style="margin-top:3px;"
+                       {% if entra_mail_send_enabled %}checked{% endif %}>
                 <span>
                   <strong>Mail-Versand ueber dieses O365-Konto erlauben</strong>
                   (<code>Mail.Send</code> Application-Permission)
@@ -623,7 +624,8 @@
                 </span>
               </label>
               <label style="display:flex;align-items:flex-start;gap:8px;font-size:.85em;color:var(--text-muted);cursor:pointer;">
-                <input type="checkbox" id="entra-perm-mailread" style="margin-top:3px;">
+                <input type="checkbox" id="entra-perm-mailread" style="margin-top:3px;"
+                       {% if entra_mail_read_enabled %}checked{% endif %}>
                 <span>
                   <strong>Email-to-Print Gateway vorbereiten</strong>
                   (<code>Mail.Read</code> Application-Permission)
@@ -638,7 +640,8 @@
                 </span>
               </label>
               <label style="display:flex;align-items:flex-start;gap:8px;font-size:.85em;color:var(--text-muted);margin-top:8px;cursor:pointer;">
-                <input type="checkbox" id="entra-perm-userreadall" checked style="margin-top:3px;">
+                <input type="checkbox" id="entra-perm-userreadall" style="margin-top:3px;"
+                       {% if entra_user_read_all_enabled %}checked{% endif %}>
                 <span>
                   <strong>{{ _('entra_perm_card_sync_label') }}</strong>
                   (<code>User.Read.All</code> Application-Permission)
