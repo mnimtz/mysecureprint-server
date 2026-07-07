@@ -1573,7 +1573,15 @@ def sync_card_uids_from_entra(dry_run: bool = True,
     is_ext_attr = (attr_lower.startswith("extensionattribute")
                    and attr_lower[len("extensionattribute"):].isdigit())
     select_extra = "onPremisesExtensionAttributes" if is_ext_attr else attribute
-    select_fields = f"id,mail,userPrincipalName,{select_extra}"
+    # Im Dry-Run: immer auch onPremisesExtensionAttributes + employeeId laden,
+    # damit die Diagnose zeigt, welche Felder tatsächlich Werte enthalten.
+    _diag_fields = set()
+    if dry_run:
+        _diag_fields = {"employeeId", "onPremisesExtensionAttributes",
+                        "onPremisesImmutableId"}
+        _diag_fields.discard(select_extra)
+    _extra_fields = ",".join([select_extra] + sorted(_diag_fields)) if _diag_fields else select_extra
+    select_fields = f"id,mail,userPrincipalName,{_extra_fields}"
 
     if filter_email:
         # Gezielter Lookup — nur den einen User per E-Mail / UPN abfragen.
@@ -1621,6 +1629,24 @@ def sync_card_uids_from_entra(dry_run: bool = True,
             card_uid = (eu.get(attribute) or "").strip()
 
         if not card_uid:
+            eu_mail = (eu.get("mail") or eu.get("userPrincipalName") or eu.get("id") or "")
+            _hint: dict = {}
+            if dry_run:
+                # Diagnose: welche Felder haben tatsächlich Werte?
+                _candidates = {}
+                for _f in ["employeeId", "onPremisesImmutableId"]:
+                    _v = (eu.get(_f) or "").strip()
+                    if _v:
+                        _candidates[_f] = _v
+                _ext = eu.get("onPremisesExtensionAttributes") or {}
+                for _k, _v2 in _ext.items():
+                    if _v2 and str(_v2).strip():
+                        _candidates[f"onPremisesExtensionAttributes.{_k}"] = str(_v2).strip()
+                if _candidates:
+                    _hint["gefundene_felder"] = _candidates
+            skipped.append({"entra": eu_mail,
+                             "reason": f"Attribut '{attribute}' ist leer",
+                             **_hint})
             continue
 
         if _transform_rules:

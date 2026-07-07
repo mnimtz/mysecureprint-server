@@ -1059,7 +1059,15 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
             }
             if ((d.skipped||[]).length) {
               html += '<details style="margin-top:4px;font-size:.83em;"><summary style="cursor:pointer;color:#6b7280;">{{ _("entra_card_sync_skipped_hdr") }}</summary><ul style="margin:6px 0 0 16px;">';
-              d.skipped.forEach(function(s){ html += '<li>' + _escHtml(s.entra) + ': ' + _escHtml(s.reason) + '</li>'; });
+              d.skipped.forEach(function(s){
+                var extra = '';
+                if (s.gefundene_felder && Object.keys(s.gefundene_felder).length) {
+                  extra = ' <span style="color:#92400e;font-size:.9em;">→ gefundene Felder: ';
+                  extra += Object.entries(s.gefundene_felder).map(function(kv){ return '<code>' + _escHtml(kv[0]) + '</code>=<code>' + _escHtml(kv[1]) + '</code>'; }).join(', ');
+                  extra += '</span>';
+                }
+                html += '<li>' + _escHtml(s.entra) + ': ' + _escHtml(s.reason) + extra + '</li>';
+              });
               html += '</ul></details>';
             }
             if ((d.errors||[]).length) {
