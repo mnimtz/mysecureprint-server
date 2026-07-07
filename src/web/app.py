@@ -1591,9 +1591,12 @@ def create_app(session_secret: str) -> FastAPI:
             from datetime import datetime as _dt_dc, timezone as _tz_dc
             from db import set_setting as _ss_dc
             _payload_dc = _j_dc.dumps({
-                "device_code": result["device_code"],
-                "interval":    result.get("interval", 5),
-                "created_at":  _dt_dc.now(_tz_dc.utc).isoformat(),
+                "device_code":            result["device_code"],
+                "interval":               result.get("interval", 5),
+                "created_at":             _dt_dc.now(_tz_dc.utc).isoformat(),
+                "include_mail_send":      bool(request.session.get("entra_setup_include_mail_send")),
+                "include_mail_read":      bool(request.session.get("entra_setup_include_mail_read")),
+                "include_user_read_all":  bool(request.session.get("entra_setup_include_user_read_all")),
             })
             _ss_dc(f"entra_dc_pending_{user['id']}", _payload_dc)
         except Exception as _dc_e:
@@ -1622,13 +1625,19 @@ def create_app(session_secret: str) -> FastAPI:
         # v0.5.5: DB-Persistenz zuerst probieren (robuster auf Azure),
         # Session als Fallback.
         device_code = ""
+        _db_inc_send = False
+        _db_inc_read = False
+        _db_inc_ura  = False
         try:
             import json as _j_dcp
             from db import get_setting as _gs_dcp
             _raw = _gs_dcp(f"entra_dc_pending_{user['id']}", "")
             if _raw:
                 _d = _j_dcp.loads(_raw)
-                device_code = _d.get("device_code", "")
+                device_code  = _d.get("device_code", "")
+                _db_inc_send = bool(_d.get("include_mail_send"))
+                _db_inc_read = bool(_d.get("include_mail_read"))
+                _db_inc_ura  = bool(_d.get("include_user_read_all"))
         except Exception:
             pass
         if not device_code:
@@ -1674,14 +1683,16 @@ def create_app(session_secret: str) -> FastAPI:
 
         base = _get_base_url(request)
         sso_redirect_uri = f"{base}/auth/entra/callback"
-        # v0.7.0: Optional Mail.Send / Mail.Read App-Permissions in der
-        # neuen App registrieren (vom Setup-Toggle im UI gesteuert).
+        # v0.7.0: Optional Mail.Send / Mail.Read / User.Read.All App-Permissions
+        # in der neuen App registrieren. Session ist primär; DB-Payload
+        # (entra_dc_pending_*) als Fallback, da Session auf Azure App Service
+        # zwischen device-code START und POLL verloren gehen kann.
         _inc_send = bool(request.session.pop(
-            "entra_setup_include_mail_send", False))
+            "entra_setup_include_mail_send", None) or _db_inc_send)
         _inc_read = bool(request.session.pop(
-            "entra_setup_include_mail_read", False))
+            "entra_setup_include_mail_read", None) or _db_inc_read)
         _inc_ura = bool(request.session.pop(
-            "entra_setup_include_user_read_all", False))
+            "entra_setup_include_user_read_all", None) or _db_inc_ura)
         result = auto_register_app(
             access_token, sso_redirect_uri,
             include_mail_send=_inc_send,
