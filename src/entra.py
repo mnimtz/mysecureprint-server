@@ -1424,8 +1424,11 @@ def _get_graph_client_token(cfg: dict) -> str:
 
 
 def _fetch_entra_users_paged(token: str, url: str,
-                              extra_headers: dict | None = None) -> list:
-    """Liest alle Entra-User mit @odata.nextLink-Pagination."""
+                              extra_headers: dict | None = None) -> tuple:
+    """Liest alle Entra-User mit @odata.nextLink-Pagination.
+
+    Returns (users: list, error: str) — error ist leer wenn erfolgreich.
+    """
     results = []
     headers = {"Authorization": f"Bearer {token}"}
     if extra_headers:
@@ -1435,14 +1438,21 @@ def _fetch_entra_users_paged(token: str, url: str,
             resp = _requests.get(url, headers=headers, timeout=20)
         except Exception as e:
             logger.error("Graph user-fetch network error: %s", e)
-            break
+            return results, f"Netzwerkfehler: {e}"
         if resp.status_code != 200:
             logger.error("Graph user-fetch HTTP %s: %s", resp.status_code, resp.text[:300])
-            break
+            try:
+                detail = resp.json().get("error", {})
+                msg = detail.get("message") or resp.text[:200]
+                code = detail.get("code", str(resp.status_code))
+            except Exception:
+                msg = resp.text[:200]
+                code = str(resp.status_code)
+            return results, f"HTTP {resp.status_code} ({code}): {msg}"
         data = resp.json()
         results.extend(data.get("value", []))
         url = data.get("@odata.nextLink", "")
-    return results
+    return results, ""
 
 
 def _register_card_via_printix(tenant: dict, px_uid: str, card_uid: str) -> str:
@@ -1572,17 +1582,19 @@ def sync_card_uids_from_entra(dry_run: bool = True,
         url = (f"{_GRAPH_URL}/users"
                f"?$filter=mail eq '{safe}' or userPrincipalName eq '{safe}'"
                f"&$select={select_fields}&$count=true")
-        entra_users = _fetch_entra_users_paged(
+        entra_users, fetch_err = _fetch_entra_users_paged(
             token, url, extra_headers={"ConsistencyLevel": "eventual"})
     else:
         url = f"{_GRAPH_URL}/users?$select={select_fields}&$top=200"
-        entra_users = _fetch_entra_users_paged(token, url)
+        entra_users, fetch_err = _fetch_entra_users_paged(token, url)
     if not entra_users:
+        if fetch_err:
+            return {"error": f"Graph-Fehler: {fetch_err}"}
         if filter_email:
             return {"error": (f"Kein Entra-User mit E-Mail '{filter_email}' gefunden "
                               "(oder fehlende User.Read.All-Berechtigung).")}
         return {"error": ("Keine Entra-User abgerufen — prüfe Graph-Berechtigung "
-                          "User.Read.All und ob das Attribut existiert.")}
+                          "User.Read.All (Application) und ob das Attribut existiert.")}
 
     local_users = get_all_users()
     by_oid   = {u.get("entra_oid", ""): u
