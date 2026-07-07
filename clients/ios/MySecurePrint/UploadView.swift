@@ -66,7 +66,7 @@ struct UploadView: View {
                     if #available(iOS 16.2, *), !liveActivitiesEnabled {
                         HStack(spacing: 12) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.orange)
+                                .foregroundColor(MSP.warning)
                                 .font(.title3)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(String(localized: "Dynamic Island deaktiviert"))
@@ -87,13 +87,13 @@ struct UploadView: View {
                                     .fontWeight(.semibold)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 5)
-                                    .background(Color.orange.opacity(0.15))
-                                    .foregroundColor(.orange)
+                                    .background(MSP.warning.opacity(0.15))
+                                    .foregroundColor(MSP.warning)
                                     .clipShape(Capsule())
                             }
                         }
                         .padding(14)
-                        .background(Color.orange.opacity(0.08))
+                        .background(MSP.warning.opacity(0.08))
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
 
@@ -253,7 +253,7 @@ struct UploadView: View {
                             CardFormRow(divider: false) {
                                 HStack(spacing: 12) {
                                     Image(systemName: "exclamationmark.triangle")
-                                        .foregroundColor(.orange).frame(width: 22)
+                                        .foregroundColor(MSP.warning).frame(width: 22)
                                     Text(String(localized: "Kein Ziel gewählt — Tab \u{201E}Ziele\u{201C} auswählen."))
                                         .font(.system(size: 14))
                                         .foregroundColor(.secondary)
@@ -308,7 +308,7 @@ struct UploadView: View {
                         CardSection(String(localized: "Fehler")) {
                             CardFormRow(divider: false) {
                                 Text(errorText)
-                                    .foregroundColor(.red)
+                                    .foregroundColor(MSP.danger)
                                     .textSelection(.enabled)
                                     .font(.system(size: 14))
                             }
@@ -376,7 +376,7 @@ struct UploadView: View {
             let ss = remaining % 60
             HStack {
                 Image(systemName: "clock.fill")
-                    .foregroundColor(.orange)
+                    .foregroundColor(MSP.warning)
                 Text(String(format: String(localized: "Zurück zu SecurePrint in %d:%02d"), mm, ss))
                     .font(.footnote)
                     .foregroundColor(.secondary)

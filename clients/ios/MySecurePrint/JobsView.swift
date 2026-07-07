@@ -74,7 +74,7 @@ struct JobsView: View {
 
                 if !error.isEmpty {
                     Section(String(localized: "Fehler")) {
-                        Text(error).foregroundColor(.red).textSelection(.enabled)
+                        Text(error).foregroundColor(MSP.danger).textSelection(.enabled)
                     }
                 }
             }
@@ -382,7 +382,7 @@ private struct JobRow: View {
             if let err = job.error_message, !err.isEmpty {
                 Text(err)
                     .font(.caption2)
-                    .foregroundColor(.red)
+                    .foregroundColor(MSP.danger)
                     .lineLimit(2)
             }
         }
@@ -468,10 +468,10 @@ private struct JobRow: View {
                 .font(.caption)
                 .lineLimit(1)
         }
-        .foregroundColor(.orange)
+        .foregroundColor(MSP.warning)
         .padding(.horizontal, 7)
         .padding(.vertical, 2)
-        .background(Color.orange.opacity(0.12))
+        .background(MSP.warning.opacity(0.12))
         .clipShape(Capsule())
     }
 
@@ -565,8 +565,8 @@ struct JobDetailView: View {
                                     .fontWeight(.semibold)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 2)
-                                    .background((isColor ? Color.blue : Color.gray).opacity(0.12))
-                                    .foregroundColor(isColor ? .blue : .gray)
+                                    .background((isColor ? MSP.cyan : Color.secondary).opacity(0.12))
+                                    .foregroundColor(isColor ? MSP.cyan : .secondary)
                                     .clipShape(Capsule())
                             }
                         }
@@ -654,11 +654,11 @@ struct JobDetailView: View {
                     if let recipients = job.delegate_recipients, !recipients.isEmpty {
                         if let g = job.delegate_group_name, !g.isEmpty {
                             detailRow(String(localized: "Team"), value: "\(g) (\(recipients.count))",
-                                      icon: "person.3.fill", iconColor: .orange)
+                                      icon: "person.3.fill", iconColor: MSP.warning)
                         }
                         ForEach(recipients, id: \.self) { r in
                             detailRow(String(localized: "Empfänger"), value: r,
-                                      icon: "person.fill.badge.plus", iconColor: .orange)
+                                      icon: "person.fill.badge.plus", iconColor: MSP.warning)
                         }
                     }
                     if let src = job.source_identity, !src.isEmpty {
@@ -683,7 +683,7 @@ struct JobDetailView: View {
                 if let err = job.error_message, !err.isEmpty {
                     Section(String(localized: "Fehler")) {
                         Text(err)
-                            .foregroundColor(.red)
+                            .foregroundColor(MSP.danger)
                             .font(.caption)
                             .textSelection(.enabled)
                     }
@@ -823,11 +823,11 @@ struct JobDetailView: View {
 
 private func sensitivityStyle(_ s: String) -> (Color, String) {
     switch s.lowercased() {
-    case "öffentlich":  return (.green,  String(localized: "Öffentlich"))
-    case "privat":      return (.purple, String(localized: "Privat"))
-    case "intern":      return (.orange, String(localized: "Intern"))
-    case "vertraulich": return (.red,    String(localized: "Vertraulich"))
-    default:            return (.gray,   s)
+    case "öffentlich":  return (MSP.green,   String(localized: "Öffentlich"))
+    case "privat":      return (.purple,     String(localized: "Privat"))
+    case "intern":      return (MSP.warning, String(localized: "Intern"))
+    case "vertraulich": return (MSP.danger,  String(localized: "Vertraulich"))
+    default:            return (.secondary,  s)
     }
 }
 
@@ -945,23 +945,23 @@ struct PrintJob: Codable, Identifiable, Equatable {
     static func badgeStyleFor(_ s: String) -> (Color, String) {
         switch s.lowercased() {
         case "queued", "waiting_for_upload":
-            return (Color(red: 0.2, green: 0.75, blue: 0.4), String(localized: "In Warteschlange"))
+            return (MSP.green, String(localized: "In Warteschlange"))
         case "sent", "forwarded":
             return (MSP.cyan, String(localized: "An Printix gesendet"))
         case "converting":
-            return (.orange,  String(localized: "Konvertierung…"))
+            return (MSP.warning, String(localized: "Konvertierung…"))
         case "ready":
             return (MSP.cyan, String(localized: "Bereit am Drucker"))
         case "printing", "received", "pending", "processing":
-            return (.orange,  String(localized: "Wird gedruckt…"))
+            return (MSP.warning, String(localized: "Wird gedruckt…"))
         case "ok", "success", "completed", "printed":
-            return (.green,   String(localized: "Erfolgreich gedruckt ✓"))
+            return (MSP.green, String(localized: "Erfolgreich gedruckt ✓"))
         case "expired":
             return (.gray,    String(localized: "Abgelaufen"))
         case "deleted":
             return (.gray,    String(localized: "Bei Printix gelöscht"))
         case "error", "failed":
-            return (.red,     String(localized: "Fehler beim Drucken"))
+            return (MSP.danger, String(localized: "Fehler beim Drucken"))
         default:
             return (.gray,    s)
         }

@@ -103,7 +103,7 @@ struct LoginView: View {
                     if !error.isEmpty {
                         HStack(alignment: .top, spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.orange)
+                                .foregroundColor(MSP.warning)
                                 .font(.system(size: 14))
                                 .padding(.top, 1)
                             Text(error)
@@ -114,11 +114,11 @@ struct LoginView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
-                        .background(Color.red.opacity(0.18))
+                        .background(MSP.danger.opacity(0.18))
                         .cornerRadius(12)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                                .stroke(MSP.danger.opacity(0.3), lineWidth: 1)
                         )
                         .padding(.horizontal, 28)
                         .padding(.top, 16)

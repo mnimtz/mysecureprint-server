@@ -143,6 +143,7 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
                 req.setValue("multipart/form-data; boundary=\(boundary)",
                              forHTTPHeaderField: "Content-Type")
                 req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                req.setValue(Locale.preferredLanguages.first ?? "de", forHTTPHeaderField: "Accept-Language")
                 req.timeoutInterval = 180
                 let (data, response) = try await URLSession.shared.upload(for: req, from: bodyData)
                 if let http = response as? HTTPURLResponse,
@@ -236,6 +237,7 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
         req.setValue("multipart/form-data; boundary=\(boundary)",
                      forHTTPHeaderField: "Content-Type")
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue(Locale.preferredLanguages.first ?? "de", forHTTPHeaderField: "Accept-Language")
         req.timeoutInterval = 180
 
         let task = session.uploadTask(with: req, fromFile: tempFile)

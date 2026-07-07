@@ -11,6 +11,10 @@ enum MSP {
     static let gold     = Color(brandHex: "#FFC600")
     static let green    = Color(brandHex: "#00EB86")
 
+    // Semantic states (Tungsten brand book)
+    static let danger   = Color(brandHex: "#DC2626")  // Error
+    static let warning  = Color(brandHex: "#F59E0B")  // Warning / processing
+
     // Surfaces
     static let glass    = Color.white.opacity(0.10)
     static let glassBorder = Color.white.opacity(0.20)

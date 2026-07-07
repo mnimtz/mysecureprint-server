@@ -29,9 +29,10 @@ struct MatrixSplashView: View {
 
     @EnvironmentObject private var cache: AppCache
 
-    // ── Palette ─────────────────────────────────────────────────────────────
-    private static let green       = Color(red: 0.00, green: 0.85, blue: 0.25)
-    private static let greenBright = Color(red: 0.80, green: 1.00, blue: 0.85)
+    // ── Palette — Tungsten Automation Brand ─────────────────────────────────
+    private static let tungstenBlue = Color(red: 0.000, green: 0.627, blue: 0.984) // #00A0FB
+    private static let greenAccent  = Color(red: 0.000, green: 0.922, blue: 0.525) // #00EB86 — Print & Workplace accent
+    private static let lightBlue    = Color(red: 0.616, green: 0.867, blue: 0.976) // #9DDDF9
 
     // ── Symbol-Pool ──────────────────────────────────────────────────────────
     private static let symbolPool: [String] = [
@@ -70,7 +71,7 @@ struct MatrixSplashView: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(bgOpacity).ignoresSafeArea()
+            Color(red: 0, green: 0.071, blue: 0.231).opacity(bgOpacity).ignoresSafeArea() // #00123B Deep Navy
 
             if !columns.isEmpty {
                 TimelineView(.animation) { tl in
@@ -87,18 +88,18 @@ struct MatrixSplashView: View {
                 if showLabel {
                     Text("MySecurePrint")
                         .font(.system(size: 20, weight: .bold, design: .monospaced))
-                        .foregroundColor(Self.greenBright)
+                        .foregroundColor(Self.lightBlue)
                 }
                 HStack(spacing: 10) {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: Self.green))
+                        .progressViewStyle(CircularProgressViewStyle(tint: Self.tungstenBlue))
                         .scaleEffect(showLabel ? 0.9 : 1.1)
                     Text(showLabel
                          ? String(localized: "Initialisiere…")
                          : (message ?? String(localized: "Aktualisiere Daten…")))
                         .font(.system(size: showLabel ? 13 : 13,
                                       weight: .semibold, design: .monospaced))
-                        .foregroundColor(Self.greenBright)
+                        .foregroundColor(Self.lightBlue)
                 }
             }
             .padding(.horizontal, 32)
@@ -106,7 +107,7 @@ struct MatrixSplashView: View {
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(Self.green.opacity(0.40), lineWidth: 1)
+                    .stroke(Self.tungstenBlue.opacity(0.40), lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.5), radius: 24, y: 10)
         }
@@ -183,7 +184,7 @@ struct MatrixSplashView: View {
                     ? 1.0
                     : max(0, 1.0 - Double(i) / Double(col.trailLength) * 1.2)
                 let alpha  = trailAlpha * symbolOpacity
-                let color  = i == 0 ? Self.greenBright : Self.green
+                let color  = i == 0 ? Self.greenAccent : Self.tungstenBlue
                 let name   = Self.symbolPool[col.sequence[i % col.sequence.count]]
 
                 var c = ctx
