@@ -16,6 +16,8 @@ struct PrinterListView: View {
             return p.name.lowercased().contains(q)
                 || (p.location ?? "").lowercased().contains(q)
                 || (p.model ?? "").lowercased().contains(q)
+                || (p.status ?? "").lowercased().contains(q)
+                || (p.queueId ?? "").lowercased().contains(q)
         }
     }
 
@@ -154,6 +156,7 @@ struct WorkstationListView: View {
             guard !q.isEmpty else { return true }
             return w.hostname.lowercased().contains(q)
                 || (w.userEmail ?? "").lowercased().contains(q)
+                || (w.description ?? "").lowercased().contains(q)
         }
     }
 
@@ -586,11 +589,16 @@ struct WorkstationDetailView: View {
                         infoRow(icon: "person", label: String(localized: "Benutzer"), value: e)
                     }
                 }
-                if let desc = detail?.description, !desc.isEmpty {
-                    infoRow(icon: "text.alignleft", label: String(localized: "Beschreibung"), value: desc)
+                // v0.7.224 — Fallback auf base workstation, damit Info bereits VOR
+                // Detail-Fetch sichtbar ist (Server sendet description + siteId schon
+                // in der Liste — vorher unterschlagen weil im Model gefehlt).
+                let desc = detail?.description ?? workstation.description
+                if let d = desc, !d.isEmpty {
+                    infoRow(icon: "text.alignleft", label: String(localized: "Beschreibung"), value: d)
                 }
-                if let sid = detail?.siteId, !sid.isEmpty {
-                    infoRow(icon: "building.2", label: String(localized: "Site-ID"), value: sid)
+                let sid = detail?.siteId ?? workstation.siteId
+                if let s = sid, !s.isEmpty {
+                    infoRow(icon: "building.2", label: String(localized: "Site-ID"), value: s)
                 }
                 let lastSeen = detail?.lastSeen ?? workstation.lastSeen
                 if let ls = lastSeen, !ls.isEmpty {

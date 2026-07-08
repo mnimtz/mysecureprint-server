@@ -243,6 +243,12 @@ public struct MgmtUser: Codable, Identifiable, Hashable, Sendable {
     public let email: String?
     public let name: String?
     public let role: String?
+    // v0.7.224 — bereits vom Server geliefert, aber vorher unterschlagen
+    public let groups: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case id, email, name, role, groups
+    }
 }
 
 public struct MgmtUsersResponse: Codable, Sendable {
@@ -256,12 +262,17 @@ public struct MgmtWorkstation: Codable, Identifiable, Hashable, Sendable {
     public let userEmail: String?
     public let lastSeen: String?
     public let isOnline: Bool?
+    // v0.7.224 — bereits vom Server geliefert (siteId, description), aber
+    // vorher unterschlagen — Detail-View lud sie separat nach obwohl in Liste.
+    public let siteId: String?
+    public let description: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, hostname
+        case id, hostname, description
         case userEmail = "user_email"
         case lastSeen  = "last_seen"
         case isOnline  = "is_online"
+        case siteId    = "site_id"
     }
 }
 
