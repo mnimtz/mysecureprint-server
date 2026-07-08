@@ -36,7 +36,9 @@ BASE = "https://api.appstoreconnect.apple.com"
 LISTING_DE = {
     "name": "MySecurePrint",
     "subtitle": "Sicheres mobiles Drucken",
-    "keywords": "secure print,mobile,nfc,druck,karte,mobiledruck,airprint,share,papercut,konica",
+    # WICHTIG: "printix" muss ganz vorne stehen — die App wird sonst bei "printix"-
+    # Suche im App Store nicht gefunden (2026-07-08 aufgefallen).
+    "keywords": "printix,secure print,mobile,nfc,druck,karte,mobiledruck,airprint,share,papercut,konica",
     "promotionalText": (
         "Mobile Druck-App fuer deinen selbst gehosteten mysecureprint-server. "
         "Mit Microsoft anmelden, NFC-Karten, Share-Sheet."
