@@ -1888,6 +1888,84 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                            details=_json.dumps({"job_id": job_id, "px_state": px_state,
                                                "old_status": db_status, "new_status": new_status}, ensure_ascii=False))
 
+                # ─── v0.7.222 — Web-UI-Delete Detection via list-cross-check ────
+                # Live-Test 2026-07-08 bewiesen: Bei Web-UI-Delete durch den User
+                # ändert Printix den State NICHT (der Job bleibt z.B. PRINT_FAILED),
+                # er verschwindet nur aus GET /jobs (Liste). Wir prüfen daher
+                # zusätzlich per list ob der Job noch da ist — wenn nicht + Job
+                # älter als 5 min: als "deleted" markieren.
+                # Kosten: 1–5 zusätzliche Printix-Calls pro Poll (max 5 Seiten
+                # à 100 Jobs = 500 Jobs abgedeckt). Nur wenn state unchanged;
+                # bei state-Übergang macht der Check keinen Sinn.
+                _LIST_CHECK_GRACE_SECS = 5 * 60  # 5 Minuten
+                if new_status == db_status:
+                    _c_raw = row["forwarded_at"] or row["created_at"] or ""
+                    _c_age = _LIST_CHECK_GRACE_SECS + 1
+                    try:
+                        import datetime as _dt3
+                        _c_dt = _dt3.datetime.fromisoformat(
+                            _c_raw.replace("Z", "+00:00")) if _c_raw else None
+                        if _c_dt:
+                            _n_dt = _dt3.datetime.now(_dt3.timezone.utc)
+                            if _c_dt.tzinfo is None:
+                                _c_dt = _c_dt.replace(tzinfo=_dt3.timezone.utc)
+                            _c_age = (_n_dt - _c_dt).total_seconds()
+                    except Exception:
+                        pass
+                    if _c_age > _LIST_CHECK_GRACE_SECS:
+                        try:
+                            _found_in_list = False
+                            _pages_checked = 0
+                            _max_pages = 5   # bis zu 500 Jobs
+                            _total_pages = 1
+                            _page_num = 0
+                            while _page_num < _max_pages and _page_num < _total_pages:
+                                _list_resp = await _asyncio.wait_for(
+                                    _asyncio.to_thread(
+                                        client.list_print_jobs,
+                                        page=_page_num, size=100,
+                                    ),
+                                    timeout=8.0,
+                                )
+                                _pages_checked += 1
+                                if isinstance(_list_resp, dict):
+                                    for _j in _list_resp.get("jobs", []) or []:
+                                        if isinstance(_j, dict) and _j.get("id") == px_job_id:
+                                            _found_in_list = True
+                                            break
+                                    _pi = _list_resp.get("page", {}) or {}
+                                    _total_pages = _pi.get("totalPages", 1) or 1
+                                if _found_in_list:
+                                    break
+                                _page_num += 1
+                            if not _found_in_list:
+                                # Job nicht mehr in Printix' Liste → bei Printix gelöscht
+                                with _conn() as conn:
+                                    conn.execute(
+                                        "UPDATE cloudprint_jobs SET status = 'deleted', last_px_poll = ? WHERE job_id = ?",
+                                        (_time.time(), job_id),
+                                    )
+                                _jobs_cache_invalidate(uid)
+                                _audit(user.get("user_id"), "job_status_deleted_at_printix",
+                                       details=_json.dumps({
+                                           "job_id": job_id, "px_job_id": px_job_id,
+                                           "job_age_sec": int(_c_age),
+                                           "old_status": db_status,
+                                           "pages_checked": _pages_checked,
+                                           "px_state_before": px_state,
+                                       }, ensure_ascii=False))
+                                return JSONResponse({
+                                    "job_id": job_id, "status": "deleted",
+                                    "printix_status": "DELETED_AT_PRINTIX",
+                                    "fresh": True,
+                                })
+                        except Exception as _list_err:
+                            # List-check fehlgeschlagen (Timeout, 500, etc.) —
+                            # Status unchanged lassen, kein Fehler an User
+                            logger.warning(
+                                "job_status list-check fehlgeschlagen für %s: %s",
+                                px_job_id, _list_err)
+
                 return JSONResponse({"job_id": job_id, "status": new_status,
                                      "printix_status": px_state, "fresh": True})
             except Exception as px_err:
