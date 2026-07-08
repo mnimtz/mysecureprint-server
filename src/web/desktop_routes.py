@@ -85,6 +85,15 @@ _PX_STATE_MAP = {
     "RECEIVED":           "printing",   # Job received by printer hardware
     "PENDING":            "queued",     # Queued but not yet dispatched
     "FORWARDED":          "forwarded",  # Forwarded to another system
+    # v0.7.219 — Confirmed via live Printix API test 2026-07-08:
+    "PRINT_FAILED":       "error",      # Anywhere-queue release failed (printer offline etc.)
+    "CANCELLED":          "deleted",    # User cancelled job at printer
+    "CANCELED":           "deleted",    # US spelling variant
+    "USER_DELETED":       "deleted",    # User deleted via Printix web UI
+    "EXPIRED":            "expired",    # Job aged out (typically 24h/72h)
+    "CONVERSION_FAILED":  "error",      # PDF/PCL conversion pipeline failed
+    "UPLOAD_FAILED":      "error",      # Client-side upload aborted / network
+    "REJECTED":           "error",      # Policy denied (quota, permissions)
 }
 
 
