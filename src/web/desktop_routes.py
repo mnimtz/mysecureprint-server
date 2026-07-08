@@ -1503,9 +1503,13 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 )
                 return _json_error("Job nicht gefunden", code="not_found", status=404)
             px_job_id = row["printix_job_id"]
+            # Printix-Delete-Response speichern damit wir den DB-Delete davon abhängig
+            # machen können. Ohne px_job_id (nie an Printix gesendet) direkt löschen.
+            px_result: dict = {"success": True, "already_gone": True,
+                               "message": "kein Printix-Job vorhanden"}
             if px_job_id and tenant:
                 try:
-                    from printix_client import PrintixClient, PrintixAPIError
+                    from printix_client import PrintixClient
                     client = PrintixClient(
                         tenant_id=tenant["printix_tenant_id"],
                         print_client_id=tenant.get("print_client_id", ""),
@@ -1515,19 +1519,54 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                         um_client_id=tenant.get("um_client_id", ""),
                         um_client_secret=tenant.get("um_client_secret", ""),
                     )
-                    client.delete_print_job(px_job_id)
+                    px_result = client.delete_print_job(px_job_id)
                 except Exception as _pe:
-                    logger.warning("job_delete: Printix delete fehlgeschlagen job=%s: %s", job_id, _pe)
-            with _conn() as conn:
-                conn.execute(
-                    "DELETE FROM cloudprint_jobs WHERE job_id = ?", (job_id,)
-                )
-            _jobs_cache_invalidate(user["user_id"])
+                    # Nur echte Exceptions kommen hier an — printix_client fängt
+                    # PrintixAPIError intern ab und gibt strukturiertes dict zurück.
+                    logger.warning("job_delete: Printix delete Exception job=%s: %s", job_id, _pe)
+                    px_result = {"success": False, "already_gone": False,
+                                 "message": str(_pe)[:400], "status_code": 0}
             import json as _json
             from db import audit as _audit
-            _audit(user.get("user_id"), "job_deleted_by_user",
-                   details=_json.dumps({"job_id": job_id, "px_job_id": px_job_id}, ensure_ascii=False))
-            return JSONResponse({"deleted": True, "job_id": job_id})
+            _audit(user.get("user_id"), "job_deleted_printix_response",
+                   details=_json.dumps({
+                       "job_id": job_id, "px_job_id": px_job_id,
+                       "px_success": px_result.get("success"),
+                       "px_already_gone": px_result.get("already_gone"),
+                       "px_status_code": px_result.get("status_code"),
+                       "px_message": px_result.get("message", "")[:200],
+                   }, ensure_ascii=False))
+            # DB-Row nur löschen wenn Printix zugestimmt hat (success=True) ODER
+            # der Job bei Printix bereits weg ist. Bei echtem Fehler (success=False)
+            # NICHT löschen — Row als Fehler markieren damit User es sehen kann.
+            if px_result.get("success"):
+                with _conn() as conn:
+                    conn.execute(
+                        "DELETE FROM cloudprint_jobs WHERE job_id = ?", (job_id,)
+                    )
+                _jobs_cache_invalidate(user["user_id"])
+                _audit(user.get("user_id"), "job_deleted_by_user",
+                       details=_json.dumps({"job_id": job_id, "px_job_id": px_job_id,
+                                            "already_gone": px_result.get("already_gone", False)},
+                                           ensure_ascii=False))
+                return JSONResponse({
+                    "deleted": True, "job_id": job_id,
+                    "already_gone": bool(px_result.get("already_gone")),
+                    "printix_message": px_result.get("message", ""),
+                })
+            # Printix hat Delete abgelehnt — DB-Row bleibt, aber als error markieren
+            with _conn() as conn:
+                conn.execute(
+                    "UPDATE cloudprint_jobs SET error_message = ? WHERE job_id = ?",
+                    (f"Printix-Löschung fehlgeschlagen: {px_result.get('message','')[:400]}",
+                     job_id),
+                )
+            _jobs_cache_invalidate(user["user_id"])
+            return _json_error(
+                px_result.get("message") or "Printix hat die Löschung abgelehnt",
+                code="printix_delete_failed",
+                status=502,
+            )
         except Exception as e:
             logger.warning("desktop_job_delete: %s", e)
             return _json_error(str(e)[:200], code="job_delete_failed", status=500)

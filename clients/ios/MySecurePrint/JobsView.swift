@@ -153,11 +153,14 @@ struct JobsView: View {
             }
             // Cache-Update vom Server: volle Liste ersetzen damit neue Jobs
             // sofort erscheinen (z.B. nach Foreground-Upload oder Hintergrund-Refresh).
+            // WICHTIG: Jobs die gerade gelöscht werden (deletingJobIds) NIE aus der
+            // Server-Antwort übernehmen — sonst tauchen sie kurz wieder auf bevor
+            // der Server-Delete durch ist (Race Condition).
             // Falls cache.pendingJob noch nicht gelöscht wurde (echte Antwort enthält
             // den Job noch nicht), Platzhalter nach dem Überschreiben wieder vorne
             // einsetzen, um Flicker zu vermeiden.
             .onChange(of: cache.jobs) { _, newJobs in
-                jobs = newJobs
+                jobs = newJobs.filter { !deletingJobIds.contains($0.job_id) }
                 hasMore = cache.jobsHasMore
                 if let p = cache.pendingJob,
                    !jobs.contains(where: { $0.job_id == p.job_id || $0.filename == p.filename }) {
@@ -318,14 +321,35 @@ struct JobsView: View {
     @MainActor
     private func deleteJob(_ job: PrintJob) async {
         guard !deletingJobIds.contains(job.job_id) else { return }
+        // deletingJobIds bleibt bis Server-OK gesetzt — verhindert dass die
+        // Auto-Poll-Loop den Job zwischenzeitlich aus cache.jobs wieder in
+        // die UI schreibt (Race Condition).
         deletingJobIds.insert(job.job_id)
-        defer { deletingJobIds.remove(job.job_id) }
         guard let client = ApiClientFactory.make(baseURL: settings.serverURL,
-                                                  token: settings.bearerToken) else { return }
-        try? await client.deleteJob(jobId: job.job_id)
+                                                  token: settings.bearerToken) else {
+            deletingJobIds.remove(job.job_id)
+            return
+        }
+        // Optimistisch aus der UI entfernen, aber deletingJobIds NICHT lösen
+        // damit ein paralleler onChange(cache.jobs) den Job nicht wieder einfügt.
         jobs.removeAll { $0.job_id == job.job_id }
         cache.jobs.removeAll { $0.job_id == job.job_id }
         cache.updateWidgetState(jobs: cache.jobs)
+        do {
+            try await client.deleteJob(jobId: job.job_id)
+            // Erfolg: guard bleibt gesetzt bis der nächste Server-Refresh den
+            // Job wirklich nicht mehr enthält. Nach 5s freigeben — reicht damit
+            // der DB-Cache-Invalidate und Server-Refresh durchgelaufen sind.
+            try? await Task.sleep(for: .seconds(5))
+            deletingJobIds.remove(job.job_id)
+        } catch {
+            // Rollback: Job zurück in UI + Fehler anzeigen
+            deletingJobIds.remove(job.job_id)
+            self.error = String(localized: "Job konnte nicht gelöscht werden: ")
+                + error.localizedDescription
+            // Nächster refresh füllt cache.jobs wieder — Job kommt automatisch zurück
+            await cache.refreshJobs(settings: settings, noCache: true)
+        }
     }
 
     private func fetchJobs(offset: Int, noCache: Bool = false) async throws -> JobsResponse {

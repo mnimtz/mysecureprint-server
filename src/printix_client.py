@@ -524,20 +524,58 @@ class PrintixClient:
                 ) from e
             raise
 
-    def delete_print_job(self, job_id: str) -> Any:
+    def delete_print_job(self, job_id: str) -> dict:
         """Delete a submitted or failed print job.
-        Endpoint: POST /jobs/{job_id}/delete  (Action-Pattern — kein HTTP DELETE!)
-        Printix-API gibt 405 auf HTTP-DELETE zurück."""
+
+        Endpoint (per Printix Cloud Print API Docs):
+          POST /cloudprint/tenants/{tenantId}/jobs/{jobId}/delete
+          Content-Type: application/x-www-form-urlencoded
+          Body: leer
+        Response Body: {"success": bool, "message": str}
+        Fehler: 404 wenn Job nicht (mehr) existiert; 500 bei anderen Fehlern.
+
+        Returns dict mit mindestens {"success": bool, "message": str,
+        "already_gone": bool} — der Aufrufer kann darauf reagieren, statt
+        blind die DB-Row zu löschen.
+        """
         tm = self._require_tm(self._print_tm, "Print API")
         try:
-            return self._post(tm, f"/jobs/{job_id}/delete")
+            resp = self._post(
+                tm, f"/jobs/{job_id}/delete",
+                content_type="application/x-www-form-urlencoded",
+            )
         except PrintixAPIError as e:
             if e.status_code == 404:
+                # Job existiert bei Printix nicht mehr → aus User-Sicht ist er weg
                 return {
                     "success": True,
-                    "note": f"Job '{job_id}' nicht mehr vorhanden (bereits verarbeitet oder entfernt).",
+                    "already_gone": True,
+                    "message": f"Job '{job_id}' nicht mehr vorhanden (bereits verarbeitet oder entfernt).",
+                    "status_code": 404,
                 }
-            raise
+            # 500 / andere: dem Aufrufer als success=False signalisieren
+            return {
+                "success": False,
+                "already_gone": False,
+                "message": str(e)[:400],
+                "status_code": e.status_code,
+            }
+        # Printix hat bewusst geantwortet — Response-Body enthält success-Flag
+        if isinstance(resp, dict):
+            return {
+                "success": bool(resp.get("success", False)),
+                "already_gone": False,
+                "message": resp.get("message", ""),
+                "status_code": 200,
+                "raw": resp,
+            }
+        # Unerwartetes Response-Format: als Fehler behandeln
+        return {
+            "success": False,
+            "already_gone": False,
+            "message": f"Unerwartetes Response-Format: {type(resp).__name__}",
+            "status_code": 200,
+        }
 
     # v0.7.18: zweite change_job_owner-Definition (form-urlencoded) entfernt
     # — sie ueberschrieb die richtige (oben definierte JSON-body-mit-

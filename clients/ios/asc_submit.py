@@ -112,6 +112,28 @@ def find_app(token: str) -> str:
     raise SystemExit(f"App mit Bundle {BUNDLE_ID} nicht in ASC gefunden.")
 
 
+def cancel_open_review(token: str, app_id: str) -> None:
+    """Cancel any open review submission (WAITING_FOR_REVIEW / IN_REVIEW)."""
+    r = api("GET", "/v2/reviewSubmissions", token,
+            params={"filter[app]": app_id, "filter[platform]": "IOS", "limit": 5})
+    if not r.ok:
+        return
+    for rs in r.json().get("data", []):
+        state = rs["attributes"].get("state", "")
+        if state in ("WAITING_FOR_REVIEW", "IN_REVIEW", "SUBMITTED"):
+            rsid = rs["id"]
+            print(f"  ⚠ Review-Submission {rsid} in state={state} — canceln…")
+            r2 = api("PATCH", f"/v2/reviewSubmissions/{rsid}", token, json={
+                "data": {"type": "reviewSubmissions", "id": rsid,
+                         "attributes": {"submitted": False}}
+            })
+            if r2.ok:
+                print(f"  ✓ Review-Submission gecancelt")
+                time.sleep(3)
+            else:
+                print(f"  ⚠ Cancel fehlgeschlagen (ignoriert): {r2.text[:200]}")
+
+
 def find_or_create_version(token: str, app_id: str, version: str) -> str:
     # Alle bearbeitbaren Versionen laden (nicht nur die gesuchte)
     r = api("GET", f"/v1/apps/{app_id}/appStoreVersions", token,
@@ -127,22 +149,35 @@ def find_or_create_version(token: str, app_id: str, version: str) -> str:
             print(f"  ✓ Version {version} existiert: {v['id']} state={state}")
             return v["id"]
 
-    # DEVELOPER_REJECTED-Version wiederverwenden: versionString auf gewünschte Version setzen
-    editable_states = {"DEVELOPER_REJECTED", "PREPARE_FOR_SUBMISSION", "REJECTED"}
+    # Version in einem anderen State wiederverwenden — ggf. Review erst canceln
+    reusable_states = {"DEVELOPER_REJECTED", "PREPARE_FOR_SUBMISSION", "REJECTED",
+                       "WAITING_FOR_REVIEW", "IN_REVIEW", "INVALID_BINARY"}
     for v in all_versions:
         state = v["attributes"].get("appStoreState", "")
-        if state in editable_states:
+        if state in reusable_states:
             old_ver = v["attributes"].get("versionString")
             vid = v["id"]
-            print(f"  ⚠ Gefunden: Version {old_ver} in state={state} — umbenennen zu {version}")
-            r2 = api("PATCH", f"/v1/appStoreVersions/{vid}", token, json={
+            if state in ("WAITING_FOR_REVIEW", "IN_REVIEW"):
+                print(f"  ⚠ Version {old_ver} in state={state} — cancelle Review zuerst…")
+                cancel_open_review(token, app_id)
+                # kurz warten bis Apple den State zurücksetzt
+                for _ in range(10):
+                    time.sleep(4)
+                    r2 = api("GET", f"/v1/appStoreVersions/{vid}", token,
+                             params={"fields[appStoreVersions]": "appStoreState"})
+                    new_state = r2.json().get("data", {}).get("attributes", {}).get("appStoreState", "")
+                    print(f"    … state={new_state}")
+                    if new_state not in ("WAITING_FOR_REVIEW", "IN_REVIEW"):
+                        break
+            print(f"  ⚠ Umbenennen: {old_ver} → {version} (id={vid})")
+            r3 = api("PATCH", f"/v1/appStoreVersions/{vid}", token, json={
                 "data": {
                     "type": "appStoreVersions",
                     "id": vid,
                     "attributes": {"versionString": version},
                 }
             })
-            r2.raise_for_status()
+            r3.raise_for_status()
             print(f"  ✓ Version umbenannt: {old_ver} → {version} (id={vid})")
             return vid
 
@@ -300,7 +335,7 @@ def submit_for_review(token: str, app_id: str, version_id: str) -> None:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", default="1.0.0")
+    parser.add_argument("--version", default="1.4.0")
     parser.add_argument("--wait-build", action="store_true",
                         help="Warte bis Build VALID ist (sonst Skip)")
     args = parser.parse_args()
