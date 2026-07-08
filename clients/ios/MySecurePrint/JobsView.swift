@@ -336,7 +336,13 @@ struct JobsView: View {
         cache.jobs.removeAll { $0.job_id == job.job_id }
         cache.updateWidgetState(jobs: cache.jobs)
         do {
-            try await client.deleteJob(jobId: job.job_id)
+            let result = try await client.deleteJob(jobId: job.job_id)
+            // Dezenter Hinweis wenn Job bei Printix nicht mehr existierte
+            // (z.B. vom Web-UI gelöscht oder abgelaufen) — die UI-Aktion
+            // war trotzdem erfolgreich, der Server hat aufgeräumt.
+            if result.alreadyGone {
+                self.error = String(localized: "Job war bei Printix bereits gelöscht — Eintrag aufgeräumt.")
+            }
             // Erfolg: guard bleibt gesetzt bis der nächste Server-Refresh den
             // Job wirklich nicht mehr enthält. Nach 5s freigeben — reicht damit
             // der DB-Cache-Invalidate und Server-Refresh durchgelaufen sind.

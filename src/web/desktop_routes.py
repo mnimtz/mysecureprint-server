@@ -1797,22 +1797,38 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                                 )
                             return JSONResponse({"job_id": job_id, "status": db_status,
                                                  "printix_status": None, "fresh": False})
-                        # Job nicht in der Liste → wurde bei Printix gelöscht/abgelaufen
+                        # v0.7.220 — Konservativ: Job nicht in der Liste heißt NICHT
+                        # zwingend "deleted". Live-Test 2026-07-08 zeigt: Printix
+                        # filtert `list_print_jobs` auf status=CONVERTED, d.h.
+                        # PRINT_FAILED / CANCELLED / etc. sind unsichtbar aber
+                        # nicht gelöscht. Aggressives "deleted"-Markieren führt zu
+                        # False-Positives.
+                        #
+                        # Praktisch triggert dieser Path aber sowieso fast nie, weil
+                        # `get_print_job(id)` konsistent {jobs: [{id: id, ...}]}
+                        # zurückgibt. Wenn er triggert (echter Edge Case): Status
+                        # unchanged lassen, Cooldown aktualisieren, Audit-Warn.
+                        # Bei echter Löschung wird Printix irgendwann DELETED/
+                        # USER_DELETED state setzen, oder GET 404 werfen — dann
+                        # greifen die anderen Paths.
                         logger.warning(
-                            "job_status: job %s nicht in Printix-Liste (%d Jobs) → deleted",
+                            "job_status: job %s nicht in Printix-Liste (%d Jobs) — "
+                            "Status unchanged (konservativ, kein False-Positive)",
                             px_job_id, len(jobs_list))
                         with _conn() as conn:
                             conn.execute(
-                                "UPDATE cloudprint_jobs SET status = 'deleted', last_px_poll = ? WHERE job_id = ?",
+                                "UPDATE cloudprint_jobs SET last_px_poll = ? WHERE job_id = ?",
                                 (_time.time(), job_id),
                             )
-                        _jobs_cache_invalidate(uid)
-                        _audit(user.get("user_id"), "job_status_updated",
-                               details=_json.dumps({"job_id": job_id, "px_state": "NOT_IN_LIST",
-                                                    "old_status": db_status,
-                                                    "new_status": "deleted"}, ensure_ascii=False))
-                        return JSONResponse({"job_id": job_id, "status": "deleted",
-                                             "printix_status": "DELETED", "fresh": True})
+                        _audit(user.get("user_id"), "job_status_not_in_list",
+                               details=_json.dumps({
+                                   "job_id": job_id,
+                                   "px_job_id": px_job_id,
+                                   "list_count": len(jobs_list),
+                                   "kept_status": db_status,
+                               }, ensure_ascii=False))
+                        return JSONResponse({"job_id": job_id, "status": db_status,
+                                             "printix_status": None, "fresh": False})
                 elif isinstance(job_data, dict) and "job" in job_data:
                     job_obj = job_data["job"] or job_data
 

@@ -376,8 +376,22 @@ public final class ApiClient: @unchecked Sendable {
         return (json?["deleted"] as? Int) ?? 0
     }
 
+    /// Ergebnis eines Delete-Aufrufs mit Info ob der Job bei Printix
+    /// tatsächlich noch da war oder schon vorher verschwunden.
+    public struct DeleteJobResult: Sendable {
+        public let deleted: Bool
+        /// True wenn Printix beim Delete signalisierte dass der Job dort
+        /// schon nicht mehr existiert — der Server hat trotzdem alles
+        /// aufgeräumt. Nützlich für UX ("Job war bereits gelöscht").
+        public let alreadyGone: Bool
+        /// Klartext-Message vom Printix-Response (leer falls nichts).
+        public let printixMessage: String
+    }
+
     /// Einzelnen Job löschen — ruft DELETE /desktop/me/jobs/{jobId} auf.
-    public func deleteJob(jobId: String) async throws {
+    /// Wirft ApiError wenn der Server / Printix die Löschung ablehnt.
+    @discardableResult
+    public func deleteJob(jobId: String) async throws -> DeleteJobResult {
         log.info("DELETE /desktop/me/jobs/\(jobId)")
         let url = baseUrl.appendingPathComponent("desktop/me/jobs/\(jobId)")
         var req = URLRequest(url: url)
@@ -388,6 +402,16 @@ public final class ApiClient: @unchecked Sendable {
         req.timeoutInterval = 15
         let (data, resp) = try await session.data(for: req)
         try ensureOk(resp, data)
+        // Response-Body enthält seit Server v0.7.218:
+        //   {deleted: true, job_id, already_gone: bool, printix_message: str}
+        if let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return DeleteJobResult(
+                deleted: (dict["deleted"] as? Bool) ?? true,
+                alreadyGone: (dict["already_gone"] as? Bool) ?? false,
+                printixMessage: (dict["printix_message"] as? String) ?? ""
+            )
+        }
+        return DeleteJobResult(deleted: true, alreadyGone: false, printixMessage: "")
     }
 
     /// Seite-1-Vorschau eines Jobs als PNG-Data.
