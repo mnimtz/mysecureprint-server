@@ -73,7 +73,7 @@ LISTING_DE = {
         "Markenzeichen von Tungsten Automation Corp. und wird hier "
         "ausschliesslich zur Beschreibung der API-Kompatibilitaet genannt."
     ),
-    "whatsNew": "Stabilitäts-Fixes: AI-Tags erscheinen jetzt zuverlässig in der Job-Liste. Doppelte Einträge nach dem Senden behoben.",
+    "whatsNew": "Job-Liste flackert nicht mehr beim Löschen. Erkennt jetzt wenn ein Job bei Printix (Web) gelöscht wurde. Fehlerhafte Druckaufträge werden zuverlässig als Fehler erkannt. Neue Design-Sprache im Startbildschirm im Tungsten-Brand-Look.",
     "supportUrl": "https://github.com/mnimtz/mysecureprint-server/issues",
     "marketingUrl": "https://github.com/mnimtz/mysecureprint-server",
     "privacyPolicyUrl": "https://printix-sp.azurewebsites.net/privacy",
@@ -335,7 +335,7 @@ def submit_for_review(token: str, app_id: str, version_id: str) -> None:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", default="1.4.0")
+    parser.add_argument("--version", default="1.5.0")
     parser.add_argument("--wait-build", action="store_true",
                         help="Warte bis Build VALID ist (sonst Skip)")
     args = parser.parse_args()
