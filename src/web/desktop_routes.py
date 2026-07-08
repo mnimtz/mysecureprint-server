@@ -70,30 +70,38 @@ def _jobs_cache_invalidate(uid: str) -> None:
 
 
 _PX_STATE_MAP = {
-    "WAITING_FOR_UPLOAD": "queued",
-    "UPLOADING":          "queued",     # File upload in progress
-    "CONVERTING":         "converting",
-    "CONVERTED":          "ready",      # Conversion done, awaiting printer release
-    "READY":              "ready",
-    "PRINTING":           "printing",
-    "PRINTED":            "printed",
-    "PROCESSED":          "printed",
-    "DELETED":            "deleted",
-    "ERROR":              "error",
-    "FAILED":             "error",
-    # Additional Printix states observed in the wild:
-    "RECEIVED":           "printing",   # Job received by printer hardware
-    "PENDING":            "queued",     # Queued but not yet dispatched
-    "FORWARDED":          "forwarded",  # Forwarded to another system
-    # v0.7.219 — Confirmed via live Printix API test 2026-07-08:
-    "PRINT_FAILED":       "error",      # Anywhere-queue release failed (printer offline etc.)
-    "CANCELLED":          "deleted",    # User cancelled job at printer
-    "CANCELED":           "deleted",    # US spelling variant
-    "USER_DELETED":       "deleted",    # User deleted via Printix web UI
-    "EXPIRED":            "expired",    # Job aged out (typically 24h/72h)
-    "CONVERSION_FAILED":  "error",      # PDF/PCL conversion pipeline failed
-    "UPLOAD_FAILED":      "error",      # Client-side upload aborted / network
-    "REJECTED":           "error",      # Policy denied (quota, permissions)
+    # ─── DOKUMENTIERTE States (aus printix.github.io JSON-Beispielen) ────
+    "UPLOADING":          "queued",     # ✓ Docs: File upload in progress
+    "CONVERTING":         "converting", # ✓ Docs: Konvertierung läuft
+    "CONVERTED":          "ready",      # ✓ Docs: bereit für Release am Drucker
+    "AWAIT_PRINT":        "ready",      # ✓ Docs: wartet auf User-Freigabe am Drucker
+
+    # ─── LIVE via Printix-API bestätigt (Tenant-Test 2026-07-08) ─────────
+    "PRINT_FAILED":       "error",      # ✓ Live: Anywhere-Queue release failed
+
+    # ─── UNBESTÄTIGT — Best-Guess aus Naming-Konvention. Nicht in Docs, ──
+    # ─── nicht live gesehen. Wenn Printix diese jemals liefert, sind ─────
+    # ─── unsere Mappings vermutlich sinnvoll — aber nicht garantiert. ────
+    # ─── Unbekannte States werden separat via logger.warning + Audit-log
+    # ─── als "px_state_unknown" gemeldet → dann können wir hier ergänzen.
+    "WAITING_FOR_UPLOAD": "queued",     # (Guess)
+    "READY":              "ready",      # (Guess)
+    "PRINTING":           "printing",   # (Guess)
+    "PRINTED":            "printed",    # (Guess)
+    "PROCESSED":          "printed",    # (Guess)
+    "DELETED":            "deleted",    # (Guess) — Printix könnte diesen state setzen bei Web-UI-Delete
+    "USER_DELETED":       "deleted",    # (Guess) — dito
+    "CANCELLED":          "deleted",    # (Guess) — User cancelled at printer
+    "CANCELED":           "deleted",    # (Guess) — US spelling
+    "EXPIRED":            "expired",    # (Guess) — Job aged out
+    "ERROR":              "error",      # (Guess)
+    "FAILED":             "error",      # (Guess)
+    "CONVERSION_FAILED":  "error",      # (Guess)
+    "UPLOAD_FAILED":      "error",      # (Guess)
+    "REJECTED":           "error",      # (Guess)
+    "RECEIVED":           "printing",   # (Guess) — Job received by printer hardware
+    "PENDING":            "queued",     # (Guess)
+    "FORWARDED":          "forwarded",  # (Guess)
 }
 
 
