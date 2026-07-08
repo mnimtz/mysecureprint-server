@@ -267,10 +267,13 @@ final class AppCache: ObservableObject {
     }
 
     private func fetchManagement(client: ApiClient) async -> MgmtResult {
-        async let s = try? client.managementStats()
-        async let p = try? client.managementPrinters()
-        async let u = try? client.managementUsers()
-        async let w = try? client.managementWorkstations()
+        // v0.7.224 — Fehler pro Bucket loggen statt still schlucken. So sieht
+        // man im Xcode-Log sofort ob z.B. der User-Endpoint auth-Fehler wirft
+        // oder ob der Printix-Tenant gar nicht konfiguriert ist.
+        async let s = _fetchLogged(name: "managementStats")        { try await client.managementStats() }
+        async let p = _fetchLogged(name: "managementPrinters")     { try await client.managementPrinters() }
+        async let u = _fetchLogged(name: "managementUsers")        { try await client.managementUsers() }
+        async let w = _fetchLogged(name: "managementWorkstations") { try await client.managementWorkstations() }
         let (stats, printers, users, wkst) = await (s, p, u, w)
         return MgmtResult(
             stats:        stats,
@@ -278,6 +281,17 @@ final class AppCache: ObservableObject {
             users:        users?.users ?? [],
             workstations: wkst?.workstations ?? []
         )
+    }
+
+    /// Hilfs-Wrapper: führt fetch aus, gibt nil zurück bei Fehler und loggt.
+    private func _fetchLogged<T>(name: String,
+                                 fetch: () async throws -> T) async -> T? {
+        do {
+            return try await fetch()
+        } catch {
+            print("[AppCache.\(name)] failed: \(error)")
+            return nil
+        }
     }
 
     private func fetchDelegateGroups(client: ApiClient) async -> [DelegateGroup]? {

@@ -39,6 +39,12 @@ logger = logging.getLogger("printix.desktop.mgmt")
 
 _HREF_QUEUE_RE = re.compile(r"/printers/([^/]+)/queues/([^/?]+)")
 
+# v0.7.224 — Zentrale Konstante statt zwei hardcoded Stellen. Printix
+# unterscheidet in list_users() zwischen Rollen; wir wollen normale User
+# und Gast-User (ohne SYS_ADMIN / PRINTIX_ADMIN etc.). Wenn Printix jemals
+# die Bezeichnung ändert, ist die Änderung an einer einzigen Stelle nötig.
+_MGMT_USER_ROLES = "USER,GUEST_USER"
+
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -278,7 +284,7 @@ def register_desktop_management_routes(app: FastAPI) -> None:
                 return {"total": 0, "available": False}
             try:
                 raw = await asyncio.to_thread(
-                    lambda: client.list_users(role="USER,GUEST_USER", page_size=200))
+                    lambda: client.list_users(role=_MGMT_USER_ROLES, page_size=200))
                 us = _extract_users(raw)
                 return {"total": len(us), "available": True}
             except Exception as e:
@@ -463,7 +469,7 @@ def register_desktop_management_routes(app: FastAPI) -> None:
         try:
             client = _make_client(tenant)
             raw = await asyncio.to_thread(
-                lambda: client.list_users(role="USER,GUEST_USER", page_size=200))
+                lambda: client.list_users(role=_MGMT_USER_ROLES, page_size=200))
             items = _extract_users(raw)
             logger.info(
                 "Desktop-Mgmt users OK — user='%s' count=%d peer=%s",

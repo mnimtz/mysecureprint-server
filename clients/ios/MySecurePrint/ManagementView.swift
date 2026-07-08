@@ -30,6 +30,9 @@ struct ManagementView: View {
     @State private var isLoading = false
     @State private var lastUpdated: Date?
     @State private var errorMessage: String?
+    // v0.7.224 — nur pollen wenn App im Vordergrund. Timer läuft weiter,
+    // aber die onReceive-Action überspringt Ticks im Hintergrund.
+    @Environment(\.scenePhase) private var scenePhase
 
     // 5-Minuten-Timer für stillen Hintergrund-Refresh (läuft nur wenn Tab sichtbar).
     private let refreshTimer = Timer.publish(every: 300, on: .main, in: .common).autoconnect()
@@ -111,8 +114,11 @@ struct ManagementView: View {
                     await reload(updateCache: true)
                 }
             }
-            // Stiller Hintergrund-Refresh alle 5 Minuten
+            // Stiller Hintergrund-Refresh alle 5 Minuten — nur im Foreground.
+            // Im Background läuft der Publisher weiter, aber die Action skipped,
+            // damit die App keine Batterie/Daten für unsichtbare Refreshes verheizt.
             .onReceive(refreshTimer) { _ in
+                guard scenePhase == .active else { return }
                 Task { await reload(updateCache: true) }
             }
         }

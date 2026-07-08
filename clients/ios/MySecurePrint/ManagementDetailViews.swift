@@ -215,6 +215,7 @@ struct PrinterDetailView: View {
 
     @State private var detail: MgmtPrinterDetail? = nil
     @State private var isLoadingDetail = false
+    @State private var detailError: String? = nil
 
     var body: some View {
         List {
@@ -271,6 +272,9 @@ struct PrinterDetailView: View {
                                 : String(localized: "Nein"))
                 }
             }
+            if let err = detailError {
+                mgmtErrorSection(err) { Task { await loadDetail() } }
+            }
         }
         .listStyle(.insetGrouped)
         .brandNavStyle(title: printer.name)
@@ -325,11 +329,17 @@ struct PrinterDetailView: View {
               let client = ApiClientFactory.make(baseURL: base.absoluteString,
                                                  token: settings.bearerToken) else { return }
         isLoadingDetail = true
+        detailError = nil
         defer { isLoadingDetail = false }
-        detail = try? await client.managementPrinterDetail(
-            printerId: printer.id,
-            queueId: printer.queueId ?? ""
-        )
+        do {
+            detail = try await client.managementPrinterDetail(
+                printerId: printer.id,
+                queueId: printer.queueId ?? ""
+            )
+        } catch {
+            detailError = error.localizedDescription
+            print("[PrinterDetail] load failed: \(error)")
+        }
     }
 
     // MARK: - Helpers
@@ -361,6 +371,7 @@ struct UserDetailView: View {
 
     @State private var detail: MgmtUserDetail? = nil
     @State private var isLoadingDetail = false
+    @State private var detailError: String? = nil
 
     private var effectiveRole: String? {
         if let r = detail?.role, !r.isEmpty { return r }
@@ -500,6 +511,9 @@ struct UserDetailView: View {
                     HStack { Spacer(); ProgressView().controlSize(.small); Spacer() }
                 }
             }
+            if let err = detailError {
+                mgmtErrorSection(err) { Task { await loadDetail() } }
+            }
         }
         .listStyle(.insetGrouped)
         .brandNavStyle(title: user.name ?? user.email ?? user.id)
@@ -512,8 +526,14 @@ struct UserDetailView: View {
               let client = ApiClientFactory.make(baseURL: base.absoluteString,
                                                  token: settings.bearerToken) else { return }
         isLoadingDetail = true
+        detailError = nil
         defer { isLoadingDetail = false }
-        detail = try? await client.managementUserDetail(userId: user.id)
+        do {
+            detail = try await client.managementUserDetail(userId: user.id)
+        } catch {
+            detailError = error.localizedDescription
+            print("[UserDetail] load failed: \(error)")
+        }
     }
 
     private func roleChip(role: String) -> some View {
@@ -537,6 +557,7 @@ struct WorkstationDetailView: View {
 
     @State private var detail: MgmtWorkstationDetail? = nil
     @State private var isLoadingDetail = false
+    @State private var detailError: String? = nil
 
     private var linkedUser: MgmtUser? {
         let email = detail?.userEmail ?? workstation.userEmail ?? ""
@@ -633,6 +654,9 @@ struct WorkstationDetailView: View {
                     HStack { Spacer(); ProgressView().controlSize(.small); Spacer() }
                 }
             }
+            if let err = detailError {
+                mgmtErrorSection(err) { Task { await loadDetail() } }
+            }
         }
         .listStyle(.insetGrouped)
         .brandNavStyle(title: workstation.hostname)
@@ -645,8 +669,21 @@ struct WorkstationDetailView: View {
               let client = ApiClientFactory.make(baseURL: base.absoluteString,
                                                  token: settings.bearerToken) else { return }
         isLoadingDetail = true
+        detailError = nil
         defer { isLoadingDetail = false }
-        detail = try? await client.managementWorkstationDetail(workstationId: workstation.id)
+        do {
+            detail = try await client.managementWorkstationDetail(workstationId: workstation.id)
+        } catch {
+            detailError = error.localizedDescription
+            print("[WorkstationDetail] load failed: \(error)")
+        }
+        // v0.7.224 — Wenn Detail ok aber Users-Cache leer (Race): Sync
+        // triggern damit linkedUser-Suche im Cache greift und die Name-
+        // Anzeige klickbar wird. Kein spezieller "refreshManagement" nötig
+        // — refresh() lädt alles inkl. management.
+        if detailError == nil, cache.mgmtUsers.isEmpty {
+            await cache.refresh(settings: settings)
+        }
     }
 }
 
@@ -774,4 +811,23 @@ private func mgmtFilterChip(_ label: String, selected: Bool, action: @escaping (
             .clipShape(Capsule())
     }
     .buttonStyle(.plain)
+}
+
+// v0.7.224 — Wiederverwendbarer Error-Banner für alle Management-Detail-Views.
+// Zeigt Icon + Titel + Details + Retry-Button in einer Section.
+@ViewBuilder
+fileprivate func mgmtErrorSection(_ message: String, retry: @escaping () -> Void) -> some View {
+    Section {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(MSP.warning)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(String(localized: "Details konnten nicht geladen werden"))
+                    .font(.subheadline).fontWeight(.semibold)
+                Text(message).font(.caption).foregroundStyle(.secondary)
+                Button(String(localized: "Erneut versuchen"), action: retry)
+                    .font(.caption).padding(.top, 4)
+            }
+        }
+    }
 }
