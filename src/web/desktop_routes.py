@@ -1897,8 +1897,18 @@ def register_desktop_routes(app: FastAPI, get_app_version) -> None:
                 # Kosten: 1–5 zusätzliche Printix-Calls pro Poll (max 5 Seiten
                 # à 100 Jobs = 500 Jobs abgedeckt). Nur wenn state unchanged;
                 # bei state-Übergang macht der Check keinen Sinn.
+                #
+                # v0.7.223 — WICHTIG: Cross-Check MUSS für terminale Erfolgs-States
+                # skipped werden. Wenn ein Job PRINTED ist und aus Printix-Liste
+                # verschwindet (weil erfolgreich abgeschlossen), würde er sonst
+                # fälschlich als "deleted" markiert. Wir wissen nicht 100% sicher
+                # ob PRINTED-Jobs aus der Liste verschwinden — aber die Annahme
+                # ist plausibel und der Schaden bei False-Positive wäre groß
+                # ("erfolgreich gedruckt" → "gelöscht" in der App-UI).
+                _CROSS_CHECK_SKIP_STATES = {"printed", "deleted", "expired"}
                 _LIST_CHECK_GRACE_SECS = 5 * 60  # 5 Minuten
-                if new_status == db_status:
+                if (new_status == db_status
+                        and db_status.lower() not in _CROSS_CHECK_SKIP_STATES):
                     _c_raw = row["forwarded_at"] or row["created_at"] or ""
                     _c_age = _LIST_CHECK_GRACE_SECS + 1
                     try:
