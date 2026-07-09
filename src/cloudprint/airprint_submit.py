@@ -129,54 +129,100 @@ async def submit_airprint_job(user_id: str,
     )
 
     # ─── An Printix submitten (Print API v1) ─────────────────────────
+    # Bewaehrter Weg (identisch zum /desktop/upload-Pfad in
+    # desktop_routes.py):
+    #   1) submit_print_job mit user=<email> als Legacy-Query-Param.
+    #      Printix akzeptiert das immer, weist den Job aber initial
+    #      dem OAuth-App-Owner (System-Manager) zu, nicht dem echten User.
+    #   2) Nach complete_upload: change_job_owner(px_job_id, email)
+    #      setzt den echten Besitzer.
+    # user_mapping wollten wir nicht — funktioniert nur wenn Printix
+    # den User genau so gemappt hat, was in vielen Tenants fehlschlaegt
+    # (Log: "Cannot find appropriate user ... for tenant").
     try:
-        # SecurePrint erfordert user_mapping (kein legacy `user`-Feld):
-        # Key = "Email" (Printix akzeptiert das im MS Identity-Set).
-        submit_resp = await asyncio.to_thread(
-            client.submit_print_job,
-            printer_id=printer_id,
-            queue_id=queue_id,
-            title=job_name[:200],
-            user_mapping_key="Email",
-            user_mapping_value=user_email or "",
-            release_immediately=False,  # SecurePrint → am Drucker freigeben
-        )
-        px_job_id = ""
+        from printix_client import PrintixAPIError as _PxErr
+        def _do_submit():
+            return client.submit_print_job(
+                printer_id=printer_id,
+                queue_id=queue_id,
+                title=job_name[:200],
+                user=user_email or "",
+                pdl="PDF",
+                release_immediately=False,
+            )
+        try:
+            submit_resp = await asyncio.to_thread(_do_submit)
+        except _PxErr as _pe:
+            # Retry ohne user-Param (kommt manchmal bei sensitivem Tenant)
+            if _pe.status_code in (400, 422):
+                logger.warning(
+                    "AirPrint submit: %s bei user=%s (id=%s), retry ohne user",
+                    _pe.status_code, user_email,
+                    getattr(_pe, "error_id", "-"),
+                )
+                submit_resp = await asyncio.to_thread(
+                    client.submit_print_job,
+                    printer_id=printer_id,
+                    queue_id=queue_id,
+                    title=job_name[:200],
+                    pdl="PDF",
+                    release_immediately=False,
+                )
+            else:
+                raise
+
+        result_job = (submit_resp.get("job", submit_resp)
+                      if isinstance(submit_resp, dict) else {})
+        px_job_id = (result_job.get("id", "")
+                     if isinstance(result_job, dict) else "")
+
+        upload_url = ""
+        upload_headers = {}
         if isinstance(submit_resp, dict):
-            px_job_id = (
-                submit_resp.get("jobId")
-                or submit_resp.get("id")
-                or (submit_resp.get("job") or {}).get("id", "")
-                or ""
-            )
-        if not px_job_id:
+            upload_url = submit_resp.get("uploadUrl", "") or ""
+            links = submit_resp.get("uploadLinks") or []
+            if not upload_url and links and isinstance(links[0], dict):
+                upload_url = links[0].get("url", "") or ""
+                upload_headers = links[0].get("headers") or {}
+
+        if not px_job_id or not upload_url:
             logger.error(
-                "AirPrint submit: Printix submit lieferte keine job_id: %r",
-                submit_resp,
+                "AirPrint submit: Printix lieferte keine job_id oder upload-URL: "
+                "keys=%s",
+                list(submit_resp.keys()) if isinstance(submit_resp, dict) else "?",
             )
-            _mark_error(internal_job_id, "Printix submit ohne job_id")
+            _mark_error(internal_job_id, "Printix submit ohne job_id/upload-URL")
             return internal_job_id
 
         # ─── Datei an Printix uploaden ────────────────────────────
-        upload_url = (
-            (submit_resp.get("_links") or {}).get("upload", {}).get("href")
-            or submit_resp.get("uploadUrl", "")
-        )
-        if not upload_url:
-            _mark_error(internal_job_id, "Kein upload-Link von Printix")
-            return internal_job_id
-
-        upload_ok = await asyncio.to_thread(
+        await asyncio.to_thread(
             client.upload_file_to_url,
-            upload_url=upload_url,
-            file_bytes=file_bytes,
-            content_type=doc_format or "application/pdf",
+            upload_url,
+            file_bytes,
+            doc_format or "application/pdf",
+            upload_headers,
         )
-        if not upload_ok:
-            _mark_error(internal_job_id, "Datei-Upload fehlgeschlagen")
-            return internal_job_id
 
         await asyncio.to_thread(client.complete_upload, px_job_id)
+
+        # ─── Ownership auf echten User uebertragen ────────────────
+        # Der App-Owner-Trick: submit weist den Job initial dem
+        # System-Manager zu, jetzt via change_job_owner an den echten
+        # User uebertragen (SecurePrint findet Job dann bei ihm).
+        if user_email and "@" in user_email:
+            try:
+                await asyncio.to_thread(
+                    client.change_job_owner, px_job_id, user_email,
+                )
+                logger.info(
+                    "AirPrint submit changeOwner OK — printix_job=%s owner=%s",
+                    px_job_id, user_email,
+                )
+            except Exception as _co_e:
+                logger.warning(
+                    "AirPrint submit changeOwner FAIL job=%s owner=%s: %s",
+                    px_job_id, user_email, _co_e,
+                )
 
         # ─── DB-Row auf "sent" markieren ──────────────────────────
         with _conn() as conn:
