@@ -144,44 +144,146 @@ Auto-Migration in `db.py` beim Server-Start.
 
 ---
 
-## 7. Admin-Config UI (`/admin/settings → iOS AirPrint`)
+## 7. Admin-Config UI (`Konfiguration → iOS Mobile`)
 
-Neue Section im bestehenden Settings-Bereich:
+Neue Section unter dem bestehenden **Konfiguration**-Menüpunkt der
+Admin-Sidebar. Der Section-Name im Menü lautet **"iOS Mobile"** (bewusst
+neutraler als "AirPrint" — soll auch für zukünftige mobile Features
+Platz haben: Widgets, Push-Notifs, MDM-Verwaltung).
 
 ```
+Konfiguration                       ← bestehendes Sidebar-Menü
+  ├── Allgemein
+  ├── Printix-API
+  ├── Entra / OAuth
+  ├── Email
+  ├── 🆕 iOS Mobile                 ← neue Sektion
+  ├── Sicherheit
+  └── ...
+
 ┌─────────────────────────────────────────────────────────┐
-│  🖨️  iOS AirPrint                                        │
+│  📱  iOS Mobile                                          │
 ├─────────────────────────────────────────────────────────┤
 │  ☑ AirPrint-Profile aktivieren                          │
+│    Aktiviert nativen iOS-Druck. User können aus         │
+│    jeder iOS-App auf ihre SecurePrint-Queue drucken.    │
 │                                                         │
 │  Standard-Queue für Neu-User:                           │
 │    ▸ [ SecurePrint Anywhere DE          ⌄ ]             │
+│    Die Queue die beim Onboarding automatisch als        │
+│    Profil ausgeliefert wird.                            │
 │                                                         │
 │  ☑ Beim Einladen: mobileconfig automatisch mitsenden    │
+│    Neu eingeladene User bekommen das Profil direkt      │
+│    per Email-Anhang und können sofort drucken.          │
 │                                                         │
 │  Zertifikat für Profil-Signing:                         │
 │    Status: ✓ Server-Zertifikat gültig bis 2027-04-12    │
-│    Kein Apple Developer Cert? Profile werden als        │
-│    "Unsigned" ausgeliefert (iOS zeigt Warnhinweis,      │
-│    Installation trotzdem möglich).                      │
+│    ► Apple Developer Cert hochladen (optional)          │
 │                                                         │
 │  [ Speichern ]                                          │
 └─────────────────────────────────────────────────────────┘
 ```
 
 Neue Settings-Keys in `settings`-Tabelle:
-- `airprint_enabled` (0/1)
-- `airprint_default_queue_id` (Printix queue UUID)
-- `airprint_default_printer_id` (Printix printer UUID — wird zusammen mit queue gepickt)
-- `airprint_default_queue_name` (Display-Name für Email/UI)
-- `airprint_email_attach_default` (0/1)
+- `ios_mobile_airprint_enabled` (0/1)
+- `ios_mobile_airprint_default_queue_id` (Printix queue UUID)
+- `ios_mobile_airprint_default_printer_id` (Printix printer UUID)
+- `ios_mobile_airprint_default_queue_name` (Display-Name für Email/UI)
+- `ios_mobile_airprint_email_attach_default` (0/1)
+
+Namespace `ios_mobile_*` damit zukünftige mobile Features (Push, MDM,
+etc.) sich unter derselben Config-Sektion einreihen können.
 
 Wenn `airprint_enabled=0`: Feature ist komplett aus. Route
 `/airprint/{token}` gibt 404. Einladungs-Email unverändert.
 
 ---
 
-## 8. Anzeige-Name im iOS Print-Dialog
+## 8. Internationalisierung (i18n) — **von Anfang an**
+
+Die App und der Server unterstützen viele Sprachen. **Jeder neue String
+in diesem Feature muss in allen unterstützten Sprachen abgedeckt sein**
+— keine hardcoded deutschen Strings, keine Nach-Übersetzung "später".
+
+### Server-Sprachen (14) — `src/web/i18n.py`
+
+Kern: `de`, `en`, `fr`, `it`, `es`, `nl`, `no`, `sv`
+Fun-Sprachen: `bar`, `hessisch`, `oesterreichisch`, `schwiizerdütsch`,
+`cockney`, `us_south`
+
+### iOS-Sprachen (9) — `Localizable.xcstrings`
+
+`de`, `en`, `es`, `fr`, `it`, `nb`, `nl`, `pt-BR`, `sv`
+
+### Neue i18n-Keys (Server)
+
+Alle Keys mit Namespace `ios_mobile_*` bzw. `airprint_*`:
+
+**Admin-Config-Sektion:**
+- `nav_config_ios_mobile` → "iOS Mobile"
+- `ios_mobile_section_title` → "iOS Mobile"
+- `ios_mobile_airprint_enabled_label` → "AirPrint-Profile aktivieren"
+- `ios_mobile_airprint_enabled_help` → "Aktiviert nativen iOS-Druck…"
+- `ios_mobile_default_queue_label` → "Standard-Queue für Neu-User"
+- `ios_mobile_default_queue_help` → "Die Queue die beim Onboarding…"
+- `ios_mobile_email_attach_label` → "Beim Einladen: mobileconfig…"
+- `ios_mobile_email_attach_help` → "Neu eingeladene User…"
+- `ios_mobile_signing_status_ok` → "Server-Zertifikat gültig bis {date}"
+- `ios_mobile_signing_upload_cert` → "Apple Developer Cert hochladen"
+- `ios_mobile_save` → "Speichern"
+- `ios_mobile_saved` → "Einstellungen gespeichert"
+
+**Onboarding-Email-Block:**
+- `email_airprint_headline` → "Sofort aus dem iPhone drucken"
+- `email_airprint_intro` → "Wir haben dir gleich einen nativen…"
+- `email_airprint_install_steps` → "1. Anhang öffnen 2. iOS-Einstellungen…"
+- `email_airprint_app_hint` → "Für Job-Verlauf, NFC-Kartenlogin und Delegation…"
+
+**Fehler-Meldungen (bei /airprint/{token}):**
+- `airprint_error_token_invalid` → "Profil nicht gefunden oder widerrufen"
+- `airprint_error_queue_no_permission` → "Kein Zugriff auf diese Queue"
+
+### Neue i18n-Keys (iOS App)
+
+**Einstellungen-Menü:**
+- `settings_section_ios_printers` → "iOS-Drucker"
+- `ios_printers_title` → "iOS-Drucker"
+- `ios_printers_empty` → "Noch kein Profil installiert"
+- `ios_printers_add_button` → "Neuen Drucker hinzufügen"
+- `ios_printers_hint` → "Bereits druckbar aus jeder iOS-App — der Drucker heißt …"
+
+**Wizard "Neuer Drucker":**
+- `ios_printers_wizard_title` → "Neuer iOS-Drucker"
+- `ios_printers_wizard_queue_label` → "Queue auswählen"
+- `ios_printers_wizard_display_name_label` → "Anzeigename (optional)"
+- `ios_printers_wizard_display_name_placeholder` → "z. B. iPhone Marcus"
+- `ios_printers_wizard_create_button` → "Erstellen und installieren"
+- `ios_printers_wizard_install_hint` → "iOS zeigt gleich einen…"
+
+**Profil-Zeile:**
+- `ios_printers_last_used` → "Zuletzt genutzt: {date}"
+- `ios_printers_never_used` → "Noch nicht genutzt"
+- `ios_printers_revoke_action` → "Profil widerrufen"
+- `ios_printers_revoke_confirm` → "Profil wirklich widerrufen?"
+- `ios_printers_revoke_reason_placeholder` → "z. B. iPhone verloren"
+
+### Umsetzung während Feature-Bau
+
+Für jeden neu geschriebenen String:
+
+1. Server-Template: `{{ _('key_name') }}` — NICHT hardcoded
+2. Server-i18n.py: Alle 14 Sprachen befüllen (bei den Fun-Sprachen
+   Zeitdruck-tauglich: englische Fallbacks + charakteristische Wörter)
+3. iOS Swift: `String(localized: "key_name")` — NICHT hardcoded
+4. iOS xcstrings: Alle 9 Sprachen befüllen (via Xcode oder Skript)
+
+Keine Ausnahmen. `grep -rn "hardcoded\|TODO.*translate"` wird beim
+E2E-Test-Task verifiziert.
+
+---
+
+## 9. Anzeige-Name im iOS Print-Dialog
 
 Format im `.mobileconfig`:
 
@@ -197,7 +299,7 @@ sonst inkonsistente Namen im System.
 
 ---
 
-## 9. Zertifikat für Profil-Signing
+## 10. Zertifikat für Profil-Signing
 
 **Server-TLS-Cert** (Azure Managed / Let's Encrypt) für TLS-Termination
 — haben wir schon.
@@ -216,7 +318,7 @@ wollen.
 
 ---
 
-## 10. Onboarding-Email Erweiterung
+## 11. Onboarding-Email Erweiterung
 
 Existierender Flow (`/admin/users/invite`):
 
@@ -253,7 +355,7 @@ Für Job-Verlauf, NFC-Kartenlogin und Delegation:
 
 ---
 
-## 11. iOS-App Erweiterung
+## 12. iOS-App Erweiterung
 
 Neuer Menüpunkt in Einstellungen:
 
@@ -307,7 +409,7 @@ Profile — der User muss selbst schauen ob er sie am iPhone hat.
 
 ---
 
-## 12. Server-Endpoints (neu)
+## 13. Server-Endpoints (neu)
 
 ```
 POST /desktop/me/airprint/create
@@ -337,7 +439,7 @@ POST /admin/airprint/settings
 
 ---
 
-## 13. Aufwand-Schätzung Stufe 1
+## 14. Aufwand-Schätzung Stufe 1
 
 | Task | Aufwand |
 |---|---|
@@ -357,7 +459,7 @@ POST /admin/airprint/settings
 
 ---
 
-## 14. Rollout
+## 15. Rollout
 
 **v0.8.0 (Stufe 1 fertig):**
 - Feature-Flag default AUS (Opt-in)
@@ -377,7 +479,7 @@ POST /admin/airprint/settings
 
 ---
 
-## 15. Risiken + Mitigation
+## 16. Risiken + Mitigation
 
 | Risiko | Mitigation |
 |---|---|
@@ -389,7 +491,7 @@ POST /admin/airprint/settings
 
 ---
 
-## 16. Nächste Schritte
+## 17. Nächste Schritte
 
 1. ✓ Design-Doc final (dieses hier)
 2. IPP-Server + Parser portieren (Task #63)
