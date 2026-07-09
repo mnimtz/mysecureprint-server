@@ -19,6 +19,11 @@ struct MoreView: View {
                 NavigationLink(destination: CardsContent()) {
                     Label(String(localized: "Karten"), systemImage: "creditcard.fill")
                 }
+                // v0.8.0 — iOS AirPrint-Profile (Feature ist opt-in serverseitig;
+                // Menüpunkt zeigen wir immer — Create-Endpoint gibt 403 wenn aus)
+                NavigationLink(destination: AirPrintProfilesView()) {
+                    Label(String(localized: "airprint_view_title"), systemImage: "printer.filled.and.paper")
+                }
                 NavigationLink(destination: AccountContent()) {
                     Label(String(localized: "Konto"), systemImage: "person.crop.circle")
                 }

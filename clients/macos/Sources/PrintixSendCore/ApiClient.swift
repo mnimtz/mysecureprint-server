@@ -822,4 +822,89 @@ public final class ApiClient: @unchecked Sendable {
         default:     return "application/octet-stream"
         }
     }
+
+    // MARK: - AirPrint Profiles (v0.8.0)
+
+    /// Liste der eigenen AirPrint-Profile.
+    public func listAirprintProfiles() async throws -> [AirprintProfile] {
+        log.info("GET /desktop/me/airprint")
+        let url = baseUrl.appendingPathComponent("desktop/me/airprint")
+        var req = URLRequest(url: url)
+        if let token = token, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.timeoutInterval = 15
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
+        return try JSONDecoder().decode(AirprintProfilesResponse.self, from: data).profiles
+    }
+
+    /// Neues AirPrint-Profil erstellen. Server generiert Token, wir bekommen
+    /// die Download-URL für die .mobileconfig zurück.
+    public func createAirprintProfile(printerId: String,
+                                        queueId: String,
+                                        queueDisplayName: String,
+                                        displayName: String?) async throws -> AirprintCreateResponse {
+        log.info("POST /desktop/me/airprint/create queue=\(queueId)")
+        let url = baseUrl.appendingPathComponent("desktop/me/airprint/create")
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        if let token = token, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.timeoutInterval = 15
+        var payload: [String: Any] = [
+            "queue_id": queueId,
+            "printer_id": printerId,
+            "queue_display_name": queueDisplayName,
+        ]
+        if let displayName, !displayName.isEmpty {
+            payload["display_name"] = displayName
+        }
+        req.httpBody = try JSONSerialization.data(withJSONObject: payload)
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
+        return try JSONDecoder().decode(AirprintCreateResponse.self, from: data)
+    }
+
+    /// Lädt die .mobileconfig-Bytes vom Server. Auth-Token als Header.
+    public func downloadAirprintProfile(profileId: String) async throws -> Data {
+        log.info("GET /desktop/me/airprint/\(profileId)/download")
+        let url = baseUrl
+            .appendingPathComponent("desktop/me/airprint")
+            .appendingPathComponent(profileId)
+            .appendingPathComponent("download")
+        var req = URLRequest(url: url)
+        if let token = token, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.timeoutInterval = 30
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
+        return data
+    }
+
+    /// Widerruft (löscht) ein AirPrint-Profil.
+    @discardableResult
+    public func revokeAirprintProfile(profileId: String) async throws -> Bool {
+        log.info("DELETE /desktop/me/airprint/\(profileId)")
+        let url = baseUrl
+            .appendingPathComponent("desktop/me/airprint")
+            .appendingPathComponent(profileId)
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        if let token = token, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.timeoutInterval = 15
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
+        if let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return (dict["revoked"] as? Bool) ?? true
+        }
+        return true
+    }
 }

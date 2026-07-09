@@ -610,3 +610,44 @@ public struct JobStatusResponse: Codable, Sendable {
         case fresh
     }
 }
+
+
+// MARK: - AirPrint Profiles (v0.8.0)
+
+public struct AirprintProfile: Codable, Identifiable, Hashable, Sendable {
+    public let id: String
+    public let queueId: String
+    public let queueDisplayName: String
+    public let displayName: String?
+    public let createdAt: String?
+    public let createdVia: String?
+    public let lastUsedAt: String?
+    public let jobCount: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case queueId           = "queue_id"
+        case queueDisplayName  = "queue_display_name"
+        case displayName       = "display_name"
+        case createdAt         = "created_at"
+        case createdVia        = "created_via"
+        case lastUsedAt        = "last_used_at"
+        case jobCount          = "job_count"
+    }
+}
+
+public struct AirprintProfilesResponse: Codable, Sendable {
+    public let profiles: [AirprintProfile]
+}
+
+public struct AirprintCreateResponse: Codable, Sendable {
+    public let profileId: String
+    public let downloadUrl: String
+    public let queueDisplayName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case profileId          = "profile_id"
+        case downloadUrl        = "download_url"
+        case queueDisplayName   = "queue_display_name"
+    }
+}
