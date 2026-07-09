@@ -651,3 +651,23 @@ public struct AirprintCreateResponse: Codable, Sendable {
         case queueDisplayName   = "queue_display_name"
     }
 }
+
+/// Admin-vordefinierte Firmen-Standard-Queue für iOS/AirPrint.
+/// Vom /desktop/me/airprint/company-default Endpoint geliefert.
+public struct AirprintCompanyDefault: Codable, Sendable {
+    public let configured: Bool
+    public let featureEnabled: Bool
+    public let queueId: String
+    public let printerId: String
+    public let queueDisplayName: String
+    public let existingProfileId: String
+
+    enum CodingKeys: String, CodingKey {
+        case configured
+        case featureEnabled     = "feature_enabled"
+        case queueId            = "queue_id"
+        case printerId          = "printer_id"
+        case queueDisplayName   = "queue_display_name"
+        case existingProfileId  = "existing_profile_id"
+    }
+}

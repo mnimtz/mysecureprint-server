@@ -840,6 +840,22 @@ public final class ApiClient: @unchecked Sendable {
         return try JSONDecoder().decode(AirprintProfilesResponse.self, from: data).profiles
     }
 
+    /// Firmen-Standard-Queue vom Admin (falls konfiguriert) — für den
+    /// One-Tap "Firmen-SecurePrint installieren"-Button in der iOS-App.
+    public func getAirprintCompanyDefault() async throws -> AirprintCompanyDefault {
+        log.info("GET /desktop/me/airprint/company-default")
+        let url = baseUrl.appendingPathComponent("desktop/me/airprint/company-default")
+        var req = URLRequest(url: url)
+        if let token = token, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.timeoutInterval = 15
+        let (data, resp) = try await session.data(for: req)
+        try ensureOk(resp, data)
+        return try JSONDecoder().decode(AirprintCompanyDefault.self, from: data)
+    }
+
     /// Neues AirPrint-Profil erstellen. Server generiert Token, wir bekommen
     /// die Download-URL für die .mobileconfig zurück.
     public func createAirprintProfile(printerId: String,

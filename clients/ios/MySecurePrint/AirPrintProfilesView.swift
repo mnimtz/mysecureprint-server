@@ -9,7 +9,9 @@ struct AirPrintProfilesView: View {
     @EnvironmentObject private var cache: AppCache
 
     @State private var profiles: [AirprintProfile] = []
+    @State private var companyDefault: AirprintCompanyDefault? = nil
     @State private var loading = false
+    @State private var installingCompany = false
     @State private var error: String = ""
     @State private var showWizard = false
     @State private var pendingDownload: URL? = nil
@@ -23,43 +25,26 @@ struct AirPrintProfilesView: View {
                     .foregroundColor(.secondary)
             }
 
-            if loading && profiles.isEmpty {
+            // ── 1) Firmen SecurePrint ──────────────────────────────
+            companyDefaultSection
+
+            // ── 2) Direkt-Drucker ──────────────────────────────────
+            directPrinterSection
+
+            // ── Installierte Profile (falls vorhanden) ─────────────
+            if !profiles.isEmpty {
+                Section(String(localized: "airprint_installed_section")) {
+                    ForEach(profiles) { p in
+                        profileRow(p)
+                    }
+                }
+            } else if loading {
                 Section {
                     HStack {
                         ProgressView()
                         Text(String(localized: "airprint_loading"))
                     }
                 }
-            } else if profiles.isEmpty && !loading {
-                Section {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(String(localized: "airprint_empty_title"))
-                            .font(.headline)
-                        Text(String(localized: "airprint_empty_hint"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.vertical, 8)
-                }
-            } else {
-                Section(String(localized: "airprint_installed_section")) {
-                    ForEach(profiles) { p in
-                        profileRow(p)
-                    }
-                }
-            }
-
-            Section {
-                Button {
-                    showWizard = true
-                } label: {
-                    HStack {
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundColor(MSP.cyan)
-                        Text(String(localized: "airprint_add_button"))
-                    }
-                }
-                .disabled(loading)
             }
 
             if !error.isEmpty {
@@ -87,6 +72,121 @@ struct AirPrintProfilesView: View {
             get: { pendingDownload.map { InstallSheetURL(url: $0) } },
             set: { pendingDownload = $0?.url })) { wrap in
             AirPrintInstallSheet(mobileconfigURL: wrap.url)
+        }
+    }
+
+    // MARK: - Firmen SecurePrint Section
+
+    @ViewBuilder
+    private var companyDefaultSection: some View {
+        Section {
+            if let cd = companyDefault, cd.configured {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "building.2.fill")
+                            .foregroundColor(MSP.cyan)
+                            .frame(width: 24)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(cd.queueDisplayName)
+                                .font(.subheadline).fontWeight(.semibold)
+                            Text(String(localized: "airprint_company_hint"))
+                                .font(.caption).foregroundColor(.secondary)
+                        }
+                    }
+                    if !cd.existingProfileId.isEmpty {
+                        // Bereits installiert
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text(String(localized: "airprint_company_already_installed"))
+                                .font(.caption)
+                        }
+                    } else {
+                        Button {
+                            Task { await installCompanyDefault() }
+                        } label: {
+                            HStack {
+                                if installingCompany {
+                                    ProgressView().scaleEffect(0.85)
+                                } else {
+                                    Image(systemName: "arrow.down.circle.fill")
+                                }
+                                Text(String(localized: "airprint_company_install_button"))
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(MSP.gold)
+                            .foregroundColor(MSP.navy)
+                            .cornerRadius(10)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(installingCompany || loading)
+                    }
+                }
+                .padding(.vertical, 4)
+            } else {
+                Text(String(localized: "airprint_company_not_configured"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        } header: {
+            Text(String(localized: "airprint_company_section"))
+        }
+    }
+
+    // MARK: - Direkt-Drucker Section
+
+    @ViewBuilder
+    private var directPrinterSection: some View {
+        Section {
+            Button {
+                showWizard = true
+            } label: {
+                HStack {
+                    Image(systemName: "plus.circle.fill")
+                        .foregroundColor(MSP.cyan)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(String(localized: "airprint_direct_add_button"))
+                            .fontWeight(.semibold)
+                        Text(String(localized: "airprint_direct_hint"))
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                }
+            }
+            .disabled(loading)
+        } header: {
+            Text(String(localized: "airprint_direct_section"))
+        }
+    }
+
+    // MARK: - Actions
+
+    @MainActor
+    private func installCompanyDefault() async {
+        guard let cd = companyDefault, cd.configured,
+              let client = ApiClientFactory.make(baseURL: settings.serverURL,
+                                                  token: settings.bearerToken) else { return }
+        installingCompany = true
+        defer { installingCompany = false }
+        do {
+            let resp = try await client.createAirprintProfile(
+                printerId: cd.printerId,
+                queueId: cd.queueId,
+                queueDisplayName: cd.queueDisplayName,
+                displayName: nil
+            )
+            let data = try await client.downloadAirprintProfile(profileId: resp.profileId)
+            let dir = FileManager.default.temporaryDirectory
+                .appendingPathComponent("airprint", isDirectory: true)
+            try? FileManager.default.createDirectory(at: dir,
+                                                      withIntermediateDirectories: true)
+            let file = dir.appendingPathComponent("MySecurePrint.mobileconfig")
+            try data.write(to: file, options: .atomic)
+            await reload()
+            pendingDownload = file
+        } catch {
+            self.error = error.localizedDescription
         }
     }
 
@@ -135,7 +235,15 @@ struct AirPrintProfilesView: View {
         loading = true
         defer { loading = false }
         do {
-            profiles = try await client.listAirprintProfiles()
+            async let profilesTask = client.listAirprintProfiles()
+            async let companyTask = client.getAirprintCompanyDefault()
+            profiles = try await profilesTask
+            do {
+                companyDefault = try await companyTask
+            } catch {
+                // Firmen-Default ist optional — Fehler hier nicht als Haupt-Error zeigen
+                companyDefault = nil
+            }
             error = ""
         } catch {
             self.error = error.localizedDescription

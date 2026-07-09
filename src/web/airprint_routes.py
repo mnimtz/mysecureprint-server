@@ -99,6 +99,44 @@ def register_airprint_management_routes(app: FastAPI) -> None:
         })
 
     # ──────────────────────────────────────────────────────────────
+    # GET /desktop/me/airprint/company-default
+    # Liefert die Admin-vordefinierte Firmen-Queue (falls konfiguriert),
+    # so dass die iOS-App einen One-Tap-„installieren"-Button anbieten
+    # kann. Signalisiert zusätzlich ob der User bereits ein Profil für
+    # diese Queue hat.
+    # ──────────────────────────────────────────────────────────────
+    @app.get("/desktop/me/airprint/company-default")
+    async def airprint_company_default(request: Request,
+                                          authorization: str = Header(default="")):
+        _log_req(request, "GET /me/airprint/company-default")
+        user = _require_token(authorization)
+        if not user:
+            return _json_error("token invalid", code="auth_required", status=401)
+
+        from db import get_setting as _gs
+        queue_id = _gs("ios_mobile_airprint_default_queue_id", "")
+        printer_id = _gs("ios_mobile_airprint_default_printer_id", "")
+        queue_name = _gs("ios_mobile_airprint_default_queue_name", "")
+        configured = bool(queue_id and printer_id)
+
+        existing_profile_id = ""
+        if configured:
+            from cloudprint.airprint_profiles import list_profiles_for_user
+            for p in list_profiles_for_user(user["user_id"], include_revoked=False):
+                if p.get("queue_id") == queue_id:
+                    existing_profile_id = p["id"]
+                    break
+
+        return JSONResponse({
+            "configured":              configured,
+            "feature_enabled":         _feature_enabled(),
+            "queue_id":                queue_id,
+            "printer_id":              printer_id,
+            "queue_display_name":      queue_name or "SecurePrint",
+            "existing_profile_id":     existing_profile_id,
+        })
+
+    # ──────────────────────────────────────────────────────────────
     # GET /desktop/me/airprint
     # ──────────────────────────────────────────────────────────────
     @app.get("/desktop/me/airprint")
