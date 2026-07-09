@@ -94,24 +94,29 @@ def get_token() -> str:
 
 
 def api(method: str, path: str, token: str, **kwargs):
-    """ASC-API-Call mit automatischem Retry auf 5xx UND Timeouts/Connection-
-    Errors (Apple-Server-Flakes).
-    Retry: 8 Versuche mit exponential backoff 5s → 10s → 20s → 40s → 80s
-    → 160s → 320s → 640s (Summe ~21 min). Nur 5xx + Netzwerkfehler werden
-    retried, 4xx sofort zurueckgegeben.
+    """ASC-API-Call mit automatischem Retry auf 5xx UND Timeouts UND 401
+    (JWT abgelaufen waehrend Backoff).
 
-    Timeout hochgesetzt auf 120s (statt 30s) — ASC-Backend antwortet bei
+    Retry: 8 Versuche mit exponential backoff 5s → 10s → 20s → 40s → 80s
+    → 160s → 320s → 640s (Summe ~21 min).
+    Bei 401: JWT wird einmal frisch generiert und weitergenutzt.
+    Bei 4xx (ausser 401): sofort zurueck, kein Retry.
+
+    Timeout: (15s connect, 120s read) — ASC-Backend antwortet bei
     Last teilweise sehr langsam.
     """
-    H = {"Authorization": f"Bearer {token}",
-         "Content-Type": "application/json"}
+    H = {"Content-Type": "application/json"}
     H.update(kwargs.pop("headers", {}))
-    # Timeout ist ein Tuple (connect, read) — connect kurz, read lang
     kwargs.setdefault("timeout", (15, 120))
     delays = [5, 10, 20, 40, 80, 160, 320, 640]
+    # token als mutable state — bei 401 refresh
+    current_token = [token]
+    def _headers():
+        return {**H, "Authorization": f"Bearer {current_token[0]}"}
     for attempt, delay_next in enumerate(delays + [None], start=1):
         try:
-            r = requests.request(method, BASE + path, headers=H, **kwargs)
+            r = requests.request(method, BASE + path,
+                                  headers=_headers(), **kwargs)
         except (requests.exceptions.ConnectionError,
                 requests.exceptions.ReadTimeout,
                 requests.exceptions.Timeout) as e:
@@ -121,7 +126,13 @@ def api(method: str, path: str, token: str, **kwargs):
                 raise
             time.sleep(delay_next)
             continue
-        # Fertig wenn ok oder 4xx (Client-Fehler, kein Retry sinnvoll)
+        # 401: JWT vermutlich abgelaufen — frisch generieren, weiter
+        if r.status_code == 401 and attempt <= 2:
+            print(f"  ⏳ {method} {path} → 401 (JWT expired?) — refresh",
+                  flush=True)
+            current_token[0] = get_token()
+            continue
+        # Fertig wenn ok oder anderes 4xx (kein Retry sinnvoll)
         if r.ok or (400 <= r.status_code < 500):
             if not r.ok:
                 print(f"  ✗ {method} {path} → HTTP {r.status_code}: {r.text[:500]}")
@@ -130,7 +141,6 @@ def api(method: str, path: str, token: str, **kwargs):
         print(f"  ⏳ {method} {path} → HTTP {r.status_code} "
               f"(Attempt {attempt}/{len(delays)+1})", flush=True)
         if delay_next is None:
-            # Kein Backoff mehr uebrig — Fehler durchreichen
             print(f"  ✗ {method} {path} → HTTP {r.status_code}: {r.text[:500]}")
             return r
         time.sleep(delay_next)
