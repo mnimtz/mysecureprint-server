@@ -22,6 +22,18 @@ from urllib.parse import urlparse
 logger = logging.getLogger("printix.airprint.profile")
 
 
+def _compose_display_name(organization: str, queue_display_name: str) -> str:
+    """Smart Dedup: wenn Org und Queue sich Wörter teilen, zeige nur Org.
+    Sonst 'Org — Queue'. Verhindert 'Printix SecurePrint — SecurePrint (Printix)'."""
+    import re as _re
+    def _w(s):
+        return set(w.lower() for w in _re.findall(r"[A-Za-zÄÖÜäöüß]+", s or "") if len(w) > 2)
+    ow, qw = _w(organization), _w(queue_display_name)
+    if ow and qw and (qw.issubset(ow) or ow.issubset(qw) or (ow & qw)):
+        return organization if len(organization) >= len(queue_display_name) else queue_display_name
+    return f"{organization} — {queue_display_name}"
+
+
 def build_mobileconfig(server_url: str,
                        profile_token: str,
                        queue_display_name: str,
@@ -71,7 +83,7 @@ def build_mobileconfig(server_url: str,
         "PayloadType":         "com.apple.airprint",
         "PayloadUUID":         payload_uuid,
         "PayloadIdentifier":   f"com.mysecureprint.airprint.{profile_token}",
-        "PayloadDisplayName":  f"{organization} — {queue_display_name}",
+        "PayloadDisplayName":  _compose_display_name(organization, queue_display_name),
         "PayloadDescription":  f"AirPrint über MySecurePrint auf {queue_display_name}",
         "PayloadVersion":      1,
         "PayloadOrganization": organization,
@@ -92,7 +104,7 @@ def build_mobileconfig(server_url: str,
         "PayloadType":         "Configuration",
         "PayloadUUID":         profile_uuid,
         "PayloadIdentifier":   f"com.mysecureprint.profile.{profile_token}",
-        "PayloadDisplayName":  f"{organization} — {queue_display_name}",
+        "PayloadDisplayName":  _compose_display_name(organization, queue_display_name),
         "PayloadDescription":  (
             "Registriert einen nativen Drucker über MySecurePrint an deine "
             "SecurePrint-Queue. Funktioniert auf iPhone, iPad und Mac — "

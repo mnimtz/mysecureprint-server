@@ -161,7 +161,28 @@ def _handle_get_printer_attributes(profile_token: str, req: ipp.IppRequest,
     from db import get_setting as _gs
     _org = _gs("airprint_organization", "") or "MySecurePrint"
     _queue = profile.get("queue_display_name") or "SecurePrint"
-    printer_name = f"{_org} — {_queue}"
+    # Smart dedup: wenn Organisationsname und Queue-Name schon dieselben
+    # relevanten Wörter enthalten (z.B. Org="Printix SecurePrint",
+    # Queue="SecurePrint (Printix)"), doppelt sich das im Titel. Wir
+    # zeigen dann nur den Organisationsnamen — er ist ja bewusst gewählt.
+    def _words(s):
+        import re as _re
+        return set(w.lower() for w in _re.findall(r"[A-Za-zÄÖÜäöüß]+", s or "") if len(w) > 2)
+    _org_words = _words(_org)
+    _queue_words = _words(_queue)
+    if _org_words and _queue_words and _queue_words.issubset(_org_words):
+        # Queue-Namen komplett in Org enthalten → nur Org zeigen
+        printer_name = _org
+    elif _org_words and _queue_words and _org_words.issubset(_queue_words):
+        # Umgekehrt: Org steckt schon in Queue → nur Queue zeigen
+        printer_name = _queue
+    elif _org_words & _queue_words:
+        # Teilweise Überlappung (z.B. beide haben "SecurePrint") →
+        # Org allein reicht auch, das ist die admin-Kontrolle
+        printer_name = _org
+    else:
+        # Keine Überlappung → beide zeigen
+        printer_name = f"{_org} — {_queue}"
     body = ipp.build_get_printer_attributes_response(
         request_id=req.request_id,
         printer_uri=printer_uri,

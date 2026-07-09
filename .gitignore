@@ -47,3 +47,6 @@ clients/**/.swiftpm/
 clients/**/Package.resolved
 # ASC-API keys + private secrets — nicht committen
 clients/**/AuthKey_*.p8
+
+# Signing certs (never commit)
+.local-certs/
