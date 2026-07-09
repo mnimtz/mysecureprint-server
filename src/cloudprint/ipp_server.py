@@ -268,7 +268,7 @@ def _lookup_profile(profile_token: str) -> dict | None:
                        u.email       AS user_email,
                        u.username    AS user_username
                  FROM cloudprint_airprint_profiles p
-            LEFT JOIN users u ON u.user_id = p.user_id
+            LEFT JOIN users u ON u.id = p.user_id
                 WHERE p.profile_token = ?""",
             (profile_token,),
         ).fetchone()
