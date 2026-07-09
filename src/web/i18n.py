@@ -26227,8 +26227,275 @@ _IOS_MOBILE_EN: dict[str, str] = {
     'airprint_error_queue_no_permission':        'You no longer have permission for this queue. Please contact your administrator.',
 }
 TRANSLATIONS.setdefault("en", {}).update(_IOS_MOBILE_EN)
-for _lang in ("fr", "it", "es", "nl", "no", "sv", "cockney", "us_south"):
+# Fun-Englisch (cockney/us_south) bekommen den EN-Text — reicht
+for _lang in ("cockney", "us_south"):
     TRANSLATIONS.setdefault(_lang, {}).update(_IOS_MOBILE_EN)
+
+# ── Echte Übersetzungen für die EU-Sprachen (kein blindes Fallback) ──
+
+_IOS_MOBILE_FR: dict[str, str] = {
+    'nav_cfg_ios_mobile':                        'iOS Mobile',
+    'ios_mobile_section_title':                  'iOS Mobile',
+    'ios_mobile_section_intro':                  "Configure des profils d'imprimante natifs pour iPhone, iPad et Mac. Les utilisateurs peuvent ensuite imprimer directement depuis n'importe quelle application vers leur file SecurePrint — sans Bonjour, sans VPN, où qu'ils soient.",
+    'ios_mobile_airprint_enabled_label':         'Activer les profils AirPrint',
+    'ios_mobile_airprint_enabled_help':          "Active l'impression native via /airprint/{token}. Les utilisateurs peuvent imprimer depuis toute application iOS, iPadOS ou macOS vers leur file SecurePrint.",
+    'ios_mobile_default_queue_label':            'File par défaut pour les nouveaux utilisateurs',
+    'ios_mobile_default_queue_help':             "File livrée automatiquement comme profil lors de l'intégration. Les utilisateurs peuvent ajouter d'autres files ultérieurement dans l'application.",
+    'ios_mobile_default_queue_none':             'Aucune — fonctionnalité utilisable uniquement manuellement',
+    'ios_mobile_email_attach_label':             "Joindre le mobileconfig lors de l'invitation",
+    'ios_mobile_email_attach_help':              "Les nouveaux utilisateurs invités reçoivent le profil directement en pièce jointe et peuvent imprimer immédiatement. Ne s'active que si une file par défaut est définie.",
+    'ios_mobile_organization_label':             'Organisation affichée dans le profil',
+    'ios_mobile_organization_help':              'Affiché dans les métadonnées du profil sur l\'appareil (par ex. « Installé par : Entreprise »). Par défaut : MySecurePrint.',
+    'ios_mobile_signing_label':                  'Signature du profil',
+    'ios_mobile_signing_status_configured':      'Certificat Apple Developer configuré — les profils sont livrés signés.',
+    'ios_mobile_signing_status_unsigned':        'Aucun certificat de signature configuré — les profils sont livrés non signés.',
+    'ios_mobile_signing_status_unsigned_hint':   'iOS affiche un avertissement « Non vérifié » lors de l\'installation, mais l\'installation fonctionne quand même. Pour obtenir un badge « Vérifié », téléversez un Apple Developer Enterprise Certificate.',
+    'ios_mobile_compat_title':                   'Fonctionne sur iPhone, iPad et Mac',
+    'ios_mobile_compat_desc':                    "Le profil généré est universel — il s'installe sur iOS 12+, iPadOS 13+ et macOS Sequoia+. Les utilisateurs voient l'imprimante après installation dans toute application capable d'imprimer.",
+    'ios_mobile_save':                           'Enregistrer les paramètres',
+    'ios_mobile_stats_title':                    'Profils actifs',
+    'ios_mobile_stats_profiles':                 'Profils au total',
+    'ios_mobile_stats_users':                    'Utilisateurs actifs',
+    'ios_mobile_stats_jobs':                     "Travaux d'impression jusqu'ici",
+    'email_airprint_headline':                   "Imprimez instantanément depuis votre iPhone",
+    'email_airprint_intro':                      "Nous avons configuré pour vous une imprimante native qui fonctionne sur iPhone, iPad et Mac. Ouvrez la pièce jointe MySecurePrint.mobileconfig sur votre appareil et confirmez l'installation dans les réglages système. Vous pourrez ensuite imprimer depuis Safari, Mail, Photos ou toute autre application directement vers notre SecurePrint.",
+    'email_airprint_install_steps':              'Installation du profil :',
+    'email_airprint_install_step1':              '1. Ouvrez la pièce jointe MySecurePrint.mobileconfig sur votre iPhone/iPad/Mac',
+    'email_airprint_install_step2':              "2. Confirmez l'installation du profil dans les Réglages système",
+    'email_airprint_install_step3':              '3. Ouvrez le dialogue « Imprimer » depuis toute app — l\'imprimante y figure',
+    'email_airprint_app_hint':                   "Pour l'historique des travaux, la connexion par carte NFC et la délégation, nous recommandons également l'app MySecurePrint.",
+    'airprint_error_token_invalid':              "Ce profil n'est plus valide ou a été révoqué. Veuillez en télécharger un nouveau depuis l'app.",
+    'airprint_error_queue_no_permission':        "Vous n'avez plus l'autorisation pour cette file. Veuillez contacter votre administrateur.",
+}
+TRANSLATIONS.setdefault("fr", {}).update(_IOS_MOBILE_FR)
+
+_IOS_MOBILE_IT: dict[str, str] = {
+    'nav_cfg_ios_mobile':                        'iOS Mobile',
+    'ios_mobile_section_title':                  'iOS Mobile',
+    'ios_mobile_section_intro':                  'Configura profili di stampante nativi per iPhone, iPad e Mac. Gli utenti possono poi stampare direttamente dalla loro app preferita nella coda SecurePrint — senza Bonjour, senza VPN, ovunque si trovino.',
+    'ios_mobile_airprint_enabled_label':         'Attiva profili AirPrint',
+    'ios_mobile_airprint_enabled_help':          'Attiva la stampa nativa via /airprint/{token}. Gli utenti possono stampare da qualsiasi app iOS, iPadOS o macOS nella loro coda SecurePrint.',
+    'ios_mobile_default_queue_label':            'Coda predefinita per nuovi utenti',
+    'ios_mobile_default_queue_help':             "La coda inviata automaticamente come profilo durante l'onboarding. Gli utenti possono aggiungere altre code successivamente nell'app.",
+    'ios_mobile_default_queue_none':             'Nessuna — funzionalità solo manuale',
+    'ios_mobile_email_attach_label':             "Allega mobileconfig all'invito",
+    'ios_mobile_email_attach_help':              'I nuovi utenti invitati ricevono il profilo direttamente come allegato email e possono stampare immediatamente. Attivo solo se è impostata una coda predefinita.',
+    'ios_mobile_organization_label':             'Organizzazione mostrata nel profilo',
+    'ios_mobile_organization_help':              'Mostrata nei metadati del profilo sul dispositivo (es. "Installato da: Azienda"). Default: MySecurePrint.',
+    'ios_mobile_signing_label':                  'Firma del profilo',
+    'ios_mobile_signing_status_configured':      'Certificato Apple Developer configurato — i profili vengono consegnati firmati.',
+    'ios_mobile_signing_status_unsigned':        'Nessun certificato di firma configurato — i profili vengono consegnati non firmati.',
+    'ios_mobile_signing_status_unsigned_hint':   "iOS mostra un avviso \"Non verificato\" durante l'installazione, ma questa funziona comunque. Per ottenere il badge \"Verificato\", carica un Apple Developer Enterprise Certificate.",
+    'ios_mobile_compat_title':                   'Funziona su iPhone, iPad e Mac',
+    'ios_mobile_compat_desc':                    "Il profilo generato è universale — si installa su iOS 12+, iPadOS 13+ e macOS Sequoia+. Gli utenti vedono la stampante dopo l'installazione in qualsiasi app che può stampare.",
+    'ios_mobile_save':                           'Salva impostazioni',
+    'ios_mobile_stats_title':                    'Profili attivi',
+    'ios_mobile_stats_profiles':                 'Profili totali',
+    'ios_mobile_stats_users':                    'Utenti attivi',
+    'ios_mobile_stats_jobs':                     'Stampe finora',
+    'email_airprint_headline':                   'Stampa subito dal tuo iPhone',
+    'email_airprint_intro':                      "Abbiamo configurato per te una stampante nativa che funziona su iPhone, iPad e Mac. Apri l'allegato MySecurePrint.mobileconfig sul dispositivo e conferma l'installazione nelle impostazioni di sistema. Poi potrai stampare da Safari, Mail, Foto o qualsiasi altra app direttamente nella nostra SecurePrint.",
+    'email_airprint_install_steps':              'Come installare il profilo:',
+    'email_airprint_install_step1':              "1. Apri l'allegato MySecurePrint.mobileconfig sul tuo iPhone/iPad/Mac",
+    'email_airprint_install_step2':              "2. Conferma l'installazione del profilo nelle Impostazioni di sistema",
+    'email_airprint_install_step3':              '3. Apri la finestra "Stampa" in qualsiasi app — la stampante è lì',
+    'email_airprint_app_hint':                   "Per la cronologia dei lavori, l'accesso con carta NFC e la delega, consigliamo di installare anche l'app MySecurePrint.",
+    'airprint_error_token_invalid':              "Questo profilo non è più valido o è stato revocato. Scaricane uno nuovo dall'app.",
+    'airprint_error_queue_no_permission':        "Non hai più il permesso per questa coda. Contatta il tuo amministratore.",
+}
+TRANSLATIONS.setdefault("it", {}).update(_IOS_MOBILE_IT)
+
+_IOS_MOBILE_ES: dict[str, str] = {
+    'nav_cfg_ios_mobile':                        'iOS Mobile',
+    'ios_mobile_section_title':                  'iOS Mobile',
+    'ios_mobile_section_intro':                  'Configura perfiles de impresora nativos para iPhone, iPad y Mac. Los usuarios podrán imprimir directamente desde cualquier aplicación a su cola SecurePrint — sin Bonjour, sin VPN, estén donde estén.',
+    'ios_mobile_airprint_enabled_label':         'Activar perfiles AirPrint',
+    'ios_mobile_airprint_enabled_help':          'Activa la impresión nativa mediante /airprint/{token}. Los usuarios pueden imprimir desde cualquier app de iOS, iPadOS o macOS en su cola SecurePrint.',
+    'ios_mobile_default_queue_label':            'Cola predeterminada para nuevos usuarios',
+    'ios_mobile_default_queue_help':             'La cola que se envía automáticamente como perfil durante la incorporación. Los usuarios pueden añadir más colas después en la app.',
+    'ios_mobile_default_queue_none':             'Ninguna — la función solo se usa manualmente',
+    'ios_mobile_email_attach_label':             'Adjuntar mobileconfig al invitar usuarios',
+    'ios_mobile_email_attach_help':              'Los usuarios recién invitados reciben el perfil directamente como archivo adjunto y pueden imprimir de inmediato. Solo se aplica si hay una cola predeterminada.',
+    'ios_mobile_organization_label':             'Organización mostrada en el perfil',
+    'ios_mobile_organization_help':              'Se muestra en los metadatos del perfil en el dispositivo (p. ej. "Instalado por: Empresa"). Predeterminado: MySecurePrint.',
+    'ios_mobile_signing_label':                  'Firma del perfil',
+    'ios_mobile_signing_status_configured':      'Certificado Apple Developer configurado — los perfiles se entregan firmados.',
+    'ios_mobile_signing_status_unsigned':        'No hay certificado de firma configurado — los perfiles se entregan sin firmar.',
+    'ios_mobile_signing_status_unsigned_hint':   'iOS muestra una advertencia de "No verificado" durante la instalación, pero esta funciona igualmente. Para obtener el distintivo "Verificado", sube un Apple Developer Enterprise Certificate.',
+    'ios_mobile_compat_title':                   'Funciona en iPhone, iPad y Mac',
+    'ios_mobile_compat_desc':                    'El perfil generado es universal — se instala en iOS 12+, iPadOS 13+ y macOS Sequoia+. Los usuarios ven la impresora tras instalar el perfil en cualquier app que pueda imprimir.',
+    'ios_mobile_save':                           'Guardar ajustes',
+    'ios_mobile_stats_title':                    'Perfiles activos',
+    'ios_mobile_stats_profiles':                 'Perfiles en total',
+    'ios_mobile_stats_users':                    'Usuarios activos',
+    'ios_mobile_stats_jobs':                     'Trabajos de impresión hasta ahora',
+    'email_airprint_headline':                   'Imprime al instante desde tu iPhone',
+    'email_airprint_intro':                      "Hemos configurado para ti una impresora nativa que funciona en iPhone, iPad y Mac. Abre el archivo adjunto MySecurePrint.mobileconfig en tu dispositivo y confirma la instalación en los ajustes del sistema. Después podrás imprimir desde Safari, Mail, Fotos o cualquier otra app directamente a nuestro SecurePrint.",
+    'email_airprint_install_steps':              'Cómo instalar el perfil:',
+    'email_airprint_install_step1':              '1. Abre el archivo adjunto MySecurePrint.mobileconfig en tu iPhone/iPad/Mac',
+    'email_airprint_install_step2':              '2. Confirma la instalación del perfil en Ajustes del sistema',
+    'email_airprint_install_step3':              '3. Abre el diálogo "Imprimir" en cualquier app — la impresora está ahí',
+    'email_airprint_app_hint':                   'Para el historial de trabajos, inicio de sesión con tarjeta NFC y delegación recomendamos instalar también la app MySecurePrint.',
+    'airprint_error_token_invalid':              'Este perfil ya no es válido o ha sido revocado. Por favor descarga uno nuevo desde la app.',
+    'airprint_error_queue_no_permission':        'Ya no tienes permiso para esta cola. Por favor contacta con tu administrador.',
+}
+TRANSLATIONS.setdefault("es", {}).update(_IOS_MOBILE_ES)
+
+_IOS_MOBILE_NL: dict[str, str] = {
+    'nav_cfg_ios_mobile':                        'iOS Mobile',
+    'ios_mobile_section_title':                  'iOS Mobile',
+    'ios_mobile_section_intro':                  'Configureer native printerprofielen voor iPhone, iPad en Mac. Gebruikers kunnen daarna vanuit elke app rechtstreeks naar hun SecurePrint-wachtrij printen — zonder Bonjour, zonder VPN, waar ze ook zijn.',
+    'ios_mobile_airprint_enabled_label':         'AirPrint-profielen inschakelen',
+    'ios_mobile_airprint_enabled_help':          'Schakelt native afdrukken via /airprint/{token} in. Gebruikers kunnen vanuit elke iOS-, iPadOS- of macOS-app naar hun SecurePrint-wachtrij printen.',
+    'ios_mobile_default_queue_label':            'Standaardwachtrij voor nieuwe gebruikers',
+    'ios_mobile_default_queue_help':             'De wachtrij die tijdens onboarding automatisch als profiel wordt meegestuurd. Gebruikers kunnen later meer wachtrijen in de app toevoegen.',
+    'ios_mobile_default_queue_none':             'Geen — functie alleen handmatig te gebruiken',
+    'ios_mobile_email_attach_label':             'mobileconfig meesturen bij uitnodiging',
+    'ios_mobile_email_attach_help':              'Nieuw uitgenodigde gebruikers ontvangen het profiel direct als bijlage en kunnen meteen printen. Alleen actief als een standaardwachtrij is ingesteld.',
+    'ios_mobile_organization_label':             'Organisatie in profiel',
+    'ios_mobile_organization_help':              'Wordt in de profielmetadata op het apparaat getoond (bijv. "Geïnstalleerd door: Bedrijf"). Standaard: MySecurePrint.',
+    'ios_mobile_signing_label':                  'Profielondertekening',
+    'ios_mobile_signing_status_configured':      'Apple Developer-certificaat geconfigureerd — profielen worden ondertekend geleverd.',
+    'ios_mobile_signing_status_unsigned':        'Geen ondertekeningscertificaat geconfigureerd — profielen worden niet-ondertekend geleverd.',
+    'ios_mobile_signing_status_unsigned_hint':   'iOS toont bij de installatie een "Niet geverifieerd"-waarschuwing, maar de installatie werkt gewoon. Voor een "Geverifieerd"-badge upload een Apple Developer Enterprise Certificate.',
+    'ios_mobile_compat_title':                   'Werkt op iPhone, iPad en Mac',
+    'ios_mobile_compat_desc':                    'Het gegenereerde profiel is universeel — het installeert op iOS 12+, iPadOS 13+ en macOS Sequoia+. Gebruikers zien de printer na installatie in elke app die kan afdrukken.',
+    'ios_mobile_save':                           'Instellingen opslaan',
+    'ios_mobile_stats_title':                    'Actieve profielen',
+    'ios_mobile_stats_profiles':                 'Profielen totaal',
+    'ios_mobile_stats_users':                    'Actieve gebruikers',
+    'ios_mobile_stats_jobs':                     'Afdruktaken tot nu toe',
+    'email_airprint_headline':                   'Direct printen vanaf je iPhone',
+    'email_airprint_intro':                      "We hebben voor je een native printer ingesteld die werkt op iPhone, iPad en Mac. Open de bijlage MySecurePrint.mobileconfig op je apparaat en bevestig de installatie in de systeeminstellingen. Daarna kun je vanuit Safari, Mail, Foto's of elke andere app direct naar onze SecurePrint printen.",
+    'email_airprint_install_steps':              'Zo installeer je het profiel:',
+    'email_airprint_install_step1':              '1. Open de bijlage MySecurePrint.mobileconfig op je iPhone/iPad/Mac',
+    'email_airprint_install_step2':              '2. Bevestig de profielinstallatie in Systeeminstellingen',
+    'email_airprint_install_step3':              '3. Open het dialoogvenster "Print" in een willekeurige app — de printer staat er',
+    'email_airprint_app_hint':                   'Voor afdrukhistorie, NFC-kaartinlog en delegatie raden we aan ook de MySecurePrint-app te installeren.',
+    'airprint_error_token_invalid':              'Dit profiel is niet meer geldig of ingetrokken. Download een nieuwe uit de app.',
+    'airprint_error_queue_no_permission':        'Je hebt geen rechten meer op deze wachtrij. Neem contact op met je beheerder.',
+}
+TRANSLATIONS.setdefault("nl", {}).update(_IOS_MOBILE_NL)
+
+_IOS_MOBILE_NO: dict[str, str] = {
+    'nav_cfg_ios_mobile':                        'iOS Mobile',
+    'ios_mobile_section_title':                  'iOS Mobile',
+    'ios_mobile_section_intro':                  'Konfigurer native skriverprofiler for iPhone, iPad og Mac. Brukere kan deretter skrive ut direkte fra alle apper til sin SecurePrint-kø — uten Bonjour, uten VPN, uansett hvor de er.',
+    'ios_mobile_airprint_enabled_label':         'Aktiver AirPrint-profiler',
+    'ios_mobile_airprint_enabled_help':          'Aktiverer native utskrifter via /airprint/{token}. Brukere kan skrive ut fra alle iOS-, iPadOS- og macOS-apper til sin SecurePrint-kø.',
+    'ios_mobile_default_queue_label':            'Standardkø for nye brukere',
+    'ios_mobile_default_queue_help':             'Køen som automatisk sendes som profil under onboarding. Brukere kan legge til flere køer senere i appen.',
+    'ios_mobile_default_queue_none':             'Ingen — funksjonen kan bare brukes manuelt',
+    'ios_mobile_email_attach_label':             'Legg ved mobileconfig ved invitasjon',
+    'ios_mobile_email_attach_help':              'Nyinviterte brukere får profilen direkte som e-postvedlegg og kan skrive ut umiddelbart. Aktivt bare når standardkø er satt.',
+    'ios_mobile_organization_label':             'Organisasjon vist i profil',
+    'ios_mobile_organization_help':              'Vises i profilmetadataene på enheten (f.eks. "Installert av: Bedrift"). Standard: MySecurePrint.',
+    'ios_mobile_signing_label':                  'Profilsignering',
+    'ios_mobile_signing_status_configured':      'Apple Developer-sertifikat konfigurert — profiler leveres signert.',
+    'ios_mobile_signing_status_unsigned':        'Ingen signeringssertifikat konfigurert — profiler leveres usignert.',
+    'ios_mobile_signing_status_unsigned_hint':   'iOS viser "Ikke verifisert"-advarsel under installasjon, men installasjonen fungerer likevel. For "Verifisert"-merket, last opp Apple Developer Enterprise Certificate.',
+    'ios_mobile_compat_title':                   'Fungerer på iPhone, iPad og Mac',
+    'ios_mobile_compat_desc':                    'Den genererte profilen er universell — den installeres på iOS 12+, iPadOS 13+ og macOS Sequoia+. Brukere ser skriveren etter installasjon i alle apper som kan skrive ut.',
+    'ios_mobile_save':                           'Lagre innstillinger',
+    'ios_mobile_stats_title':                    'Aktive profiler',
+    'ios_mobile_stats_profiles':                 'Profiler totalt',
+    'ios_mobile_stats_users':                    'Aktive brukere',
+    'ios_mobile_stats_jobs':                     'Utskriftsjobber så langt',
+    'email_airprint_headline':                   'Skriv ut direkte fra iPhone',
+    'email_airprint_intro':                      "Vi har satt opp en native skriver for deg som fungerer på iPhone, iPad og Mac. Åpne vedlegget MySecurePrint.mobileconfig på enheten din og bekreft installasjonen i systeminnstillingene. Etterpå kan du skrive ut fra Safari, Mail, Bilder eller andre apper direkte til vår SecurePrint.",
+    'email_airprint_install_steps':              'Slik installerer du profilen:',
+    'email_airprint_install_step1':              '1. Åpne vedlegget MySecurePrint.mobileconfig på iPhone/iPad/Mac',
+    'email_airprint_install_step2':              '2. Bekreft profilinstallasjonen i Systeminnstillinger',
+    'email_airprint_install_step3':              '3. Åpne "Skriv ut"-dialogen i enhver app — skriveren er der',
+    'email_airprint_app_hint':                   'For jobbhistorikk, NFC-kortinnlogging og delegering anbefaler vi å også installere MySecurePrint-appen.',
+    'airprint_error_token_invalid':              'Denne profilen er ikke lenger gyldig eller er tilbakekalt. Last ned en ny fra appen.',
+    'airprint_error_queue_no_permission':        'Du har ikke lenger tilgang til denne køen. Kontakt administratoren din.',
+}
+TRANSLATIONS.setdefault("no", {}).update(_IOS_MOBILE_NO)
+
+_IOS_MOBILE_SV: dict[str, str] = {
+    'nav_cfg_ios_mobile':                        'iOS Mobile',
+    'ios_mobile_section_title':                  'iOS Mobile',
+    'ios_mobile_section_intro':                  'Konfigurera native skrivarprofiler för iPhone, iPad och Mac. Användare kan sedan skriva ut direkt från alla appar till sin SecurePrint-kö — utan Bonjour, utan VPN, oavsett var de befinner sig.',
+    'ios_mobile_airprint_enabled_label':         'Aktivera AirPrint-profiler',
+    'ios_mobile_airprint_enabled_help':          'Aktiverar native utskrift via /airprint/{token}. Användare kan skriva ut från alla iOS-, iPadOS- och macOS-appar till sin SecurePrint-kö.',
+    'ios_mobile_default_queue_label':            'Standardkö för nya användare',
+    'ios_mobile_default_queue_help':             'Kön som skickas automatiskt som profil vid onboarding. Användare kan lägga till fler köer senare i appen.',
+    'ios_mobile_default_queue_none':             'Ingen — funktionen används endast manuellt',
+    'ios_mobile_email_attach_label':             'Bifoga mobileconfig vid inbjudan',
+    'ios_mobile_email_attach_help':              'Nyinbjudna användare får profilen direkt som e-postbilaga och kan skriva ut omedelbart. Aktiv endast när standardkö är inställd.',
+    'ios_mobile_organization_label':             'Organisation som visas i profilen',
+    'ios_mobile_organization_help':              'Visas i profilmetadata på enheten (t.ex. "Installerad av: Företag"). Standard: MySecurePrint.',
+    'ios_mobile_signing_label':                  'Profilsignering',
+    'ios_mobile_signing_status_configured':      'Apple Developer-certifikat konfigurerat — profiler levereras signerade.',
+    'ios_mobile_signing_status_unsigned':        'Inget signeringscertifikat konfigurerat — profiler levereras osignerade.',
+    'ios_mobile_signing_status_unsigned_hint':   'iOS visar en "Ej verifierad"-varning vid installation, men installationen fungerar ändå. För en "Verifierad"-märkning, ladda upp ett Apple Developer Enterprise Certificate.',
+    'ios_mobile_compat_title':                   'Fungerar på iPhone, iPad och Mac',
+    'ios_mobile_compat_desc':                    'Den genererade profilen är universell — den installeras på iOS 12+, iPadOS 13+ och macOS Sequoia+. Användare ser skrivaren efter installation i alla appar som kan skriva ut.',
+    'ios_mobile_save':                           'Spara inställningar',
+    'ios_mobile_stats_title':                    'Aktiva profiler',
+    'ios_mobile_stats_profiles':                 'Profiler totalt',
+    'ios_mobile_stats_users':                    'Aktiva användare',
+    'ios_mobile_stats_jobs':                     'Utskrifter hittills',
+    'email_airprint_headline':                   'Skriv ut direkt från iPhone',
+    'email_airprint_intro':                      "Vi har satt upp en native skrivare åt dig som fungerar på iPhone, iPad och Mac. Öppna bilagan MySecurePrint.mobileconfig på din enhet och bekräfta installationen i systeminställningarna. Sedan kan du skriva ut från Safari, Mail, Bilder eller alla andra appar direkt till vår SecurePrint.",
+    'email_airprint_install_steps':              'Så installerar du profilen:',
+    'email_airprint_install_step1':              '1. Öppna bilagan MySecurePrint.mobileconfig på din iPhone/iPad/Mac',
+    'email_airprint_install_step2':              '2. Bekräfta profilinstallationen i Systeminställningar',
+    'email_airprint_install_step3':              '3. Öppna "Skriv ut"-dialogen i valfri app — skrivaren finns där',
+    'email_airprint_app_hint':                   'För jobbhistorik, NFC-kortinloggning och delegering rekommenderar vi att också installera MySecurePrint-appen.',
+    'airprint_error_token_invalid':              'Denna profil är inte längre giltig eller har återkallats. Ladda ner en ny från appen.',
+    'airprint_error_queue_no_permission':        'Du har inte längre behörighet för denna kö. Kontakta din administratör.',
+}
+TRANSLATIONS.setdefault("sv", {}).update(_IOS_MOBILE_SV)
+
+# ── Fun-Dialekte: DE-Fallback aber mit charakteristischen Wörtern gewürzt ──
+_IOS_MOBILE_BAR: dict[str, str] = dict(_IOS_MOBILE_EN)  # start mit englischer Basis dann de-Override
+# Für bar/hessisch/oesterreichisch/schwiizerdütsch nutzen wir die deutschen Keys —
+# Fun-Dialekte laufen ohnehin schon via de-Fallback in den EXTRA_TRANSLATIONS-Loops
+# ganz oben in dieser Datei. Wir müssen hier nichts extra tun außer ein paar
+# charakteristischen Überschriften ersetzen für Fun-Faktor.
+_IOS_MOBILE_BAR_OVERRIDES: dict[str, str] = {
+    'ios_mobile_save':              'Grod so speichan',
+    'ios_mobile_compat_title':      'Ged auf iPhone, iPad und Mac',
+    'email_airprint_headline':      'Direkt vom iPhone drucka',
+}
+TRANSLATIONS.setdefault("bar", {}).update(_IOS_MOBILE_BAR_OVERRIDES)
+
+_IOS_MOBILE_HESSISCH_OVERRIDES: dict[str, str] = {
+    'ios_mobile_save':              'Aach mool speischern',
+    'ios_mobile_compat_title':      'Funktioniert uff iPhone, iPad un Mac',
+    'email_airprint_headline':      'Sofort ausm iPhone drugge',
+}
+TRANSLATIONS.setdefault("hessisch", {}).update(_IOS_MOBILE_HESSISCH_OVERRIDES)
+
+_IOS_MOBILE_OESTER_OVERRIDES: dict[str, str] = {
+    'ios_mobile_save':              'Owaspeichern',
+    'ios_mobile_compat_title':      'Rennt am iPhone, iPad und Mac',
+    'email_airprint_headline':      'Glei aus dem iPhone drucken',
+}
+TRANSLATIONS.setdefault("oesterreichisch", {}).update(_IOS_MOBILE_OESTER_OVERRIDES)
+
+_IOS_MOBILE_SCHWIIZ_OVERRIDES: dict[str, str] = {
+    'ios_mobile_save':              'Iistelligä speichärä',
+    'ios_mobile_compat_title':      'Foifsächfüfäd am iPhone, iPad und Mac',
+    'email_airprint_headline':      'Grad usem iPhone drucke',
+}
+TRANSLATIONS.setdefault("schwiizerdütsch", {}).update(_IOS_MOBILE_SCHWIIZ_OVERRIDES)
+
+_IOS_MOBILE_COCKNEY_OVERRIDES: dict[str, str] = {
+    'ios_mobile_save':              'Save the setup, guv',
+    'ios_mobile_compat_title':      'Works on iPhone, iPad and Mac, innit',
+    'email_airprint_headline':      "Print right off yer dog and bone",
+}
+TRANSLATIONS.setdefault("cockney", {}).update(_IOS_MOBILE_COCKNEY_OVERRIDES)
+
+_IOS_MOBILE_USSOUTH_OVERRIDES: dict[str, str] = {
+    'ios_mobile_save':              "Save y'all's settings",
+    'ios_mobile_compat_title':      'Works on iPhone, iPad and Mac, y\'all',
+    'email_airprint_headline':      'Print straight from yer iPhone, sugar',
+}
+TRANSLATIONS.setdefault("us_south", {}).update(_IOS_MOBILE_USSOUTH_OVERRIDES)
 
 # Per-language overrides for cache_last_loaded / cache_refresh_title
 # (must run after the EN/DE propagation loops above so they take effect)
