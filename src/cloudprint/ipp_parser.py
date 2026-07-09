@@ -393,37 +393,119 @@ def build_validate_job_response(request_id: int) -> bytes:
 
 def build_get_printer_attributes_response(request_id: int, printer_uri: str,
                                             printer_name: str = "Cloud Print Port") -> bytes:
-    """Minimal-Attributset für Get-Printer-Attributes.
+    """AirPrint-kompatibles Attributset.
 
-    Printix fragt das wahrscheinlich nicht ab, aber CUPS/Testtools tun's.
-    Wir liefern die wichtigsten Standard-Felder damit der Drucker als
-    'ready' erkannt wird.
+    Wichtig: iOS/AirPrint versteckt den Drucker STUMM aus der Print-
+    Dialog-Liste wenn eines dieser Attribute fehlt oder unbrauchbar ist:
+
+      - document-format-supported MUSS 'application/pdf' und 'image/urf'
+        enthalten (Apple's Universal Raster Format), sonst gilt der
+        Drucker als nicht-druckfähig
+      - urf-supported: Apple-spezifisch, ohne kein AirPrint
+      - printer-make-and-model + color-supported + media-*: Pflicht für
+        die AirPrint-Discovery
+
+    Mit dem hier gelieferten Set taucht der Drucker im iOS Print-Dialog
+    als "MySecurePrint" auf und akzeptiert PDF-Jobs.
     """
     return build_response(
         request_id=request_id,
         status_code=STATUS_SUCCESSFUL_OK,
         printer_attrs=[
+            # Grundidentität
             (TAG_URI,     "printer-uri-supported",         printer_uri),
             (TAG_KEYWORD, "uri-authentication-supported",  "none"),
             (TAG_KEYWORD, "uri-security-supported",        "tls"),
             (TAG_TEXT,    "printer-name",                  printer_name),
+            (TAG_TEXT,    "printer-info",                  printer_name),
+            (TAG_TEXT,    "printer-location",              "MySecurePrint Cloud"),
+            (TAG_TEXT,    "printer-make-and-model",        "MySecurePrint AirPrint 1.0"),
+            (TAG_URI,     "printer-more-info",             printer_uri),
+            (TAG_URI,     "printer-uuid",                  f"urn:uuid:{_stable_uuid_from(printer_uri)}"),
+
+            # State
             (TAG_ENUM,    "printer-state",                 3),  # 3 = idle
             (TAG_KEYWORD, "printer-state-reasons",         "none"),
-            (TAG_KEYWORD, "operations-supported",          "print-job"),
+            (TAG_BOOLEAN, "printer-is-accepting-jobs",     True),
+            (TAG_INTEGER, "queued-job-count",              0),
+
+            # Operations — MUSS ENUM sein, kein KEYWORD
+            (TAG_ENUM,    "operations-supported",          OP_PRINT_JOB),
             (TAG_ENUM,    "operations-supported",          OP_VALIDATE_JOB),
+            (TAG_ENUM,    "operations-supported",          OP_GET_PRINTER_ATTRIBUTES),
+            (TAG_ENUM,    "operations-supported",          OP_GET_JOBS),
+            (TAG_ENUM,    "operations-supported",          OP_CANCEL_JOB),
+
+            # Charset + Sprache
             (TAG_CHARSET, "charset-configured",            "utf-8"),
             (TAG_CHARSET, "charset-supported",             "utf-8"),
             (TAG_NATURAL_LANG, "natural-language-configured", "en"),
             (TAG_NATURAL_LANG, "generated-natural-language-supported", "en"),
-            (TAG_MIME_TYPE,    "document-format-default",    "application/octet-stream"),
-            (TAG_MIME_TYPE,    "document-format-supported",  "application/octet-stream"),
-            (TAG_BOOLEAN, "printer-is-accepting-jobs",     True),
-            (TAG_INTEGER, "queued-job-count",              0),
+
+            # Document-Formate — PDF + Apple Universal Raster + JPEG
+            # Ohne image/urf oder application/pdf zeigt AirPrint den
+            # Drucker NICHT in der Print-Dialog-Liste.
+            (TAG_MIME_TYPE, "document-format-default",     "application/pdf"),
+            (TAG_MIME_TYPE, "document-format-supported",   "application/pdf"),
+            (TAG_MIME_TYPE, "document-format-supported",   "image/urf"),
+            (TAG_MIME_TYPE, "document-format-supported",   "image/jpeg"),
+            (TAG_MIME_TYPE, "document-format-supported",   "application/octet-stream"),
+
+            # AirPrint URF-Fähigkeiten (Apple-spezifisch, essenziell)
+            (TAG_KEYWORD, "urf-supported",                 "V1.4"),
+            (TAG_KEYWORD, "urf-supported",                 "CP1"),
+            (TAG_KEYWORD, "urf-supported",                 "RS300"),
+            (TAG_KEYWORD, "urf-supported",                 "W8"),
+            (TAG_KEYWORD, "urf-supported",                 "SRGB24"),
+            (TAG_KEYWORD, "urf-supported",                 "DEVW8"),
+            (TAG_KEYWORD, "urf-supported",                 "DEVRGB24"),
+            (TAG_KEYWORD, "urf-supported",                 "ADOBERGB24"),
+            (TAG_KEYWORD, "urf-supported",                 "IS1-5-7"),
+            (TAG_KEYWORD, "urf-supported",                 "MT1-2-3-4-5-6-8-9-10-11-12-13"),
+            (TAG_KEYWORD, "urf-supported",                 "OB10"),
+
+            # Print-Options
+            (TAG_BOOLEAN, "color-supported",               True),
+            (TAG_KEYWORD, "print-color-mode-supported",    "auto"),
+            (TAG_KEYWORD, "print-color-mode-supported",    "color"),
+            (TAG_KEYWORD, "print-color-mode-supported",    "monochrome"),
+            (TAG_KEYWORD, "print-color-mode-default",      "auto"),
+            (TAG_KEYWORD, "sides-supported",               "one-sided"),
+            (TAG_KEYWORD, "sides-supported",               "two-sided-long-edge"),
+            (TAG_KEYWORD, "sides-supported",               "two-sided-short-edge"),
+            (TAG_KEYWORD, "sides-default",                 "one-sided"),
+            (TAG_INTEGER, "copies-supported",              1),
+            (TAG_INTEGER, "copies-default",                1),
+
+            # Media (Papiergrößen) — A4 + Letter reichen für AirPrint-Discovery
+            (TAG_KEYWORD, "media-supported",               "iso_a4_210x297mm"),
+            (TAG_KEYWORD, "media-supported",               "na_letter_8.5x11in"),
+            (TAG_KEYWORD, "media-default",                 "iso_a4_210x297mm"),
+            (TAG_KEYWORD, "media-source-supported",        "auto"),
+            (TAG_KEYWORD, "media-type-supported",          "stationery"),
+            (TAG_KEYWORD, "output-bin-supported",          "face-down"),
+            (TAG_KEYWORD, "output-bin-default",            "face-down"),
+
+            # Sonstige
             (TAG_KEYWORD, "pdl-override-supported",        "not-attempted"),
-            (TAG_INTEGER, "multiple-document-jobs-supported", 0),
+            (TAG_BOOLEAN, "multiple-document-jobs-supported", False),
             (TAG_INTEGER, "ipp-versions-supported",        0x00010001),  # 1.1
+            (TAG_KEYWORD, "compression-supported",         "none"),
+            (TAG_KEYWORD, "finishings-supported",          "none"),
+            (TAG_KEYWORD, "finishings-default",            "none"),
+            (TAG_KEYWORD, "job-creation-attributes-supported", "copies"),
+            (TAG_KEYWORD, "job-creation-attributes-supported", "sides"),
+            (TAG_KEYWORD, "job-creation-attributes-supported", "print-color-mode"),
+            (TAG_KEYWORD, "job-creation-attributes-supported", "media"),
         ],
     )
+
+
+def _stable_uuid_from(seed: str) -> str:
+    """Stabile UUID aus dem printer-uri erzeugen — iOS cached auf UUID,
+    die muss zwischen Requests identisch sein."""
+    import uuid as _u
+    return str(_u.uuid5(_u.NAMESPACE_URL, seed))
 
 
 def build_unsupported_op_response(request_id: int) -> bytes:
