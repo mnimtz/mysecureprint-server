@@ -159,14 +159,23 @@ def register_airprint_admin_routes(app: FastAPI,
 
     # ──────────────────────────────────────────────────────────────
     # Download-Endpoints (Admin)
+    # WICHTIG: ZIP-Route MUSS vor der generischen Route registriert
+    # werden — sonst matcht die generische zuerst und {profile_id}
+    # schluckt das ".zip"-Suffix. Alternativ liefen die zip-Requests
+    # in _admin_download_impl mit profile_id="xxx.zip" und bekamen
+    # 404 statt ZIP.
     # ──────────────────────────────────────────────────────────────
-    @app.get("/admin/airprint/download/{profile_id}")
-    async def airprint_admin_download(profile_id: str, request: Request):
-        return _admin_download_impl(profile_id, request, as_zip=False)
-
     @app.get("/admin/airprint/download/{profile_id}.zip")
     async def airprint_admin_download_zip(profile_id: str, request: Request):
         return _admin_download_impl(profile_id, request, as_zip=True)
+
+    @app.get("/admin/airprint/download/{profile_id}")
+    async def airprint_admin_download(profile_id: str, request: Request):
+        # Zusaetzliche Defensive: falls FastAPI die Reihenfolge doch
+        # umsortiert (Middleware/etc.), fangen wir hier .zip explizit ab.
+        if profile_id.endswith(".zip"):
+            return _admin_download_impl(profile_id[:-4], request, as_zip=True)
+        return _admin_download_impl(profile_id, request, as_zip=False)
 
     def _admin_download_impl(profile_id: str, request: Request,
                               as_zip: bool) -> Response:
