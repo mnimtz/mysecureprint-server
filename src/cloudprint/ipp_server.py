@@ -111,6 +111,33 @@ async def _handle_ipp_request(profile_token: str, body: bytes,
         return _ipp_response(
             ipp.build_response(req.request_id, status_code=ipp.STATUS_OK),
         )
+    elif req.operation_id == 0x000A:  # Get-Jobs
+        # iOS pollt das im Sekundentakt zum Status-Check. Wir tracken die
+        # Jobs nach dem Print-Job-Ack nicht mehr per IPP-Job-ID (Printix
+        # ist die Autoritaet); leere Liste zurueck heisst fuer iOS
+        # "keine offenen Jobs" -> haken dran, fertig.
+        return _ipp_response(
+            ipp.build_response(req.request_id, status_code=ipp.STATUS_OK),
+        )
+    elif req.operation_id == 0x0009:  # Get-Job-Attributes
+        # Falls iOS gezielt nach einem bestimmten Job fragt: Dummy
+        # "completed" damit iOS die Status-Anzeige beendet.
+        printer_uri = _derive_printer_uri(request, profile_token)
+        job_id = int(req.attr("job-id", 1) or 1)
+        return _ipp_response(
+            ipp.build_get_job_attributes_response(
+                request_id=req.request_id, job_id=job_id,
+                printer_uri=printer_uri,
+                job_state=ipp.JOB_STATE_COMPLETED,
+            ),
+        )
+    elif req.operation_id == 0x0008:  # Cancel-Job
+        # Jobs sind im Moment des Ack schon "abgeschickt" — Cancel ist
+        # ein No-op auf unserer Seite, aber wir muessen OK antworten
+        # sonst haengt iOS im "Abbrechen"-Zustand.
+        return _ipp_response(
+            ipp.build_response(req.request_id, status_code=ipp.STATUS_OK),
+        )
 
     logger.warning("AirPrint: nicht unterstützte IPP-Operation 0x%04x", req.operation_id)
     return _ipp_response(
@@ -244,13 +271,13 @@ async def _handle_print_job(profile_token: str, req: ipp.IppRequest,
 
     # ─── 7. IPP-Erfolgs-Response direkt zurück an iOS ─────────────────
     numeric_job_id = int(time.time() * 1000) & 0x7FFFFFFF
+    printer_uri = _derive_printer_uri(request, profile_token)
     return _ipp_response(
         ipp.build_print_job_response(
             request_id=req.request_id,
             job_id=numeric_job_id,
-            job_uri=f"{_derive_printer_uri(request, profile_token)}/jobs/{numeric_job_id}",
+            printer_uri=printer_uri,
             job_state=ipp.JOB_STATE_PENDING,
-            job_state_reasons=("none",),
         ),
     )
 

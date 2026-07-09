@@ -37,27 +37,47 @@ async def submit_airprint_job(user_id: str,
     /desktop/upload aufzurufen) weil wir hier keinen Bearer-Token haben
     — der Server ist selbst schon authenifiziert via Profile-Token.
     """
-    from db import _conn, _resolve_tenant_owner_for
-    from cloudprint.db_extensions import get_tenant_for_user
+    from db import (_conn, _resolve_tenant_owner_for,
+                    _find_tenant_owner_user_id, get_tenant_by_user_id,
+                    get_tenant_full_by_user_id)
     from printix_client import PrintixClient
 
     if not internal_job_id:
         internal_job_id = _uuid.uuid4().hex[:8]
 
     # ─── Tenant + Printix-Credentials für den User ────────────────────
-    parent_id = _resolve_tenant_owner_for(user_id) or user_id
-    tenant = get_tenant_for_user(parent_id)
+    # Kaskade: (1) via _resolve_tenant_owner_for direkt auf die Owner-
+    # user_id, (2) als Fallback den globalen Tenant-Owner. In beiden
+    # Faellen versuchen wir zuerst mit dem gefundenen parent_id.
+    candidates = []
+    resolved = _resolve_tenant_owner_for(user_id)
+    if resolved:
+        candidates.append(resolved)
+    if user_id and user_id not in candidates:
+        candidates.append(user_id)
+    global_owner = _find_tenant_owner_user_id()
+    if global_owner and global_owner not in candidates:
+        candidates.append(global_owner)
+
+    tenant = None
+    parent_id = None
+    for cand in candidates:
+        t = get_tenant_by_user_id(cand)
+        if t:
+            tenant = t
+            parent_id = cand
+            break
     if not tenant:
         logger.error(
-            "AirPrint submit: kein Tenant für user=%s — Job verworfen",
-            user_id,
+            "AirPrint submit: kein Tenant für user=%s — Job verworfen "
+            "(candidates=%s)", user_id, candidates,
         )
         return internal_job_id
 
-    from db import get_tenant_full_by_user_id
     full_tenant = get_tenant_full_by_user_id(parent_id)
     if not full_tenant:
-        logger.error("AirPrint submit: get_tenant_full liefert None")
+        logger.error("AirPrint submit: get_tenant_full liefert None "
+                     "für parent=%s", parent_id)
         return internal_job_id
 
     client = PrintixClient(
