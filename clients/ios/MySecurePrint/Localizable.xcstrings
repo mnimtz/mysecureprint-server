@@ -19671,55 +19671,55 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Profil öffnen"
+            "value": "Profil zur Installation öffnen"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open profile"
+            "value": "Open profile for installation"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abrir perfil"
+            "value": "Abrir perfil para instalar"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrir le profil"
+            "value": "Ouvrir le profil pour installation"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apri profilo"
+            "value": "Apri profilo per installazione"
           }
         },
         "nb": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aapne profil"
+            "value": "Åpne profil for installasjon"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Profiel openen"
+            "value": "Profiel openen voor installatie"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abrir perfil"
+            "value": "Abrir perfil para instalação"
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "Oppna profil"
+            "value": "Öppna profil för installation"
           }
         }
       }
@@ -20310,6 +20310,419 @@
           "stringUnit": {
             "state": "translated",
             "value": "För en specifik skrivare från din Printix-miljö."
+          }
+        }
+      }
+    },
+    "airprint_install_step1_v2": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf 'Profil zur Installation öffnen' tippen — das iOS-Share-Menü erscheint"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap 'Open profile for installation' — the iOS share sheet appears"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appuie sur 'Ouvrir le profil pour installation' — la feuille de partage iOS apparaît"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tocca 'Apri profilo per installazione' — appare il foglio di condivisione iOS"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca 'Abrir perfil para instalar' — aparece la hoja para compartir de iOS"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tik op 'Profiel openen voor installatie' — het iOS-deelpaneel verschijnt"
+          }
+        },
+        "nb": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trykk 'Åpne profil for installasjon' — iOS-delearket vises"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toque em 'Abrir perfil para instalação' — a folha de compartilhamento do iOS aparece"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tryck 'Öppna profil för installation' — iOS delningsark visas"
+          }
+        }
+      }
+    },
+    "airprint_install_step2_v2": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "'In Dateien sichern' wählen und speichern — iOS öffnet direkt danach die Profil-Vorschau"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose 'Save to Files' and save — iOS opens the profile preview right after"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisis 'Enregistrer dans Fichiers' et enregistre — iOS ouvre l'aperçu du profil juste après"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scegli 'Salva su File' e conferma — iOS apre subito dopo l'anteprima del profilo"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige 'Guardar en Archivos' y guarda — iOS abre la vista previa del perfil justo después"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kies 'Bewaar in Bestanden' en bewaar — iOS opent daarna direct de profielvoorbeeld"
+          }
+        },
+        "nb": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Velg 'Lagre i Filer' og lagre — iOS åpner profil-forhåndsvisningen rett etterpå"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escolha 'Guardar em Ficheiros' e guardar — o iOS abre a pré-visualização do perfil logo depois"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Välj 'Spara i Filer' och spara — iOS öppnar profil-förhandsvisningen direkt efter"
+          }
+        }
+      }
+    },
+    "airprint_install_step3_v2": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einstellungen → oben 'Profil geladen' → 'Installieren' antippen und mit Code bestätigen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings → top 'Profile Downloaded' → tap 'Install' and confirm with your passcode"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réglages → en haut 'Profil téléchargé' → appuie sur 'Installer' et confirme avec le code"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impostazioni → in alto 'Profilo scaricato' → tocca 'Installa' e conferma con il codice"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes → arriba 'Perfil descargado' → toca 'Instalar' y confirma con el código"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instellingen → bovenaan 'Profiel gedownload' → tik op 'Installeer' en bevestig met je code"
+          }
+        },
+        "nb": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Innstillinger → øverst 'Profil lastet ned' → trykk 'Installer' og bekreft med koden"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes → em cima 'Perfil transferido' → toque em 'Instalar' e confirme com o código"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inställningar → överst 'Profil hämtad' → tryck 'Installera' och bekräfta med koden"
+          }
+        }
+      }
+    },
+    "airprint_install_fallback_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein 'Profil geladen'-Hinweis sichtbar?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Don't see the 'Profile Downloaded' banner?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas de bannière 'Profil téléchargé' ?"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non vedi il banner 'Profilo scaricato'?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿No ves el aviso 'Perfil descargado'?"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geen 'Profiel gedownload'-melding zichtbaar?"
+          }
+        },
+        "nb": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ingen 'Profil lastet ned'-melding?"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não vê o aviso 'Perfil transferido'?"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ser du inte 'Profil hämtad'-meddelandet?"
+          }
+        }
+      }
+    },
+    "airprint_install_fallback_path1": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ Einstellungen → Allgemein → VPN & Geräteverwaltung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ Settings → General → VPN & Device Management"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ Réglages → Général → VPN et gestion de l'appareil"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ Impostazioni → Generali → VPN e gestione dispositivo"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ Ajustes → General → VPN y gestión del dispositivo"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ Instellingen → Algemeen → VPN en apparaatbeheer"
+          }
+        },
+        "nb": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ Innstillinger → Generelt → VPN og enhetsadministrasjon"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ Ajustes → Geral → VPN e gestão de dispositivo"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ Inställningar → Allmänt → VPN och enhetshantering"
+          }
+        }
+      }
+    },
+    "airprint_install_fallback_path2": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ Files-App öffnen → gespeicherte .mobileconfig antippen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ Open Files app → tap the saved .mobileconfig"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ Ouvre l'app Fichiers → touche le .mobileconfig enregistré"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ Apri l'app File → tocca il .mobileconfig salvato"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ Abre la app Archivos → toca el .mobileconfig guardado"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ Open de Bestanden-app → tik op de opgeslagen .mobileconfig"
+          }
+        },
+        "nb": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ Åpne Filer-appen → trykk på den lagrede .mobileconfig"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ Abrir app Ficheiros → tocar no .mobileconfig guardado"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ Öppna Filer-appen → tryck på den sparade .mobileconfig"
+          }
+        }
+      }
+    },
+    "airprint_install_fallback_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beide Wege zeigen anschließend den Installations-Dialog."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Both paths lead to the install dialog."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les deux chemins mènent à la boîte de dialogue d'installation."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entrambi i percorsi portano al dialogo di installazione."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ambos caminos llevan al diálogo de instalación."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beide wegen leiden naar het installatiedialoogvenster."
+          }
+        },
+        "nb": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Begge veier fører til installasjonsdialogen."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ambos os caminhos levam ao diálogo de instalação."
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Båda vägarna leder till installationsdialogen."
           }
         }
       }

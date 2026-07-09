@@ -406,66 +406,76 @@ struct AirPrintNewProfileView: View {
 struct AirPrintInstallSheet: View {
     @Environment(\.dismiss) private var dismiss
     let mobileconfigURL: URL
+    @State private var showShare = false
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 20) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 56))
-                    .foregroundColor(.green)
-                    .padding(.top, 20)
+            ScrollView {
+                VStack(spacing: 18) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 56))
+                        .foregroundColor(.green)
+                        .padding(.top, 20)
 
-                Text(String(localized: "airprint_install_headline"))
-                    .font(.title2).fontWeight(.bold)
+                    Text(String(localized: "airprint_install_headline"))
+                        .font(.title2).fontWeight(.bold)
 
-                Text(String(localized: "airprint_install_body"))
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
+                    Text(String(localized: "airprint_install_body"))
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        stepRow(number: "1", text: String(localized: "airprint_install_step1_v2"))
+                        stepRow(number: "2", text: String(localized: "airprint_install_step2_v2"))
+                        stepRow(number: "3", text: String(localized: "airprint_install_step3_v2"))
+                    }
+                    .padding(.horizontal, 30)
+
+                    // Fallback-Hinweis — wenn's mal nicht automatisch geht.
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(String(localized: "airprint_install_fallback_title"))
+                            .font(.subheadline).fontWeight(.semibold)
+                            .foregroundColor(MSP.navy)
+                        Text(String(localized: "airprint_install_fallback_path1"))
+                            .font(.callout)
+                        Text(String(localized: "airprint_install_fallback_path2"))
+                            .font(.callout)
+                        Text(String(localized: "airprint_install_fallback_hint"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.yellow.opacity(0.12))
+                    .cornerRadius(10)
                     .padding(.horizontal, 20)
 
-                VStack(alignment: .leading, spacing: 12) {
-                    stepRow(number: "1", text: String(localized: "airprint_install_step1"))
-                    stepRow(number: "2", text: String(localized: "airprint_install_step2"))
-                    stepRow(number: "3", text: String(localized: "airprint_install_step3"))
-                }
-                .padding(.horizontal, 30)
-                .padding(.vertical, 12)
-
-                Spacer()
-
-                Button {
-                    // iOS System-Preview für .mobileconfig — öffnet direkt
-                    // den Install-Dialog wenn iOS den MIME-Typ erkennt.
-                    if let scene = UIApplication.shared.connectedScenes
-                                    .first as? UIWindowScene,
-                       let root = scene.windows.first?.rootViewController {
-                        let ctrl = UIDocumentInteractionController(url: mobileconfigURL)
-                        ctrl.delegate = InstallDelegate.shared
-                        ctrl.uti = "com.apple.mobileconfig"
-                        ctrl.presentPreview(animated: true)
-                        // Halte den Controller am Leben
-                        InstallDelegate.shared.currentController = ctrl
-                        _ = root  // avoid unused
+                    Button {
+                        showShare = true
+                    } label: {
+                        Text(String(localized: "airprint_install_open_button"))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(MSP.gold)
+                            .foregroundColor(MSP.navy)
+                            .cornerRadius(14)
                     }
-                } label: {
-                    Text(String(localized: "airprint_install_open_button"))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(MSP.gold)
-                        .foregroundColor(MSP.navy)
-                        .cornerRadius(14)
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 10)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
 
-                Button(String(localized: "airprint_install_close")) {
-                    dismiss()
+                    Button(String(localized: "airprint_install_close")) {
+                        dismiss()
+                    }
+                    .foregroundColor(.secondary)
+                    .padding(.bottom, 20)
                 }
-                .foregroundColor(.secondary)
-                .padding(.bottom, 20)
             }
             .brandNavStyle(title: String(localized: "airprint_install_title"))
+            .sheet(isPresented: $showShare) {
+                ActivityShareSheet(activityItems: [mobileconfigURL])
+            }
         }
     }
 
@@ -484,19 +494,17 @@ struct AirPrintInstallSheet: View {
     }
 }
 
-// Delegate hält den DocumentInteractionController am Leben und liefert
-// die Preview-View-Controller-Referenz an iOS.
-private final class InstallDelegate: NSObject, UIDocumentInteractionControllerDelegate {
-    static let shared = InstallDelegate()
-    var currentController: UIDocumentInteractionController?
+// System-Share-Sheet — der zuverlaessige Weg fuer .mobileconfig auf
+// modernen iOS-Versionen. User waehlt "In Dateien sichern" oder
+// AirDrop; iOS erkennt die Datei-Endung und startet den Profil-
+// Install-Flow.
+struct ActivityShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
 
-    func documentInteractionControllerViewControllerForPreview(
-        _ controller: UIDocumentInteractionController
-    ) -> UIViewController {
-        return UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }
-            .compactMap { $0.rootViewController }
-            .first ?? UIViewController()
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems,
+                                  applicationActivities: nil)
     }
+
+    func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
 }
