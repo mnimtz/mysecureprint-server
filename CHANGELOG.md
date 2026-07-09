@@ -1,5 +1,204 @@
 # Changelog — MySecurePrint Server
 
+## 0.8.0 — 2026-07-09 — iOS AirPrint Stage 1: native printer profiles
+
+**Major new feature.** Users can now install a native iOS/iPadOS/macOS
+printer profile once and print from **every app** directly into their
+personalised SecurePrint queue. No Bonjour, no VPN, no MDM required —
+works over HTTPS from cellular, guest Wi-Fi, home network.
+
+Design decision: profiles are personalised (URL-token per user × queue).
+The token is the auth material — every job arrives at Printix with the
+real user as owner. IPP `requesting-user-name` from iOS is ignored for
+auth (it's just the device name, not a security signal).
+
+### What ships in Stage 1 (v0.8.0)
+
+**Server:**
+- New IPP/IPPS endpoint `/airprint/{token}` (POST for print jobs, GET
+  for health checks). Portable Python IPP parser + response builder.
+- `.mobileconfig` generator with optional PKCS7 signing (Apple
+  Developer Enterprise Certificate). Delivered as
+  `application/x-apple-aspen-config` — one tap installs on iOS.
+- New settings table `cloudprint_airprint_profiles` (token, user_id,
+  queue_id, created_via, is_revoked, job_count, last_used_at).
+- Cross-check on print: token must exist + not revoked, user must
+  still have Printix permission on the queue — else `1030 not
+  authorized` IPP response.
+- Live queue dropdown reads from the Printix API (not stale local
+  cache).
+
+**Admin UI (*Configuration → iOS Mobile*):**
+- Feature toggle (default OFF, no visible change until turned on).
+- Default queue picker with 🌐 Anywhere-first sorting.
+- "Attach mobileconfig to invitation email" toggle + "Send as ZIP"
+  fallback for strict mail filters.
+- Signing certificate upload (cert.pem + key.pem, sanity-checked with
+  `cryptography.x509`) + one-click remove.
+- Live statistics: active profiles / users / total print jobs.
+
+**Admin user-management UI (*Configuration → iOS Mobile — Users*):**
+- Search box + user list with active profile count per user.
+- Per-user detail view: create profile + download as `.mobileconfig`
+  or `.zip` (ZIP contains a README with install instructions).
+- Revoke button with confirmation.
+
+**iOS app:**
+- New **AirPrint** tab for non-admin users (prominent placement — the
+  most important feature after Upload/Jobs).
+- Admins see the same view under **More → iOS Printers**.
+- Wizard: queue picker → optional display name → Create → iOS install
+  dialog (`UIDocumentInteractionController`).
+- Swipe-to-revoke in the profile list.
+
+**Invitation email (opt-in per settings):**
+- New users get the profile as `.mobileconfig` or `.zip` attachment
+  in their welcome email — they can print before installing the app.
+
+**i18n:** 41 new keys × 14 server languages (fully translated for
+de/en/fr/it/es/nl/no/sv, fun-mode dialect overrides for
+bar/hessisch/oesterreichisch/schwiizerdütsch/cockney/us_south) +
+33 new keys × 9 iOS languages.
+
+**Docs:**
+- New: [`docs/airprint-setup-guide.md`](docs/airprint-setup-guide.md) —
+  admin setup + user onboarding + troubleshooting.
+- New: [`docs/AIRPRINT_PROFILE_DESIGN.md`](docs/AIRPRINT_PROFILE_DESIGN.md) —
+  architecture, threat model, phased plan (Stage 2 self-service portal
+  in v0.9.0, MDM variable substitution in v0.9.x+).
+
+---
+
+## 0.7.152–0.7.230 — 2026-07-01 to 2026-07-09 — Consolidated
+
+The gap between 0.7.46 and 0.8.0 covers ~180 patch releases. Grouped
+by theme (individual commits are on `git log`):
+
+### AI document analysis (v0.7.151–0.7.185, ~30 patches)
+
+- **Automatic tag extraction, summary, sensitivity per print job.**
+  Runs asynchronously after upload; results appear in the iOS job
+  details.
+- **Provider choice**: Gemini (cheapest for large PDFs), OpenAI
+  (`gpt-4o-mini` default with dynamic model loading), or a
+  self-hosted Ollama endpoint.
+- **Prompt customisation** — per-queue admin can set custom prompts
+  with named variables ("invoice_number", "customer_id") that get
+  extracted into the iOS job list.
+- **Language follows user locale** — tags/summary generated in the
+  same language the iOS app is set to (Accept-Language header from
+  the upload).
+- **Office documents supported**: `.docx`, `.xlsx`, `.pptx` are
+  converted via LibreOffice before being handed to the AI provider.
+- **Error hardening**: encrypted OpenAI keys were sent as-is to the
+  API (401 error) — now decrypted at call time. Audit-log entries
+  now include the specific rejection reason instead of a generic
+  "AI failed".
+
+### Live job-status polling system (v0.7.155–0.7.230, ~40 patches)
+
+The most involved multi-version effort — went through several iterations
+after live-testing revealed Printix API quirks.
+
+- **Adaptive interval per job age**: 20 s for jobs younger than 3
+  min, then 60 s, 5 min, 15 min, up to 30 min for jobs waiting > 8 h
+  in an Anywhere queue.
+- **Server-side cooldown** (60 s) prevents Printix rate-limit
+  exhaustion when many users refresh at once.
+- **Grace period** (60 s) after job creation — Printix takes 10–30 s
+  to index a fresh job; without the grace period our poller would
+  briefly mark it as "deleted".
+- **Web-UI-delete detection** via `list_jobs` cross-check
+  (v0.7.222) — if a job is still present in `get_print_job` but
+  missing from `list_print_jobs` for 5+ min, it was deleted at
+  Printix. Skipped for terminal states (`printed`, `deleted`,
+  `expired`) to avoid false positives on successful jobs (v0.7.223).
+- **State map expansion**: added `PRINT_FAILED`, `AWAIT_PRINT`,
+  `USER_DELETED`, `CANCELLED`, `EXPIRED` and clearly marked
+  guess-mappings vs. Printix-docs-verified mappings (v0.7.219,
+  v0.7.221).
+- **Delete via `POST /jobs/{id}/delete`** — Printix docs contradict
+  themselves on HTTP method; v0.7.202 fixed the 405-error path by
+  switching to POST (which is what actually works per live test).
+- **Job-delete race condition** in iOS: v0.7.218 introduced
+  `deletingJobIds` set to block cache re-hydration while the delete
+  request is in flight — fixes the "job disappears then reappears"
+  UX bug.
+
+### iOS app: v1.3.8 → v1.5.0 (in App Store review)
+
+- **v1.3.8**: automatic job-status poll loop + iOS Job-Status view.
+- **v1.3.9**: 17 missing i18n keys added to all 7 target languages.
+- **v1.4.0** (approved by Apple 2026-07-08): full Tungsten brand
+  compliance sweep — MatrixSplashView redesigned in Deep Navy + Tungsten
+  Blue + Green Accent; error/warning/success semantic tokens;
+  AI-tag language now follows iOS locale.
+- **v1.5.0** (in review at time of writing): Job-list race-condition
+  fixes, Management-view audit improvements, brand splash refresh,
+  App Store keyword `printix` added as first keyword (was missing —
+  the app didn't appear in "printix" search).
+
+### Management view improvements (v0.7.224)
+
+- **Models complete**: `MgmtUser.groups`, `MgmtWorkstation.siteId` +
+  `.description` — the server was already returning these fields in
+  the list but the Swift model didn't decode them, forcing extra
+  detail-fetch roundtrips.
+- **Search filter completeness**: `PrinterListView` now searches
+  `status` + `queueId` (visible in UI but previously not searchable);
+  `WorkstationListView` searches `description`.
+- **Detail error visibility**: `try?` calls in the three detail views
+  silently swallowed errors — now show an inline retry banner.
+- **`linkedUser` race fix**: `WorkstationDetailView` triggers a full
+  cache refresh when its linked user isn't in the cache yet.
+- **AppCache error logging**: per-bucket `_fetchLogged` wrapper logs
+  which endpoint failed and why (was `try?`).
+- **Refresh timer scenePhase-guarded**: no more background polling
+  when the app is inactive.
+- **Server**: hardcoded `role="USER,GUEST_USER"` string moved to a
+  constant so future Printix role renames only need one edit.
+
+### Card management (v0.7.188–0.7.215, ~10 patches)
+
+- **PIN field**: server + Model + iOS View.
+- **Card ID extraction** helpers for the various encoding formats
+  Printix accepts.
+- **Sync improvements**: cards already registered in Printix are now
+  reflected back into the local DB (v0.7.215), missing-UID diagnosis
+  in `/admin/entra/sync-cards` result JSON (v0.7.211).
+
+### Entra auto-setup polish (v0.7.208–0.7.214)
+
+- **Include-flags persisted** — Mail.Send / Mail.Read / User.Read.All
+  toggles now round-trip through DB payload.
+- **Admin-consent flow simplified** — User.Read.All checked by
+  default, no separate manual admin-consent click needed for the
+  common case.
+- **Real Graph error visible in UI** during Card-Sync — was buried
+  in the log.
+- **"Save & test" affordance corrected** — the "Run now" button no
+  longer says "Saved" incorrectly.
+
+### Various fixes & UX
+
+- **`/admin/settings` section-safe save** (v0.7.42, already logged
+  below) prevented "EntraID appears deactivated" bug — extended in
+  v0.7.214 to always redirect back to the same section.
+- **Widget** on iOS Home Screen (v0.7.152) — `systemSmall` +
+  `systemMedium` sizes with queued-job count and last-status
+  colour band.
+- **App Store submit tooling** (`asc_submit.py`): default version
+  bumped, cancel-review helper for `WAITING_FOR_REVIEW`, first
+  keyword now `printix` (was missing).
+- **Login page**: removed "Powered by Tungsten Automation" line,
+  centred "Sign in" button.
+- **Sidebar**: state persists on navigation (v0.7.167), collapsed
+  by default for Configuration + GDPR + Cloud categories.
+- **Push Notifications** admin card visually aligned with the rest
+  of the settings.
+
+---
+
 ## 0.7.46 — 2026-07-01 — Mono-Repo: iOS + macOS Clients umgezogen
 
 Bisher lebten die MySecurePrint-Client-Apps (iOS + macOS) in einem separaten Repo (`github.com/mnimtz/Printix-MCP`) — historisch aus dem printix-mcp-Vorgänger. Das war irreführend: Namensgebung + Zugehörigkeit passten nicht. Jetzt sind sie unter `clients/` in diesem Repo:

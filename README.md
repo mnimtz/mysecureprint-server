@@ -28,7 +28,18 @@ Alternative: `az webapp` CLI walkthrough in [`docs/azure-deploy-guide.md`](docs/
 - **NFC card enrolment** — read Mifare / ISO-14443 / ISO-15693 UIDs and link them to the user's Printix identity.
 - **Multi-target print** — send one job to multiple SecurePrint queues at once.
 - **Print delegation** — send jobs to another user's SecurePrint queue on their behalf (admin-controlled toggle, off by default for GDPR).
-- **Print job history** — status per target (queued, ready to pick up, failed).
+- **Print job history** — live status per target (queued, ready to pick up, failed, deleted).
+- **iOS AirPrint profiles** (v0.8.0) — install a native printer profile once and print from **any iOS/iPadOS/macOS app** directly to your SecurePrint queue. No Bonjour, no VPN — works over cellular, guest Wi-Fi, everywhere. Config profiles are personalised (URL-token per user × queue), so every job arrives at Printix with the real user as owner.
+- **Home Screen widget + Live Activities** (v0.7.152+) — see queued jobs and card status in the Lock Screen / Dynamic Island without opening the app.
+
+### AI document analysis (v0.7.171+)
+
+- **Automatic tag extraction, summary, sensitivity** — when a print job arrives, an AI model (Gemini, OpenAI GPT-4o-mini or a local Ollama) reads the document and adds tags ("invoice", "contract"), a one-sentence summary, and a suggested sensitivity level ("public" / "internal" / "confidential").
+- **Language follows the user's locale** — tags/summary are generated in the same language the iOS app is set to.
+- **Provider choice** — pick Gemini (cheapest per page for large PDFs), OpenAI (best for Word/Excel/PowerPoint conversion pipeline), or a self-hosted Ollama model.
+- **Prompt customisation** — configure your own extraction prompts per queue if the defaults don't match your document types.
+- **Custom prompts** — admin can define named variables ("invoice_number", "customer_id") that get extracted and shown in the iOS job list.
+- **Runs in background** — the print job itself never waits for AI; analysis populates the iOS job details asynchronously.
 
 ### Admin (web UI)
 
@@ -87,6 +98,9 @@ Hardened over v0.7.29–0.7.40 based on adversarial audits:
 | Area | Status |
 |---|---|
 | **iOS + macOS app backend** — Entra PKCE, NFC card enrolment, multi-target print, delegation, share-sheet upload | ✅ |
+| **iOS/iPadOS/macOS AirPrint profiles** — native printer profile per user × queue, install once and print from every app | ✅ (v0.8.0+) |
+| **AI document analysis** — Gemini / OpenAI / Ollama tags, summary, sensitivity per print job, prompt-configurable per queue | ✅ (v0.7.171+) |
+| **Live job-status polling** — adaptive interval (20 s for fresh jobs → 30 min for waiting Anywhere), server-side Printix cross-check, Web-UI-delete detection | ✅ (v0.7.190+) |
 | **Print delegation** — send jobs to other users' SecurePrint queues (admin-controlled toggle, off by default for GDPR) | ✅ |
 | **Guest-Print / Email-to-Print gateway** — watch an O365 mailbox, print attachments on behalf of whitelisted external senders + auto-recognized internal users | ✅ (v0.7.28+) |
 | **Document conversion** — Word / Excel / PowerPoint / images (HEIC/PNG/JPG) / plain text / PDF → PCL XL via LibreOffice + Ghostscript | ✅ |
@@ -208,6 +222,8 @@ corresponding iOS/macOS client update can ship as one commit / one PR.
 
 - [`azure-deploy-guide.md`](docs/azure-deploy-guide.md) — Manual `az` CLI commands as alternative to the deploy-to-azure button.
 - [`ios-app-pairing.md`](docs/ios-app-pairing.md) — End-user instructions for pairing the MySecurePrint iOS app.
+- [`airprint-setup-guide.md`](docs/airprint-setup-guide.md) — 🆕 iOS/iPadOS/macOS AirPrint profiles: admin setup + user onboarding + troubleshooting.
+- [`AIRPRINT_PROFILE_DESIGN.md`](docs/AIRPRINT_PROFILE_DESIGN.md) — 🆕 Design document (architecture, threat model, phased plan) for the AirPrint feature.
 - [`document-conversion.md`](docs/document-conversion.md) — What gets converted, debugging conversion failures.
 - [`mail-via-graph.md`](docs/mail-via-graph.md) — Microsoft Graph mail configuration + ApplicationAccessPolicy scoping.
 - [`apple-review-checklist.md`](docs/apple-review-checklist.md) — Steps from "App-ID registered" to "live in App Store".
