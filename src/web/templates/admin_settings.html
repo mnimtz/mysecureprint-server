@@ -1403,11 +1403,29 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
 
   {# ── 📱 iOS Mobile — v0.8.0 ──────────────────────────────────────── #}
   {% if not section or section == 'ios_mobile' %}
-  <div class="card" id="ios_mobile" style="max-width:680px;margin:0 auto 20px auto;">
+  <div class="card" id="ios_mobile" style="max-width:720px;margin:0 auto 20px auto;">
     <h2 class="section-title">📱 {{ _('ios_mobile_section_title') }}</h2>
     <p style="color:var(--muted);margin:0 0 20px 0;">
       {{ _('ios_mobile_section_intro') }}
     </p>
+
+    {# ── Live-Statistik (wenn Feature aktiv) — zeigt Nutzung oben an ── #}
+    {% if ios_mobile_airprint_enabled and ios_mobile_stats %}
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 24px 0;padding:16px;background:var(--bg-subtle);border-radius:8px;">
+      <div>
+        <div style="font-size:24px;font-weight:700;">{{ ios_mobile_stats.total_profiles }}</div>
+        <div style="font-size:12px;color:var(--muted);">{{ _('ios_mobile_stats_profiles') }}</div>
+      </div>
+      <div>
+        <div style="font-size:24px;font-weight:700;">{{ ios_mobile_stats.active_users }}</div>
+        <div style="font-size:12px;color:var(--muted);">{{ _('ios_mobile_stats_users') }}</div>
+      </div>
+      <div>
+        <div style="font-size:24px;font-weight:700;">{{ ios_mobile_stats.total_jobs }}</div>
+        <div style="font-size:12px;color:var(--muted);">{{ _('ios_mobile_stats_jobs') }}</div>
+      </div>
+    </div>
+    {% endif %}
 
     <form method="post" action="/admin/settings?section=ios_mobile">
       <input type="hidden" name="ios_mobile_present" value="1">
@@ -1419,26 +1437,31 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
           <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
             <input type="checkbox" name="ios_mobile_airprint_enabled" value="1"
                    {% if ios_mobile_airprint_enabled %}checked{% endif %}>
-            <span>{{ _('ios_mobile_airprint_enabled_help') }}</span>
+            <span>{{ _('ios_mobile_airprint_enabled_help_v2') }}</span>
           </label>
         </div>
       </div>
 
-      {# ── Default-Queue ── #}
+      {# ── Default-Queue — LIVE aus Printix API ── #}
       <div class="form-row">
         <label class="form-label" for="ios_mobile_default_queue_id">
           {{ _('ios_mobile_default_queue_label') }}
         </label>
         <div class="form-control">
+          {% if not ios_mobile_available_queues %}
+          <div class="alert alert-warning" style="margin:0 0 8px 0;font-size:13px;">
+            ⚠ {{ _('ios_mobile_no_queues_configured') }}
+          </div>
+          {% else %}
           <select name="ios_mobile_default_queue_id" id="ios_mobile_default_queue_id"
                   style="width:100%;padding:8px;">
-            <option value="">— {{ _('ios_mobile_default_queue_none') }} —</option>
-            {% for q in ios_mobile_available_queues or [] %}
+            <option value="">{{ _('ios_mobile_default_queue_placeholder') }}</option>
+            {% for q in ios_mobile_available_queues %}
             <option value="{{ q.queue_id }}"
                     data-printer="{{ q.printer_id }}"
                     data-display="{{ q.display_name }}"
                     {% if q.queue_id == ios_mobile_default_queue_id %}selected{% endif %}>
-              {{ q.display_name }}
+              {% if q.is_anywhere %}🌐 {% endif %}{{ q.display_name }}
             </option>
             {% endfor %}
           </select>
@@ -1447,8 +1470,9 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
           <input type="hidden" name="ios_mobile_default_queue_name" id="ios_mobile_default_queue_name"
                  value="{{ ios_mobile_default_queue_name or '' }}">
           <p style="font-size:12px;color:var(--muted);margin:6px 0 0 0;">
-            {{ _('ios_mobile_default_queue_help') }}
+            {{ _('ios_mobile_default_queue_help_v2') }}
           </p>
+          {% endif %}
         </div>
       </div>
 
@@ -1494,23 +1518,6 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
         </div>
       </div>
 
-      {# ── Signing-Cert Status ── #}
-      <div class="form-row">
-        <label class="form-label">{{ _('ios_mobile_signing_label') }}</label>
-        <div class="form-control">
-          {% if ios_mobile_signing_cert_configured %}
-          <div class="alert alert-success" style="margin:0;">
-            ✓ {{ _('ios_mobile_signing_status_configured') }}
-          </div>
-          {% else %}
-          <div class="alert alert-warning" style="margin:0;">
-            ⚠ {{ _('ios_mobile_signing_status_unsigned') }}
-            <br><small>{{ _('ios_mobile_signing_status_unsigned_hint') }}</small>
-          </div>
-          {% endif %}
-        </div>
-      </div>
-
       {# ── Info-Box: läuft auf iPhone / iPad / Mac ── #}
       <div style="background:var(--bg-subtle);border-radius:8px;padding:12px;margin:20px 0;">
         <div style="font-weight:600;margin-bottom:6px;">
@@ -1528,28 +1535,60 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
       </div>
     </form>
 
-    {# ── Live-Statistik (wenn Feature aktiv) ── #}
-    {% if ios_mobile_airprint_enabled and ios_mobile_stats %}
+    {# ── Signing-Certificate Upload (separates Formular, optional) ── #}
     <div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--border);">
-      <h3 style="margin:0 0 12px 0;font-size:15px;">
-        {{ _('ios_mobile_stats_title') }}
+      <h3 style="margin:0 0 8px 0;font-size:15px;">
+        🔐 {{ _('ios_mobile_signing_label') }}
       </h3>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-        <div>
-          <div style="font-size:24px;font-weight:700;">{{ ios_mobile_stats.total_profiles }}</div>
-          <div style="font-size:12px;color:var(--muted);">{{ _('ios_mobile_stats_profiles') }}</div>
-        </div>
-        <div>
-          <div style="font-size:24px;font-weight:700;">{{ ios_mobile_stats.active_users }}</div>
-          <div style="font-size:12px;color:var(--muted);">{{ _('ios_mobile_stats_users') }}</div>
-        </div>
-        <div>
-          <div style="font-size:24px;font-weight:700;">{{ ios_mobile_stats.total_jobs }}</div>
-          <div style="font-size:12px;color:var(--muted);">{{ _('ios_mobile_stats_jobs') }}</div>
-        </div>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 16px 0;">
+        {{ _('ios_mobile_signing_intro_v2') }}
+      </p>
+
+      {% if ios_mobile_signing_cert_configured %}
+      <div class="alert alert-success" style="margin:0 0 12px 0;">
+        ✓ {{ _('ios_mobile_signing_status_configured') }}
       </div>
+      <form method="post" action="/admin/settings/airprint-signing/clear"
+            onsubmit="return confirm('{{ _('ios_mobile_signing_clear_confirm') }}');">
+        <button type="submit" class="btn"
+                style="background:var(--bg-subtle);color:var(--muted);font-size:13px;">
+          🗑 {{ _('ios_mobile_signing_clear_button') }}
+        </button>
+      </form>
+      {% else %}
+      <div class="alert alert-warning" style="margin:0 0 16px 0;">
+        ⚠ {{ _('ios_mobile_signing_status_unsigned') }}
+      </div>
+      <form method="post" action="/admin/settings/airprint-signing/upload"
+            enctype="multipart/form-data">
+        <div class="form-row">
+          <label class="form-label" for="signing_cert_pem">{{ _('ios_mobile_signing_cert_label') }}</label>
+          <div class="form-control">
+            <input type="file" name="signing_cert_pem" id="signing_cert_pem"
+                   accept=".pem,.crt,.cer">
+            <p style="font-size:12px;color:var(--muted);margin:6px 0 0 0;">
+              {{ _('ios_mobile_signing_cert_help') }}
+            </p>
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="signing_key_pem">{{ _('ios_mobile_signing_key_label') }}</label>
+          <div class="form-control">
+            <input type="file" name="signing_key_pem" id="signing_key_pem"
+                   accept=".pem,.key">
+            <p style="font-size:12px;color:var(--muted);margin:6px 0 0 0;">
+              {{ _('ios_mobile_signing_key_help') }}
+            </p>
+          </div>
+        </div>
+        <div class="form-actions" style="margin-top:16px;">
+          <button type="submit" class="btn btn-primary">
+            {{ _('ios_mobile_signing_upload_button') }}
+          </button>
+        </div>
+      </form>
+      {% endif %}
     </div>
-    {% endif %}
   </div>
 
   <script>

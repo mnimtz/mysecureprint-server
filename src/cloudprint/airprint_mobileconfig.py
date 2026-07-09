@@ -41,6 +41,15 @@ def build_mobileconfig(server_url: str,
     """
     parsed = urlparse(server_url)
     host = server_hostname or parsed.hostname or "localhost"
+    # v0.7.230 — Port aus URL ableiten (nicht hardcoded 443).
+    # HTTPS → 443, aber Kunden könnten ihren Server auf 8443/etc. haben.
+    if parsed.port:
+        derived_port = parsed.port
+    elif parsed.scheme == "http":
+        derived_port = 80
+    else:
+        derived_port = 443
+    force_tls = parsed.scheme != "http"
 
     # UUIDs müssen deterministisch aus dem Token abgeleitet sein — sonst
     # gäbe es bei Re-Download desselben Profils immer eine neue "Profil-ID"
@@ -52,8 +61,8 @@ def build_mobileconfig(server_url: str,
                                     f"mysecureprint/payload/{profile_token}"))
 
     airprint_entry = {
-        "ForceTLS": True,
-        "Port": 443,
+        "ForceTLS": force_tls,
+        "Port": derived_port,
         "ResourcePath": f"/airprint/{profile_token}",
         "IPAddress": host,
     }

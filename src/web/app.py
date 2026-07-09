@@ -6001,19 +6001,23 @@ def create_app(session_secret: str) -> FastAPI:
         ios_mobile_signing_cert_configured = bool(
             gs("airprint_signing_cert_pem", "") and gs("airprint_signing_key_pem", "")
         )
-        # Verfügbare Queues holen — für Dropdown
+        # v0.7.230: Verfügbare Printix-Queues für Dropdown — LIVE aus Printix,
+        # nicht aus lokaler group_queue_defaults-Tabelle (die ist oft leer).
+        # Wir verwenden dieselbe Quelle wie /admin/groups → queues_for_picker.
         ios_mobile_available_queues = []
         try:
-            from db import _conn
-            with _conn() as conn:
-                rows = conn.execute(
-                    """SELECT DISTINCT queue_id, printer_id, queue_label AS display_name
-                         FROM group_queue_defaults
-                        WHERE queue_id != '' ORDER BY queue_label""",
-                ).fetchall()
-                ios_mobile_available_queues = [dict(r) for r in rows]
-        except Exception:
-            pass
+            _queues_live = _load_printix_queues_for_admin(tenant_full) if tenant_full else []
+            # Anywhere-Queues nach oben, dann alphabetisch — passt für
+            # SecurePrint Anywhere als typische Wahl.
+            for q in _queues_live:
+                ios_mobile_available_queues.append({
+                    "queue_id":    q["queue_id"],
+                    "printer_id":  q["printer_id"],
+                    "display_name": q["queue_name"],
+                    "is_anywhere": q.get("is_anywhere", False),
+                })
+        except Exception as e:
+            logger.warning("iOS Mobile: Printix-Queue-Abruf fehlgeschlagen: %s", e)
         # Live-Stats wenn Feature aktiv
         ios_mobile_stats = None
         if ios_mobile_airprint_enabled:
@@ -6892,6 +6896,73 @@ def create_app(session_secret: str) -> FastAPI:
         except Exception as e:
             logger.warning("Printix-Queues-Abruf fehlgeschlagen: %s", e)
             return []
+
+    # v0.8.0 — Signing-Cert Upload/Clear für AirPrint-Profile
+    @app.post("/admin/settings/airprint-signing/upload", response_class=HTMLResponse)
+    async def admin_airprint_signing_upload(request: Request):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        form = await request.form()
+        cert_file = form.get("signing_cert_pem")
+        key_file = form.get("signing_key_pem")
+        if not cert_file or not key_file:
+            return RedirectResponse(
+                "/admin/settings?section=ios_mobile&err=signing_missing", 302,
+            )
+        try:
+            cert_bytes = await cert_file.read() if hasattr(cert_file, "read") else b""
+            key_bytes = await key_file.read() if hasattr(key_file, "read") else b""
+            cert_pem = cert_bytes.decode("utf-8", errors="replace").strip()
+            key_pem = key_bytes.decode("utf-8", errors="replace").strip()
+            if not cert_pem.startswith("-----BEGIN"):
+                return RedirectResponse(
+                    "/admin/settings?section=ios_mobile&err=cert_not_pem", 302,
+                )
+            if not key_pem.startswith("-----BEGIN"):
+                return RedirectResponse(
+                    "/admin/settings?section=ios_mobile&err=key_not_pem", 302,
+                )
+            # Sanity: cert und key müssen zusammenpassen (grober check via cryptography)
+            try:
+                from cryptography.hazmat.primitives.serialization import (
+                    load_pem_private_key,
+                )
+                from cryptography import x509
+                _ = load_pem_private_key(key_pem.encode(), password=None)
+                _ = x509.load_pem_x509_certificate(cert_pem.encode())
+            except Exception as _pe:
+                return RedirectResponse(
+                    f"/admin/settings?section=ios_mobile&err=cert_invalid&msg={str(_pe)[:80]}",
+                    302,
+                )
+            from db import set_setting, audit as _audit
+            set_setting("airprint_signing_cert_pem", cert_pem)
+            set_setting("airprint_signing_key_pem", key_pem)
+            _audit(user["id"], "airprint_signing_cert_uploaded",
+                   f"len_cert={len(cert_pem)} len_key={len(key_pem)}")
+            return RedirectResponse(
+                "/admin/settings?section=ios_mobile&ok=signing_configured", 302,
+            )
+        except Exception as e:
+            logger.error("AirPrint signing upload failed: %s", e)
+            return RedirectResponse(
+                f"/admin/settings?section=ios_mobile&err=upload_failed&msg={str(e)[:80]}",
+                302,
+            )
+
+    @app.post("/admin/settings/airprint-signing/clear", response_class=HTMLResponse)
+    async def admin_airprint_signing_clear(request: Request):
+        user = get_session_user(request)
+        if not user or not user.get("is_admin"):
+            return RedirectResponse("/login", status_code=302)
+        from db import set_setting, audit as _audit
+        set_setting("airprint_signing_cert_pem", "")
+        set_setting("airprint_signing_key_pem", "")
+        _audit(user["id"], "airprint_signing_cert_cleared", "")
+        return RedirectResponse(
+            "/admin/settings?section=ios_mobile&ok=signing_cleared", 302,
+        )
 
     @app.post("/admin/settings/queue-defaults/save", response_class=HTMLResponse)
     async def admin_queue_defaults_save(
