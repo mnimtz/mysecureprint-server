@@ -6330,6 +6330,27 @@ def create_app(session_secret: str) -> FastAPI:
 
             # v0.8.0: iOS Mobile — AirPrint Feature
             if has("ios_mobile_present"):
+                # Feature-Flag-Wechsel als eigenes Audit-Event loggen
+                # (nicht nur in der Sammel-admin_settings-Zeile bündeln —
+                # das ist ein sicherheitsrelevantes Flag: es steuert ob
+                # weltweit /airprint/{token} Jobs annimmt.)
+                try:
+                    from db import get_setting as _gs_pre
+                    _prev = _gs_pre("ios_mobile_airprint_enabled", "0")
+                except Exception:
+                    _prev = ""
+                _new = "1" if has("ios_mobile_airprint_enabled") else "0"
+                if _prev != _new:
+                    try:
+                        import json as _json_af
+                        audit(user["id"], "airprint_feature_toggled",
+                              _json_af.dumps({
+                                  "from": _prev,
+                                  "to":   _new,
+                                  "state": "enabled" if _new == "1" else "disabled",
+                              }, ensure_ascii=False))
+                    except Exception:
+                        pass
                 set_setting("ios_mobile_airprint_enabled",
                               "1" if has("ios_mobile_airprint_enabled") else "0")
                 set_setting("ios_mobile_email_attach_default",

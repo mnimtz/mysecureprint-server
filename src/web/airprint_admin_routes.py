@@ -190,6 +190,21 @@ def register_airprint_admin_routes(app: FastAPI,
             ".mobileconfig", ""
         )
 
+        # Audit — Admin lädt tokenhaltige Datei für einen anderen User
+        try:
+            import json as _json
+            from db import audit as _audit
+            _audit(user["id"], "airprint_admin_downloaded_profile",
+                   details=_json.dumps({
+                       "profile_id":         profile["id"],
+                       "for_user_id":        profile["user_id"],
+                       "queue_id":           profile.get("queue_id"),
+                       "queue_display_name": profile.get("queue_display_name"),
+                       "format":             "zip" if as_zip else "mobileconfig",
+                   }, ensure_ascii=False))
+        except Exception:
+            pass
+
         if not as_zip:
             filename = f"{base_filename}.mobileconfig"
             return Response(

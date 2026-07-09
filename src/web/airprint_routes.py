@@ -203,6 +203,20 @@ def register_airprint_management_routes(app: FastAPI) -> None:
         )
         filename = suggest_filename(profile)
 
+        # Audit — Download der tokenhaltigen .mobileconfig loggen
+        try:
+            import json as _json
+            from db import audit as _audit
+            _audit(user["user_id"], "airprint_profile_downloaded",
+                   details=_json.dumps({
+                       "profile_id":         profile["id"],
+                       "queue_id":           profile.get("queue_id"),
+                       "queue_display_name": profile.get("queue_display_name"),
+                       "via":                "app",
+                   }, ensure_ascii=False))
+        except Exception:
+            pass
+
         return Response(
             content=payload,
             media_type=mime,

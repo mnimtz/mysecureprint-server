@@ -204,6 +204,27 @@ async def _handle_print_job(profile_token: str, req: ipp.IppRequest,
     # ─── 5. Nutzung tracken (last_used_at, job_count) ────────────────
     _touch_profile_usage(profile["id"])
 
+    # ─── 5b. Audit: jeder Druck via AirPrint muss im Log erscheinen ──
+    try:
+        import json as _json
+        from db import audit as _audit
+        _audit(profile["user_id"], "airprint_print_job", details=_json.dumps({
+            "internal_job_id":     internal_job_id,
+            "profile_id":          profile["id"],
+            "queue_id":            profile.get("queue_id"),
+            "queue_display_name":  profile.get("queue_display_name"),
+            "printer_id":          profile.get("printer_id"),
+            "job_name":            job_name,
+            "size_bytes":          len(data),
+            "doc_format":          doc_format,
+            "origin_host":         origin_host,
+            "peer":                peer,
+            "user_agent":          ua,
+        }, ensure_ascii=False))
+    except Exception as _e:
+        logger.warning("AirPrint audit-log failed for job %s: %s",
+                       internal_job_id, _e)
+
     # ─── 6. Async an Printix weiterleiten ────────────────────────────
     asyncio.create_task(
         _forward_airprint_job(
