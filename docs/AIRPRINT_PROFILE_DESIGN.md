@@ -1,7 +1,7 @@
-# iOS AirPrint-Profile für MySecurePrint — Design
+# iOS AirPrint-Profile für MySecurePrint — Design (Final)
 
-**Status:** Draft • **Autor:** Marcus + Claude • **Datum:** 2026-07-09
-**Version-Ziel:** v0.8.0
+**Status:** Ready to build • **Autor:** Marcus + Claude • **Datum:** 2026-07-09
+**Version-Ziel:** v0.8.0 (Stufe 1)
 
 ---
 
@@ -12,88 +12,113 @@ iPhone/iPad. Danach erscheint "MySecurePrint" in **jeder** iOS-App im
 "Drucken"-Dialog als echter Drucker.
 
 Kein Bonjour, kein VPN, kein Umweg — funktioniert über Mobilfunk,
-öffentliches WLAN, und im Firmennetz.
+öffentliches WLAN und im Firmennetz.
 
 Der Print-Job landet auf unserem Server, wird identisch zu einem
 App-Upload behandelt und via Printix-Cloud-API an die richtige
-Secure-Print-Queue durchgereicht.
+SecurePrint-Queue durchgereicht. **Immer personenbezogen** — kein
+Shared-Pool.
 
-**Killer-Vorteil gegenüber Printix' App:** Aus jeder App drucken ohne
-Bonjour-Discovery — funktioniert überall wo der Server per HTTPS
+**Killer-Vorteil gegenüber Printix' App:** Aus jeder iOS-App drucken
+ohne Bonjour-Discovery — funktioniert überall wo der Server per HTTPS
 erreichbar ist.
 
 ---
 
-## 2. Was wir schon haben
+## 2. Was wir schon haben (aus printix-mcp-linux)
 
-Aus `printix-mcp-linux` sind **fertig portierbar**:
+- `src/cloudprint/ipp_server.py` (~660 Zeilen) — produktionserprobter
+  IPP/IPPS-FastAPI-Handler
+- `src/cloudprint/ipp_parser.py` — IPP-Protokoll-Parser (Attributes,
+  Groups, Job-Metadata)
+- Die Printix-Client-Integration ist identisch — der `PrintixClient`
+  in beiden Repos hat denselben API-Vertrag
 
-- `src/cloudprint/ipp_server.py` (~660 Zeilen)
-  IPP/IPPS-FastAPI-Handler, empfängt POST auf `/ipp/{tenant_id}`,
-  parst Job-Attribute, speichert PDF/PCL/PS auf Disk, asynchroner
-  Forwarder an Printix. Vollständig produktionserprobt.
-- `src/cloudprint/ipp_parser.py`
-  IPP-Protokoll-Parser (Binary-Frames, Attribute, Groups, Job-Metadata).
-- Existierende Printix-Client-Integration (`printix_client.PrintixClient`)
-  ist identisch mit dem was der IPP-Server drüben aufruft.
-
-Die **harte Arbeit ist erledigt.** Was fehlt ist der Profil-Generator,
-das Auth-Konzept, die Web-UI und die Integration in unser DB-Schema.
+**Die harte IPP-Arbeit ist erledigt.** Wir portieren und wrappen.
 
 ---
 
-## 3. Was neu gebaut werden muss
+## 3. Stufe 1 Scope (v0.8.0)
 
-### 3.1 `.mobileconfig`-Generator
+**Opt-in Feature** — Admin muss aktivieren, sonst passiert nichts.
 
-iOS Configuration Profile ist ein **Property-List-XML** mit signierter
-CMS-Signatur (Apple erwartet PKCS#7 mit unserem Server-Zertifikat).
+### 3.1 Was gebaut wird
 
-Payload-Typen die wir setzen:
+| Komponente | Zweck |
+|---|---|
+| IPP-Server | Empfängt IPP-Print-Jobs (portiert) |
+| Token-System + DB-Schema | Personalisierte Profile pro User × Queue |
+| `.mobileconfig`-Generator | Signiertes iOS-Konfigurationsprofil |
+| Admin-Config UI | Feature-Flag + Default-Queue-Auswahl |
+| Onboarding-Email erweitert | Auto-Anhang bei Einladung wenn Feature aktiv |
+| iOS-App Menüpunkt | Weitere Profile aus der App erstellen |
 
-```xml
-<key>PayloadType</key><string>com.apple.airprint</string>
-<key>PayloadContent</key>
-<array>
-  <dict>
-    <key>ForceTLS</key><true/>
-    <key>Port</key><integer>443</integer>
-    <key>ResourcePath</key><string>/airprint/{profile_token}</string>
-    <key>IPAddress</key><string>printix-sp.azurewebsites.net</string>
-  </dict>
-</array>
-```
+### 3.2 Was NICHT gebaut wird (v0.8.0)
 
-Datei-Name: `MySecurePrint-{User-Email}-{Queue-Name}.mobileconfig`.
-Signiert mit unserem Server-TLS-Zertifikat (Let's Encrypt / Azure).
-iOS zeigt beim Install "Verified" wenn Signatur ok.
+- Kein Self-Service-Web-Portal → v0.9.0
+- Kein Massen-Rollout via MDM-Variablen → v0.9.x
+- Keine Group/Site-spezifischen Default-Queues → v0.9.x
+- Keine Bulk-Refresh/Revoke → v0.9.0
 
-**Größe der Aufgabe:** ~200 Zeilen Python (Template + Signing).
-Existierende `cryptography` lib reicht.
+---
 
-### 3.2 Auth-Konzept: Profile-Tokens
+## 4. Auth-Konzept: personalisierter Token
 
-Wir nutzen **URL-eingebettete Tokens** — keine Basic-Auth-Popups.
+Ein Profil = **ein User × eine Queue**. **Immer.**
 
 ```
-Struktur: /airprint/{profile_token}
-profile_token = base32(sha256(user_id + queue_id + created_at + secret))[:24]
+URL:      /airprint/{profile_token}
+Token:    base32(sha256(user_id + queue_id + created_at + server_secret))[:24]
+Lifetime: unbefristet, widerrufbar (is_revoked=1 in DB)
 ```
 
-- Ein Token = **ein Profil** = **ein User + eine Queue**.
-- Widerruf möglich via DB-Flag (`is_revoked`), Server prüft bei jedem
-  Job.
-- Token in URL statt Basic Auth → keine iOS-Popup-Fragen im
-  Print-Dialog.
-- **Sicherheit:** Token ist so lang wie ein Password (128 bit).
-  HTTPS-only, kein Log-Leak weil im Path (nicht in Query).
+- Ein User kann mehrere Profile haben (z.B. eins für SecurePrint, eins
+  für HR-Queue)
+- Jeder Job wird bei Printix mit dem echten User als Owner eingereicht
+- Kartenlogin am Drucker: nur der User selbst kann seinen Job auslösen
 
-Kein Token-Rotation nötig — bei Kompromittierung: revoken + neues
-Profil.
+Kein Basic-Auth, kein OAuth-Popup — der Token im URL-Pfad ist die
+einzige Authentifizierung. HTTPS-only, Token so lang wie 128-bit-
+Password.
 
-### 3.3 DB-Schema-Erweiterung
+---
 
-Neue Tabelle:
+## 5. Rollout-Pfade
+
+### Pfad A — Onboarding-Email (Zero-Touch für Neu-User)
+
+Wenn Admin einen User einlädt (`/admin/users/invite`) UND das Feature
+ist aktiv UND der User hat Berechtigung auf die Default-Queue:
+
+1. Server erstellt Profil-Row + Token in DB
+2. Server generiert `.mobileconfig` on-the-fly, signiert
+3. Einladungs-Email bekommt Anhang `MySecurePrint.mobileconfig` + Absatz
+   mit Anleitung
+4. User öffnet Anhang am iPhone → Install-Dialog → fertig
+5. **User kann sofort aus jeder iOS-App drucken**, ohne dass die
+   MySecurePrint-App installiert sein muss
+
+**Wenn User keine Berechtigung auf Default-Queue hat:** Silent skip.
+Einladung geht normal raus, ohne Profil-Anhang. Admin sieht in der
+Invite-Preview ob das Profil mitgeht.
+
+### Pfad B — In der App generieren (bestehende User + zusätzliche Queues)
+
+Wenn User schon eingeloggt in der App ist:
+
+1. Einstellungen → iOS-Drucker → Liste der eigenen Profile
+2. "Neuer Drucker" → Queue-Dropdown (nur Queues auf die er
+   Berechtigung hat)
+3. Optional: Anzeigename ("iPhone Marcus", "iPad HR")
+4. "Erstellen und installieren" → App holt `.mobileconfig` per HTTPS
+   → übergibt an iOS-System via `UIDocumentInteractionController`
+5. iOS-Install-Dialog → fertig
+
+Kein QR-Code, kein Web-Portal — reine App-Erfahrung.
+
+---
+
+## 6. DB-Schema
 
 ```sql
 CREATE TABLE cloudprint_airprint_profiles (
@@ -103,230 +128,278 @@ CREATE TABLE cloudprint_airprint_profiles (
     printer_id         TEXT NOT NULL,             -- Printix printer UUID
     queue_id           TEXT NOT NULL,             -- Printix queue UUID
     queue_display_name TEXT,                      -- z.B. "SecurePrint DE"
+    display_name       TEXT,                      -- z.B. "iPhone Marcus"
     created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_used_at       TIMESTAMP,                 -- für "aktive/inaktive" Anzeige
-    job_count          INTEGER DEFAULT 0,         -- Nutzungs-Statistik
+    last_used_at       TIMESTAMP,
+    job_count          INTEGER DEFAULT 0,
     is_revoked         INTEGER DEFAULT 0,
-    revoke_reason      TEXT
+    revoke_reason      TEXT,
+    created_via        TEXT  -- 'onboarding_email' | 'app' | 'admin'
 );
 CREATE INDEX idx_airprint_token ON cloudprint_airprint_profiles(profile_token);
 CREATE INDEX idx_airprint_user  ON cloudprint_airprint_profiles(user_id);
 ```
 
-### 3.4 Route-Registrierung
-
-```python
-# src/web/app.py
-from cloudprint.ipp_server import register_ipp_routes
-from cloudprint.airprint import register_airprint_routes
-
-register_ipp_routes(app)          # /ipp/{tenant_id}   — bestehend
-register_airprint_routes(app)     # /airprint/{token}  — neu
-```
-
-Der **AirPrint-Handler** (`/airprint/{profile_token}`) ist im Grunde
-ein **Wrapper um `ipp_server.py`**:
-
-1. Token nachschlagen → User + Queue laden
-2. IPP-Request parsen (bestehender Code)
-3. PDF extrahieren
-4. `printix_client.submit_job(queue_id, user_email, pdf_bytes)` —
-   identisch zum App-Upload-Path
-5. IPP-Response zurück
-
-Kein neuer IPP-Code nötig — nur Adapter.
-
-### 3.5 Web-UI: Neuer Menüpunkt "iOS-Profile"
-
-Neuer Punkt in der User-Sidebar (nicht Admin):
-
-```
-/my/airprint/                   → Liste eigener Profile
-/my/airprint/new                → Neues Profil (Queue-Wahl + Download)
-/my/airprint/{id}/download      → .mobileconfig-Datei ausliefern
-/my/airprint/{id}/revoke        → Token widerrufen (POST)
-```
-
-**Wizard-Flow beim Erstellen:**
-
-1. User klickt "Neues iOS-Profil"
-2. Dropdown: Verfügbare Queues (die, für die User Berechtigung hat)
-3. Optionaler Anzeige-Name ("iPhone Marcus", "iPad Familie")
-4. Klick "Erstellen und laden"
-5. Server generiert Token + Profil + speichert in DB
-6. Browser lädt `.mobileconfig` herunter
-7. User öffnet die Datei am iPhone → iOS zeigt Install-Dialog
-
-**Admin-Sicht** unter `/admin/airprint`:
-- Alle Profile aller User (mit Filter)
-- Bulk-Revoke möglich
-- Stats: aktive Profile, letzte Nutzung, Job-Count
-
-### 3.6 iOS-App-Integration
-
-Die App bekommt einen neuen Menüpunkt:
-
-**"iOS-Drucker installieren"** — zeigt QR-Code der auf die
-`/my/airprint/new`-Seite zeigt. User scannt am iPhone → wird direkt
-zur Profil-Erstellung geleitet → Download.
+Auto-Migration in `db.py` beim Server-Start.
 
 ---
 
-## 4. Auth-Flow im Detail
+## 7. Admin-Config UI (`/admin/settings → iOS AirPrint`)
+
+Neue Section im bestehenden Settings-Bereich:
 
 ```
-┌─────────────┐    HTTPS/IPP    ┌───────────────┐   Printix Cloud API
-│  iOS Device │ ───────────────▶│ MySecurePrint │ ───────────────────▶
-│  (any app)  │  application/ipp│    Server     │
-└─────────────┘   POST /airprint└───────┬───────┘
-                    /{token}            │
-                                        │ 1. Token → user + queue
-                                        │ 2. Parse IPP + PDF
-                                        │ 3. Log job (cloudprint_jobs)
-                                        │ 4. Forward to Printix
-                                        │ 5. Return IPP 200 OK
-                                        ▼
-                                  DB: last_used_at++,
-                                      job_count++
+┌─────────────────────────────────────────────────────────┐
+│  🖨️  iOS AirPrint                                        │
+├─────────────────────────────────────────────────────────┤
+│  ☑ AirPrint-Profile aktivieren                          │
+│                                                         │
+│  Standard-Queue für Neu-User:                           │
+│    ▸ [ SecurePrint Anywhere DE          ⌄ ]             │
+│                                                         │
+│  ☑ Beim Einladen: mobileconfig automatisch mitsenden    │
+│                                                         │
+│  Zertifikat für Profil-Signing:                         │
+│    Status: ✓ Server-Zertifikat gültig bis 2027-04-12    │
+│    Kein Apple Developer Cert? Profile werden als        │
+│    "Unsigned" ausgeliefert (iOS zeigt Warnhinweis,      │
+│    Installation trotzdem möglich).                      │
+│                                                         │
+│  [ Speichern ]                                          │
+└─────────────────────────────────────────────────────────┘
 ```
 
-**Was passiert wenn Token revoked:**
-- Server gibt IPP-Status `1030` (client-error-not-authorized) zurück
-- iOS zeigt dem User "Drucken fehlgeschlagen" — der muss neues Profil
-  installieren
+Neue Settings-Keys in `settings`-Tabelle:
+- `airprint_enabled` (0/1)
+- `airprint_default_queue_id` (Printix queue UUID)
+- `airprint_default_printer_id` (Printix printer UUID — wird zusammen mit queue gepickt)
+- `airprint_default_queue_name` (Display-Name für Email/UI)
+- `airprint_email_attach_default` (0/1)
 
-**Was passiert wenn Queue-Berechtigung entzogen:**
-- Server gibt IPP-Status `1030` mit Message zurück
-- Genauso wie oben — User bekommt Fehler, muss neues Profil ziehen
+Wenn `airprint_enabled=0`: Feature ist komplett aus. Route
+`/airprint/{token}` gibt 404. Einladungs-Email unverändert.
 
 ---
 
-## 5. TLS + Zertifikat
+## 8. Anzeige-Name im iOS Print-Dialog
 
-Apple ist wählerisch:
-- Selbstsigniertes Zertifikat funktioniert **nicht** ohne manuelles
-  "Trust" durch Admin (bei jedem User)
-- **Let's Encrypt** oder **Azure Managed Cert** ist Pflicht
-- Unser Server läuft schon HTTPS über `printix-sp.azurewebsites.net`
-  → das reicht
+Format im `.mobileconfig`:
 
-Falls ein Kunde selbst-hostet:
-- Docs müssen erklären dass sie Let's Encrypt via Caddy/Traefik/nginx
-  brauchen — oder ein gültiges Enterprise-Zertifikat
-- Fallback: Enterprise-Kunden können ihr eigenes Trust-Root pushen via
-  MDM (schon in bestehender Firmen-Infrastruktur)
+```
+DisplayName: MySecurePrint — {queue_display_name}
+```
+
+Beispiel: `"MySecurePrint — SecurePrint Anywhere DE"`
+
+Wenn der User seinen eigenen Display-Namen setzt ("iPhone Marcus"),
+wird er in die App-UI übernommen aber NICHT ins Profil — iOS zeigt
+sonst inkonsistente Namen im System.
+
+---
+
+## 9. Zertifikat für Profil-Signing
+
+**Server-TLS-Cert** (Azure Managed / Let's Encrypt) für TLS-Termination
+— haben wir schon.
 
 **Profil-Signing** (`.mobileconfig` selbst):
-- Optional aber empfohlen (iOS zeigt sonst "Nicht signiert" — funktioniert
-  trotzdem)
-- Nutzt dasselbe TLS-Zertifikat via `cryptography.pkcs7.PKCS7SignatureBuilder`
+- Priorität 1: Wenn Apple Developer ID im Server konfiguriert
+  (`/admin/settings → iOS AirPrint → Signing-Cert hochladen`), damit
+  signieren — iOS zeigt "Verified"
+- Priorität 2: Wenn kein Apple Cert vorhanden, Profil unsigned
+  ausliefern — iOS zeigt "Unsigned" (roter Warnhinweis) aber
+  Installation funktioniert
+
+Für den Anfang: **unsigned** ist OK. Später Enterprise-Kunden können
+Apple Developer Cert hochladen wenn sie den Warnhinweis vermeiden
+wollen.
 
 ---
 
-## 6. UX-Ecken
+## 10. Onboarding-Email Erweiterung
 
-### 6.1 Wie erklärt man dem User den Install-Prozess?
+Existierender Flow (`/admin/users/invite`):
 
-Die Seite `/my/airprint/new` hat einen Wizard mit **Schritt-für-Schritt-
-Anleitung + Screenshots**:
+```python
+# NEU vor dem Email-Send:
+if settings.get("airprint_enabled") == "1" \
+   and settings.get("airprint_email_attach_default") == "1" \
+   and _user_has_queue_permission(user, default_queue_id):
+    profile = create_airprint_profile(
+        user_id=user.id,
+        queue_id=default_queue_id,
+        created_via="onboarding_email",
+    )
+    mobileconfig_bytes = generate_mobileconfig(profile)
+    email.attach("MySecurePrint.mobileconfig", mobileconfig_bytes,
+                 mime="application/x-apple-aspen-config")
+    email.body += render_template("airprint_onboarding_block.txt", ...)
+```
 
-1. "Klicke unten auf Download"
-2. "iOS zeigt einen Dialog — bestätige"
-3. "Öffne Einstellungen → Profil geladen → Installieren"
-4. "Fertig — drucke aus Safari/Mail und wähle 'MySecurePrint'"
+Email-Block (i18n de/en):
 
-Deutscher + englischer Text (bestehende i18n-Infrastruktur nutzen).
+```
+📱 SOFORT AUS DEM iPHONE DRUCKEN
 
-### 6.2 Was wenn User mehrere Queues braucht?
+Wir haben dir gleich einen nativen iOS-Drucker eingerichtet. Öffne
+den Anhang MySecurePrint.mobileconfig am iPhone und bestätige die
+Installation in den iOS-Einstellungen. Danach kannst du aus Safari,
+Mail, Fotos oder jeder anderen App direkt an unseren Firmen-
+SecurePrint drucken.
 
-Ein Profil = eine Queue. Sinnvoll weil:
-- iOS-Print-Dialog wird sonst überladen mit vielen Druckern
-- User weiß immer wohin er druckt
-- Delegierten kann er nachträglich in der App wählen (bestehende
-  Delegate-UI)
-
-Für "Multi-Queue-User" (selten): mehrere Profile installieren.
-
-### 6.3 Was passiert bei Firmenwechsel / User-Löschung?
-
-- User-Delete kaskadiert → alle Profile revoked
-- Admin-UI hat Massen-Revoke-Button
-- Optional: MDM-Integration (Enterprise) — Profile per MDM zentral
-  pushen und zurückziehen
-
----
-
-## 7. Aufwand-Schätzung
-
-| Komponente | Aufwand | Umfang |
-|---|---|---|
-| `ipp_server.py` + `ipp_parser.py` portieren + anpassen | 🟢 4 h | 900 LOC copy+adapt |
-| `.mobileconfig`-Generator + Signing | 🟡 6 h | ~250 LOC neu |
-| DB-Schema + Migration | 🟢 1 h | ~20 LOC SQL |
-| Auth-Layer + Token-Verwaltung | 🟢 3 h | ~150 LOC |
-| Web-UI `/my/airprint` (List + New + Download) | 🟡 6 h | 3 Templates + Routes |
-| Web-UI `/admin/airprint` (Bulk-Verwaltung) | 🟢 3 h | 1 Template + Routes |
-| iOS-App: QR-Code-Menüpunkt + Onboarding | 🟢 2 h | 1 View |
-| Docs / i18n (de/en) | 🟢 2 h | Strings + Screenshots |
-| End-to-End Test: echtes iPhone + Print aus Safari | 🟡 2 h | manuell |
-| **Gesamt** | | **~29 h ≈ 4 Arbeitstage** |
-
-Ambitious aber realistisch. Der IPP-Server-Code nimmt uns die
-komplexeste Aufgabe ab.
+Für Job-Verlauf, NFC-Kartenlogin und Delegation:
+▸ MySecurePrint App im App Store: {app_store_link}
+```
 
 ---
 
-## 8. Rollout-Plan
+## 11. iOS-App Erweiterung
 
-**Phase 1 — MVP (Interner Test):**
-- IPP-Server portiert und `/airprint/{token}` reagiert auf iOS
-- Profil-Generator + `/my/airprint/new` funktional
-- Test auf 1 iPhone von 1 User → Print aus Safari klappt
+Neuer Menüpunkt in Einstellungen:
 
-**Phase 2 — Beta (Ausgewählte Kunden):**
-- Admin-UI, Bulk-Revoke, Stats
-- iOS-App Integration mit QR-Code-Onboarding
-- Docs + Screenshots vollständig
+```
+Einstellungen
+  ├── Server / Anmeldung
+  ├── Standard-Ziel
+  ├── Delegation
+  ├── 🆕 iOS-Drucker                    →
+  ├── Live-Aktivitäten
+  └── Über
+```
 
-**Phase 3 — Release (v0.8.0):**
-- Änderungslog, Marketing-Text
-- README erweitert
-- App Store Screenshot: iOS-Print-Dialog mit "MySecurePrint"
+Detail-Screen `iOS-Drucker`:
+
+```
+┌─────────────────────────────────────┐
+│  iOS-Drucker                        │
+├─────────────────────────────────────┤
+│                                     │
+│  Auf diesem iPhone installierte     │
+│  Drucker-Profile:                   │
+│                                     │
+│  🖨️  MySecurePrint —                │
+│      SecurePrint DE                 │
+│      Zuletzt genutzt: gestern       │
+│                                     │
+│  ➕  Neuen Drucker hinzufügen        │
+│                                     │
+│  Bereits druckbar aus jeder iOS-    │
+│  App — der Drucker heißt            │
+│  "MySecurePrint — [Queue]".         │
+│                                     │
+└─────────────────────────────────────┘
+```
+
+Bei "Neuen Drucker hinzufügen":
+
+```
+1. Queue-Dropdown (nur eigene Berechtigungen aus /me/queues)
+2. Optional: Anzeigename
+3. Button "Erstellen und öffnen"
+4. App holt .mobileconfig via HTTPS
+5. UIDocumentInteractionController zeigt iOS-Install-Dialog
+6. User bestätigt → fertig
+```
+
+Detection ob Profil installiert ist: iOS erlaubt das nicht direkt
+zu prüfen (Privacy). Wir zeigen also alle **auf dem Server registrierten**
+Profile — der User muss selbst schauen ob er sie am iPhone hat.
 
 ---
 
-## 9. Risiken
+## 12. Server-Endpoints (neu)
+
+```
+POST /desktop/me/airprint/create
+     Body: {queue_id, printer_id, display_name?}
+     Response: {profile_id, mobileconfig_url}
+
+GET  /desktop/me/airprint/{profile_id}/download
+     Response: .mobileconfig (application/x-apple-aspen-config)
+
+GET  /desktop/me/airprint
+     Response: [{id, queue_display_name, created_at, last_used_at, ...}]
+
+DELETE /desktop/me/airprint/{profile_id}
+     Response: {revoked: true}
+
+POST /airprint/{profile_token}
+     Content-Type: application/ipp
+     → IPP-Handler (wrapt bestehenden ipp_server.py)
+
+GET  /airprint/{profile_token}
+     Response: text/plain Info-Antwort für Health-Checks
+
+POST /admin/airprint/settings
+     Body: {enabled, default_queue_id, email_attach_default}
+     Response: {ok: true}
+```
+
+---
+
+## 13. Aufwand-Schätzung Stufe 1
+
+| Task | Aufwand |
+|---|---|
+| Design-Doc (dieses) | ✓ fertig |
+| IPP-Server + Parser portieren | 3 h |
+| DB-Schema + Migration | 1 h |
+| Token-System + `/airprint/{token}`-Handler | 3 h |
+| `.mobileconfig`-Generator (unsigned first) | 3 h |
+| PKCS7-Signing (optional cert upload) | 2 h |
+| Admin-Config UI (settings-Section) | 3 h |
+| Einladungs-Email erweitern | 2 h |
+| iOS-App: Menüpunkt "iOS-Drucker" | 4 h |
+| iOS-App: Profile-Detail + Wizard | 3 h |
+| End-to-End-Test auf iPhone | 2 h |
+| Docs (Admin-Anleitung, i18n) | 2 h |
+| **Gesamt Stufe 1** | **~28 h ≈ 3–4 Tage** |
+
+---
+
+## 14. Rollout
+
+**v0.8.0 (Stufe 1 fertig):**
+- Feature-Flag default AUS (Opt-in)
+- Existierende Installationen unbeeinflusst
+- Kunden können in `/admin/settings` aktivieren
+- Test-Kunde bekommt ~1 Woche für Feedback
+
+**v0.9.0 (Stufe 2):**
+- Self-Service Web-Portal
+- Bulk-Revoke, Statistiken
+- iOS-App: Push-Notif bei Job-Abschluss
+
+**v0.9.x+ (Enterprise):**
+- MDM-Variablen für Massenrollout
+- Group/Site-spezifische Default-Queues
+- Apple Developer Cert Auto-Renewal
+
+---
+
+## 15. Risiken + Mitigation
 
 | Risiko | Mitigation |
 |---|---|
-| Apple ändert IPP-Handshake in iOS 27+ | Wir nutzen IPP 1.1 — Kernstandard, sehr stabil. `ipp_server.py` ist schon iOS 15–19 kompatibel |
-| PDF-Konvertierung schlägt fehl bei bestimmten Dokumenten | iOS liefert immer PDF an AirPrint — Standard. Falls Fehler: Fallback auf raw PS/PCL wie bestehend |
-| Server-Load skaliert nicht bei vielen Print-Jobs | Aktuell max 50 MB pro Job. Bei Bedarf: Cloudflare als Reverse Proxy vor Azure |
-| Cloud-Server erreichbar aber Firewall blockiert Port 443 IPP | Sollte nicht passieren — 443/HTTPS ist überall offen. Falls doch: MDM-Konfig erweitern |
-| Nutzer merkt nicht dass er in "MySecurePrint" gedruckt hat und sucht in Printix | Klare Naming-Konvention: iOS zeigt exakt den Queue-Namen den User beim Profil-Erstellen wählt |
+| iOS zeigt "Unsigned" Warnung | Als Standard OK dokumentieren; Enterprise-Kunden können Cert hochladen |
+| Token in URL leakt in Server-Logs | Access-Log-Filter: `/airprint/{TOKEN_MASKED}` |
+| Server erreichbar aber PDF landet nicht bei Printix | Bestehender IPP-Server hat schon Retry-Logic + Audit-Log |
+| Nutzer verliert iPhone mit installiertem Profil | Admin-UI: "Profile suchen nach User" + Bulk-Revoke |
+| Feature verwirrt bestehende App-User | Opt-in default OFF, klare Docs, App-Menüpunkt versteckt bis Feature aktiv |
 
 ---
 
-## 10. Nicht-Ziele (v0.8.0)
+## 16. Nächste Schritte
 
-- **Push-Benachrichtigungen bei Job-Status-Update** — später, braucht
-  APNs-Relay (bereits im Backlog)
-- **Preview-Rendering im Print-Dialog** — iOS macht das selbst
-- **Custom Papiergrößen im Profil** — iOS wählt Default (A4/Letter),
-  reicht für 99 %
-- **Farb-/SW-Auswahl im Profil festgeschrieben** — iOS-Dialog fragt
-  das eh; unser Server nimmt was iOS schickt
+1. ✓ Design-Doc final (dieses hier)
+2. IPP-Server + Parser portieren (Task #63)
+3. DB-Schema + Migration (Task #64)
+4. Token-Handler (Task #66)
+5. `.mobileconfig`-Generator (Task #65)
+6. Admin-Config UI (Task #67)
+7. Einladungs-Email (Task #68)
+8. iOS-App Menüpunkt (Task #69)
+9. E2E-Test + Docs (Task #70)
 
----
-
-## 11. Nächster Schritt
-
-Wenn du das Design ok findest, kann ich morgen früh anfangen:
-
-1. Copy `ipp_server.py` + `ipp_parser.py` aus printix-mcp-linux
-2. DB-Migration einbauen
-3. `/airprint/{token}`-Wrapper-Handler bauen
-4. `.mobileconfig`-Generator + minimales `/my/airprint/new`
-
-Nach ~1 Tag hätten wir einen ersten Live-Test auf deinem iPhone.
-Wenn der klappt, geht's an UI-Ausbau.
+MVP-Deadline: 3–4 Arbeitstage. Live-Test auf iPhone sobald 1–4 fertig
+sind (~1,5 Tage).
