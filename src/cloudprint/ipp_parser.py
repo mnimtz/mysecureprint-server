@@ -357,13 +357,21 @@ def build_response(request_id: int, status_code: int,
 
     if job_attrs:
         out.append(TAG_JOB_ATTRIBUTES_TAG)
+        _prev_name = None
         for tag, name, value in job_attrs:
-            out += _encode_attribute(tag, name, value)
+            # RFC 8010: bei aufeinanderfolgenden Werten desselben Attribute-
+            # Namens (Multi-Value) muss der Name nach dem ersten leer sein.
+            wire_name = "" if name == _prev_name else name
+            out += _encode_attribute(tag, wire_name, value)
+            _prev_name = name
 
     if printer_attrs:
         out.append(TAG_PRINTER_ATTRIBUTES_TAG)
+        _prev_name = None
         for tag, name, value in printer_attrs:
-            out += _encode_attribute(tag, name, value)
+            wire_name = "" if name == _prev_name else name
+            out += _encode_attribute(tag, wire_name, value)
+            _prev_name = name
 
     out.append(TAG_END_OF_ATTRIBUTES)
     return bytes(out)
@@ -464,12 +472,38 @@ def build_get_printer_attributes_response(request_id: int, printer_uri: str,
             (TAG_KEYWORD, "urf-supported",                 "MT1-2-3-4-5-6-8-9-10-11-12-13"),
             (TAG_KEYWORD, "urf-supported",                 "OB10"),
 
-            # Print-Options
+            # Print-Options — reihenfolge egal, aber Farb-Modi MUESSEN
+            # aufeinanderfolgen (Multi-Value-Encoding). WICHTIG: 'color'
+            # in dieser Liste sagt iOS explizit dass der Drucker Farbe
+            # ausgeben kann. Ohne diese Reihenfolge + korrekten Multi-
+            # Value-Encoding fuellt iOS die Print-Options mit B&W-only.
             (TAG_BOOLEAN, "color-supported",               True),
             (TAG_KEYWORD, "print-color-mode-supported",    "auto"),
             (TAG_KEYWORD, "print-color-mode-supported",    "color"),
             (TAG_KEYWORD, "print-color-mode-supported",    "monochrome"),
+            (TAG_KEYWORD, "print-color-mode-supported",    "auto-monochrome"),
             (TAG_KEYWORD, "print-color-mode-default",      "auto"),
+
+            # PWG-Raster — Apple wollte diese zusaetzlich sehen. srgb_8
+            # = Farbe, sgray_8 = Graustufen. Beide angeben damit iOS
+            # die Farb/BW-Umschaltung nicht bei srgb allein sperrt.
+            (TAG_KEYWORD, "pwg-raster-document-type-supported", "srgb_8"),
+            (TAG_KEYWORD, "pwg-raster-document-type-supported", "sgray_8"),
+            (TAG_KEYWORD, "pwg-raster-document-type-supported", "adobe-rgb_8"),
+            (TAG_RESOLUTION, "pwg-raster-document-resolution-supported",
+                              _resolution_bytes(600, 600)),
+
+            # Aeltere output-mode-Attribute — manche iOS-Versionen pruefen
+            # noch die veraltete Variante zusaetzlich zu print-color-mode.
+            (TAG_KEYWORD, "output-mode-supported",         "color"),
+            (TAG_KEYWORD, "output-mode-supported",         "monochrome"),
+            (TAG_KEYWORD, "output-mode-default",           "color"),
+
+            # Print-Quality (3=draft, 4=normal, 5=high)
+            (TAG_ENUM,    "print-quality-supported",       3),
+            (TAG_ENUM,    "print-quality-supported",       4),
+            (TAG_ENUM,    "print-quality-supported",       5),
+            (TAG_ENUM,    "print-quality-default",         4),
             (TAG_KEYWORD, "sides-supported",               "one-sided"),
             (TAG_KEYWORD, "sides-supported",               "two-sided-long-edge"),
             (TAG_KEYWORD, "sides-supported",               "two-sided-short-edge"),
@@ -506,6 +540,15 @@ def _stable_uuid_from(seed: str) -> str:
     die muss zwischen Requests identisch sein."""
     import uuid as _u
     return str(_u.uuid5(_u.NAMESPACE_URL, seed))
+
+
+def _resolution_bytes(x_dpi: int, y_dpi: int, units: int = 3) -> bytes:
+    """IPP resolution value = xres(4) + yres(4) + units(1).
+    units: 3 = dots-per-inch, 4 = dots-per-cm.
+    """
+    return (int(x_dpi).to_bytes(4, "big")
+            + int(y_dpi).to_bytes(4, "big")
+            + bytes([units]))
 
 
 def build_unsupported_op_response(request_id: int) -> bytes:
