@@ -191,7 +191,20 @@ async def _handle_print_job(profile_token: str, req: ipp.IppRequest,
 
     # ─── 2. IPP-Attribute (nur als Metadaten, nicht für Auth) ────────
     meta = ipp.extract_job_metadata(req)
-    job_name = meta.get("job_name") or meta.get("document_name") or "Untitled"
+    # iOS schickt zwei relevante Namen:
+    #   job-name       — meist generisch (z.B. "Foto" bei Fotos-App)
+    #   document-name  — echter Dateiname (z.B. "IMG_1234.HEIC",
+    #                    "Rechnung_2026.pdf", "google.com")
+    # Bevorzuge document-name (informativer); nur Fallback auf job-name.
+    # Wenn beide existieren und unterschiedlich sind: kombiniere fuer
+    # maximale Info im Printix-Job-Titel (Nutzer sieht spaeter am
+    # Drucker "Foto — IMG_1234.HEIC" oder "Seite drucken — google.com").
+    _jn = (meta.get("job_name") or "").strip()
+    _dn = (meta.get("document_name") or "").strip()
+    if _dn and _jn and _dn.lower() != _jn.lower():
+        job_name = f"{_jn} — {_dn}"
+    else:
+        job_name = _dn or _jn or "Untitled"
     doc_format = meta.get("document_format") or "application/pdf"
     origin_host = meta.get("job_originating_host_name", "") or "-"
 
