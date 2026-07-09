@@ -1477,12 +1477,23 @@ def register_employee_routes(
         if not qid or not pid:
             return RedirectResponse("/my/airprint?flash=no_default",
                                       status_code=302)
-        from cloudprint.airprint_profiles import create_profile
-        profile = create_profile(
-            user_id=user["id"], printer_id=pid, queue_id=qid,
-            queue_display_name=qname, display_name="",
-            created_via="web-portal",
+        # Reuse: gleiches Profil bei erneuter Installation wieder rausgeben,
+        # damit iOS nicht bei jedem "Erneut installieren" einen neuen
+        # Drucker-Eintrag ansammelt.
+        from cloudprint.airprint_profiles import (
+            create_profile, list_profiles_for_user,
         )
+        profile = None
+        for _p in list_profiles_for_user(user["id"], include_revoked=False):
+            if _p.get("queue_id") == qid:
+                profile = _p
+                break
+        if profile is None:
+            profile = create_profile(
+                user_id=user["id"], printer_id=pid, queue_id=qid,
+                queue_display_name=qname, display_name="",
+                created_via="web-portal",
+            )
         try:
             import json as _json
             from db import audit as _audit
@@ -1517,13 +1528,22 @@ def register_employee_routes(
         if not queue_id or not printer_id:
             return RedirectResponse("/my/airprint?flash=missing_queue",
                                       status_code=302)
-        from cloudprint.airprint_profiles import create_profile
-        profile = create_profile(
-            user_id=user["id"], printer_id=printer_id, queue_id=queue_id,
-            queue_display_name=(queue_display_name or "").strip() or "AirPrint",
-            display_name=(display_name or "").strip(),
-            created_via="web-portal",
+        # Reuse-Logik wie oben
+        from cloudprint.airprint_profiles import (
+            create_profile, list_profiles_for_user,
         )
+        profile = None
+        for _p in list_profiles_for_user(user["id"], include_revoked=False):
+            if _p.get("queue_id") == queue_id:
+                profile = _p
+                break
+        if profile is None:
+            profile = create_profile(
+                user_id=user["id"], printer_id=printer_id, queue_id=queue_id,
+                queue_display_name=(queue_display_name or "").strip() or "AirPrint",
+                display_name=(display_name or "").strip(),
+                created_via="web-portal",
+            )
         try:
             import json as _json
             from db import audit as _audit

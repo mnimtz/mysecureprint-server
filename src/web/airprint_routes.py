@@ -64,19 +64,35 @@ def register_airprint_management_routes(app: FastAPI) -> None:
                 code="bad_request", status=400,
             )
 
-        from cloudprint.airprint_profiles import create_profile
-        try:
-            profile = create_profile(
-                user_id=user["user_id"],
-                printer_id=printer_id,
-                queue_id=queue_id,
-                queue_display_name=queue_display_name,
-                display_name=display_name,
-                created_via="app",
-            )
-        except Exception as e:
-            logger.error("AirPrint create: %s", e)
-            return _json_error(str(e)[:200], code="create_failed", status=500)
+        # Reuse: existiert schon ein aktives Profil fuer dieselbe Queue?
+        # Dann NICHT neu erzeugen — sonst kriegt iOS bei jedem Reinstall
+        # eine neue Profil-UUID und listet den Drucker mehrfach.
+        from cloudprint.airprint_profiles import (
+            create_profile, list_profiles_for_user,
+        )
+        profile = None
+        for _p in list_profiles_for_user(user["user_id"], include_revoked=False):
+            if _p.get("queue_id") == queue_id:
+                profile = _p
+                logger.info(
+                    "AirPrint create: Reuse existierendes Profil %s fuer "
+                    "user=%s queue=%s (Token bleibt gleich → iOS erkennt "
+                    "gleichen Drucker)", _p["id"], user["user_id"], queue_id,
+                )
+                break
+        if profile is None:
+            try:
+                profile = create_profile(
+                    user_id=user["user_id"],
+                    printer_id=printer_id,
+                    queue_id=queue_id,
+                    queue_display_name=queue_display_name,
+                    display_name=display_name,
+                    created_via="app",
+                )
+            except Exception as e:
+                logger.error("AirPrint create: %s", e)
+                return _json_error(str(e)[:200], code="create_failed", status=500)
 
         # Audit
         try:
