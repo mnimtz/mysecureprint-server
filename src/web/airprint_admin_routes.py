@@ -30,8 +30,14 @@ logger = logging.getLogger("printix.airprint.admin")
 
 def register_airprint_admin_routes(app: FastAPI,
                                      templates: Jinja2Templates,
-                                     get_session_user) -> None:
-    """Registriert die Admin-Verwaltungs-Endpoints."""
+                                     get_session_user,
+                                     t_ctx) -> None:
+    """Registriert die Admin-Verwaltungs-Endpoints.
+
+    t_ctx wird beim TemplateResponse gespreadet, damit '_' (Translator)
+    + lang etc. für die Jinja-Templates verfügbar sind. Ohne den Kontext
+    crasht das Template beim ersten {{ _('...') }} mit UndefinedError.
+    """
 
     # ──────────────────────────────────────────────────────────────
     # GET /admin/airprint-users
@@ -56,6 +62,7 @@ def register_airprint_admin_routes(app: FastAPI,
             "stats": stats,
             "active_page": "admin_airprint_users",
             "section": "ios_mobile",
+            **t_ctx(request),
         })
 
     # ──────────────────────────────────────────────────────────────
@@ -147,6 +154,7 @@ def register_airprint_admin_routes(app: FastAPI,
             "just_created": just_created,
             "active_page": "admin_airprint_users",
             "section": "ios_mobile",
+            **t_ctx(request),
         })
 
     # ──────────────────────────────────────────────────────────────

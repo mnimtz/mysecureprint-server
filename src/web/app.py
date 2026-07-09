@@ -8155,7 +8155,7 @@ def create_app(session_secret: str) -> FastAPI:
     # ── AirPrint Admin-Verwaltung (User-Liste, Erstellen, Download) ────────
     try:
         from web.airprint_admin_routes import register_airprint_admin_routes
-        register_airprint_admin_routes(app, templates, get_session_user)
+        register_airprint_admin_routes(app, templates, get_session_user, t_ctx)
         logger.info("AirPrint Admin-Routen registriert: /admin/airprint-users, /admin/airprint/download/*")
     except Exception as _aap:
         logger.error("AirPrint Admin-Routen konnten nicht registriert werden: %s", _aap)
