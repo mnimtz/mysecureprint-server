@@ -95,6 +95,19 @@ async def submit_airprint_job(user_id: str,
              now_iso, now_iso),
         )
 
+    # ─── Preview-PNG + AI-Analyse im Hintergrund ──────────────────────
+    # (Gleicher Ablauf wie /desktop/upload — damit AirPrint-Jobs im
+    # Job-Verlauf mit Thumbnail und ai_doc_type/ai_tags erscheinen.)
+    asyncio.create_task(
+        _run_preview_and_ai(
+            internal_job_id=internal_job_id,
+            file_bytes=file_bytes,
+            job_name=job_name,
+            full_tenant=full_tenant,
+            user_id=user_id,
+        )
+    )
+
     # ─── An Printix submitten (Print API v1) ─────────────────────────
     try:
         submit_resp = await asyncio.to_thread(
@@ -174,3 +187,91 @@ def _mark_error(job_id: str, msg: str) -> None:
                 WHERE job_id = ?""",
             (msg, job_id),
         )
+
+
+async def _run_preview_and_ai(internal_job_id: str,
+                                file_bytes: bytes,
+                                job_name: str,
+                                full_tenant: dict,
+                                user_id: str) -> None:
+    """Läuft im Hintergrund: Preview-PNG rendern + KI-Analyse.
+
+    Fehler hier machen den Print-Job selbst nicht kaputt — sie
+    landen nur als Log-Warnung und (bei KI) als ai_analysis_skipped
+    Audit-Event. Der Job druckt trotzdem.
+    """
+    from db import _conn
+
+    # ─── Preview-PNG ─────────────────────────────────────────────
+    try:
+        from upload_converter import (
+            render_image_preview_png as _render_img_prev,
+            render_preview_png as _render_prev,
+        )
+        _prev_png = _render_img_prev(file_bytes) or _render_prev(file_bytes)
+        if _prev_png:
+            with _conn() as _c:
+                _c.execute(
+                    "UPDATE cloudprint_jobs SET preview_png=? WHERE job_id=?",
+                    (_prev_png, internal_job_id),
+                )
+            logger.info("AirPrint preview OK — job=%s size=%d",
+                        internal_job_id, len(_prev_png))
+    except Exception as _pe:
+        logger.warning("AirPrint preview failed job=%s: %s",
+                       internal_job_id, _pe)
+
+    # ─── KI-Analyse (nur wenn Tenant KI eingeschaltet hat) ───────
+    try:
+        if (full_tenant.get("ai_enabled") or "0") != "1":
+            return  # KI aus — kein Skipped-Event, wie beim regulären Upload
+        provider = (full_tenant.get("ai_provider") or "").strip()
+        if not provider:
+            try:
+                import json as _js
+                from db import audit as _audit_skip
+                _audit_skip(user_id, "ai_analysis_skipped",
+                            details=_js.dumps({
+                                "reason":   "no_provider_configured",
+                                "filename": job_name,
+                                "source":   "airprint",
+                            }, ensure_ascii=False),
+                            object_type="print_job",
+                            object_id=internal_job_id)
+            except Exception:
+                pass
+            return
+
+        import json as _json_ai_cfg
+        try:
+            _custom_prompts = _json_ai_cfg.loads(
+                full_tenant.get("ai_custom_prompts") or "[]"
+            )
+        except Exception:
+            _custom_prompts = []
+        ai_cfg = {
+            "tenant_id":      full_tenant.get("id", "") or "",
+            "provider":       provider,
+            "gemini_key":     (full_tenant.get("ai_gemini_api_key") or "").strip(),
+            "gemini_model":   (full_tenant.get("ai_gemini_model") or "").strip(),
+            "ollama_url":     (full_tenant.get("ai_ollama_url") or "").strip(),
+            "ollama_model":   (full_tenant.get("ai_ollama_model") or "").strip(),
+            "openai_key":     (full_tenant.get("ai_openai_api_key") or "").strip(),
+            "openai_model":   (full_tenant.get("ai_openai_model") or "").strip(),
+            "fields":         (full_tenant.get("ai_fields") or "").strip(),
+            "custom_prompts": _custom_prompts,
+        }
+        from cloudprint.ai_analysis import analyse_job
+        await asyncio.to_thread(
+            analyse_job,
+            job_id=internal_job_id,
+            file_bytes=file_bytes,
+            filename=job_name,
+            ai_cfg=ai_cfg,
+            user_id=user_id,
+            lang="en",
+        )
+        logger.info("AirPrint AI-Analyse fertig — job=%s", internal_job_id)
+    except Exception as _ae:
+        logger.warning("AirPrint AI-Analyse Exception job=%s: %s",
+                       internal_job_id, _ae)
