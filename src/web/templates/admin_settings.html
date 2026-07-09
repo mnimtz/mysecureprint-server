@@ -1561,11 +1561,23 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
       </div>
       <form method="post" action="/admin/settings/airprint-signing/upload"
             enctype="multipart/form-data">
+        {# Übersetzungs-Strings für die Custom-File-Inputs (via JS ausgelesen) #}
+        <div id="signing-i18n" style="display:none;"
+             data-choose="{{ _('ios_mobile_signing_choose_file') }}"
+             data-none-selected="{{ _('ios_mobile_signing_no_file_selected') }}"
+             data-change="{{ _('ios_mobile_signing_change_file') }}"></div>
+
         <div class="form-row">
           <label class="form-label" for="signing_cert_pem">{{ _('ios_mobile_signing_cert_label') }}</label>
           <div class="form-control">
-            <input type="file" name="signing_cert_pem" id="signing_cert_pem"
-                   accept=".pem,.crt,.cer">
+            <div class="custom-file-input-wrapper">
+              <input type="file" name="signing_cert_pem" id="signing_cert_pem"
+                     accept=".pem,.crt,.cer" class="custom-file-input">
+              <label for="signing_cert_pem" class="custom-file-input-button">
+                📎 <span data-role="btn-text">{{ _('ios_mobile_signing_choose_file') }}</span>
+              </label>
+              <span class="custom-file-input-name" data-role="filename">{{ _('ios_mobile_signing_no_file_selected') }}</span>
+            </div>
             <p style="font-size:12px;color:var(--muted);margin:6px 0 0 0;">
               {{ _('ios_mobile_signing_cert_help') }}
             </p>
@@ -1574,8 +1586,14 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
         <div class="form-row">
           <label class="form-label" for="signing_key_pem">{{ _('ios_mobile_signing_key_label') }}</label>
           <div class="form-control">
-            <input type="file" name="signing_key_pem" id="signing_key_pem"
-                   accept=".pem,.key">
+            <div class="custom-file-input-wrapper">
+              <input type="file" name="signing_key_pem" id="signing_key_pem"
+                     accept=".pem,.key" class="custom-file-input">
+              <label for="signing_key_pem" class="custom-file-input-button">
+                📎 <span data-role="btn-text">{{ _('ios_mobile_signing_choose_file') }}</span>
+              </label>
+              <span class="custom-file-input-name" data-role="filename">{{ _('ios_mobile_signing_no_file_selected') }}</span>
+            </div>
             <p style="font-size:12px;color:var(--muted);margin:6px 0 0 0;">
               {{ _('ios_mobile_signing_key_help') }}
             </p>
@@ -1587,6 +1605,68 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
           </button>
         </div>
       </form>
+
+      <style>
+      /* Custom file-input styling — hides browser-native text and
+         replaces it with our own i18n label + a filename display. */
+      .custom-file-input-wrapper {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      }
+      .custom-file-input {
+        position: absolute; opacity: 0; width: 0.1px; height: 0.1px;
+        overflow: hidden;
+      }
+      .custom-file-input-button {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 6px 12px;
+        background: var(--bg-subtle);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: background 0.15s;
+      }
+      .custom-file-input-button:hover {
+        background: var(--border-subtle);
+      }
+      .custom-file-input:focus + .custom-file-input-button {
+        outline: 2px solid var(--primary, #0369a1);
+        outline-offset: 2px;
+      }
+      .custom-file-input-name {
+        font-size: 13px;
+        color: var(--muted);
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .custom-file-input-name.has-file {
+        color: var(--text);
+        font-weight: 500;
+      }
+      </style>
+      <script>
+      // Update file-name display + button text when user picks a file
+      document.querySelectorAll('.custom-file-input').forEach(function(inp) {
+        var i18n = document.getElementById('signing-i18n');
+        var chooseLabel = i18n?.dataset.choose || 'Choose file';
+        var changeLabel = i18n?.dataset.change || 'Change file';
+        var noneLabel   = i18n?.dataset.noneSelected || 'No file selected';
+        inp.addEventListener('change', function(e) {
+          var wrapper = inp.closest('.custom-file-input-wrapper');
+          var nameEl = wrapper.querySelector('[data-role="filename"]');
+          var btnText = wrapper.querySelector('[data-role="btn-text"]');
+          if (inp.files && inp.files.length > 0) {
+            nameEl.textContent = inp.files[0].name;
+            nameEl.classList.add('has-file');
+            btnText.textContent = changeLabel;
+          } else {
+            nameEl.textContent = noneLabel;
+            nameEl.classList.remove('has-file');
+            btnText.textContent = chooseLabel;
+          }
+        });
+      });
+      </script>
       {% endif %}
     </div>
   </div>
