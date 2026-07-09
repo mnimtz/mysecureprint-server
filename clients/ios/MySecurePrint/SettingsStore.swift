@@ -102,16 +102,21 @@ final class SettingsStore: ObservableObject {
     @Published var delegationAllowedByAdmin: Bool = true
     @Published var employeesCanManageCards: Bool = false
 
+    // Es gibt genau zwei Rollen: "admin" und "employee".
+    // Die alte Rolle "user" aus Pre-v7-Zeiten wird server-seitig auf
+    // "employee" normalisiert (siehe db.py:_normalize_role_type),
+    // deshalb hier nur noch "admin" pruefen.
+
     /// True wenn der aktuelle User den Management-Tab sehen darf.
-    /// Employees nicht (kein Tenant/API-Kontext), Admin + User ja.
     var hasManagementAccess: Bool {
-        let r = userRoleType.lowercased()
-        return r == "admin" || r == "user"
+        userRoleType.lowercased() == "admin"
     }
 
+    /// True wenn der User Karten verwalten darf. Admins immer,
+    /// Employees nur wenn der Tenant das per Flag erlaubt hat.
     var hasCardsAccess: Bool {
         let r = userRoleType.lowercased()
-        return r == "admin" || r == "user" || (r == "employee" && employeesCanManageCards)
+        return r == "admin" || (r == "employee" && employeesCanManageCards)
     }
 
     @Published var lastTargetId: String {
