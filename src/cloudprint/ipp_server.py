@@ -130,7 +130,11 @@ def _handle_get_printer_attributes(profile_token: str, req: ipp.IppRequest,
                                status_code=ipp.STATUS_CLIENT_ERROR_NOT_FOUND),
         )
     printer_uri = _derive_printer_uri(request, profile_token)
-    printer_name = f"MySecurePrint — {profile.get('queue_display_name') or 'SecurePrint'}"
+    # Präfix aus dem Admin-Setting (Konfiguration → iOS Mobile → Organisation)
+    from db import get_setting as _gs
+    _org = _gs("airprint_organization", "") or "MySecurePrint"
+    _queue = profile.get("queue_display_name") or "SecurePrint"
+    printer_name = f"{_org} — {_queue}"
     body = ipp.build_get_printer_attributes_response(
         request_id=req.request_id,
         printer_uri=printer_uri,

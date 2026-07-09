@@ -71,7 +71,7 @@ def build_mobileconfig(server_url: str,
         "PayloadType":         "com.apple.airprint",
         "PayloadUUID":         payload_uuid,
         "PayloadIdentifier":   f"com.mysecureprint.airprint.{profile_token}",
-        "PayloadDisplayName":  f"MySecurePrint — {queue_display_name}",
+        "PayloadDisplayName":  f"{organization} — {queue_display_name}",
         "PayloadDescription":  f"AirPrint über MySecurePrint auf {queue_display_name}",
         "PayloadVersion":      1,
         "PayloadOrganization": organization,
@@ -92,7 +92,7 @@ def build_mobileconfig(server_url: str,
         "PayloadType":         "Configuration",
         "PayloadUUID":         profile_uuid,
         "PayloadIdentifier":   f"com.mysecureprint.profile.{profile_token}",
-        "PayloadDisplayName":  f"MySecurePrint — {queue_display_name}",
+        "PayloadDisplayName":  f"{organization} — {queue_display_name}",
         "PayloadDescription":  (
             "Registriert einen nativen Drucker über MySecurePrint an deine "
             "SecurePrint-Queue. Funktioniert auf iPhone, iPad und Mac — "
