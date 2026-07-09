@@ -1407,3 +1407,216 @@ def register_employee_routes(
             delete_delegation(delegation_id)
         return RedirectResponse(_safe_referer(request, "/my/employees"),
                                   status_code=302)
+
+    # ── AirPrint Profile (v0.8.0) — Web-Portal Selbstbedienung ───────────
+    # Dieselben Aktionen wie die iOS-App unter "Mehr → iOS-Drucker",
+    # damit User ohne installierte App die Profile auch aus dem Browser
+    # bauen können.
+
+    @app.get("/my/airprint", response_class=HTMLResponse)
+    async def my_airprint(request: Request):
+        user = _require_employee(request)
+        if not user:
+            return RedirectResponse("/login", status_code=302)
+
+        from db import get_setting as _gs
+        from cloudprint.airprint_profiles import list_profiles_for_user
+
+        feature_enabled = _gs("ios_mobile_airprint_enabled", "0") == "1"
+        default_queue_id   = _gs("ios_mobile_airprint_default_queue_id", "")
+        default_printer_id = _gs("ios_mobile_airprint_default_printer_id", "")
+        default_queue_name = _gs("ios_mobile_airprint_default_queue_name", "")
+        default_configured = bool(default_queue_id and default_printer_id)
+
+        my_profiles = list_profiles_for_user(user["id"], include_revoked=False)
+        default_installed_id = ""
+        for p in my_profiles:
+            if p.get("queue_id") == default_queue_id and default_queue_id:
+                default_installed_id = p["id"]
+                break
+
+        # Live-Queues für Direkt-Drucker-Dropdown
+        available_queues = []
+        try:
+            from db import get_tenant_full_by_user_id, _resolve_tenant_owner_for
+            parent_id = _resolve_tenant_owner_for(user["id"])
+            full_tenant = get_tenant_full_by_user_id(parent_id) if parent_id else None
+            if full_tenant and (full_tenant.get("print_client_id")
+                                or full_tenant.get("shared_client_id")):
+                from web.airprint_admin_routes import _load_queues_from_printix
+                available_queues = _load_queues_from_printix(full_tenant)
+        except Exception as e:
+            logger.warning("/my/airprint: Queue-Load failed: %s", e)
+
+        return templates.TemplateResponse("employee/my_airprint.html", {
+            "request": request, "user": user,
+            "feature_enabled":      feature_enabled,
+            "default_configured":   default_configured,
+            "default_queue_id":     default_queue_id,
+            "default_printer_id":   default_printer_id,
+            "default_queue_name":   default_queue_name or "SecurePrint",
+            "default_installed_id": default_installed_id,
+            "my_profiles":          my_profiles,
+            "available_queues":     available_queues,
+            "flash":                request.query_params.get("flash", ""),
+            **t_ctx(request),
+        })
+
+    @app.post("/my/airprint/install-company")
+    async def my_airprint_install_company(request: Request):
+        user = _require_employee(request)
+        if not user:
+            return RedirectResponse("/login", status_code=302)
+        from db import get_setting as _gs
+        if _gs("ios_mobile_airprint_enabled", "0") != "1":
+            return RedirectResponse("/my/airprint?flash=feature_disabled",
+                                      status_code=302)
+        qid = _gs("ios_mobile_airprint_default_queue_id", "")
+        pid = _gs("ios_mobile_airprint_default_printer_id", "")
+        qname = _gs("ios_mobile_airprint_default_queue_name", "") or "SecurePrint"
+        if not qid or not pid:
+            return RedirectResponse("/my/airprint?flash=no_default",
+                                      status_code=302)
+        from cloudprint.airprint_profiles import create_profile
+        profile = create_profile(
+            user_id=user["id"], printer_id=pid, queue_id=qid,
+            queue_display_name=qname, display_name="",
+            created_via="web-portal",
+        )
+        try:
+            import json as _json
+            from db import audit as _audit
+            _audit(user["id"], "airprint_profile_created", details=_json.dumps({
+                "profile_id": profile["id"], "queue_id": qid,
+                "queue_display_name": qname, "via": "web-portal-company",
+            }, ensure_ascii=False))
+        except Exception:
+            pass
+        # Direkt zum Download springen — Browser bietet den Download an,
+        # macOS öffnet System-Einstellungen, iOS-Safari zeigt Install-Dialog.
+        return RedirectResponse(
+            f"/my/airprint/{profile['id']}/download?after=install",
+            status_code=303,
+        )
+
+    @app.post("/my/airprint/create-direct")
+    async def my_airprint_create_direct(request: Request,
+                                          queue_id: str = Form(""),
+                                          printer_id: str = Form(""),
+                                          queue_display_name: str = Form(""),
+                                          display_name: str = Form("")):
+        user = _require_employee(request)
+        if not user:
+            return RedirectResponse("/login", status_code=302)
+        from db import get_setting as _gs
+        if _gs("ios_mobile_airprint_enabled", "0") != "1":
+            return RedirectResponse("/my/airprint?flash=feature_disabled",
+                                      status_code=302)
+        queue_id = (queue_id or "").strip()
+        printer_id = (printer_id or "").strip()
+        if not queue_id or not printer_id:
+            return RedirectResponse("/my/airprint?flash=missing_queue",
+                                      status_code=302)
+        from cloudprint.airprint_profiles import create_profile
+        profile = create_profile(
+            user_id=user["id"], printer_id=printer_id, queue_id=queue_id,
+            queue_display_name=(queue_display_name or "").strip() or "AirPrint",
+            display_name=(display_name or "").strip(),
+            created_via="web-portal",
+        )
+        try:
+            import json as _json
+            from db import audit as _audit
+            _audit(user["id"], "airprint_profile_created", details=_json.dumps({
+                "profile_id": profile["id"], "queue_id": queue_id,
+                "queue_display_name": queue_display_name,
+                "via": "web-portal-direct",
+            }, ensure_ascii=False))
+        except Exception:
+            pass
+        return RedirectResponse(
+            f"/my/airprint/{profile['id']}/download?after=install",
+            status_code=303,
+        )
+
+    @app.get("/my/airprint/{profile_id}/download")
+    async def my_airprint_download(profile_id: str, request: Request):
+        from fastapi.responses import Response
+        user = _require_employee(request)
+        if not user:
+            return RedirectResponse("/login", status_code=302)
+        from cloudprint.airprint_profiles import get_profile_by_id
+        profile = get_profile_by_id(profile_id)
+        if not profile or profile.get("user_id") != user["id"]:
+            return RedirectResponse("/my/airprint?flash=not_found",
+                                      status_code=302)
+        if profile.get("is_revoked"):
+            return RedirectResponse("/my/airprint?flash=revoked",
+                                      status_code=302)
+
+        # public_url oder aus Request
+        from db import get_setting as _gs
+        server_url = _gs("public_url", "")
+        if not server_url:
+            proto = request.headers.get("x-forwarded-proto", "https")
+            host = (request.headers.get("x-forwarded-host")
+                    or request.headers.get("host") or "localhost")
+            server_url = f"{proto}://{host}"
+        else:
+            server_url = server_url.rstrip("/")
+
+        from cloudprint.airprint_mobileconfig import (
+            generate_mobileconfig_for_profile, suggest_filename,
+        )
+        payload, mime = generate_mobileconfig_for_profile(
+            profile=profile, server_url=server_url,
+            organization=_gs("airprint_organization", "MySecurePrint"),
+            cert_pem=_gs("airprint_signing_cert_pem", ""),
+            key_pem=_gs("airprint_signing_key_pem", ""),
+        )
+        filename = suggest_filename(profile)
+
+        try:
+            import json as _json
+            from db import audit as _audit
+            _audit(user["id"], "airprint_profile_downloaded",
+                   details=_json.dumps({
+                       "profile_id":         profile["id"],
+                       "queue_id":           profile.get("queue_id"),
+                       "queue_display_name": profile.get("queue_display_name"),
+                       "via":                "web-portal",
+                   }, ensure_ascii=False))
+        except Exception:
+            pass
+
+        return Response(
+            content=payload, media_type=mime,
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "no-store",
+            },
+        )
+
+    @app.post("/my/airprint/{profile_id}/revoke")
+    async def my_airprint_revoke(profile_id: str, request: Request):
+        user = _require_employee(request)
+        if not user:
+            return RedirectResponse("/login", status_code=302)
+        from cloudprint.airprint_profiles import (
+            get_profile_by_id, revoke_profile,
+        )
+        profile = get_profile_by_id(profile_id)
+        if not profile or profile.get("user_id") != user["id"]:
+            return RedirectResponse("/my/airprint?flash=not_found",
+                                      status_code=302)
+        revoke_profile(profile_id, reason="user_web_portal")
+        try:
+            import json as _json
+            from db import audit as _audit
+            _audit(user["id"], "airprint_profile_revoked", details=_json.dumps({
+                "profile_id": profile_id, "via": "web-portal",
+            }, ensure_ascii=False))
+        except Exception:
+            pass
+        return RedirectResponse("/my/airprint?flash=revoked_ok",
+                                  status_code=303)

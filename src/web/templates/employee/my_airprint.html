@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}{{ _('emp_my_airprint_title') }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+<div class="container">
+
+  <div class="card" style="margin-bottom:18px;">
+    <div class="section-title">🖨 {{ _('emp_my_airprint_title') }}</div>
+    <div class="section-sub">{{ _('emp_my_airprint_intro') }}</div>
+  </div>
+
+  {% if flash == 'feature_disabled' %}
+    <div class="card" style="background:#fff4d6;border-left:3px solid #cc9900;margin-bottom:18px;">
+      ⚠ {{ _('emp_my_airprint_flash_feature_disabled') }}
+    </div>
+  {% elif flash == 'no_default' %}
+    <div class="card" style="background:#fff4d6;border-left:3px solid #cc9900;margin-bottom:18px;">
+      ⚠ {{ _('emp_my_airprint_flash_no_default') }}
+    </div>
+  {% elif flash == 'missing_queue' %}
+    <div class="card" style="background:#ffe0e0;border-left:3px solid #cc0000;margin-bottom:18px;">
+      ⚠ {{ _('emp_my_airprint_flash_missing_queue') }}
+    </div>
+  {% elif flash == 'revoked_ok' %}
+    <div class="card" style="background:#e0f4e0;border-left:3px solid #00aa00;margin-bottom:18px;">
+      ✓ {{ _('emp_my_airprint_flash_revoked_ok') }}
+    </div>
+  {% elif flash == 'not_found' or flash == 'revoked' %}
+    <div class="card" style="background:#ffe0e0;border-left:3px solid #cc0000;margin-bottom:18px;">
+      ⚠ {{ _('emp_my_airprint_flash_not_found') }}
+    </div>
+  {% endif %}
+
+  {% if not feature_enabled %}
+    <div class="card">
+      <div class="section-title">{{ _('emp_my_airprint_disabled_title') }}</div>
+      <div class="section-sub">{{ _('emp_my_airprint_disabled_body') }}</div>
+    </div>
+  {% else %}
+
+    <!-- ── 1) Firmen-SecurePrint ────────────────────────────────── -->
+    <div class="card" style="margin-bottom:18px;">
+      <div class="section-title">🏢 {{ _('emp_my_airprint_company_section') }}</div>
+
+      {% if not default_configured %}
+        <div class="section-sub" style="margin-top:8px;">
+          {{ _('emp_my_airprint_company_not_configured') }}
+        </div>
+      {% elif default_installed_id %}
+        <div style="margin-top:12px;padding:14px;background:#e0f4e0;border-radius:8px;">
+          <strong>{{ default_queue_name }}</strong>
+          <div style="margin-top:6px;font-size:0.9em;">
+            ✓ {{ _('emp_my_airprint_company_already_installed') }}
+          </div>
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+            <a href="/my/airprint/{{ default_installed_id }}/download"
+               class="btn btn-primary">
+              ⬇ {{ _('emp_my_airprint_download_again') }}
+            </a>
+            <form method="post"
+                  action="/my/airprint/{{ default_installed_id }}/revoke"
+                  style="display:inline;"
+                  onsubmit="return confirm('{{ _('emp_my_airprint_revoke_confirm') }}');">
+              <button type="submit" class="btn btn-danger">
+                🗑 {{ _('emp_my_airprint_revoke_button') }}
+              </button>
+            </form>
+          </div>
+        </div>
+      {% else %}
+        <div style="margin-top:12px;padding:14px;background:#fff4d6;border-radius:8px;">
+          <strong>{{ default_queue_name }}</strong>
+          <div style="margin-top:6px;font-size:0.9em;color:#555;">
+            {{ _('emp_my_airprint_company_hint') }}
+          </div>
+          <form method="post" action="/my/airprint/install-company"
+                style="margin-top:10px;">
+            <button type="submit" class="btn btn-primary">
+              ⬇ {{ _('emp_my_airprint_install_button') }}
+            </button>
+          </form>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- ── 2) Direkt-Drucker ────────────────────────────────────── -->
+    <div class="card" style="margin-bottom:18px;">
+      <div class="section-title">🎯 {{ _('emp_my_airprint_direct_section') }}</div>
+      <div class="section-sub" style="margin-top:8px;">
+        {{ _('emp_my_airprint_direct_hint') }}
+      </div>
+
+      {% if available_queues %}
+        <form method="post" action="/my/airprint/create-direct"
+              style="margin-top:14px;display:flex;flex-direction:column;gap:10px;"
+              id="direct-form">
+          <div>
+            <label class="form-label" for="queue_pick">{{ _('emp_my_airprint_direct_queue_label') }}</label>
+            <select id="queue_pick" class="form-input" required
+                    onchange="_pickQueue(this)">
+              <option value="">{{ _('emp_my_airprint_direct_queue_placeholder') }}</option>
+              {% for q in available_queues %}
+                <option value="{{ q.queue_id }}"
+                        data-printer="{{ q.printer_id }}"
+                        data-name="{{ q.queue_name }}">
+                  {{ q.queue_name }}{% if q.vendor %} ({{ q.vendor }}{% if q.model %} {{ q.model }}{% endif %}){% endif %}
+                </option>
+              {% endfor %}
+            </select>
+            <input type="hidden" name="queue_id" id="queue_id" value="">
+            <input type="hidden" name="printer_id" id="printer_id" value="">
+            <input type="hidden" name="queue_display_name" id="queue_display_name" value="">
+          </div>
+          <div>
+            <label class="form-label" for="display_name">
+              {{ _('emp_my_airprint_direct_display_name') }}
+              <span style="color:#888;font-weight:normal;">
+                — {{ _('emp_my_airprint_direct_display_optional') }}
+              </span>
+            </label>
+            <input type="text" id="display_name" name="display_name"
+                   class="form-input" maxlength="80">
+          </div>
+          <div>
+            <button type="submit" class="btn btn-primary" id="direct-submit"
+                    disabled>
+              ⬇ {{ _('emp_my_airprint_direct_create_button') }}
+            </button>
+          </div>
+        </form>
+        <script>
+        function _pickQueue(sel) {
+            var opt = sel.options[sel.selectedIndex];
+            document.getElementById('queue_id').value = opt.value;
+            document.getElementById('printer_id').value = opt.dataset.printer || '';
+            document.getElementById('queue_display_name').value = opt.dataset.name || '';
+            document.getElementById('direct-submit').disabled = !opt.value;
+        }
+        </script>
+      {% else %}
+        <div style="margin-top:10px;color:#888;">
+          {{ _('emp_my_airprint_direct_no_queues') }}
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- ── 3) Installierte Profile ──────────────────────────────── -->
+    {% if my_profiles %}
+    <div class="card" style="margin-bottom:18px;">
+      <div class="section-title">📋 {{ _('emp_my_airprint_installed_section') }}</div>
+      <table class="data-table" style="width:100%;margin-top:10px;">
+        <thead>
+          <tr>
+            <th>{{ _('emp_my_airprint_col_queue') }}</th>
+            <th>{{ _('emp_my_airprint_col_created') }}</th>
+            <th>{{ _('emp_my_airprint_col_last_used') }}</th>
+            <th>{{ _('emp_my_airprint_col_jobs') }}</th>
+            <th style="text-align:right;">{{ _('emp_my_airprint_col_actions') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in my_profiles %}
+          <tr>
+            <td>
+              <strong>{{ p.queue_display_name or _('emp_my_airprint_unnamed') }}</strong>
+              {% if p.display_name %}
+                <div style="font-size:0.85em;color:#666;">{{ p.display_name }}</div>
+              {% endif %}
+            </td>
+            <td style="font-size:0.9em;">{{ p.created_at[:10] }}</td>
+            <td style="font-size:0.9em;">
+              {% if p.last_used_at %}{{ p.last_used_at[:16] }}{% else %}—{% endif %}
+            </td>
+            <td style="font-size:0.9em;">{{ p.job_count or 0 }}</td>
+            <td style="text-align:right;">
+              <a href="/my/airprint/{{ p.id }}/download" class="btn btn-small">
+                ⬇ {{ _('emp_my_airprint_download_small') }}
+              </a>
+              <form method="post" action="/my/airprint/{{ p.id }}/revoke"
+                    style="display:inline;"
+                    onsubmit="return confirm('{{ _('emp_my_airprint_revoke_confirm') }}');">
+                <button type="submit" class="btn btn-small btn-danger">
+                  🗑
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    <!-- ── Info-Kasten ──────────────────────────────────────────── -->
+    <div class="card" style="background:#f5f9ff;">
+      <div class="section-title" style="font-size:0.95em;">
+        💡 {{ _('emp_my_airprint_help_title') }}
+      </div>
+      <div class="section-sub" style="margin-top:8px;">
+        {{ _('emp_my_airprint_help_body') }}
+      </div>
+    </div>
+
+  {% endif %}
+
+</div>
+{% endblock %}
