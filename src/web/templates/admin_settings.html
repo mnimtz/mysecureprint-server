@@ -1567,7 +1567,7 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
              data-none-selected="{{ _('ios_mobile_signing_no_file_selected') }}"
              data-change="{{ _('ios_mobile_signing_change_file') }}"></div>
 
-        <div class="form-row">
+        <div class="form-row" style="flex-direction:column;align-items:stretch;">
           <label class="form-label" for="signing_cert_pem">{{ _('ios_mobile_signing_cert_label') }}</label>
           <div class="form-control">
             <div class="custom-file-input-wrapper">
@@ -1583,7 +1583,7 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
             </p>
           </div>
         </div>
-        <div class="form-row">
+        <div class="form-row" style="flex-direction:column;align-items:stretch;">
           <label class="form-label" for="signing_key_pem">{{ _('ios_mobile_signing_key_label') }}</label>
           <div class="form-control">
             <div class="custom-file-input-wrapper">
