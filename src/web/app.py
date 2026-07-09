@@ -8056,6 +8056,14 @@ def create_app(session_secret: str) -> FastAPI:
     except Exception as _amp:
         logger.error("AirPrint Management-Routen konnten nicht registriert werden: %s", _amp)
 
+    # ── AirPrint Admin-Verwaltung (User-Liste, Erstellen, Download) ────────
+    try:
+        from web.airprint_admin_routes import register_airprint_admin_routes
+        register_airprint_admin_routes(app, templates, get_session_user)
+        logger.info("AirPrint Admin-Routen registriert: /admin/airprint-users, /admin/airprint/download/*")
+    except Exception as _aap:
+        logger.error("AirPrint Admin-Routen konnten nicht registriert werden: %s", _aap)
+
     # ── Desktop Cards (iOS Karten-Tab, v6.7.90) ─────────────────────────────
     try:
         from web.desktop_cards_routes import register_desktop_cards_routes

@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}{{ _('airprint_admin_users_page_title') }} — {{ _('brand_console_name') }}{% endblock %}
+{% block content %}
+
+<div style="max-width:900px;margin:0 auto;padding:16px;">
+  <h1 style="margin:0 0 8px 0;font-size:20px;">
+    📱 {{ _('airprint_admin_users_headline') }}
+  </h1>
+  <p style="color:var(--muted);margin:0 0 20px 0;">
+    {{ _('airprint_admin_users_intro') }}
+  </p>
+
+  {# ── Statistik-Karte ── #}
+  {% if stats %}
+  <div class="card" style="margin-bottom:20px;">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
+      <div>
+        <div style="font-size:24px;font-weight:700;">{{ stats.active_profiles or 0 }}</div>
+        <div style="font-size:12px;color:var(--muted);">{{ _('airprint_admin_stats_active') }}</div>
+      </div>
+      <div>
+        <div style="font-size:24px;font-weight:700;">{{ stats.distinct_users or 0 }}</div>
+        <div style="font-size:12px;color:var(--muted);">{{ _('airprint_admin_stats_users') }}</div>
+      </div>
+      <div>
+        <div style="font-size:24px;font-weight:700;">{{ stats.total_jobs or 0 }}</div>
+        <div style="font-size:12px;color:var(--muted);">{{ _('airprint_admin_stats_jobs') }}</div>
+      </div>
+      <div>
+        <div style="font-size:24px;font-weight:700;">{{ stats.total_profiles or 0 }}</div>
+        <div style="font-size:12px;color:var(--muted);">{{ _('airprint_admin_stats_total') }}</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Suchfeld ── #}
+  <div class="card" style="margin-bottom:20px;">
+    <form method="get" action="/admin/airprint-users" style="display:flex;gap:8px;">
+      <input type="text" name="q" value="{{ search_query or '' }}"
+             placeholder="{{ _('airprint_admin_search_placeholder') }}"
+             style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:6px;">
+      <button type="submit" class="btn btn-primary">{{ _('airprint_admin_search_button') }}</button>
+      {% if search_query %}
+      <a href="/admin/airprint-users" class="btn" style="background:var(--bg-subtle);">
+        {{ _('airprint_admin_clear_search') }}
+      </a>
+      {% endif %}
+    </form>
+  </div>
+
+  {# ── User-Liste ── #}
+  <div class="card">
+    <h3 style="margin:0 0 12px 0;font-size:15px;">
+      {{ _('airprint_admin_users_list_title') }}
+      {% if users_list %}
+        <span style="color:var(--muted);font-weight:normal;font-size:13px;">
+          ({{ users_list|length }} {{ _('airprint_admin_users_count') }})
+        </span>
+      {% endif %}
+    </h3>
+
+    {% if not users_list %}
+    <p style="color:var(--muted);margin:0;">
+      {{ _('airprint_admin_no_users') }}
+    </p>
+    {% else %}
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border);text-align:left;">
+          <th style="padding:8px 4px;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;">
+            {{ _('airprint_admin_table_user') }}
+          </th>
+          <th style="padding:8px 4px;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;text-align:center;">
+            {{ _('airprint_admin_table_profiles') }}
+          </th>
+          <th style="padding:8px 4px;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;text-align:center;">
+            {{ _('airprint_admin_table_last_used') }}
+          </th>
+          <th style="padding:8px 4px;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;text-align:right;">
+            {{ _('airprint_admin_table_actions') }}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users_list %}
+        <tr style="border-bottom:1px solid var(--border-subtle);">
+          <td style="padding:10px 4px;">
+            <div style="font-weight:500;">{{ u.email or u.username or u.user_id }}</div>
+            {% if u.username and u.username != u.email %}
+            <div style="font-size:12px;color:var(--muted);">{{ u.username }}</div>
+            {% endif %}
+            {% if u.role_type %}
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;">{{ u.role_type }}</div>
+            {% endif %}
+          </td>
+          <td style="padding:10px 4px;text-align:center;">
+            {% if u.active_profiles and u.active_profiles > 0 %}
+            <span style="background:var(--primary-subtle,#e0f2fe);color:var(--primary,#0369a1);padding:2px 10px;border-radius:12px;font-size:13px;font-weight:600;">
+              {{ u.active_profiles }}
+            </span>
+            {% else %}
+            <span style="color:var(--muted);">—</span>
+            {% endif %}
+          </td>
+          <td style="padding:10px 4px;text-align:center;font-size:12px;color:var(--muted);">
+            {{ u.last_used_at or '—' }}
+          </td>
+          <td style="padding:10px 4px;text-align:right;">
+            <a href="/admin/airprint-users/{{ u.user_id }}"
+               class="btn"
+               style="background:var(--primary,#0369a1);color:white;padding:6px 12px;font-size:13px;text-decoration:none;border-radius:6px;">
+              {{ _('airprint_admin_manage') }} →
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}{{ target.email or target.username }} — {{ _('airprint_admin_users_page_title') }}{% endblock %}
+{% block content %}
+
+<div style="max-width:900px;margin:0 auto;padding:16px;">
+  <a href="/admin/airprint-users" style="color:var(--muted);text-decoration:none;font-size:13px;">
+    ← {{ _('airprint_admin_back_to_list') }}
+  </a>
+
+  <h1 style="margin:8px 0 4px 0;font-size:20px;">
+    📱 {{ target.email or target.username or target.user_id }}
+  </h1>
+  {% if target.username and target.username != target.email %}
+  <div style="color:var(--muted);font-size:13px;margin-bottom:20px;">
+    {{ target.username }} · {{ target.role_type or 'user' }}
+  </div>
+  {% else %}
+  <div style="margin-bottom:20px;"></div>
+  {% endif %}
+
+  {# ── Success-Banner nach Erstellen ── #}
+  {% if just_created %}
+  <div class="card" style="background:#dcfce7;border:1px solid #bbf7d0;margin-bottom:20px;">
+    <div style="display:flex;align-items:start;gap:12px;">
+      <div style="font-size:24px;">✅</div>
+      <div style="flex:1;">
+        <div style="font-weight:600;margin-bottom:4px;">
+          {{ _('airprint_admin_created_success') }}
+        </div>
+        <div style="font-size:13px;color:#166534;margin-bottom:12px;">
+          {{ _('airprint_admin_created_download_hint') }}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <a href="/admin/airprint/download/{{ just_created }}"
+             class="btn btn-primary" style="text-decoration:none;">
+            ⬇ .mobileconfig
+          </a>
+          <a href="/admin/airprint/download/{{ just_created }}.zip"
+             class="btn" style="background:var(--bg-subtle);text-decoration:none;">
+            📦 .zip
+          </a>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:#166534;">
+          {{ _('airprint_admin_zip_hint') }}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Neues Profil erstellen ── #}
+  <div class="card" style="margin-bottom:20px;">
+    <h3 style="margin:0 0 12px 0;font-size:15px;">
+      ➕ {{ _('airprint_admin_new_profile_title') }}
+    </h3>
+    {% if not queues %}
+    <div class="alert alert-warning" style="margin:0;">
+      {{ _('airprint_admin_no_queues_configured') }}
+    </div>
+    {% else %}
+    <form method="post" action="/admin/airprint-users/{{ target.user_id }}/create">
+      <div class="form-row">
+        <label class="form-label" for="queue_pick">{{ _('airprint_admin_queue_label') }}</label>
+        <div class="form-control">
+          <select id="queue_pick" style="width:100%;padding:8px;">
+            <option value="">— {{ _('airprint_admin_queue_none') }} —</option>
+            {% for q in queues %}
+            <option value="{{ q.queue_id }}"
+                    data-printer="{{ q.printer_id }}"
+                    data-display="{{ q.display_name }}">
+              {{ q.display_name }}
+            </option>
+            {% endfor %}
+          </select>
+          <input type="hidden" name="queue_id" id="queue_id" required>
+          <input type="hidden" name="printer_id" id="printer_id" required>
+          <input type="hidden" name="queue_display_name" id="queue_display_name">
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="form-label" for="display_name">
+          {{ _('airprint_admin_display_name_label') }}
+        </label>
+        <div class="form-control">
+          <input type="text" name="display_name" id="display_name"
+                 placeholder="{{ _('airprint_admin_display_name_placeholder') }}"
+                 maxlength="100" style="width:100%;padding:8px;">
+          <p style="font-size:12px;color:var(--muted);margin:6px 0 0 0;">
+            {{ _('airprint_admin_display_name_help') }}
+          </p>
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top:16px;">
+        <button type="submit" class="btn btn-primary" id="create_btn" disabled>
+          {{ _('airprint_admin_create_button') }}
+        </button>
+      </div>
+    </form>
+    <script>
+    document.getElementById('queue_pick')?.addEventListener('change', function(e) {
+      const opt = e.target.selectedOptions[0];
+      document.getElementById('queue_id').value = opt.value || '';
+      document.getElementById('printer_id').value = opt.dataset.printer || '';
+      document.getElementById('queue_display_name').value = opt.dataset.display || '';
+      document.getElementById('create_btn').disabled = !opt.value;
+    });
+    </script>
+    {% endif %}
+  </div>
+
+  {# ── Existierende Profile ── #}
+  <div class="card">
+    <h3 style="margin:0 0 12px 0;font-size:15px;">
+      {{ _('airprint_admin_existing_profiles_title') }}
+      {% if profiles %}
+      <span style="color:var(--muted);font-weight:normal;font-size:13px;">
+        ({{ profiles|length }})
+      </span>
+      {% endif %}
+    </h3>
+    {% if not profiles %}
+    <p style="color:var(--muted);margin:0;">
+      {{ _('airprint_admin_no_profiles_yet') }}
+    </p>
+    {% else %}
+    {% for p in profiles %}
+    <div style="border-bottom:1px solid var(--border-subtle);padding:12px 0;">
+      <div style="display:flex;justify-content:space-between;align-items:start;gap:16px;">
+        <div style="flex:1;">
+          <div style="font-weight:600;">
+            {{ p.queue_display_name or 'SecurePrint' }}
+            {% if p.is_revoked %}
+            <span style="background:#fee;color:#900;font-size:11px;padding:2px 8px;border-radius:8px;margin-left:6px;">
+              {{ _('airprint_admin_status_revoked') }}
+            </span>
+            {% endif %}
+          </div>
+          {% if p.display_name %}
+          <div style="font-size:13px;color:var(--muted);">{{ p.display_name }}</div>
+          {% endif %}
+          <div style="font-size:12px;color:var(--muted);margin-top:4px;">
+            {{ _('airprint_admin_profile_meta') }}:
+            {{ p.created_at }} · {{ p.created_via or 'app' }}
+            {% if p.last_used_at %}
+            · {{ _('airprint_admin_last_used') }}: {{ p.last_used_at }}
+            {% endif %}
+            · {{ p.job_count or 0 }} {{ _('airprint_admin_jobs') }}
+          </div>
+        </div>
+        {% if not p.is_revoked %}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;">
+          <a href="/admin/airprint/download/{{ p.id }}"
+             class="btn" style="background:var(--primary,#0369a1);color:white;text-decoration:none;font-size:12px;padding:5px 10px;">
+            ⬇ .mobileconfig
+          </a>
+          <a href="/admin/airprint/download/{{ p.id }}.zip"
+             class="btn" style="background:var(--bg-subtle);text-decoration:none;font-size:12px;padding:5px 10px;">
+            📦 .zip
+          </a>
+          <form method="post" action="/admin/airprint/revoke/{{ p.id }}"
+                style="display:inline;"
+                onsubmit="return confirm('{{ _('airprint_admin_revoke_confirm') }}');">
+            <input type="hidden" name="reason" value="admin_manual">
+            <button type="submit" class="btn"
+                    style="background:#fee;color:#900;font-size:12px;padding:5px 10px;border:0;cursor:pointer;">
+              🗑 {{ _('airprint_admin_revoke_button') }}
+            </button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
