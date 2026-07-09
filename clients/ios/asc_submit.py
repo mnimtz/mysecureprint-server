@@ -94,18 +94,33 @@ def get_token() -> str:
 
 
 def api(method: str, path: str, token: str, **kwargs):
-    """ASC-API-Call mit automatischem Retry auf 5xx (Apple-Server-Flakes).
+    """ASC-API-Call mit automatischem Retry auf 5xx UND Timeouts/Connection-
+    Errors (Apple-Server-Flakes).
     Retry: 8 Versuche mit exponential backoff 5s → 10s → 20s → 40s → 80s
-    → 160s → 320s → 640s (Summe ~21 min). Nur 5xx wird retried, 4xx sofort
-    zurueckgegeben.
+    → 160s → 320s → 640s (Summe ~21 min). Nur 5xx + Netzwerkfehler werden
+    retried, 4xx sofort zurueckgegeben.
+
+    Timeout hochgesetzt auf 120s (statt 30s) — ASC-Backend antwortet bei
+    Last teilweise sehr langsam.
     """
     H = {"Authorization": f"Bearer {token}",
          "Content-Type": "application/json"}
     H.update(kwargs.pop("headers", {}))
+    # Timeout ist ein Tuple (connect, read) — connect kurz, read lang
+    kwargs.setdefault("timeout", (15, 120))
     delays = [5, 10, 20, 40, 80, 160, 320, 640]
     for attempt, delay_next in enumerate(delays + [None], start=1):
-        r = requests.request(method, BASE + path, headers=H,
-                              timeout=30, **kwargs)
+        try:
+            r = requests.request(method, BASE + path, headers=H, **kwargs)
+        except (requests.exceptions.ConnectionError,
+                requests.exceptions.ReadTimeout,
+                requests.exceptions.Timeout) as e:
+            print(f"  ⏳ {method} {path} → NETWORK {type(e).__name__} "
+                  f"(Attempt {attempt}/{len(delays)+1})", flush=True)
+            if delay_next is None:
+                raise
+            time.sleep(delay_next)
+            continue
         # Fertig wenn ok oder 4xx (Client-Fehler, kein Retry sinnvoll)
         if r.ok or (400 <= r.status_code < 500):
             if not r.ok:
