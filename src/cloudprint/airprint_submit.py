@@ -156,6 +156,7 @@ async def submit_airprint_job(user_id: str,
             job_name=job_name,
             full_tenant=full_tenant,
             user_id=user_id,
+            doc_format=doc_format,
         )
     )
 
@@ -348,7 +349,8 @@ async def _run_preview_and_ai(internal_job_id: str,
                                 file_bytes: bytes,
                                 job_name: str,
                                 full_tenant: dict,
-                                user_id: str) -> None:
+                                user_id: str,
+                                doc_format: str = "application/pdf") -> None:
     """Läuft im Hintergrund: Preview-PNG rendern + KI-Analyse.
 
     Fehler hier machen den Print-Job selbst nicht kaputt — sie
@@ -358,6 +360,7 @@ async def _run_preview_and_ai(internal_job_id: str,
     from db import _conn
 
     # ─── Preview-PNG ─────────────────────────────────────────────
+    _prev_png = None
     try:
         from upload_converter import (
             render_image_preview_png as _render_img_prev,
@@ -416,17 +419,44 @@ async def _run_preview_and_ai(internal_job_id: str,
             "fields":         (full_tenant.get("ai_fields") or "").strip(),
             "custom_prompts": _custom_prompts,
         }
+        # Wenn wir Preview-PNG haben (immer bei Foto-Prints, meist bei PDFs)
+        # und iOS ein PDF gewrappt geschickt hat: schicke stattdessen das
+        # PNG an die KI. Rationale: bei iOS-Photos-Prints ist das PDF nur
+        # ein Wrapper um ein Bild — Text-Extraktion aus dem PDF liefert
+        # nichts, Vision-Modell auf dem Bild aber Tags. Wir haben das
+        # Preview eh schon fuer die App-UI generiert.
+        _ai_bytes = file_bytes
+        _ai_filename = job_name or "job"
+        if _prev_png and (doc_format or "").lower().startswith("application/pdf"):
+            _ai_bytes = _prev_png
+            # Filename mit .png-Extension damit _guess_mime richtig traegt
+            _ai_filename = (job_name or "job") + ".png"
+            logger.info(
+                "AirPrint AI: nutze Preview-PNG (%d bytes) statt PDF-Wrapper "
+                "fuer Vision-Analyse — job=%s",
+                len(_prev_png), internal_job_id,
+            )
+        else:
+            # Kein Preview verfuegbar: mindestens Extension anhaengen damit
+            # _guess_mime nicht "octet-stream" ausspuckt (dann skippt Provider).
+            if "." not in _ai_filename:
+                if (doc_format or "").lower().startswith("application/pdf"):
+                    _ai_filename += ".pdf"
+                elif (doc_format or "").lower().startswith("image/"):
+                    _ai_filename += "." + doc_format.split("/", 1)[1]
+
         from cloudprint.ai_analysis import analyse_job
         await asyncio.to_thread(
             analyse_job,
             job_id=internal_job_id,
-            file_bytes=file_bytes,
-            filename=job_name,
+            file_bytes=_ai_bytes,
+            filename=_ai_filename,
             ai_cfg=ai_cfg,
             user_id=user_id,
             lang="en",
         )
-        logger.info("AirPrint AI-Analyse fertig — job=%s", internal_job_id)
+        logger.info("AirPrint AI-Analyse fertig — job=%s filename=%s",
+                    internal_job_id, _ai_filename)
     except Exception as _ae:
         logger.warning("AirPrint AI-Analyse Exception job=%s: %s",
                        internal_job_id, _ae)
