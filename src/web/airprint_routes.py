@@ -92,11 +92,71 @@ def register_airprint_management_routes(app: FastAPI) -> None:
         except Exception:
             pass
 
+        # Safari-URL für iOS-Install (public, per Profile-Token abgesichert)
+        server_url = _server_public_url(request)
+        install_url = f"{server_url}/airprint/{profile['profile_token']}/mobileconfig"
         return JSONResponse({
             "profile_id": profile["id"],
             "download_url": f"/desktop/me/airprint/{profile['id']}/download",
+            "install_url": install_url,
             "queue_display_name": queue_display_name,
         })
+
+    # ──────────────────────────────────────────────────────────────
+    # GET /airprint/{profile_token}/mobileconfig  (KEIN Bearer nötig)
+    # Öffentlich, aber Token-geschützt: wer den Token hat, hat auch
+    # Zugriff auf die mobileconfig — der Token IST die mobileconfig
+    # (er würde eh drin stehen). Dieser Endpoint ist da, damit Safari
+    # ohne Bearer-Header die Datei runterladen kann → iOS erkennt
+    # den MIME-Typ und zeigt sofort den Install-Dialog. Das ist der
+    # einzige zuverlässige iOS-Install-Weg.
+    # ──────────────────────────────────────────────────────────────
+    @app.get("/airprint/{profile_token}/mobileconfig")
+    async def airprint_public_mobileconfig(profile_token: str, request: Request):
+        _log_req(request, f"GET /airprint/.../mobileconfig")
+        if not _feature_enabled():
+            return Response(content=b"AirPrint disabled", status_code=404,
+                             media_type="text/plain")
+
+        from cloudprint.airprint_profiles import get_profile_by_token
+        profile = get_profile_by_token(profile_token)
+        if not profile or profile.get("is_revoked"):
+            return Response(content=b"Not found", status_code=404,
+                             media_type="text/plain")
+
+        from db import get_setting as _gs
+        server_url = _server_public_url(request)
+        from cloudprint.airprint_mobileconfig import (
+            generate_mobileconfig_for_profile, suggest_filename,
+        )
+        payload, mime = generate_mobileconfig_for_profile(
+            profile=profile, server_url=server_url,
+            organization=_gs("airprint_organization", "MySecurePrint"),
+            cert_pem=_gs("airprint_signing_cert_pem", ""),
+            key_pem=_gs("airprint_signing_key_pem", ""),
+        )
+        filename = suggest_filename(profile)
+
+        try:
+            import json as _json
+            from db import audit as _audit
+            _audit(profile["user_id"], "airprint_profile_downloaded",
+                   details=_json.dumps({
+                       "profile_id":         profile["id"],
+                       "queue_id":           profile.get("queue_id"),
+                       "queue_display_name": profile.get("queue_display_name"),
+                       "via":                "safari-public",
+                   }, ensure_ascii=False))
+        except Exception:
+            pass
+
+        return Response(
+            content=payload, media_type=mime,
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "no-store",
+            },
+        )
 
     # ──────────────────────────────────────────────────────────────
     # GET /desktop/me/airprint/company-default

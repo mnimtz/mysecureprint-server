@@ -1492,10 +1492,10 @@ def register_employee_routes(
             }, ensure_ascii=False))
         except Exception:
             pass
-        # Direkt zum Download springen — Browser bietet den Download an,
-        # macOS öffnet System-Einstellungen, iOS-Safari zeigt Install-Dialog.
+        # Direkt zur öffentlichen Safari-Install-URL — der Browser triggert
+        # dann den iOS/macOS-Profil-Installer via MIME-Sniffing.
         return RedirectResponse(
-            f"/my/airprint/{profile['id']}/download?after=install",
+            f"/airprint/{profile['profile_token']}/mobileconfig",
             status_code=303,
         )
 
@@ -1535,7 +1535,7 @@ def register_employee_routes(
         except Exception:
             pass
         return RedirectResponse(
-            f"/my/airprint/{profile['id']}/download?after=install",
+            f"/airprint/{profile['profile_token']}/mobileconfig",
             status_code=303,
         )
 

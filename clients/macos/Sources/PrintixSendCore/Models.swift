@@ -643,11 +643,17 @@ public struct AirprintProfilesResponse: Codable, Sendable {
 public struct AirprintCreateResponse: Codable, Sendable {
     public let profileId: String
     public let downloadUrl: String
+    /// Öffentliche Safari-URL: iOS öffnet diese in Safari, erkennt
+    /// den MIME-Typ und triggert automatisch den Profil-Install-Dialog.
+    /// Der Token in der URL ist derselbe der auch im Profil steckt,
+    /// also keine zusätzliche Angriffsfläche.
+    public let installUrl: String?
     public let queueDisplayName: String?
 
     enum CodingKeys: String, CodingKey {
         case profileId          = "profile_id"
         case downloadUrl        = "download_url"
+        case installUrl         = "install_url"
         case queueDisplayName   = "queue_display_name"
     }
 }

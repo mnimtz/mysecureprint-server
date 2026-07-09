@@ -20674,55 +20674,527 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Beide Wege zeigen anschließend den Installations-Dialog."
+            "value": "Falls Safari nicht direkt fragt: kurz warten, dann Einstellungen ganz oben öffnen und 'Profil geladen' antippen."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Both paths lead to the install dialog."
+            "value": "If Safari doesn't ask right away: wait briefly, then open Settings at the top and tap 'Profile Downloaded'."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les deux chemins mènent à la boîte de dialogue d'installation."
+            "value": "Si Safari ne demande pas tout de suite : attends un instant, puis ouvre Réglages en haut et touche 'Profil téléchargé'."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Entrambi i percorsi portano al dialogo di installazione."
+            "value": "Se Safari non chiede subito: attendi un attimo, poi apri Impostazioni in alto e tocca 'Profilo scaricato'."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ambos caminos llevan al diálogo de instalación."
+            "value": "Si Safari no pregunta enseguida: espera un momento, luego abre Ajustes arriba y toca 'Perfil descargado'."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Beide wegen leiden naar het installatiedialoogvenster."
+            "value": "Als Safari niet direct vraagt: even wachten, dan Instellingen bovenaan openen en op 'Profiel gedownload' tikken."
           }
         },
         "nb": {
           "stringUnit": {
             "state": "translated",
-            "value": "Begge veier fører til installasjonsdialogen."
+            "value": "Hvis Safari ikke spør med en gang: vent litt, åpne Innstillinger øverst og trykk 'Profil lastet ned'."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ambos os caminhos levam ao diálogo de instalação."
+            "value": "Se o Safari não perguntar logo: espere um pouco, abra Ajustes em cima e toque em 'Perfil transferido'."
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "Båda vägarna leder till installationsdialogen."
+            "value": "Om Safari inte frågar direkt: vänta kort, öppna Inställningar överst och tryck 'Profil hämtad'."
+          }
+        }
+      }
+    },
+    "airprint_install_headline_v3": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bereit zur Installation"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ready to install"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prêt à installer"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pronto per l'installazione"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listo para instalar"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klaar om te installeren"
+          }
+        },
+        "nb": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klar til installasjon"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pronto para instalar"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redo att installera"
+          }
+        }
+      }
+    },
+    "airprint_install_body_v3": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der nächste Schritt öffnet Safari. Von dort startet iOS automatisch den Profil-Installations-Dialog."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The next step opens Safari. From there iOS automatically starts the profile install dialog."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'étape suivante ouvre Safari. iOS lance ensuite automatiquement le dialogue d'installation."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il prossimo passo apre Safari. Da lì iOS avvia automaticamente il dialogo di installazione."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El siguiente paso abre Safari. Desde ahí iOS inicia automáticamente el diálogo de instalación."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De volgende stap opent Safari. Van daaruit start iOS automatisch de installatiedialoog."
+          }
+        },
+        "nb": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neste steg åpner Safari. Derfra starter iOS automatisk installasjonsdialogen."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O próximo passo abre o Safari. A partir daí o iOS inicia automaticamente o diálogo de instalação."
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nästa steg öppnar Safari. Därifrån startar iOS automatiskt installationsdialogen."
+          }
+        }
+      }
+    },
+    "airprint_install_step1_v3": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf 'In Safari öffnen' tippen — Safari lädt das Profil herunter"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap 'Open in Safari' — Safari downloads the profile"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appuie sur 'Ouvrir dans Safari' — Safari télécharge le profil"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tocca 'Apri in Safari' — Safari scarica il profilo"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca 'Abrir en Safari' — Safari descarga el perfil"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tik op 'Openen in Safari' — Safari downloadt het profiel"
+          }
+        },
+        "nb": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trykk 'Åpne i Safari' — Safari laster ned profilen"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toque em 'Abrir no Safari' — o Safari transfere o perfil"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tryck 'Öppna i Safari' — Safari laddar ner profilen"
+          }
+        }
+      }
+    },
+    "airprint_install_step2_v3": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS zeigt sofort 'Profil geladen' — auf 'Erlauben' tippen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS shows 'Profile Downloaded' — tap 'Allow'"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS affiche 'Profil téléchargé' — appuie sur 'Autoriser'"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS mostra 'Profilo scaricato' — tocca 'Consenti'"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS muestra 'Perfil descargado' — toca 'Permitir'"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS toont 'Profiel gedownload' — tik op 'Sta toe'"
+          }
+        },
+        "nb": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS viser 'Profil lastet ned' — trykk 'Tillat'"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O iOS mostra 'Perfil transferido' — toque em 'Permitir'"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS visar 'Profil hämtad' — tryck 'Tillåt'"
+          }
+        }
+      }
+    },
+    "airprint_install_step3_v3": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einstellungen → oben 'Profil geladen' → 'Installieren' → Code eingeben — fertig"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings → top 'Profile Downloaded' → 'Install' → enter passcode — done"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réglages → en haut 'Profil téléchargé' → 'Installer' → saisis le code — terminé"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impostazioni → in alto 'Profilo scaricato' → 'Installa' → inserisci il codice — fatto"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes → arriba 'Perfil descargado' → 'Instalar' → introduce el código — listo"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instellingen → bovenaan 'Profiel gedownload' → 'Installeer' → voer code in — klaar"
+          }
+        },
+        "nb": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Innstillinger → øverst 'Profil lastet ned' → 'Installer' → skriv inn koden — ferdig"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes → em cima 'Perfil transferido' → 'Instalar' → digite o código — pronto"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inställningar → överst 'Profil hämtad' → 'Installera' → ange kod — klar"
+          }
+        }
+      }
+    },
+    "airprint_install_open_button_v3": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Safari öffnen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open in Safari"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir dans Safari"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apri in Safari"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir en Safari"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Openen in Safari"
+          }
+        },
+        "nb": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Åpne i Safari"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir no Safari"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna i Safari"
+          }
+        }
+      }
+    },
+    "airprint_company_reinstall_button": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erneut installieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install again"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réinstaller"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reinstalla"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reinstalar"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opnieuw installeren"
+          }
+        },
+        "nb": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installer på nytt"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reinstalar"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installera igen"
+          }
+        }
+      }
+    },
+    "airprint_error_no_install_url": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Server hat keine Installations-URL geliefert. Bitte Server auf aktuelle Version aktualisieren."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server didn't return an install URL. Please update the server to the latest version."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le serveur n'a pas renvoyé d'URL d'installation. Merci de mettre à jour le serveur."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il server non ha restituito un URL di installazione. Aggiorna il server all'ultima versione."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El servidor no devolvió una URL de instalación. Actualiza el servidor a la última versión."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De server heeft geen installatie-URL geretourneerd. Werk de server bij naar de nieuwste versie."
+          }
+        },
+        "nb": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serveren returnerte ingen installasjons-URL. Oppdater serveren til nyeste versjon."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O servidor não devolveu um URL de instalação. Atualize o servidor para a versão mais recente."
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servern returnerade ingen installations-URL. Uppdatera servern till senaste version."
           }
         }
       }

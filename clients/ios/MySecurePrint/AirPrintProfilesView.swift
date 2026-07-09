@@ -14,7 +14,7 @@ struct AirPrintProfilesView: View {
     @State private var installingCompany = false
     @State private var error: String = ""
     @State private var showWizard = false
-    @State private var pendingDownload: URL? = nil
+    @State private var pendingInstallURL: URL? = nil
     @State private var revokingIds: Set<String> = []
 
     var body: some View {
@@ -61,17 +61,17 @@ struct AirPrintProfilesView: View {
         .refreshable { await reload() }
         .task { await reload() }
         .sheet(isPresented: $showWizard) {
-            AirPrintNewProfileView(onCreated: { newProfile, mobileConfigURL in
+            AirPrintNewProfileView(onCreated: { newProfile, installURL in
                 Task {
                     await reload()
-                    pendingDownload = mobileConfigURL
+                    pendingInstallURL = installURL
                 }
             })
         }
         .sheet(item: Binding(
-            get: { pendingDownload.map { InstallSheetURL(url: $0) } },
-            set: { pendingDownload = $0?.url })) { wrap in
-            AirPrintInstallSheet(mobileconfigURL: wrap.url)
+            get: { pendingInstallURL.map { InstallSheetURL(url: $0) } },
+            set: { pendingInstallURL = $0?.url })) { wrap in
+            AirPrintInstallSheet(installURL: wrap.url)
         }
     }
 
@@ -93,36 +93,33 @@ struct AirPrintProfilesView: View {
                                 .font(.caption).foregroundColor(.secondary)
                         }
                     }
-                    if !cd.existingProfileId.isEmpty {
-                        // Bereits installiert
+                    // Immer sichtbarer Install-Button. Wir koennen NICHT wissen
+                    // ob das Profil tatsaechlich auf dem Endgeraet drauf ist —
+                    // iOS meldet uns das nicht. Deshalb: falls schon einmal
+                    // ein Profil-Datensatz existiert, Button zeigen mit Text
+                    // "Erneut installieren", sonst normaler Install-Text.
+                    Button {
+                        Task { await installCompanyDefault() }
+                    } label: {
                         HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                            Text(String(localized: "airprint_company_already_installed"))
-                                .font(.caption)
-                        }
-                    } else {
-                        Button {
-                            Task { await installCompanyDefault() }
-                        } label: {
-                            HStack {
-                                if installingCompany {
-                                    ProgressView().scaleEffect(0.85)
-                                } else {
-                                    Image(systemName: "arrow.down.circle.fill")
-                                }
-                                Text(String(localized: "airprint_company_install_button"))
-                                    .fontWeight(.semibold)
+                            if installingCompany {
+                                ProgressView().scaleEffect(0.85)
+                            } else {
+                                Image(systemName: "arrow.down.circle.fill")
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(MSP.gold)
-                            .foregroundColor(MSP.navy)
-                            .cornerRadius(10)
+                            Text(cd.existingProfileId.isEmpty
+                                 ? String(localized: "airprint_company_install_button")
+                                 : String(localized: "airprint_company_reinstall_button"))
+                                .fontWeight(.semibold)
                         }
-                        .buttonStyle(.plain)
-                        .disabled(installingCompany || loading)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(MSP.gold)
+                        .foregroundColor(MSP.navy)
+                        .cornerRadius(10)
                     }
+                    .buttonStyle(.plain)
+                    .disabled(installingCompany || loading)
                 }
                 .padding(.vertical, 4)
             } else {
@@ -176,15 +173,12 @@ struct AirPrintProfilesView: View {
                 queueDisplayName: cd.queueDisplayName,
                 displayName: nil
             )
-            let data = try await client.downloadAirprintProfile(profileId: resp.profileId)
-            let dir = FileManager.default.temporaryDirectory
-                .appendingPathComponent("airprint", isDirectory: true)
-            try? FileManager.default.createDirectory(at: dir,
-                                                      withIntermediateDirectories: true)
-            let file = dir.appendingPathComponent("MySecurePrint.mobileconfig")
-            try data.write(to: file, options: .atomic)
             await reload()
-            pendingDownload = file
+            if let s = resp.installUrl, let url = URL(string: s) {
+                pendingInstallURL = url
+            } else {
+                error = String(localized: "airprint_error_no_install_url")
+            }
         } catch {
             self.error = error.localizedDescription
         }
@@ -378,19 +372,14 @@ struct AirPrintNewProfileView: View {
                     : displayName.trimmingCharacters(in: .whitespaces)
             )
 
-            // Datei jetzt runterladen und in einen temporären Ordner legen,
-            // damit iOS beim UIDocumentInteractionController-Öffnen den
-            // Profile-Installations-Dialog anzeigt.
-            let data = try await client.downloadAirprintProfile(profileId: resp.profileId)
-            let dir = FileManager.default.temporaryDirectory
-                .appendingPathComponent("airprint", isDirectory: true)
-            try? FileManager.default.createDirectory(at: dir,
-                                                      withIntermediateDirectories: true)
-            let file = dir.appendingPathComponent("MySecurePrint.mobileconfig")
-            try data.write(to: file, options: .atomic)
-
+            // Safari-URL vom Server nutzen — das ist der einzige zuverlaessige
+            // Weg iOS zum Profil-Install-Dialog zu bewegen.
+            guard let s = resp.installUrl, let url = URL(string: s) else {
+                error = String(localized: "airprint_error_no_install_url")
+                return
+            }
             dismiss()
-            onCreated(resp, file)
+            onCreated(resp, url)
         } catch {
             self.error = error.localizedDescription
         }
@@ -405,8 +394,7 @@ struct AirPrintNewProfileView: View {
 /// iOS erkennt `application/x-apple-aspen-config` und öffnet den Install-Dialog.
 struct AirPrintInstallSheet: View {
     @Environment(\.dismiss) private var dismiss
-    let mobileconfigURL: URL
-    @State private var showShare = false
+    let installURL: URL
 
     var body: some View {
         NavigationStack {
@@ -417,30 +405,29 @@ struct AirPrintInstallSheet: View {
                         .foregroundColor(.green)
                         .padding(.top, 20)
 
-                    Text(String(localized: "airprint_install_headline"))
+                    Text(String(localized: "airprint_install_headline_v3"))
                         .font(.title2).fontWeight(.bold)
 
-                    Text(String(localized: "airprint_install_body"))
+                    Text(String(localized: "airprint_install_body_v3"))
                         .font(.body)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 20)
 
                     VStack(alignment: .leading, spacing: 12) {
-                        stepRow(number: "1", text: String(localized: "airprint_install_step1_v2"))
-                        stepRow(number: "2", text: String(localized: "airprint_install_step2_v2"))
-                        stepRow(number: "3", text: String(localized: "airprint_install_step3_v2"))
+                        stepRow(number: "1", text: String(localized: "airprint_install_step1_v3"))
+                        stepRow(number: "2", text: String(localized: "airprint_install_step2_v3"))
+                        stepRow(number: "3", text: String(localized: "airprint_install_step3_v3"))
                     }
                     .padding(.horizontal, 30)
 
-                    // Fallback-Hinweis — wenn's mal nicht automatisch geht.
+                    // Fallback-Hinweis — wenn Safari nicht sofort den Install-
+                    // Dialog zeigt (z.B. Popup-Blocker, Content-Filter).
                     VStack(alignment: .leading, spacing: 8) {
                         Text(String(localized: "airprint_install_fallback_title"))
                             .font(.subheadline).fontWeight(.semibold)
                             .foregroundColor(MSP.navy)
                         Text(String(localized: "airprint_install_fallback_path1"))
-                            .font(.callout)
-                        Text(String(localized: "airprint_install_fallback_path2"))
                             .font(.callout)
                         Text(String(localized: "airprint_install_fallback_hint"))
                             .font(.caption)
@@ -453,9 +440,9 @@ struct AirPrintInstallSheet: View {
                     .padding(.horizontal, 20)
 
                     Button {
-                        showShare = true
+                        UIApplication.shared.open(installURL)
                     } label: {
-                        Text(String(localized: "airprint_install_open_button"))
+                        Text(String(localized: "airprint_install_open_button_v3"))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                             .background(MSP.gold)
@@ -473,9 +460,6 @@ struct AirPrintInstallSheet: View {
                 }
             }
             .brandNavStyle(title: String(localized: "airprint_install_title"))
-            .sheet(isPresented: $showShare) {
-                ActivityShareSheet(activityItems: [mobileconfigURL])
-            }
         }
     }
 
