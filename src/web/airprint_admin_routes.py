@@ -79,7 +79,7 @@ def register_airprint_admin_routes(app: FastAPI,
         from db import _conn
         with _conn() as conn:
             row = conn.execute(
-                "SELECT user_id, email, username FROM users WHERE user_id = ?",
+                "SELECT id AS user_id, email, username FROM users WHERE id = ?",
                 (target_user_id,),
             ).fetchone()
         if not row:
@@ -126,7 +126,7 @@ def register_airprint_admin_routes(app: FastAPI,
         from db import _conn
         with _conn() as conn:
             row = conn.execute(
-                "SELECT user_id, email, username, role_type FROM users WHERE user_id = ?",
+                "SELECT id AS user_id, email, username, role_type FROM users WHERE id = ?",
                 (target_user_id,),
             ).fetchone()
         if not row:
@@ -258,27 +258,27 @@ def _list_users_with_profile_counts(query: str = "",
         if query:
             q_like = f"%{query}%"
             rows = conn.execute(
-                """SELECT u.user_id, u.email, u.username, u.role_type,
+                """SELECT u.id AS user_id, u.email, u.username, u.role_type,
                             COALESCE(SUM(CASE WHEN p.is_revoked = 0 THEN 1 ELSE 0 END), 0) AS active_profiles,
                             COALESCE(COUNT(p.id), 0) AS total_profiles,
                             MAX(p.last_used_at) AS last_used_at
                      FROM users u
-                LEFT JOIN cloudprint_airprint_profiles p ON p.user_id = u.user_id
+                LEFT JOIN cloudprint_airprint_profiles p ON p.user_id = u.id
                     WHERE LOWER(u.email) LIKE ? OR LOWER(u.username) LIKE ?
-                 GROUP BY u.user_id
+                 GROUP BY u.id
                  ORDER BY u.email
                     LIMIT ?""",
                 (q_like, q_like, limit),
             ).fetchall()
         else:
             rows = conn.execute(
-                """SELECT u.user_id, u.email, u.username, u.role_type,
+                """SELECT u.id AS user_id, u.email, u.username, u.role_type,
                             COALESCE(SUM(CASE WHEN p.is_revoked = 0 THEN 1 ELSE 0 END), 0) AS active_profiles,
                             COALESCE(COUNT(p.id), 0) AS total_profiles,
                             MAX(p.last_used_at) AS last_used_at
                      FROM users u
-                LEFT JOIN cloudprint_airprint_profiles p ON p.user_id = u.user_id
-                 GROUP BY u.user_id
+                LEFT JOIN cloudprint_airprint_profiles p ON p.user_id = u.id
+                 GROUP BY u.id
                  ORDER BY u.email
                     LIMIT ?""",
                 (limit,),
@@ -287,16 +287,69 @@ def _list_users_with_profile_counts(query: str = "",
 
 
 def _list_queues() -> list[dict]:
-    """Verfügbare Queues aus group_queue_defaults für Dropdown."""
+    """Live-Queues aus Printix (der lokale `group_queue_defaults`-Cache ist
+    in vielen Tenants leer). Fallback: die DB-Tabelle, falls kein Tenant/
+    Client konfiguriert ist."""
+    try:
+        from db import _conn, get_tenant_full_by_user_id
+        with _conn() as conn:
+            trow = conn.execute(
+                "SELECT user_id FROM tenants LIMIT 1"
+            ).fetchone()
+        if trow:
+            tenant = get_tenant_full_by_user_id(trow["user_id"])
+            if tenant and (tenant.get("print_client_id")
+                           or tenant.get("shared_client_id")):
+                queues = _load_queues_from_printix(tenant)
+                if queues:
+                    return queues
+    except Exception as _e:
+        logger.warning("airprint admin: live-queue-load failed: %s", _e)
+    # Fallback: cache-Tabelle
     from db import _conn
     with _conn() as conn:
         rows = conn.execute(
-            """SELECT DISTINCT queue_id, printer_id, queue_label AS display_name
+            """SELECT DISTINCT queue_id, printer_id,
+                        queue_label AS display_name,
+                        queue_label AS queue_name
                  FROM group_queue_defaults
                 WHERE queue_id != ''
                 ORDER BY queue_label""",
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def _load_queues_from_printix(tenant: dict) -> list[dict]:
+    import re
+    from printix_client import PrintixClient
+    client = PrintixClient(
+        tenant_id=tenant["printix_tenant_id"],
+        print_client_id=tenant.get("print_client_id", ""),
+        print_client_secret=tenant.get("print_client_secret", ""),
+        shared_client_id=tenant.get("shared_client_id", ""),
+        shared_client_secret=tenant.get("shared_client_secret", ""),
+    )
+    data = client.list_printers(size=200)
+    raw = data.get("printers", []) if isinstance(data, dict) else []
+    if not raw and isinstance(data, dict):
+        raw = (data.get("_embedded") or {}).get("printers", [])
+    out = []
+    for item in raw:
+        href = (item.get("_links") or {}).get("self", {}).get("href", "")
+        m = re.search(r"/printers/([^/]+)/queues/([^/?]+)", href)
+        if not m:
+            continue
+        name = item.get("name", "") or m.group(2)
+        out.append({
+            "queue_id":     m.group(2),
+            "printer_id":   m.group(1),
+            "queue_name":   name,
+            "display_name": name,
+            "vendor":       item.get("vendor", "") or item.get("manufacturer", ""),
+            "model":        item.get("model", ""),
+        })
+    out.sort(key=lambda q: q["queue_name"].lower())
+    return out
 
 
 def _airprint_stats() -> dict:

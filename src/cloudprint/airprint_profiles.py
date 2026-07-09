@@ -158,7 +158,7 @@ def list_all_profiles(include_revoked: bool = False,
                         u.email    AS user_email,
                         u.username AS user_username
                   FROM cloudprint_airprint_profiles p
-             LEFT JOIN users u ON u.user_id = p.user_id
+             LEFT JOIN users u ON u.id = p.user_id
                        {where}
                  ORDER BY p.created_at DESC
                  LIMIT ?""",
