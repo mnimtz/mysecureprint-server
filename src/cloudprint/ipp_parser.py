@@ -426,8 +426,13 @@ def build_get_printer_attributes_response(request_id: int, printer_uri: str,
             (TAG_KEYWORD, "uri-security-supported",        "tls"),
             (TAG_TEXT,    "printer-name",                  printer_name),
             (TAG_TEXT,    "printer-info",                  printer_name),
-            (TAG_TEXT,    "printer-location",              "MySecurePrint Cloud"),
-            (TAG_TEXT,    "printer-make-and-model",        "MySecurePrint AirPrint 1.0"),
+            (TAG_TEXT,    "printer-location",              printer_name),
+            # Make-and-model erbt vom Drucker-Namen (der wiederum den
+            # admin-konfigurierten Organisationsnamen enthaelt). Kein
+            # hartkodiertes "AirPrint 1.0"-Suffix mehr — iOS zeigt das
+            # als Untertitel unter dem Drucker-Namen; ein doppelter
+            # Text ist immer noch besser als "AirPrint 1.0".
+            (TAG_TEXT,    "printer-make-and-model",        printer_name),
             (TAG_URI,     "printer-more-info",             printer_uri),
             (TAG_URI,     "printer-uuid",                  f"urn:uuid:{_stable_uuid_from(printer_uri)}"),
 
