@@ -94,13 +94,31 @@ def get_token() -> str:
 
 
 def api(method: str, path: str, token: str, **kwargs):
+    """ASC-API-Call mit automatischem Retry auf 5xx (Apple-Server-Flakes).
+    Retry: 8 Versuche mit exponential backoff 5s → 10s → 20s → 40s → 80s
+    → 160s → 320s → 640s (Summe ~21 min). Nur 5xx wird retried, 4xx sofort
+    zurueckgegeben.
+    """
     H = {"Authorization": f"Bearer {token}",
          "Content-Type": "application/json"}
     H.update(kwargs.pop("headers", {}))
-    r = requests.request(method, BASE + path, headers=H, timeout=30, **kwargs)
-    if not r.ok:
-        print(f"  ✗ {method} {path} → HTTP {r.status_code}: {r.text[:500]}")
-    return r
+    delays = [5, 10, 20, 40, 80, 160, 320, 640]
+    for attempt, delay_next in enumerate(delays + [None], start=1):
+        r = requests.request(method, BASE + path, headers=H,
+                              timeout=30, **kwargs)
+        # Fertig wenn ok oder 4xx (Client-Fehler, kein Retry sinnvoll)
+        if r.ok or (400 <= r.status_code < 500):
+            if not r.ok:
+                print(f"  ✗ {method} {path} → HTTP {r.status_code}: {r.text[:500]}")
+            return r
+        # 5xx — Apple flapt, retry mit Backoff
+        print(f"  ⏳ {method} {path} → HTTP {r.status_code} "
+              f"(Attempt {attempt}/{len(delays)+1})", flush=True)
+        if delay_next is None:
+            # Kein Backoff mehr uebrig — Fehler durchreichen
+            print(f"  ✗ {method} {path} → HTTP {r.status_code}: {r.text[:500]}")
+            return r
+        time.sleep(delay_next)
 
 
 def find_app(token: str) -> str:
