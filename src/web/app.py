@@ -7966,6 +7966,24 @@ def create_app(session_secret: str) -> FastAPI:
     except Exception as _dmp:
         logger.error("Desktop-Management-Routen konnten nicht registriert werden: %s", _dmp)
 
+    # ── AirPrint IPP-Endpoint (v0.8.0, iOS Mobile) ──────────────────────────
+    # Nur Route-Registrierung — der Handler prüft selbst das Feature-Flag
+    # (ios_mobile_airprint_enabled) und gibt 404 zurück wenn deaktiviert.
+    try:
+        from cloudprint.ipp_server import register_airprint_routes
+        register_airprint_routes(app)
+        logger.info("AirPrint-Route registriert: /airprint/{token}")
+    except Exception as _aip:
+        logger.error("AirPrint-Route konnte nicht registriert werden: %s", _aip)
+
+    # ── AirPrint Profile-Management Routes (App + Web) ──────────────────────
+    try:
+        from web.airprint_routes import register_airprint_management_routes
+        register_airprint_management_routes(app)
+        logger.info("AirPrint Management-Routen registriert: /desktop/me/airprint/*")
+    except Exception as _amp:
+        logger.error("AirPrint Management-Routen konnten nicht registriert werden: %s", _amp)
+
     # ── Desktop Cards (iOS Karten-Tab, v6.7.90) ─────────────────────────────
     try:
         from web.desktop_cards_routes import register_desktop_cards_routes

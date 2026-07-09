@@ -392,6 +392,36 @@ def init_cloudprint_schema() -> None:
         """)
         logger.info("Migration: group_queue_defaults-Tabelle geprüft/erstellt")
 
+    # 8) v0.8.0: cloudprint_airprint_profiles — iOS AirPrint-Profile
+    #    (User × Queue), Token-basiert. Ein Profil = ein User druckt in
+    #    eine Queue. User-Identifikation erfolgt AUSSCHLIEßLICH über den
+    #    Token in der URL (/airprint/{token}), IPP-Attribute im Stream
+    #    werden nur als Metadaten geloggt, NICHT für Auth verwendet.
+    with _conn() as conn:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS cloudprint_airprint_profiles (
+                id                 TEXT PRIMARY KEY,
+                user_id            TEXT NOT NULL,
+                profile_token      TEXT NOT NULL UNIQUE,
+                printer_id         TEXT NOT NULL,
+                queue_id           TEXT NOT NULL,
+                queue_display_name TEXT NOT NULL DEFAULT '',
+                display_name       TEXT NOT NULL DEFAULT '',
+                created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_via        TEXT NOT NULL DEFAULT 'app',
+                last_used_at       TIMESTAMP,
+                job_count          INTEGER NOT NULL DEFAULT 0,
+                is_revoked         INTEGER NOT NULL DEFAULT 0,
+                revoked_at         TIMESTAMP,
+                revoke_reason      TEXT NOT NULL DEFAULT ''
+            );
+            CREATE INDEX IF NOT EXISTS idx_airprint_token
+                ON cloudprint_airprint_profiles (profile_token);
+            CREATE INDEX IF NOT EXISTS idx_airprint_user
+                ON cloudprint_airprint_profiles (user_id, is_revoked);
+        """)
+        logger.info("Migration: cloudprint_airprint_profiles-Tabelle geprüft/erstellt")
+
 
 # ─── Cloud Print Job Tracking ────────────────────────────────────────────────
 

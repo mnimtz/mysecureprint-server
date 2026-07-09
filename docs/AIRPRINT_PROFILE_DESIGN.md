@@ -62,7 +62,77 @@ erreichbar ist.
 
 ---
 
-## 4. Auth-Konzept: personalisierter Token
+## 4a. User-Identifikation im Print-Stream
+
+**Zentrale Design-Entscheidung:** Wir identifizieren den User AUSSCHLIEßLICH
+über den Profile-Token in der URL — **niemals** über IPP-Attribute im
+Datenstrom.
+
+### Was iOS uns liefert (aus Live-Analyse `ipp_server.py`)
+
+| IPP-Attribut | Typischer Wert bei iOS |
+|---|---|
+| `requesting-user-name` | `"iPhone von Marcus"` (Device-Name, vom User änderbar) |
+| `job-originating-user-name` | Fallback, meist leer oder = Device-Name |
+| `job-originating-host-name` | `"iPhone-Marcus"` (Device-Hostname) |
+| `job-name` | Dokumenttitel — z.B. `"Rechnung_Mai.pdf"` |
+| `document-format` | `application/pdf` (fast immer) |
+
+**iOS bietet keine verlässliche User-Identifikation.** Das Device-Feld
+kann jeder User in den iOS-Einstellungen frei ändern.
+
+### Wie wir es lösen
+
+```
+1. iOS Print → POST /airprint/{profile_token}
+                    ↓ token = "3f4a...xyz24chars"
+2. Server:    SELECT user_id, printer_id, queue_id, is_revoked
+              FROM cloudprint_airprint_profiles
+              WHERE profile_token = ?
+                ↓
+3. Auth-Check: is_revoked=0? User existiert? Queue-Berechtigung
+              (falls Rechte sich seit Profil-Erstellung geändert haben)
+                ↓
+4. IPP-Payload parsen → PDF-Bytes + job-name
+                ↓
+5. printix_client.submit_job(
+      queue_id=<from token>,
+      owner_email=<from user-row>,
+      pdf=<from ipp payload>,
+      title=<from ipp job-name>,
+   )
+                ↓
+6. Job landet bei Printix mit ownerId = user@firma.de
+   → Am Drucker: nur diese Kartenauslösung
+```
+
+### IPP-Attribute die wir trotzdem lesen (aber nur als Metadaten)
+
+- `job-name` → als Job-Titel in der App-Historie
+- `document-format` → Sicherheitsprüfung (muss `application/pdf` sein)
+- `job-originating-host-name` → Audit-Log ("gedruckt von iPad-XYZ")
+
+Die Werte werden NIE für Auth-Entscheidungen verwendet. Auch wenn iOS
+`requesting-user-name = "hacker@evil.com"` schickt: wir ignorieren es
+komplett.
+
+### Was der User im Job-Verlauf der App sieht
+
+```
+📄  Rechnung_Mai.pdf
+   Gesendet von iPad von Marcus • über iOS AirPrint
+   Queue: SecurePrint DE • Status: An Printix gesendet
+```
+
+- Dateiname = `job-name` (IPP)
+- "Gesendet von X" = `job-originating-host-name` (IPP-Metadaten)
+- "über iOS AirPrint" = eigener Marker (Server setzt `source='airprint'`)
+- Queue = aus Token
+- Status = wie gehabt
+
+---
+
+## 4b. Auth-Konzept: personalisierter Token
 
 Ein Profil = **ein User × eine Queue**. **Immer.**
 
