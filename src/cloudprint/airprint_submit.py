@@ -45,6 +45,37 @@ async def submit_airprint_job(user_id: str,
     if not internal_job_id:
         internal_job_id = _uuid.uuid4().hex[:8]
 
+    # ─── Owner-Email aufloesen ────────────────────────────────────────
+    # Der /desktop/upload-Trick: die Session-Email ist oft anders
+    # kapitalisiert (Marcus@…) als die Email die Printix beim User-Sync
+    # gespeichert hat (marcus@…). Wir haben lokal cached_printix_users
+    # das beim Sync mit den echten Printix-Emails befuellt wird — nutze
+    # die als Ground-Truth wenn die printix_user_id des Users bekannt ist.
+    owner_email = (user_email or "").strip().lower()
+    try:
+        with _conn() as conn:
+            _urow = conn.execute(
+                "SELECT printix_user_id FROM users WHERE id = ?",
+                (user_id,),
+            ).fetchone()
+        _px_id = (_urow["printix_user_id"] or "").strip() if _urow else ""
+        if _px_id and not _px_id.startswith("mgr:"):
+            with _conn() as conn:
+                _cprow = conn.execute(
+                    "SELECT email FROM cached_printix_users "
+                    "WHERE printix_user_id = ?",
+                    (_px_id,),
+                ).fetchone()
+            if _cprow and _cprow["email"]:
+                owner_email = (_cprow["email"] or "").strip().lower()
+                logger.info(
+                    "AirPrint submit: owner via cached_printix_users "
+                    "px_id=%s email=%s (Session-Email war: %s)",
+                    _px_id, owner_email, user_email,
+                )
+    except Exception as _e:
+        logger.warning("AirPrint submit: owner-email lookup fail: %s", _e)
+
     # ─── Tenant + Printix-Credentials für den User ────────────────────
     # Kaskade: (1) via _resolve_tenant_owner_for direkt auf die Owner-
     # user_id, (2) als Fallback den globalen Tenant-Owner. In beiden
@@ -146,7 +177,7 @@ async def submit_airprint_job(user_id: str,
                 printer_id=printer_id,
                 queue_id=queue_id,
                 title=job_name[:200],
-                user=user_email or "",
+                user=owner_email or "",
                 pdl="PDF",
                 release_immediately=False,
             )
@@ -217,7 +248,12 @@ async def submit_airprint_job(user_id: str,
         #      get_user() abfragen und deren echte Email nehmen
         #   3) Lowercase-Variante (Printix mixt Case oft)
         email_candidates = []
-        if user_email and "@" in user_email:
+        # Bevorzugt: die owner_email aus cached_printix_users (die "wahre"
+        # Printix-Email die Printix zuverlaessig findet).
+        if owner_email and "@" in owner_email:
+            email_candidates.append(owner_email)
+        # Fallback: Session-Email
+        if user_email and "@" in user_email and user_email not in email_candidates:
             email_candidates.append(user_email)
         # Aus Printix via user_id nachschlagen — das gibt die "kanonische" Email
         try:
