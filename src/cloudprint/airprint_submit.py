@@ -209,20 +209,70 @@ async def submit_airprint_job(user_id: str,
         # Der App-Owner-Trick: submit weist den Job initial dem
         # System-Manager zu, jetzt via change_job_owner an den echten
         # User uebertragen (SecurePrint findet Job dann bei ihm).
+        # Kandidaten-Kaskade fuer den Email-Match — Printix's changeOwner
+        # akzeptiert NUR eine Email die exakt einem User im Tenant matcht.
+        # Deshalb probieren wir mehrere Varianten:
+        #   1) Die lokal gespeicherte Email (Session-User)
+        #   2) Wenn users.printix_user_id gesetzt: Printix-User via
+        #      get_user() abfragen und deren echte Email nehmen
+        #   3) Lowercase-Variante (Printix mixt Case oft)
+        email_candidates = []
         if user_email and "@" in user_email:
+            email_candidates.append(user_email)
+        # Aus Printix via user_id nachschlagen — das gibt die "kanonische" Email
+        try:
+            with _conn() as conn:
+                _row = conn.execute(
+                    "SELECT printix_user_id, email FROM users WHERE id = ?",
+                    (user_id,),
+                ).fetchone()
+            _px_uid = (_row["printix_user_id"] or "").strip() if _row else ""
+            if _px_uid and not _px_uid.startswith("mgr:"):
+                try:
+                    _px_user = await asyncio.to_thread(client.get_user, _px_uid)
+                    if isinstance(_px_user, dict):
+                        _px_email = (_px_user.get("email")
+                                     or _px_user.get("mailAddress")
+                                     or "").strip()
+                        if _px_email and _px_email not in email_candidates:
+                            email_candidates.append(_px_email)
+                except Exception as _lookup_e:
+                    logger.info(
+                        "AirPrint submit: Printix-User %s lookup fail: %s",
+                        _px_uid, _lookup_e,
+                    )
+        except Exception:
+            pass
+        # Lowercase-Variante
+        for c in list(email_candidates):
+            lc = c.lower()
+            if lc not in email_candidates:
+                email_candidates.append(lc)
+
+        owner_set = False
+        for _try_email in email_candidates:
             try:
                 await asyncio.to_thread(
-                    client.change_job_owner, px_job_id, user_email,
+                    client.change_job_owner, px_job_id, _try_email,
                 )
                 logger.info(
                     "AirPrint submit changeOwner OK — printix_job=%s owner=%s",
-                    px_job_id, user_email,
+                    px_job_id, _try_email,
                 )
+                owner_set = True
+                break
             except Exception as _co_e:
-                logger.warning(
-                    "AirPrint submit changeOwner FAIL job=%s owner=%s: %s",
-                    px_job_id, user_email, _co_e,
+                logger.info(
+                    "AirPrint submit changeOwner attempt fail job=%s owner=%s: %s",
+                    px_job_id, _try_email, _co_e,
                 )
+        if not owner_set:
+            logger.warning(
+                "AirPrint submit changeOwner FAIL komplett job=%s — "
+                "kein Kandidat matched. Kandidaten: %s. Job bleibt beim "
+                "System-Manager — Nutzer muss Job dort suchen.",
+                px_job_id, email_candidates,
+            )
 
         # ─── DB-Row auf "sent" markieren ──────────────────────────
         with _conn() as conn:
