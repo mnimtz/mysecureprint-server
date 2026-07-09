@@ -456,6 +456,7 @@ def build_get_printer_attributes_response(request_id: int, printer_uri: str,
             (TAG_MIME_TYPE, "document-format-default",     "application/pdf"),
             (TAG_MIME_TYPE, "document-format-supported",   "application/pdf"),
             (TAG_MIME_TYPE, "document-format-supported",   "image/urf"),
+            (TAG_MIME_TYPE, "document-format-supported",   "image/pwg-raster"),
             (TAG_MIME_TYPE, "document-format-supported",   "image/jpeg"),
             (TAG_MIME_TYPE, "document-format-supported",   "application/octet-stream"),
 
@@ -523,7 +524,28 @@ def build_get_printer_attributes_response(request_id: int, printer_uri: str,
             # Sonstige
             (TAG_KEYWORD, "pdl-override-supported",        "not-attempted"),
             (TAG_BOOLEAN, "multiple-document-jobs-supported", False),
-            (TAG_INTEGER, "ipp-versions-supported",        0x00010001),  # 1.1
+
+            # ipp-versions-supported als KEYWORD (nicht Integer!) — Apple's
+            # AirPrint-Stack pruft das strikt. Ohne 1.1/2.0 als String
+            # klassifiziert iOS den Drucker als "legacy IPP" und schaltet
+            # Farbe grundsaetzlich aus.
+            (TAG_KEYWORD, "ipp-versions-supported",        "1.1"),
+            (TAG_KEYWORD, "ipp-versions-supported",        "2.0"),
+
+            # DER Schluessel-Attribut fuer AirPrint-Discovery. Ohne diesen
+            # Wert erkennt iOS zwar den Drucker (Get-Printer-Attributes ok),
+            # aktiviert aber NUR den Grayscale-Kompatibilitaets-Modus. Erst
+            # mit airprint-1.7 (oder 1.5+) schaltet iOS auf volle Farb-URF-
+            # Pipeline um.
+            (TAG_KEYWORD, "ipp-features-supported",        "airprint-1.7"),
+
+            # Aufloesung als TAG_RESOLUTION (nicht Keyword) — Apple pruft
+            # den Typ. 600x600 dpi ist der AirPrint-Standardwert.
+            (TAG_RESOLUTION, "printer-resolution-default",
+                              _resolution_bytes(600, 600)),
+            (TAG_RESOLUTION, "printer-resolution-supported",
+                              _resolution_bytes(600, 600)),
+
             (TAG_KEYWORD, "compression-supported",         "none"),
             (TAG_KEYWORD, "finishings-supported",          "none"),
             (TAG_KEYWORD, "finishings-default",            "none"),
