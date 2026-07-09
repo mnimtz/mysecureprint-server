@@ -5993,6 +5993,7 @@ def create_app(session_secret: str) -> FastAPI:
         # v0.8.0: iOS Mobile / AirPrint Config-Werte
         ios_mobile_airprint_enabled = gs("ios_mobile_airprint_enabled", "0") == "1"
         ios_mobile_email_attach_default = gs("ios_mobile_email_attach_default", "0") == "1"
+        ios_mobile_email_send_as_zip = gs("ios_mobile_email_send_as_zip", "0") == "1"
         ios_mobile_default_queue_id = gs("ios_mobile_airprint_default_queue_id", "")
         ios_mobile_default_printer_id = gs("ios_mobile_airprint_default_printer_id", "")
         ios_mobile_default_queue_name = gs("ios_mobile_airprint_default_queue_name", "")
@@ -6101,6 +6102,7 @@ def create_app(session_secret: str) -> FastAPI:
             # v0.8.0: iOS Mobile / AirPrint
             "ios_mobile_airprint_enabled":      ios_mobile_airprint_enabled,
             "ios_mobile_email_attach_default":  ios_mobile_email_attach_default,
+            "ios_mobile_email_send_as_zip":     ios_mobile_email_send_as_zip,
             "ios_mobile_default_queue_id":      ios_mobile_default_queue_id,
             "ios_mobile_default_printer_id":    ios_mobile_default_printer_id,
             "ios_mobile_default_queue_name":    ios_mobile_default_queue_name,
@@ -6328,6 +6330,8 @@ def create_app(session_secret: str) -> FastAPI:
                               "1" if has("ios_mobile_airprint_enabled") else "0")
                 set_setting("ios_mobile_email_attach_default",
                               "1" if has("ios_mobile_email_attach_default") else "0")
+                set_setting("ios_mobile_email_send_as_zip",
+                              "1" if has("ios_mobile_email_send_as_zip") else "0")
                 if has("ios_mobile_default_queue_id"):
                     set_setting("ios_mobile_airprint_default_queue_id",
                                   val("ios_mobile_default_queue_id"))

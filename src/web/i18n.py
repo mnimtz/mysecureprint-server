@@ -26794,6 +26794,46 @@ _IOS_MOBILE_ADMIN_SV: dict[str, str] = {
 }
 TRANSLATIONS.setdefault("sv", {}).update(_IOS_MOBILE_ADMIN_SV)
 
+# ── ZIP-Email-Option (v0.8.0) ──
+TRANSLATIONS.setdefault("de", {})["ios_mobile_email_zip_label"] = "Als ZIP versenden"
+TRANSLATIONS.setdefault("de", {})["ios_mobile_email_zip_help"] = "Verpackt die mobileconfig in ein ZIP-Archiv bevor sie an die Einladungs-Email angehängt wird."
+TRANSLATIONS.setdefault("de", {})["ios_mobile_email_zip_hint"] = "Empfohlen wenn eure Mail-Filter Konfigurationsprofile blockieren. Nachteil: der Empfänger muss die ZIP erst entpacken. Standard ist Direktversand ohne ZIP (bester UX — ein Tap installiert das Profil)."
+TRANSLATIONS.setdefault("en", {})["ios_mobile_email_zip_label"] = "Send as ZIP"
+TRANSLATIONS.setdefault("en", {})["ios_mobile_email_zip_help"] = "Wraps the mobileconfig in a ZIP archive before attaching it to the invitation email."
+TRANSLATIONS.setdefault("en", {})["ios_mobile_email_zip_hint"] = "Recommended if your mail filters block configuration profiles. Downside: the recipient has to unzip first. Default is direct attachment (best UX — one tap installs the profile)."
+TRANSLATIONS.setdefault("fr", {})["ios_mobile_email_zip_label"] = "Envoyer en ZIP"
+TRANSLATIONS.setdefault("fr", {})["ios_mobile_email_zip_help"] = "Emballe le mobileconfig dans une archive ZIP avant de le joindre à l'email d'invitation."
+TRANSLATIONS.setdefault("fr", {})["ios_mobile_email_zip_hint"] = "Recommandé si vos filtres de messagerie bloquent les profils de configuration. Inconvénient : le destinataire doit d'abord dézipper. Par défaut : pièce jointe directe (meilleure UX — un tap installe le profil)."
+TRANSLATIONS.setdefault("it", {})["ios_mobile_email_zip_label"] = "Invia come ZIP"
+TRANSLATIONS.setdefault("it", {})["ios_mobile_email_zip_help"] = "Impacchetta il mobileconfig in un archivio ZIP prima di allegarlo all'email di invito."
+TRANSLATIONS.setdefault("it", {})["ios_mobile_email_zip_hint"] = "Consigliato se i vostri filtri email bloccano i profili di configurazione. Svantaggio: il destinatario deve prima decomprimere. Default: allegato diretto (miglior UX — un tocco installa il profilo)."
+TRANSLATIONS.setdefault("es", {})["ios_mobile_email_zip_label"] = "Enviar como ZIP"
+TRANSLATIONS.setdefault("es", {})["ios_mobile_email_zip_help"] = "Empaqueta el mobileconfig en un archivo ZIP antes de adjuntarlo al correo de invitación."
+TRANSLATIONS.setdefault("es", {})["ios_mobile_email_zip_hint"] = "Recomendado si vuestros filtros de correo bloquean perfiles de configuración. Desventaja: el destinatario tiene que descomprimir primero. Por defecto: envío directo (mejor UX — un toque instala el perfil)."
+TRANSLATIONS.setdefault("nl", {})["ios_mobile_email_zip_label"] = "Als ZIP versturen"
+TRANSLATIONS.setdefault("nl", {})["ios_mobile_email_zip_help"] = "Verpakt de mobileconfig in een ZIP-archief voordat deze aan de uitnodigingsmail wordt gehecht."
+TRANSLATIONS.setdefault("nl", {})["ios_mobile_email_zip_hint"] = "Aanbevolen als jullie mailfilters configuratieprofielen blokkeren. Nadeel: de ontvanger moet eerst uitpakken. Standaard: directe bijlage (beste UX — één tik installeert het profiel)."
+TRANSLATIONS.setdefault("no", {})["ios_mobile_email_zip_label"] = "Send som ZIP"
+TRANSLATIONS.setdefault("no", {})["ios_mobile_email_zip_help"] = "Pakker mobileconfig i et ZIP-arkiv før den legges ved invitasjonsmailen."
+TRANSLATIONS.setdefault("no", {})["ios_mobile_email_zip_hint"] = "Anbefales hvis e-postfiltrene deres blokkerer konfigurasjonsprofiler. Ulempe: mottakeren må pakke ut først. Standard: direkte vedlegg (beste UX — ett trykk installerer profilen)."
+TRANSLATIONS.setdefault("sv", {})["ios_mobile_email_zip_label"] = "Skicka som ZIP"
+TRANSLATIONS.setdefault("sv", {})["ios_mobile_email_zip_help"] = "Packar mobileconfig i ett ZIP-arkiv innan den bifogas inbjudningsmailet."
+TRANSLATIONS.setdefault("sv", {})["ios_mobile_email_zip_hint"] = "Rekommenderas om era e-postfilter blockerar konfigurationsprofiler. Nackdel: mottagaren måste packa upp först. Standard: direkt bilaga (bäst UX — en tryckning installerar profilen)."
+
+# Fun-Dialekte: DE bzw. EN Fallback
+for _fl in ('bar', 'hessisch', 'oesterreichisch', 'schwiizerdütsch'):
+    for _k in ('ios_mobile_email_zip_label', 'ios_mobile_email_zip_help', 'ios_mobile_email_zip_hint'):
+        TRANSLATIONS.setdefault(_fl, {})[_k] = TRANSLATIONS['de'][_k]
+for _fl in ('cockney', 'us_south'):
+    for _k in ('ios_mobile_email_zip_label', 'ios_mobile_email_zip_help', 'ios_mobile_email_zip_hint'):
+        TRANSLATIONS.setdefault(_fl, {})[_k] = TRANSLATIONS['en'][_k]
+TRANSLATIONS["bar"]["ios_mobile_email_zip_label"] = "Ois ZIP schickn"
+TRANSLATIONS["hessisch"]["ios_mobile_email_zip_label"] = "Als ZIP verschigge"
+TRANSLATIONS["oesterreichisch"]["ios_mobile_email_zip_label"] = "Ois ZIP schicken"
+TRANSLATIONS["schwiizerdütsch"]["ios_mobile_email_zip_label"] = "Als ZIP schickä"
+TRANSLATIONS["cockney"]["ios_mobile_email_zip_label"] = "Bung it in a ZIP, guv"
+TRANSLATIONS["us_south"]["ios_mobile_email_zip_label"] = "Send it zipped, y'all"
+
 # Fun-Dialekte: EN-Basis + Charakter-Overrides
 for _fun_lang in ('bar', 'hessisch', 'oesterreichisch', 'schwiizerdütsch'):
     TRANSLATIONS.setdefault(_fun_lang, {}).update(_IOS_MOBILE_ADMIN_DE)

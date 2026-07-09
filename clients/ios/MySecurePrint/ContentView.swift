@@ -122,6 +122,14 @@ private struct MainTabs: View {
             if settings.hasManagementAccess {
                 ManagementView()
                     .tabItem { Label("Management", systemImage: "building.2.fill") }
+            } else {
+                // v0.8.0 — Normale User (kein Management-Zugriff) bekommen
+                // stattdessen prominent AirPrint als eigenen Tab: dort kann
+                // er Profile für die Firmen-Queue und ggf. eigene Direkt-
+                // Drucker erstellen und aufs Endgerät installieren.
+                AirPrintProfilesView()
+                    .tabItem { Label(String(localized: "airprint_tab_title"),
+                                     systemImage: "printer.filled.and.paper") }
             }
 
             if settings.hasManagementAccess && settings.hasCardsAccess {
