@@ -130,12 +130,15 @@ async def submit_airprint_job(user_id: str,
 
     # ─── An Printix submitten (Print API v1) ─────────────────────────
     try:
+        # SecurePrint erfordert user_mapping (kein legacy `user`-Feld):
+        # Key = "Email" (Printix akzeptiert das im MS Identity-Set).
         submit_resp = await asyncio.to_thread(
             client.submit_print_job,
             printer_id=printer_id,
             queue_id=queue_id,
             title=job_name[:200],
-            user_email=user_email,
+            user_mapping_key="Email",
+            user_mapping_value=user_email or "",
             release_immediately=False,  # SecurePrint → am Drucker freigeben
         )
         px_job_id = ""
@@ -164,7 +167,7 @@ async def submit_airprint_job(user_id: str,
             return internal_job_id
 
         upload_ok = await asyncio.to_thread(
-            client.upload_print_data,
+            client.upload_file_to_url,
             upload_url=upload_url,
             file_bytes=file_bytes,
             content_type=doc_format or "application/pdf",
