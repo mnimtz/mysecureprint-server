@@ -5989,6 +5989,47 @@ def create_app(session_secret: str) -> FastAPI:
             push_token_count = _get_push_token_count()
         except Exception:
             push_token_count = None
+
+        # v0.8.0: iOS Mobile / AirPrint Config-Werte
+        ios_mobile_airprint_enabled = gs("ios_mobile_airprint_enabled", "0") == "1"
+        ios_mobile_email_attach_default = gs("ios_mobile_email_attach_default", "0") == "1"
+        ios_mobile_default_queue_id = gs("ios_mobile_airprint_default_queue_id", "")
+        ios_mobile_default_printer_id = gs("ios_mobile_airprint_default_printer_id", "")
+        ios_mobile_default_queue_name = gs("ios_mobile_airprint_default_queue_name", "")
+        ios_mobile_organization = gs("airprint_organization", "MySecurePrint")
+        ios_mobile_signing_cert_configured = bool(
+            gs("airprint_signing_cert_pem", "") and gs("airprint_signing_key_pem", "")
+        )
+        # Verfügbare Queues holen — für Dropdown
+        ios_mobile_available_queues = []
+        try:
+            from db import _conn
+            with _conn() as conn:
+                rows = conn.execute(
+                    """SELECT DISTINCT queue_id, printer_id, queue_label AS display_name
+                         FROM group_queue_defaults
+                        WHERE queue_id != '' ORDER BY queue_label""",
+                ).fetchall()
+                ios_mobile_available_queues = [dict(r) for r in rows]
+        except Exception:
+            pass
+        # Live-Stats wenn Feature aktiv
+        ios_mobile_stats = None
+        if ios_mobile_airprint_enabled:
+            try:
+                from db import _conn
+                with _conn() as conn:
+                    stats_row = conn.execute(
+                        """SELECT COUNT(*)                            AS total_profiles,
+                                    COUNT(DISTINCT user_id)             AS active_users,
+                                    COALESCE(SUM(job_count), 0)         AS total_jobs
+                             FROM cloudprint_airprint_profiles
+                            WHERE is_revoked = 0""",
+                    ).fetchone()
+                    if stats_row:
+                        ios_mobile_stats = dict(stats_row)
+            except Exception:
+                pass
         # v0.7.114: KI-Dokumentenanalyse
         try:
             import json as _json_ai
@@ -6057,6 +6098,16 @@ def create_app(session_secret: str) -> FastAPI:
             "push_relay_token":       push_relay_token,
             "push_relay_registered":  push_relay_registered,
             "push_token_count":       push_token_count,
+            # v0.8.0: iOS Mobile / AirPrint
+            "ios_mobile_airprint_enabled":      ios_mobile_airprint_enabled,
+            "ios_mobile_email_attach_default":  ios_mobile_email_attach_default,
+            "ios_mobile_default_queue_id":      ios_mobile_default_queue_id,
+            "ios_mobile_default_printer_id":    ios_mobile_default_printer_id,
+            "ios_mobile_default_queue_name":    ios_mobile_default_queue_name,
+            "ios_mobile_organization":          ios_mobile_organization,
+            "ios_mobile_signing_cert_configured": ios_mobile_signing_cert_configured,
+            "ios_mobile_available_queues":      ios_mobile_available_queues,
+            "ios_mobile_stats":                 ios_mobile_stats,
             # v0.7.114/117/169: KI-Dokumentenanalyse
             "ai_enabled":         ai_enabled,
             "ai_provider":        ai_provider,
@@ -6270,6 +6321,27 @@ def create_app(session_secret: str) -> FastAPI:
                                  ("aktiviert" if has("push_enabled") and val("push_enabled") else "deaktiviert"))
                 if val("push_relay_url").strip():
                     set_setting("push_relay_url", val("push_relay_url").strip())
+
+            # v0.8.0: iOS Mobile — AirPrint Feature
+            if has("ios_mobile_present"):
+                set_setting("ios_mobile_airprint_enabled",
+                              "1" if has("ios_mobile_airprint_enabled") else "0")
+                set_setting("ios_mobile_email_attach_default",
+                              "1" if has("ios_mobile_email_attach_default") else "0")
+                if has("ios_mobile_default_queue_id"):
+                    set_setting("ios_mobile_airprint_default_queue_id",
+                                  val("ios_mobile_default_queue_id"))
+                if has("ios_mobile_default_printer_id"):
+                    set_setting("ios_mobile_airprint_default_printer_id",
+                                  val("ios_mobile_default_printer_id"))
+                if has("ios_mobile_default_queue_name"):
+                    set_setting("ios_mobile_airprint_default_queue_name",
+                                  val("ios_mobile_default_queue_name"))
+                if has("ios_mobile_organization"):
+                    set_setting("airprint_organization",
+                                  val("ios_mobile_organization") or "MySecurePrint")
+                changes.append("ios_mobile_airprint=" +
+                                 ("aktiviert" if has("ios_mobile_airprint_enabled") else "deaktiviert"))
 
             if not changes:
                 changes.append("keine Änderungen erkannt")

@@ -69,18 +69,30 @@ def build_mobileconfig(server_url: str,
         "AirPrint": [airprint_entry],
     }
 
+    # WICHTIG: Kein `TargetDeviceType` gesetzt — dieses Profil funktioniert
+    # dadurch auf **iPhone, iPad UND macOS** (Sequoia+) gleichermaßen. Apple
+    # behandelt das dann als "Universal Profile":
+    # - iOS/iPadOS: Installation via Anhang/Safari, Drucker taucht in jedem
+    #   "Drucken"-Dialog auf
+    # - macOS: Installation via Systemeinstellungen → Profile, Drucker
+    #   erscheint in "Systemeinstellungen → Drucker & Scanner"
+    # `PayloadScope: User` heißt: für den installierenden Benutzer, nicht
+    # für alle User des Devices — bei privaten iPhones/Macs sinnvoller
+    # Default. Firmen mit MDM können später `System` setzen.
     top_level = {
         "PayloadType":         "Configuration",
         "PayloadUUID":         profile_uuid,
         "PayloadIdentifier":   f"com.mysecureprint.profile.{profile_token}",
         "PayloadDisplayName":  f"MySecurePrint — {queue_display_name}",
         "PayloadDescription":  (
-            "Registriert einen nativen iOS-Drucker der über MySecurePrint "
-            "an deine SecurePrint-Queue druckt. Du kannst danach aus jeder "
-            "iOS-App direkt drucken (Safari, Mail, Fotos, Dateien, …)."
+            "Registriert einen nativen Drucker über MySecurePrint an deine "
+            "SecurePrint-Queue. Funktioniert auf iPhone, iPad und Mac — "
+            "danach kannst du aus jeder App direkt drucken (Safari, Mail, "
+            "Fotos, Dateien, Vorschau, Pages, …)."
         ),
         "PayloadVersion":      1,
         "PayloadOrganization": organization,
+        "PayloadScope":        "User",
         "PayloadRemovalDisallowed": False,
         "PayloadContent":      [airprint_payload],
     }

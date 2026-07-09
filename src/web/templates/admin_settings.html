@@ -1401,6 +1401,153 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
   {% endif %}{# end push section gate #}
 
 
+  {# ── 📱 iOS Mobile — v0.8.0 ──────────────────────────────────────── #}
+  {% if not section or section == 'ios_mobile' %}
+  <div class="card" id="ios_mobile" style="max-width:680px;margin:0 auto 20px auto;">
+    <h2 class="section-title">📱 {{ _('ios_mobile_section_title') }}</h2>
+    <p style="color:var(--muted);margin:0 0 20px 0;">
+      {{ _('ios_mobile_section_intro') }}
+    </p>
+
+    <form method="post" action="/admin/settings?section=ios_mobile">
+      <input type="hidden" name="ios_mobile_present" value="1">
+
+      {# ── AirPrint aktivieren ── #}
+      <div class="form-row">
+        <label class="form-label">{{ _('ios_mobile_airprint_enabled_label') }}</label>
+        <div class="form-control">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="checkbox" name="ios_mobile_airprint_enabled" value="1"
+                   {% if ios_mobile_airprint_enabled %}checked{% endif %}>
+            <span>{{ _('ios_mobile_airprint_enabled_help') }}</span>
+          </label>
+        </div>
+      </div>
+
+      {# ── Default-Queue ── #}
+      <div class="form-row">
+        <label class="form-label" for="ios_mobile_default_queue_id">
+          {{ _('ios_mobile_default_queue_label') }}
+        </label>
+        <div class="form-control">
+          <select name="ios_mobile_default_queue_id" id="ios_mobile_default_queue_id"
+                  style="width:100%;padding:8px;">
+            <option value="">— {{ _('ios_mobile_default_queue_none') }} —</option>
+            {% for q in ios_mobile_available_queues or [] %}
+            <option value="{{ q.queue_id }}"
+                    data-printer="{{ q.printer_id }}"
+                    data-display="{{ q.display_name }}"
+                    {% if q.queue_id == ios_mobile_default_queue_id %}selected{% endif %}>
+              {{ q.display_name }}
+            </option>
+            {% endfor %}
+          </select>
+          <input type="hidden" name="ios_mobile_default_printer_id" id="ios_mobile_default_printer_id"
+                 value="{{ ios_mobile_default_printer_id or '' }}">
+          <input type="hidden" name="ios_mobile_default_queue_name" id="ios_mobile_default_queue_name"
+                 value="{{ ios_mobile_default_queue_name or '' }}">
+          <p style="font-size:12px;color:var(--muted);margin:6px 0 0 0;">
+            {{ _('ios_mobile_default_queue_help') }}
+          </p>
+        </div>
+      </div>
+
+      {# ── Automatischer Email-Anhang beim Einladen ── #}
+      <div class="form-row">
+        <label class="form-label">{{ _('ios_mobile_email_attach_label') }}</label>
+        <div class="form-control">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="checkbox" name="ios_mobile_email_attach_default" value="1"
+                   {% if ios_mobile_email_attach_default %}checked{% endif %}>
+            <span>{{ _('ios_mobile_email_attach_help') }}</span>
+          </label>
+        </div>
+      </div>
+
+      {# ── Organisation (für Profil-Metadaten) ── #}
+      <div class="form-row">
+        <label class="form-label" for="ios_mobile_organization">
+          {{ _('ios_mobile_organization_label') }}
+        </label>
+        <div class="form-control">
+          <input type="text" name="ios_mobile_organization" id="ios_mobile_organization"
+                 value="{{ ios_mobile_organization or 'MySecurePrint' }}"
+                 maxlength="100" style="width:100%;padding:8px;">
+          <p style="font-size:12px;color:var(--muted);margin:6px 0 0 0;">
+            {{ _('ios_mobile_organization_help') }}
+          </p>
+        </div>
+      </div>
+
+      {# ── Signing-Cert Status ── #}
+      <div class="form-row">
+        <label class="form-label">{{ _('ios_mobile_signing_label') }}</label>
+        <div class="form-control">
+          {% if ios_mobile_signing_cert_configured %}
+          <div class="alert alert-success" style="margin:0;">
+            ✓ {{ _('ios_mobile_signing_status_configured') }}
+          </div>
+          {% else %}
+          <div class="alert alert-warning" style="margin:0;">
+            ⚠ {{ _('ios_mobile_signing_status_unsigned') }}
+            <br><small>{{ _('ios_mobile_signing_status_unsigned_hint') }}</small>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      {# ── Info-Box: läuft auf iPhone / iPad / Mac ── #}
+      <div style="background:var(--bg-subtle);border-radius:8px;padding:12px;margin:20px 0;">
+        <div style="font-weight:600;margin-bottom:6px;">
+          {{ _('ios_mobile_compat_title') }}
+        </div>
+        <div style="font-size:13px;color:var(--muted);">
+          {{ _('ios_mobile_compat_desc') }}
+        </div>
+      </div>
+
+      <div class="form-actions" style="margin-top:24px;">
+        <button type="submit" class="btn btn-primary">
+          {{ _('ios_mobile_save') }}
+        </button>
+      </div>
+    </form>
+
+    {# ── Live-Statistik (wenn Feature aktiv) ── #}
+    {% if ios_mobile_airprint_enabled and ios_mobile_stats %}
+    <div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--border);">
+      <h3 style="margin:0 0 12px 0;font-size:15px;">
+        {{ _('ios_mobile_stats_title') }}
+      </h3>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+        <div>
+          <div style="font-size:24px;font-weight:700;">{{ ios_mobile_stats.total_profiles }}</div>
+          <div style="font-size:12px;color:var(--muted);">{{ _('ios_mobile_stats_profiles') }}</div>
+        </div>
+        <div>
+          <div style="font-size:24px;font-weight:700;">{{ ios_mobile_stats.active_users }}</div>
+          <div style="font-size:12px;color:var(--muted);">{{ _('ios_mobile_stats_users') }}</div>
+        </div>
+        <div>
+          <div style="font-size:24px;font-weight:700;">{{ ios_mobile_stats.total_jobs }}</div>
+          <div style="font-size:12px;color:var(--muted);">{{ _('ios_mobile_stats_jobs') }}</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <script>
+  // Wenn User Queue wählt: printer_id und display_name aus data-Attributen holen
+  document.getElementById('ios_mobile_default_queue_id')?.addEventListener('change', function(e) {
+    const opt = e.target.selectedOptions[0];
+    document.getElementById('ios_mobile_default_printer_id').value = opt.dataset.printer || '';
+    document.getElementById('ios_mobile_default_queue_name').value = opt.dataset.display || '';
+  });
+  </script>
+  {% endif %}{# end ios_mobile section gate #}
+
+
 <!-- i18n strings for JavaScript -->
 <div id="entra-i18n" style="display:none;"
      data-err-empty="{{ _('entra_json_err_empty') }}"
