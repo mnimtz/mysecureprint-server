@@ -497,6 +497,7 @@ def init_db() -> None:
                 default_printer_id   TEXT NOT NULL DEFAULT '',
                 default_queue_id     TEXT NOT NULL DEFAULT '',
                 poll_interval_sec    INTEGER NOT NULL DEFAULT 60,
+                source_folder        TEXT NOT NULL DEFAULT 'Inbox',
                 folder_processed     TEXT NOT NULL DEFAULT 'GuestPrint/Processed',
                 folder_skipped       TEXT NOT NULL DEFAULT 'GuestPrint/Skipped',
                 on_success           TEXT NOT NULL DEFAULT 'move',
@@ -587,6 +588,15 @@ def init_db() -> None:
             conn.execute(
                 "ALTER TABLE guestprint_mailbox "
                 "ADD COLUMN on_success TEXT NOT NULL DEFAULT 'move'"
+            )
+        # v0.7.255: source_folder — welcher Ordner in der Mailbox gepollt
+        # wird. Default 'Inbox' = Altverhalten; Admin kann jetzt z.B.
+        # 'Inbox/Druckauftraege' setzen, dann wird nur dieser Unterordner
+        # ueberwacht (nicht die ganze Inbox).
+        if "source_folder" not in gp_cols:
+            conn.execute(
+                "ALTER TABLE guestprint_mailbox "
+                "ADD COLUMN source_folder TEXT NOT NULL DEFAULT 'Inbox'"
             )
 
     # v7.2.18: MCP-Role Permission Layer (PR 1 — Schema + Persistence).

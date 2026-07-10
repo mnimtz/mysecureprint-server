@@ -68,7 +68,12 @@
                                   border-radius:6px;">
           <input type="text" name="name" placeholder="Anzeigename (optional)"
                  style="padding:8px;border:1px solid var(--border);border-radius:6px;">
+          <input type="text" name="source_folder" value="Inbox"
+                 placeholder="Quell-Ordner (z.B. Inbox oder Inbox/Druckauftraege)"
+                 title="Welcher Mail-Ordner wird gepollt. 'Inbox' = ganze Inbox. Untersubordner mit / trennen."
+                 style="padding:8px;border:1px solid var(--border);border-radius:6px;">
           <input type="number" name="poll_interval_sec" value="60" min="15" max="3600"
+                 placeholder="Poll-Intervall in Sekunden"
                  style="padding:8px;border:1px solid var(--border);border-radius:6px;">
           <select name="on_success"
                   style="padding:8px;border:1px solid var(--border);border-radius:6px;">
@@ -135,6 +140,13 @@
                 <input type="number" name="poll_interval_sec"
                        value="{{ selected.poll_interval_sec }}"
                        min="15" max="3600"
+                       style="width:100%;padding:6px;border:1px solid var(--border);
+                              border-radius:4px;"></label>
+              <label>Quell-Ordner
+                <input type="text" name="source_folder"
+                       value="{{ selected.source_folder or 'Inbox' }}"
+                       placeholder="Inbox oder Inbox/Druckauftraege"
+                       title="Welcher Mail-Ordner wird ueberwacht. Untersubordner mit / trennen (z.B. Inbox/Druckauftraege). Ordner muss existieren."
                        style="width:100%;padding:6px;border:1px solid var(--border);
                               border-radius:4px;"></label>
               <label>Processed-Ordner

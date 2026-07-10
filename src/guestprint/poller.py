@@ -93,19 +93,71 @@ def _graph_post(token: str, path: str, json: dict) -> _requests.Response:
     )
 
 
-def _list_unread_messages(token: str, upn: str, top: int = 20) -> list[dict]:
-    """Holt bis zu `top` neueste UNGELESENE Mails der Inbox."""
-    r = _graph_get(token, f"/users/{upn}/mailFolders/Inbox/messages",
+def _list_unread_messages(token: str, upn: str, top: int = 20,
+                           source_folder: str = "Inbox") -> list[dict]:
+    """Holt bis zu `top` neueste UNGELESENE Mails aus dem konfigurierten
+    Quell-Ordner. Default 'Inbox' — Admin kann z.B. 'Inbox/Druckauftraege'
+    setzen, dann wird nur der Sub-Folder gepollt.
+
+    'Inbox' ist ein Well-Known-Name in Graph (Case-sensitive, funktioniert
+    ohne Lookup). Alles andere ist ein Pfad relativ zur Inbox, wird per
+    _resolve_folder_id aufgeloest.
+    """
+    folder_path = (source_folder or "Inbox").strip()
+    if folder_path.lower() == "inbox" or not folder_path:
+        endpoint = f"/users/{upn}/mailFolders/Inbox/messages"
+    else:
+        folder_id = _resolve_folder_id(token, upn, folder_path)
+        if not folder_id:
+            logger.warning("Graph mail-list %s: source_folder=%r nicht "
+                            "gefunden, fallback Inbox", upn, folder_path)
+            endpoint = f"/users/{upn}/mailFolders/Inbox/messages"
+        else:
+            endpoint = f"/users/{upn}/mailFolders/{folder_id}/messages"
+    r = _graph_get(token, endpoint,
                     params={"$filter": "isRead eq false",
                             "$orderby": "receivedDateTime asc",
                             "$top": str(top),
                             "$select": "id,subject,from,receivedDateTime,"
                                           "hasAttachments,internetMessageId"})
     if r.status_code != 200:
-        logger.warning("Graph mail-list %s/Inbox → %s %s",
-                        upn, r.status_code, r.text[:200])
+        logger.warning("Graph mail-list %s/%s → %s %s",
+                        upn, folder_path, r.status_code, r.text[:200])
         return []
     return r.json().get("value", []) or []
+
+
+def _resolve_folder_id(token: str, upn: str, path: str) -> str | None:
+    """Aufloesen von 'Inbox/Sub/Sub2' → mailFolders-ID. Fuer den Poll-
+    Quell-Ordner. Ordner werden NICHT angelegt (im Gegensatz zu
+    _ensure_folder), sondern nur gesucht — sonst wuerde man versehentlich
+    einen leeren Poll-Ordner erzeugen wenn ein Tippfehler drin ist.
+    """
+    if not path or path.lower() == "inbox":
+        return None  # caller nutzt direkt 'Inbox' well-known
+    segments = [s.strip() for s in path.split("/") if s.strip()]
+    if not segments:
+        return None
+    # Erstes Segment: absolute mailFolders (top-level) oder in Inbox suchen.
+    # Konvention: fuehrendes 'Inbox' entfernen falls vorhanden, weil wir
+    # unten sowieso relativ zur Inbox suchen.
+    if segments[0].lower() == "inbox":
+        segments = segments[1:]
+        if not segments:
+            return None
+    parent = "Inbox"
+    for seg in segments:
+        r = _graph_get(token, f"/users/{upn}/mailFolders/{parent}/childFolders",
+                        params={"$filter": f"displayName eq '{seg}'",
+                                "$select": "id,displayName"})
+        if r.status_code != 200:
+            return None
+        found = [f for f in r.json().get("value", [])
+                 if f.get("displayName") == seg]
+        if not found:
+            return None
+        parent = found[0]["id"]
+    return parent
 
 
 def _get_attachments(token: str, upn: str, message_id: str) -> list[dict]:
@@ -246,7 +298,9 @@ def poll_mailbox_once(mailbox_id: str,
     stats = {"seen": 0, "printed": 0, "rejected": 0, "skipped_no_attachment": 0,
               "errors": 0}
 
-    messages = _list_unread_messages(token, upn, top=20)
+    source_folder = mb.get("source_folder") or "Inbox"
+    messages = _list_unread_messages(token, upn, top=20,
+                                       source_folder=source_folder)
     for msg in messages:
         stats["seen"] += 1
         msg_id = msg["id"]

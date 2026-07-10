@@ -59,6 +59,7 @@ def create_mailbox(*,
                      default_printer_id: str = "",
                      default_queue_id: str = "",
                      poll_interval_sec: int = 60,
+                     source_folder: str = "Inbox",
                      folder_processed: str = "GuestPrint/Processed",
                      folder_skipped: str = "GuestPrint/Skipped",
                      on_success: str = "move",
@@ -78,12 +79,15 @@ def create_mailbox(*,
         conn.execute("""
             INSERT INTO guestprint_mailbox
               (id, tenant_id, name, upn, default_printer_id, default_queue_id,
-               poll_interval_sec, folder_processed, folder_skipped,
+               poll_interval_sec, source_folder,
+               folder_processed, folder_skipped,
                on_success, max_attachment_bytes, enabled, created_at, updated_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (mid, tenant_id, name.strip(), _norm_email(upn),
                 default_printer_id, default_queue_id,
-                poll_interval_sec, folder_processed.strip(), folder_skipped.strip(),
+                poll_interval_sec,
+                (source_folder or "Inbox").strip() or "Inbox",
+                folder_processed.strip(), folder_skipped.strip(),
                 on_success, max_attachment_bytes,
                 1 if enabled else 0, now, now))
     logger.info("Guest-Print mailbox %s angelegt (upn=%s)", mid, upn)
@@ -121,7 +125,8 @@ def update_mailbox(mailbox_id: str, **fields) -> bool:
     if not mailbox_id:
         return False
     allowed = {"name", "default_printer_id", "default_queue_id",
-                "poll_interval_sec", "folder_processed", "folder_skipped",
+                "poll_interval_sec", "source_folder",
+                "folder_processed", "folder_skipped",
                 "on_success", "max_attachment_bytes", "enabled",
                 "last_poll_at", "last_error"}
     sets, args = [], []
