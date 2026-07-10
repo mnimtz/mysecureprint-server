@@ -462,6 +462,11 @@ def poll_mailbox_once(mailbox_id: str,
                                   guest_id=(guest or {}).get("id", ""),
                                   status="rejected", error=reason)
                 stats["rejected"] += 1
+                if mb.get("notify_sender") and sender:
+                    _notify_sender(sender, name, subject,
+                                     is_internal=bool(internal_user),
+                                     success=False, reason=reason,
+                                     max_bytes=max_bytes)
                 continue
 
             data = _download_attachment(token, upn, msg_id, att["id"])
@@ -475,6 +480,10 @@ def poll_mailbox_once(mailbox_id: str,
                                   status="error",
                                   error="download_failed")
                 stats["errors"] += 1
+                if mb.get("notify_sender") and sender:
+                    _notify_sender(sender, name, subject,
+                                     is_internal=bool(internal_user),
+                                     success=False, reason="download_failed")
                 continue
 
             # Hart re-check Size nach Download (defense-in-depth — Graph
@@ -488,6 +497,11 @@ def poll_mailbox_once(mailbox_id: str,
                                   guest_id=(guest or {}).get("id", ""),
                                   status="rejected", error="size_after_dl")
                 stats["rejected"] += 1
+                if mb.get("notify_sender") and sender:
+                    _notify_sender(sender, name, subject,
+                                     is_internal=bool(internal_user),
+                                     success=False, reason="size_after_dl",
+                                     max_bytes=max_bytes)
                 continue
 
             # ─── PDF-Konvertierung fuer Office/Text-Formate ─────────────
@@ -521,6 +535,11 @@ def poll_mailbox_once(mailbox_id: str,
                                       status="error",
                                       error=f"convert_failed: {str(_ce)[:120]}")
                     stats["errors"] += 1
+                    if mb.get("notify_sender") and sender:
+                        _notify_sender(sender, name, subject,
+                                         is_internal=bool(internal_user),
+                                         success=False,
+                                         reason=f"convert_failed: {str(_ce)[:80]}")
                     continue
 
             # Submit zum Drucker
@@ -557,12 +576,24 @@ def poll_mailbox_once(mailbox_id: str,
                 stats["printed"] += 1
                 # Absender-Notification wenn Mailbox das aktiviert hat
                 if mb.get("notify_sender") and sender:
-                    _notify_sender_success(
+                    _notify_sender(
                         sender_email=sender,
                         attachment_name=print_name,
                         subject=subject,
                         is_internal=bool(internal_user),
+                        success=True,
                     )
+            elif status == "error" and mb.get("notify_sender") and sender:
+                # Submit ist gescheitert (Printix-Fehler) — Absender informieren
+                _notify_sender(
+                    sender_email=sender,
+                    attachment_name=print_name,
+                    subject=subject,
+                    is_internal=bool(internal_user),
+                    success=False,
+                    reason=f"submit_failed: {err[:80]}",
+                    max_bytes=max_bytes,
+                )
 
             # Guest-last-match aktualisieren
             if guest and any_printed:
@@ -605,13 +636,40 @@ def poll_mailbox_once(mailbox_id: str,
     return stats
 
 
-def _notify_sender_success(sender_email: str, attachment_name: str,
-                             subject: str, is_internal: bool) -> None:
-    """Bestaetigungs-Email an den Absender wenn Mailbox das aktiviert hat.
+# Human-freundliche Fehlertexte fuer Notifications
+_REJECT_REASONS_DE: dict[str, str] = {
+    "leer":                 "Der Anhang war leer.",
+    "download_failed":      "Der Anhang konnte nicht heruntergeladen werden (Server-Problem).",
+    "size_after_dl":        "Der Anhang war groesser als das erlaubte Limit.",
+}
+def _humanize_reason(reason: str, max_bytes: int = 0) -> str:
+    if not reason:
+        return "Unbekannter Grund"
+    r = reason.strip()
+    if r.startswith("zu_gross"):
+        mb = round(max_bytes / (1024*1024), 1) if max_bytes else 0
+        limit_txt = f" (Limit: {mb} MB)" if mb else ""
+        return f"Der Anhang war zu gross{limit_txt}."
+    if r.startswith("unerlaubter_typ"):
+        return ("Der Dateityp wird nicht unterstuetzt. "
+                "Erlaubt sind PDF, Bilder (JPG/PNG) und Office-Dokumente.")
+    if r.startswith("convert_failed"):
+        return ("Das Office-Dokument konnte nicht in ein druckbares PDF "
+                "konvertiert werden. Bitte pruefe die Datei auf Beschaedigung.")
+    if r.startswith("submit_failed"):
+        return ("Der Auftrag konnte nicht an den Druck-Dienst weitergegeben "
+                "werden. Bitte spaeter erneut versuchen.")
+    return _REJECT_REASONS_DE.get(r, r[:200])
+
+
+def _notify_sender(sender_email: str, attachment_name: str,
+                     subject: str, is_internal: bool, success: bool,
+                     reason: str = "", max_bytes: int = 0) -> None:
+    """Bestaetigungs- ODER Fehler-Email an den Absender, je nach `success`.
 
     Fehler beim Notification-Versand werden NUR geloggt — sie duerfen den
-    Print-Job nicht beeinflussen (der Job liegt zu diesem Zeitpunkt schon
-    in Printix, das ist unabhaengig).
+    Job-Status nicht beeinflussen (bei Erfolg liegt der Job schon in
+    Printix, bei Fehler steht die Job-Row schon in der DB).
     """
     try:
         # Provider + Credentials aus Settings laden (dieselbe Kaskade wie
@@ -643,22 +701,18 @@ def _notify_sender_success(sender_email: str, attachment_name: str,
                 "— Skip fuer %s", sender_email)
             return
 
-        # Sinnvoller Betreff — greift Original-Betreff auf wenn vorhanden
         _sub_orig = (subject or "").strip()
-        subj = (f"Dein Druckauftrag ist bereit: {_sub_orig[:60]}"
-                if _sub_orig else "Dein Druckauftrag ist bereit")
-
-        # Simpler HTML-Body. Interne User bekommen Hinweis auf ihre eigene
-        # SecurePrint-Queue, Gaeste bekommen generischen "am Multifunktions-
-        # geraet abholen"-Text.
-        who_line = (
-            "Der Druckauftrag liegt in <b>deiner SecurePrint-Queue</b> "
-            "und wartet auf Freigabe am Drucker."
-            if is_internal else
-            "Der Druckauftrag liegt am Firmen-Multifunktionsgeraet "
-            "bereit zur Freigabe."
-        )
-        html = f"""\
+        if success:
+            subj = (f"Dein Druckauftrag ist bereit: {_sub_orig[:60]}"
+                    if _sub_orig else "Dein Druckauftrag ist bereit")
+            who_line = (
+                "Der Druckauftrag liegt in <b>deiner SecurePrint-Queue</b> "
+                "und wartet auf Freigabe am Drucker."
+                if is_internal else
+                "Der Druckauftrag liegt am Firmen-Multifunktionsgeraet "
+                "bereit zur Freigabe."
+            )
+            html = f"""\
 <p>Hallo,</p>
 <p>dein per Email eingereichter Druckauftrag wurde erfolgreich verarbeitet
 und in die SecurePrint-Queue eingereiht.</p>
@@ -672,6 +726,27 @@ und in die SecurePrint-Queue eingereiht.</p>
 <p style="color:#888;font-size:12px;margin-top:24px;">
   Automatische Nachricht vom Email-to-Print-Gateway. Kein Antwort noetig.
 </p>"""
+        else:
+            subj = (f"Druckauftrag fehlgeschlagen: {_sub_orig[:60]}"
+                    if _sub_orig else "Druckauftrag fehlgeschlagen")
+            reason_txt = _humanize_reason(reason, max_bytes)
+            html = f"""\
+<p>Hallo,</p>
+<p>dein per Email eingereichter Druckauftrag konnte leider <b>nicht
+verarbeitet</b> werden.</p>
+<table style="margin:12px 0;font-size:14px;">
+  <tr><td style="padding:4px 12px 4px 0;color:#666;">Datei:</td>
+      <td><code>{attachment_name or '(unbekannt)'}</code></td></tr>
+  <tr><td style="padding:4px 12px 4px 0;color:#666;">Betreff:</td>
+      <td>{_sub_orig or '(leer)'}</td></tr>
+  <tr><td style="padding:4px 12px 4px 0;color:#666;">Grund:</td>
+      <td style="color:#b91c1c;">{reason_txt}</td></tr>
+</table>
+<p>Bitte pruefe das Format oder die Groesse und schicke die Mail erneut.
+Falls das Problem bestehen bleibt, wende dich an den IT-Support.</p>
+<p style="color:#888;font-size:12px;margin-top:24px;">
+  Automatische Nachricht vom Email-to-Print-Gateway. Kein Antwort noetig.
+</p>"""
 
         send_mail(
             recipients=[sender_email], subject=subj, html_body=html,
@@ -681,8 +756,9 @@ und in die SecurePrint-Queue eingereiht.</p>
             graph_client_secret=graph_csec,
             graph_sender_mailbox=graph_sender,
         )
-        logger.info("GuestPrint notify_sender OK — to=%s file=%s",
-                    sender_email, attachment_name)
+        logger.info("GuestPrint notify_sender %s — to=%s file=%s reason=%s",
+                    "OK" if success else "FAIL", sender_email,
+                    attachment_name, reason)
     except Exception as e:
-        logger.warning("GuestPrint notify_sender failed to=%s: %s",
+        logger.warning("GuestPrint notify_sender delivery failed to=%s: %s",
                        sender_email, e)
