@@ -42,8 +42,29 @@ _ALLOWED_CONTENT_TYPES = {
     "image/png",
     "image/jpeg",
     "image/jpg",
+    # Office / Text — werden vor dem Print via LibreOffice zu PDF konvertiert
+    "application/msword",                                            # .doc
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
+    "application/vnd.ms-excel",                                      # .xls
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",        # .xlsx
+    "application/vnd.ms-powerpoint",                                 # .ppt
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",# .pptx
+    "application/vnd.oasis.opendocument.text",                       # .odt
+    "application/vnd.oasis.opendocument.spreadsheet",                # .ods
+    "application/vnd.oasis.opendocument.presentation",               # .odp
+    "application/rtf", "text/rtf",                                   # .rtf
+    "text/plain",                                                    # .txt
 }
-_ALLOWED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg"}
+_ALLOWED_EXTENSIONS = {
+    ".pdf", ".png", ".jpg", ".jpeg",
+    ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".odt", ".ods", ".odp", ".rtf", ".txt",
+}
+# Diese Endungen sind KEIN PDF und muessen vor dem Print konvertiert werden
+_OFFICE_EXTENSIONS = {
+    ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".odt", ".ods", ".odp", ".rtf", ".txt",
+}
 
 _FILENAME_SAFE = re.compile(r"[^A-Za-z0-9._\- ]")
 
@@ -469,6 +490,39 @@ def poll_mailbox_once(mailbox_id: str,
                 stats["rejected"] += 1
                 continue
 
+            # ─── PDF-Konvertierung fuer Office/Text-Formate ─────────────
+            # Printix nimmt effektiv nur PDF/Bilder ordentlich. Office-
+            # Anhaenge muessen wir vor dem Submit ueber LibreOffice
+            # rendern (dieselbe Pipeline wie /desktop/upload).
+            print_name = name
+            print_data = data
+            _ext_lc = os.path.splitext(name)[1].lower()
+            if _ext_lc in _OFFICE_EXTENSIONS:
+                try:
+                    from upload_converter import convert_to_pdf
+                    print_data, _src_label = convert_to_pdf(data, name)
+                    # Filename fuer Printix auf .pdf umstellen
+                    print_name = os.path.splitext(name)[0] + ".pdf"
+                    logger.info(
+                        "GuestPrint: %s → PDF (%s, %d bytes) fuer Sender %s",
+                        name, _src_label, len(print_data), sender,
+                    )
+                except Exception as _ce:
+                    logger.warning(
+                        "GuestPrint: PDF-Konvertierung %s fehlgeschlagen: %s",
+                        name, _ce,
+                    )
+                    store.record_job(mailbox_id=mailbox_id,
+                                      message_id=internet_msgid,
+                                      attachment_name=name,
+                                      sender_email=sender, subject=subject,
+                                      attachment_bytes=len(data),
+                                      guest_id=(guest or {}).get("id", ""),
+                                      status="error",
+                                      error=f"convert_failed: {str(_ce)[:120]}")
+                    stats["errors"] += 1
+                    continue
+
             # Submit zum Drucker
             printix_job_id = ""
             err = ""
@@ -478,8 +532,8 @@ def poll_mailbox_once(mailbox_id: str,
                         sender_user=internal_user,
                         guest=guest,
                         mailbox=mb,
-                        attachment_name=name,
-                        attachment_bytes=data,
+                        attachment_name=print_name,
+                        attachment_bytes=print_data,
                         subject=subject,
                     ) or ""
             except Exception as e:
