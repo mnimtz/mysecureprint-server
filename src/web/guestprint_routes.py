@@ -114,6 +114,7 @@ def register(app, *, require_login_fn, get_active_tenant_id_fn,
                               folder_skipped: str = Form(default="GuestPrint/Skipped"),
                               on_success: str = Form(default="move"),
                               max_attachment_bytes: int = Form(default=26214400),
+                              notify_sender: str = Form(default=""),
                               enabled: str = Form(default="1")):
         user, redirect = _admin_or_403(request)
         if redirect:
@@ -130,6 +131,7 @@ def register(app, *, require_login_fn, get_active_tenant_id_fn,
                 folder_skipped=folder_skipped,
                 on_success=on_success,
                 max_attachment_bytes=max_attachment_bytes,
+                notify_sender=(notify_sender in ("1", "on", "true")),
                 enabled=(enabled in ("1", "on", "true")))
         except ValueError as e:
             return RedirectResponse(
@@ -169,6 +171,7 @@ def register(app, *, require_login_fn, get_active_tenant_id_fn,
                               folder_skipped: str = Form(default=None),
                               on_success: str = Form(default=None),
                               max_attachment_bytes: int = Form(default=None),
+                              notify_sender: str = Form(default=None),
                               enabled: str = Form(default=None)):
         user, redirect = _admin_or_403(request)
         if redirect:
@@ -191,6 +194,8 @@ def register(app, *, require_login_fn, get_active_tenant_id_fn,
                 fields[k] = v
         if enabled is not None:
             fields["enabled"] = enabled in ("1", "on", "true")
+        if notify_sender is not None:
+            fields["notify_sender"] = notify_sender in ("1", "on", "true")
         gp.update_mailbox(mid, **fields)
         _audit(user, "guestprint_mailbox_updated",
                  mailbox_id=mid, fields=list(fields.keys()))

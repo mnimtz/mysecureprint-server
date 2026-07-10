@@ -86,6 +86,10 @@
             <option value="keep">{{ _('guest_option_keep') }}</option>
             <option value="delete">{{ _('guest_option_delete') }}</option>
           </select>
+          <label style="display:flex;align-items:center;gap:8px;font-size:.9em;">
+            <input type="checkbox" name="notify_sender" value="1">
+            <span>Absender per Email benachrichtigen bei erfolgreichem Druck</span>
+          </label>
           <button type="submit"
                   style="background:var(--accent);color:white;padding:8px;
                          border:none;border-radius:6px;cursor:pointer;
@@ -185,6 +189,11 @@
                   <option value="keep" {% if selected.on_success == 'keep' %}selected{% endif %}>{{ _('guest_option_keep') }}</option>
                   <option value="delete" {% if selected.on_success == 'delete' %}selected{% endif %}>{{ _('guest_option_delete') }}</option>
                 </select>
+              </label>
+              <label style="grid-column:1/-1;">
+                <input type="checkbox" name="notify_sender" value="1"
+                       {% if selected.notify_sender %}checked{% endif %}>
+                Absender per Email benachrichtigen wenn Job in SecurePrint-Queue eingereiht wurde
               </label>
               <label style="grid-column:1/-1;">
                 <input type="checkbox" name="enabled" value="1"

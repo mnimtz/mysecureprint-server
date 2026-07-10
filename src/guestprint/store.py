@@ -64,6 +64,7 @@ def create_mailbox(*,
                      folder_skipped: str = "GuestPrint/Skipped",
                      on_success: str = "move",
                      max_attachment_bytes: int = 26214400,
+                     notify_sender: bool = False,
                      enabled: bool = True) -> str:
     """Legt eine neue ueberwachte Mailbox an. Returns die UUID."""
     if not validate_email_address(upn):
@@ -81,14 +82,16 @@ def create_mailbox(*,
               (id, tenant_id, name, upn, default_printer_id, default_queue_id,
                poll_interval_sec, source_folder,
                folder_processed, folder_skipped,
-               on_success, max_attachment_bytes, enabled, created_at, updated_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+               on_success, max_attachment_bytes, notify_sender,
+               enabled, created_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (mid, tenant_id, name.strip(), _norm_email(upn),
                 default_printer_id, default_queue_id,
                 poll_interval_sec,
                 (source_folder or "Inbox").strip() or "Inbox",
                 folder_processed.strip(), folder_skipped.strip(),
                 on_success, max_attachment_bytes,
+                1 if notify_sender else 0,
                 1 if enabled else 0, now, now))
     logger.info("Guest-Print mailbox %s angelegt (upn=%s)", mid, upn)
     return mid
@@ -127,8 +130,8 @@ def update_mailbox(mailbox_id: str, **fields) -> bool:
     allowed = {"name", "default_printer_id", "default_queue_id",
                 "poll_interval_sec", "source_folder",
                 "folder_processed", "folder_skipped",
-                "on_success", "max_attachment_bytes", "enabled",
-                "last_poll_at", "last_error"}
+                "on_success", "max_attachment_bytes", "notify_sender",
+                "enabled", "last_poll_at", "last_error"}
     sets, args = [], []
     for k, v in fields.items():
         if k not in allowed:

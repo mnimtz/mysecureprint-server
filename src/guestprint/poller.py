@@ -555,6 +555,14 @@ def poll_mailbox_once(mailbox_id: str,
             if status == "ok":
                 any_printed = True
                 stats["printed"] += 1
+                # Absender-Notification wenn Mailbox das aktiviert hat
+                if mb.get("notify_sender") and sender:
+                    _notify_sender_success(
+                        sender_email=sender,
+                        attachment_name=print_name,
+                        subject=subject,
+                        is_internal=bool(internal_user),
+                    )
 
             # Guest-last-match aktualisieren
             if guest and any_printed:
@@ -595,3 +603,86 @@ def poll_mailbox_once(mailbox_id: str,
     except Exception:
         pass
     return stats
+
+
+def _notify_sender_success(sender_email: str, attachment_name: str,
+                             subject: str, is_internal: bool) -> None:
+    """Bestaetigungs-Email an den Absender wenn Mailbox das aktiviert hat.
+
+    Fehler beim Notification-Versand werden NUR geloggt — sie duerfen den
+    Print-Job nicht beeinflussen (der Job liegt zu diesem Zeitpunkt schon
+    in Printix, das ist unabhaengig).
+    """
+    try:
+        # Provider + Credentials aus Settings laden (dieselbe Kaskade wie
+        # in web/app.py Mail-Versand-Aufrufer).
+        import os as _os
+        from db import get_setting as _gs, _dec as _dec_settings
+        from mail_client import send_mail, MailSendError
+
+        provider = (_gs("mail_provider", "") or "resend").strip().lower()
+        api_key = (_gs("mail_resend_api_key", "")
+                   or _os.environ.get("RESEND_API_KEY", "")).strip()
+        mail_from = (_gs("mail_from", "")
+                     or _os.environ.get("RESEND_FROM", "")).strip()
+        mail_from_name = (_gs("mail_from_name", "") or "MySecurePrint").strip()
+        graph_tid = graph_cid = graph_csec = graph_sender = ""
+        if provider == "graph":
+            graph_tid = (_gs("entra_tenant_id", "") or "").strip()
+            graph_cid = (_gs("entra_client_id", "") or "").strip()
+            _enc = _gs("entra_client_secret", "")
+            try:
+                graph_csec = _dec_settings(_enc) if _enc else ""
+            except Exception:
+                graph_csec = ""
+            graph_sender = (_gs("mail_graph_sender", "") or "").strip()
+
+        if not api_key and not (provider == "graph" and graph_sender):
+            logger.info(
+                "GuestPrint notify_sender: kein Mail-Provider konfiguriert "
+                "— Skip fuer %s", sender_email)
+            return
+
+        # Sinnvoller Betreff — greift Original-Betreff auf wenn vorhanden
+        _sub_orig = (subject or "").strip()
+        subj = (f"Dein Druckauftrag ist bereit: {_sub_orig[:60]}"
+                if _sub_orig else "Dein Druckauftrag ist bereit")
+
+        # Simpler HTML-Body. Interne User bekommen Hinweis auf ihre eigene
+        # SecurePrint-Queue, Gaeste bekommen generischen "am Multifunktions-
+        # geraet abholen"-Text.
+        who_line = (
+            "Der Druckauftrag liegt in <b>deiner SecurePrint-Queue</b> "
+            "und wartet auf Freigabe am Drucker."
+            if is_internal else
+            "Der Druckauftrag liegt am Firmen-Multifunktionsgeraet "
+            "bereit zur Freigabe."
+        )
+        html = f"""\
+<p>Hallo,</p>
+<p>dein per Email eingereichter Druckauftrag wurde erfolgreich verarbeitet
+und in die SecurePrint-Queue eingereiht.</p>
+<table style="margin:12px 0;font-size:14px;">
+  <tr><td style="padding:4px 12px 4px 0;color:#666;">Datei:</td>
+      <td><code>{attachment_name}</code></td></tr>
+  <tr><td style="padding:4px 12px 4px 0;color:#666;">Betreff:</td>
+      <td>{_sub_orig or '(leer)'}</td></tr>
+</table>
+<p>{who_line}</p>
+<p style="color:#888;font-size:12px;margin-top:24px;">
+  Automatische Nachricht vom Email-to-Print-Gateway. Kein Antwort noetig.
+</p>"""
+
+        send_mail(
+            recipients=[sender_email], subject=subj, html_body=html,
+            provider=provider, api_key=api_key,
+            mail_from=mail_from, mail_from_name=mail_from_name,
+            graph_tenant_id=graph_tid, graph_client_id=graph_cid,
+            graph_client_secret=graph_csec,
+            graph_sender_mailbox=graph_sender,
+        )
+        logger.info("GuestPrint notify_sender OK — to=%s file=%s",
+                    sender_email, attachment_name)
+    except Exception as e:
+        logger.warning("GuestPrint notify_sender failed to=%s: %s",
+                       sender_email, e)

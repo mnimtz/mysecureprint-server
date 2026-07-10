@@ -500,6 +500,7 @@ def init_db() -> None:
                 source_folder        TEXT NOT NULL DEFAULT 'Inbox',
                 folder_processed     TEXT NOT NULL DEFAULT 'GuestPrint/Processed',
                 folder_skipped       TEXT NOT NULL DEFAULT 'GuestPrint/Skipped',
+                notify_sender        INTEGER NOT NULL DEFAULT 0,
                 on_success           TEXT NOT NULL DEFAULT 'move',
                 max_attachment_bytes INTEGER NOT NULL DEFAULT 26214400,
                 enabled              INTEGER NOT NULL DEFAULT 1,
@@ -597,6 +598,13 @@ def init_db() -> None:
             conn.execute(
                 "ALTER TABLE guestprint_mailbox "
                 "ADD COLUMN source_folder TEXT NOT NULL DEFAULT 'Inbox'"
+            )
+        # v0.7.258: notify_sender — Absender per Email informieren wenn
+        # der Job erfolgreich in die SecurePrint-Queue eingereiht wurde.
+        if "notify_sender" not in gp_cols:
+            conn.execute(
+                "ALTER TABLE guestprint_mailbox "
+                "ADD COLUMN notify_sender INTEGER NOT NULL DEFAULT 0"
             )
 
     # v7.2.18: MCP-Role Permission Layer (PR 1 — Schema + Persistence).
