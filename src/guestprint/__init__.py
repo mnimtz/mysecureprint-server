@@ -22,5 +22,5 @@ from .store import (  # noqa: F401
     record_job, list_jobs,
     try_acquire_poll_lock,
 )
-from .poller import poll_mailbox_once  # noqa: F401
+from .poller import poll_mailbox_once, list_mail_folders  # noqa: F401
 from .runner import start_runner       # noqa: F401

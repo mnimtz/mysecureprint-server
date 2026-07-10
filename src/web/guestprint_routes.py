@@ -57,6 +57,24 @@ def register(app, *, require_login_fn, get_active_tenant_id_fn,
 
     # ── Mailbox-Liste + Toggle ──────────────────────────────────────────────
 
+    @app.get("/admin/guestprint/mail-folders", response_class=JSONResponse)
+    async def gp_list_folders(request: Request, upn: str = ""):
+        """Liest die Ordnerstruktur einer Mailbox live via Graph aus.
+        Wird vom UI-Dropdown genutzt (Quell-Ordner auswaehlen)."""
+        user, redirect = _admin_or_403(request)
+        if redirect:
+            return redirect
+        upn = (upn or "").strip()
+        if "@" not in upn:
+            return JSONResponse({"error": "upn required"}, status_code=400)
+        try:
+            folders = gp.list_mail_folders(upn)
+            return JSONResponse({"folders": folders})
+        except Exception as e:
+            logger.warning("mail-folders fetch %s: %s", upn, e)
+            return JSONResponse({"error": str(e)[:200], "folders": []},
+                                  status_code=500)
+
     @app.get("/admin/guestprint", response_class=HTMLResponse)
     async def gp_list(request: Request):
         user, redirect = _admin_or_403(request)

@@ -127,6 +127,94 @@ def _list_unread_messages(token: str, upn: str, top: int = 20,
     return r.json().get("value", []) or []
 
 
+def list_mail_folders(upn: str, mailbox_id: str = "") -> list[dict]:
+    """Auflistung aller Mail-Ordner der Mailbox — flach, mit vollen Pfaden.
+    Für das UI-Dropdown zum Auswählen des Poll-Quell-Ordners.
+
+    Returns Liste von {id, path, name, message_count} — well-known Ordner
+    (Inbox, Sent Items etc.) VOR den User-Sub-Ordnern, sortiert damit's
+    im Dropdown lesbar bleibt.
+
+    upn: Mailbox-UPN. mailbox_id nur zur Fehler-Persistenz optional.
+    """
+    from . import store
+    from mail_client import get_graph_token
+    try:
+        token_info = get_graph_token()
+        token = token_info["access_token"]
+    except Exception as e:
+        if mailbox_id:
+            store.update_mailbox(mailbox_id, last_error=f"folder_list_token: {e}")
+        return []
+
+    def _fetch_children(parent_id: str, parent_path: str,
+                         depth: int) -> list[dict]:
+        if depth > 5:  # Sicherheit gegen Zyklen
+            return []
+        r = _graph_get(token,
+                        f"/users/{upn}/mailFolders/{parent_id}/childFolders",
+                        params={"$select": "id,displayName,childFolderCount,"
+                                             "totalItemCount",
+                                "$top": "100"})
+        if r.status_code != 200:
+            return []
+        out = []
+        for f in r.json().get("value", []):
+            name = f.get("displayName") or "?"
+            path = f"{parent_path}/{name}"
+            out.append({
+                "id": f["id"],
+                "path": path,
+                "name": name,
+                "count": int(f.get("totalItemCount") or 0),
+            })
+            if int(f.get("childFolderCount") or 0) > 0:
+                out.extend(_fetch_children(f["id"], path, depth + 1))
+        return out
+
+    # Top-Level Ordner
+    r = _graph_get(token, f"/users/{upn}/mailFolders",
+                    params={"$select": "id,displayName,childFolderCount,"
+                                         "totalItemCount",
+                            "$top": "100"})
+    if r.status_code != 200:
+        if mailbox_id:
+            store.update_mailbox(
+                mailbox_id,
+                last_error=f"folder_list: {r.status_code} {r.text[:200]}",
+            )
+        return []
+
+    results = []
+    inbox_id = None
+    for f in r.json().get("value", []):
+        name = f.get("displayName") or "?"
+        results.append({
+            "id": f["id"],
+            "path": name,
+            "name": name,
+            "count": int(f.get("totalItemCount") or 0),
+        })
+        if name.lower() == "inbox":
+            inbox_id = f["id"]
+        if int(f.get("childFolderCount") or 0) > 0:
+            results.extend(_fetch_children(f["id"], name, 1))
+
+    # Well-Known-Order: Inbox + Kinder zuerst, dann Rest
+    inbox_prefix = None
+    for f in results:
+        if f["id"] == inbox_id:
+            inbox_prefix = "Inbox"
+            break
+    def _sort_key(f):
+        p = f["path"]
+        if inbox_prefix and (p == inbox_prefix or p.startswith(inbox_prefix + "/")):
+            return (0, p.lower())
+        return (1, p.lower())
+    results.sort(key=_sort_key)
+    return results
+
+
 def _resolve_folder_id(token: str, upn: str, path: str) -> str | None:
     """Aufloesen von 'Inbox/Sub/Sub2' → mailFolders-ID. Fuer den Poll-
     Quell-Ordner. Ordner werden NICHT angelegt (im Gegensatz zu

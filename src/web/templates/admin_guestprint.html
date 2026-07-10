@@ -68,10 +68,15 @@
                                   border-radius:6px;">
           <input type="text" name="name" placeholder="Anzeigename (optional)"
                  style="padding:8px;border:1px solid var(--border);border-radius:6px;">
-          <input type="text" name="source_folder" value="Inbox"
-                 placeholder="Quell-Ordner (z.B. Inbox oder Inbox/Druckauftraege)"
-                 title="Welcher Mail-Ordner wird gepollt. 'Inbox' = ganze Inbox. Untersubordner mit / trennen."
-                 style="padding:8px;border:1px solid var(--border);border-radius:6px;">
+          <label style="font-size:.9em;color:var(--text-muted);">Quell-Ordner
+            <select name="source_folder" id="gp-new-source-folder"
+                    style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;">
+              <option value="Inbox">Inbox (Standard — ganze Inbox)</option>
+            </select>
+            <small class="hint" id="gp-new-folder-hint" style="font-size:.75em;color:var(--text-muted);">
+              Erst UPN oben eintragen, dann <a href="#" onclick="gpLoadFolders('gp-new-source-folder', document.querySelector('input[name=upn]').value); return false;">Ordner laden</a>.
+            </small>
+          </label>
           <input type="number" name="poll_interval_sec" value="60" min="15" max="3600"
                  placeholder="Poll-Intervall in Sekunden"
                  style="padding:8px;border:1px solid var(--border);border-radius:6px;">
@@ -97,7 +102,7 @@
           <div style="display:flex;justify-content:space-between;
                       align-items:center;margin-bottom:16px;">
             <div>
-              <h2 style="font-size:1.2em;margin-bottom:4px;">{{ selected.name or selected.upn }}</h2>
+              <h2 style="font-size:1.2em;margin-bottom:4px;" data-mailbox-upn="{{ selected.upn }}">{{ selected.name or selected.upn }}</h2>
               <code style="color:var(--text-muted);font-size:.85em;">{{ selected.upn }}</code>
             </div>
             <div style="display:flex;gap:8px;">
@@ -143,12 +148,19 @@
                        style="width:100%;padding:6px;border:1px solid var(--border);
                               border-radius:4px;"></label>
               <label>Quell-Ordner
-                <input type="text" name="source_folder"
-                       value="{{ selected.source_folder or 'Inbox' }}"
-                       placeholder="Inbox oder Inbox/Druckauftraege"
-                       title="Welcher Mail-Ordner wird ueberwacht. Untersubordner mit / trennen (z.B. Inbox/Druckauftraege). Ordner muss existieren."
-                       style="width:100%;padding:6px;border:1px solid var(--border);
-                              border-radius:4px;"></label>
+                <select name="source_folder" id="gp-edit-source-folder"
+                        data-current="{{ selected.source_folder or 'Inbox' }}"
+                        style="width:100%;padding:6px;border:1px solid var(--border);
+                               border-radius:4px;">
+                  <option value="{{ selected.source_folder or 'Inbox' }}" selected>
+                    {{ selected.source_folder or 'Inbox' }} (aktuell)
+                  </option>
+                </select>
+                <small class="hint" style="font-size:.75em;color:var(--text-muted);">
+                  <a href="#" onclick="gpLoadFolders('gp-edit-source-folder', '{{ selected.upn }}'); return false;">
+                    📁 Ordnerstruktur live aus Postfach laden
+                  </a>
+                </small></label>
               <label>Processed-Ordner
                 <input type="text" name="folder_processed"
                        value="{{ selected.folder_processed }}"
@@ -341,6 +353,63 @@ function toggleGlobal(el) {
   fetch("/admin/guestprint/toggle", {method: "POST", body: fd})
     .then(r => r.ok ? window.location.reload() : alert("Fehler"));
 }
+function gpLoadFolders(selectId, upn) {
+  upn = (upn || "").trim();
+  if (!upn || upn.indexOf("@") < 0) {
+    alert("Bitte erst die Mailbox-Adresse (UPN) eintragen.");
+    return;
+  }
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const current = sel.dataset.current || sel.value || "Inbox";
+  const originalHint = sel.nextElementSibling;
+  if (originalHint) originalHint.innerHTML = "⏳ Lade Ordner…";
+  sel.disabled = true;
+  fetch("/admin/guestprint/mail-folders?upn=" + encodeURIComponent(upn))
+    .then(r => r.json())
+    .then(d => {
+      sel.disabled = false;
+      if (d.error) {
+        if (originalHint) originalHint.innerHTML =
+          "⚠ Fehler: " + d.error + " — Feld leer, Fallback Inbox";
+        return;
+      }
+      const folders = d.folders || [];
+      // Rebuild options
+      sel.innerHTML = "";
+      // Immer Inbox als Fallback obendrauf
+      const optInbox = new Option("Inbox (Standard — ganze Inbox)", "Inbox");
+      sel.appendChild(optInbox);
+      folders.forEach(f => {
+        if (f.path.toLowerCase() === "inbox") return; // schon oben
+        const opt = new Option(
+          f.path + " (" + f.count + " Mails)",
+          f.path
+        );
+        sel.appendChild(opt);
+      });
+      // Aktuellen Wert setzen falls in Liste
+      sel.value = current;
+      if (originalHint) originalHint.innerHTML =
+        "✓ " + folders.length + " Ordner geladen — aktuell: <code>" +
+        current + "</code>";
+    })
+    .catch(e => {
+      sel.disabled = false;
+      if (originalHint) originalHint.innerHTML = "⚠ Fehler beim Laden: " + e;
+    });
+}
+
+// Auto-Load: wenn die Edit-Ansicht schon eine Mailbox-UPN im DOM hat,
+// Ordner beim Seiten-Load direkt fetchen (bequemer als Klick-erst).
+document.addEventListener("DOMContentLoaded", function() {
+  const editSel = document.getElementById("gp-edit-source-folder");
+  if (editSel) {
+    const upnEl = document.querySelector("[data-mailbox-upn]");
+    if (upnEl) gpLoadFolders("gp-edit-source-folder", upnEl.dataset.mailboxUpn);
+  }
+});
+
 function pollNow(mid) {
   const btn = event.target;
   btn.disabled = true; btn.textContent = "Polle…";
