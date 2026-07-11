@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 def register(app, *, require_login_fn, get_active_tenant_id_fn,
               templates, set_setting_fn, get_setting_fn,
-              audit_fn=None):
+              audit_fn=None, t_ctx=None):
     """Mountet die Routen am FastAPI-App. Wird aus web/app.py beim
     Boot aufgerufen, damit alle Dependencies (Templates, Auth-Helper,
     Settings) verbunden sind."""
@@ -83,11 +83,13 @@ def register(app, *, require_login_fn, get_active_tenant_id_fn,
         tid = get_active_tenant_id_fn(user) or ""
         mboxes = gp.list_mailboxes(tid)
         enabled = get_setting_fn("guestprint_enabled", "0") == "1"
+        ctx = t_ctx(request) if t_ctx else {}
         return templates.TemplateResponse(
             "admin_guestprint.html",
             {"request": request, "user": user, "mboxes": mboxes,
               "enabled": enabled,
-              "view": "list", "selected": None, "guests": [], "jobs": []})
+              "view": "list", "selected": None, "guests": [], "jobs": [],
+              "active_page": "admin_guestprint", **ctx})
 
     @app.post("/admin/guestprint/toggle", response_class=JSONResponse)
     async def gp_toggle(request: Request,
@@ -150,6 +152,7 @@ def register(app, *, require_login_fn, get_active_tenant_id_fn,
         mb = gp.get_mailbox(mid)
         if not mb or mb.get("tenant_id") != tid:
             return JSONResponse({"detail": "not found"}, status_code=404)
+        ctx = t_ctx(request) if t_ctx else {}
         return templates.TemplateResponse(
             "admin_guestprint.html",
             {"request": request, "user": user,
@@ -157,7 +160,8 @@ def register(app, *, require_login_fn, get_active_tenant_id_fn,
               "enabled": get_setting_fn("guestprint_enabled", "0") == "1",
               "view": "detail", "selected": mb,
               "guests": gp.list_guests(mid),
-              "jobs": gp.list_jobs(mid, limit=50)})
+              "jobs": gp.list_jobs(mid, limit=50),
+              "active_page": "admin_guestprint", **ctx})
 
     @app.post("/admin/guestprint/mailbox/{mid}/update",
                 response_class=RedirectResponse)

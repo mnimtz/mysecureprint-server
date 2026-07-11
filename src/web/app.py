@@ -8896,6 +8896,7 @@ def create_app(session_secret: str) -> FastAPI:
             set_setting_fn=_set_setting,
             get_setting_fn=_get_setting,
             audit_fn=_audit,
+            t_ctx=t_ctx,
         )
         logger.info("Guest-Print routes registriert")
     except Exception as e:
