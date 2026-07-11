@@ -639,10 +639,12 @@ def evaluate_and_notify(tenant: dict, *, force_send: bool = False,
                 "severity":     sev,
                 "days_left":    days_left,
             })
-        # detected_error_states (LOW_TONER / NO_PAPER) fließt separat als "warn"
+        # v0.7.272: nur toner-relevante Error-Codes triggern Alerts.
+        # Papier-Meldungen etc. gehoeren nicht in den Toner-Alert-Flow.
         if include_errs:
+            from printix_errors import TONER_ERROR_CODES
             for err in p.get("error_states", []):
-                if err not in ("LOW_TONER", "NO_PAPER"):
+                if err not in TONER_ERROR_CODES:
                     continue
                 low_items.append({
                     "printer_id":   p["printer_id"],

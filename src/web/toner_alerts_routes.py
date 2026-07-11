@@ -52,6 +52,7 @@ def register_toner_alert_routes(app: FastAPI,
             sys.path.insert(0, src_dir)
         import toner_alerts as ta
         from bi_client import fetch_all_printer_supplies, estimate_days_until_empty
+        from printix_errors import toner_only, ERROR_LABEL_KEYS
 
         tenant = _load_tenant(user)
         if not tenant:
@@ -62,6 +63,7 @@ def register_toner_alert_routes(app: FastAPI,
                 "bi_configured": False, "bi_reachable": False,
                 "default_email_subject": ta.DEFAULT_EMAIL_SUBJECT,
                 "default_email_body_html": ta.DEFAULT_EMAIL_BODY_HTML,
+                "error_label_keys": {},
                 "tenant_key": "",
                 "active_page": "admin_toner",
                 **t_ctx(request),
@@ -106,7 +108,10 @@ def register_toner_alert_routes(app: FastAPI,
                     })
                     if sev == "critical" or (sev == "warn" and worst_sev != "critical"):
                         worst_sev = sev
-                errs = p.get("error_states") or []
+                # v0.7.272: nur Toner-relevante Codes durchlassen — Papier-
+                # Meldungen, offene Klappen etc. gehoeren nicht auf die
+                # Toner-Alert-Seite.
+                errs = toner_only(p.get("error_states") or [])
                 # Ein Drucker landet in alert_printers wenn mind. eine Farbe
                 # unter Schwelle liegt ODER ein Error-State (LOW_TONER etc)
                 # gemeldet ist.
@@ -145,6 +150,7 @@ def register_toner_alert_routes(app: FastAPI,
             "bi_reachable":  bi_reachable,
             "default_email_subject": ta.DEFAULT_EMAIL_SUBJECT,
             "default_email_body_html": ta.DEFAULT_EMAIL_BODY_HTML,
+            "error_label_keys": ERROR_LABEL_KEYS,
             "tenant_key": tid,
             "active_page": "admin_toner",
             **t_ctx(request),
