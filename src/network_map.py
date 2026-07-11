@@ -258,25 +258,30 @@ def _build_render_tree(topology: dict, filters: dict) -> list[dict]:
     show_printers = filters.get("show_printers", True)
     show_workstations = filters.get("show_workstations", True)
     show_users = filters.get("show_users", False)
+    show_details = filters.get("show_details", False)
+    show_netdetails = filters.get("show_netdetails", False)
 
     def _mkuser(u):
         return {"id": f"u:{u['id']}", "kind": "user",
                 "label": u.get("name") or u.get("email") or "?",
                 "sub": u.get("department") or "",
-                "meta": u, "_children": []}
+                "meta": u, "_children": [],
+                "_details": show_details, "_netdetails": show_netdetails}
 
     def _mkws(w):
         kids = [_mkuser(u) for u in w.get("users", [])] if show_users else []
         return {"id": f"w:{w['id']}", "kind": "workstation",
                 "label": w.get("name") or "?",
                 "sub": (w.get("os") or "").strip(),
-                "meta": w, "_children": kids}
+                "meta": w, "_children": kids,
+                "_details": show_details, "_netdetails": show_netdetails}
 
     def _mkp(p):
         return {"id": f"p:{p['id']}", "kind": "printer",
                 "label": p.get("name") or "?",
                 "sub": (p.get("model") or p.get("vendor") or "").strip(),
-                "meta": p, "_children": []}
+                "meta": p, "_children": [],
+                "_details": show_details, "_netdetails": show_netdetails}
 
     sites_out = []
     for site in topology.get("sites", []):
@@ -399,17 +404,36 @@ def _render_node(node: dict, positions: dict) -> str:
           </text>
         </g>'''
 
+    # v0.7.276: opts fuer Detail-Toggles
+    details = node.get("_details", False)
+    netdetails = node.get("_netdetails", False)
+    # Karten-Breite/Hoehe: bei Details ON etwas groesser damit Zusatzzeilen passen
+    card_w = LEAF_SLOT_W - 16
+    card_h = LEAF_H
+    if details or netdetails:
+        card_h = LEAF_H + 34  # Platz fuer 2 Extra-Zeilen
+
     if kind == "printer":
         color = _vendor_color(node["meta"].get("vendor", ""))
-        model = _truncate((node["meta"].get("model") or "").strip(), 22)
-        name = _truncate(node["label"], 18)
+        model = _truncate((node["meta"].get("model") or "").strip(),
+                          40 if details else 22)
+        name = _truncate(node["label"], 32 if details else 18)
         vendor = _truncate((node["meta"].get("vendor") or "").upper(), 20)
+        location = _truncate((node["meta"].get("location") or "").strip(), 24)
+        extra = ""
+        if details and location:
+            extra = f'''<text x="0" y="{card_h//2 - 8}" fill="{GRAY_MUTE}"
+                              text-anchor="middle"
+                              style="font-weight:500;font-size:9px;
+                                     font-family:'Red Hat Display',Arial,sans-serif;">
+                        📍 {_esc(location)}
+                      </text>'''
         return f'''
         <g transform="translate({x},{y})">
-          <rect x="-{LEAF_SLOT_W//2 - 8}" y="-{LEAF_H//2}"
-                width="{LEAF_SLOT_W - 16}" height="{LEAF_H}" rx="10"
+          <rect x="-{card_w//2}" y="-{card_h//2}"
+                width="{card_w}" height="{card_h}" rx="10"
                 fill="#fff" stroke="{GRAY_BORD}" stroke-width="1"/>
-          <use href="#ico-mfp" x="-32" y="-{LEAF_H//2 - 6}"
+          <use href="#ico-mfp" x="-32" y="-{card_h//2 - 6}"
                width="64" height="64" color="{color}"/>
           <text x="0" y="30" fill="{NAVY}" text-anchor="middle"
                 style="font-weight:700;font-size:11px;
@@ -426,20 +450,45 @@ def _render_node(node: dict, positions: dict) -> str:
                        font-family:'Red Hat Display',Arial,sans-serif;">
             {_esc(vendor)}
           </text>
+          {extra}
         </g>'''
 
     if kind == "workstation":
         icon = _icon_for_workstation(node["meta"])
         col = _ws_color(node["meta"])
-        name = _truncate(node["label"], 18)
-        os_str = _truncate((node["meta"].get("os") or "").strip(), 20)
+        name = _truncate(node["label"], 32 if details else 18)
+        os_str = _truncate((node["meta"].get("os") or "").strip(),
+                           40 if details else 20)
         ws_type = (node["meta"].get("type") or "").upper()
+        ip = (node["meta"].get("ip") or "").strip()
+        cv = (node["meta"].get("client_version") or "").strip()
+        ssid = (node["meta"].get("ssid") or "").strip()
+        # Netzwerk-Details-Zeile
+        net_line = ""
+        if netdetails and (ip or ssid):
+            bits = []
+            if ip:   bits.append(f"🌐 {ip}")
+            if ssid: bits.append(f"📶 {ssid}")
+            net_line = f'''<text x="0" y="{card_h//2 - 22}" fill="{TUNGSTEN_BLUE}"
+                                text-anchor="middle"
+                                style="font-weight:500;font-size:9px;font-family:monospace;">
+                            {_esc(" · ".join(bits))}
+                          </text>'''
+        # Client-Version bei Details oder Netdetails
+        cv_line = ""
+        if (details or netdetails) and cv:
+            cv_line = f'''<text x="0" y="{card_h//2 - 8}" fill="{GRAY_MUTE}"
+                                text-anchor="middle"
+                                style="font-weight:500;font-size:9px;
+                                       font-family:'Red Hat Display',Arial,sans-serif;">
+                            Client v{_esc(cv)}
+                          </text>'''
         return f'''
         <g transform="translate({x},{y})">
-          <rect x="-{LEAF_SLOT_W//2 - 8}" y="-{LEAF_H//2}"
-                width="{LEAF_SLOT_W - 16}" height="{LEAF_H}" rx="10"
+          <rect x="-{card_w//2}" y="-{card_h//2}"
+                width="{card_w}" height="{card_h}" rx="10"
                 fill="#fff" stroke="{GRAY_BORD}" stroke-width="1"/>
-          <use href="#{icon}" x="-32" y="-{LEAF_H//2 - 8}"
+          <use href="#{icon}" x="-32" y="-{card_h//2 - 8}"
                width="64" height="64" color="{col}"/>
           <text x="0" y="30" fill="{NAVY}" text-anchor="middle"
                 style="font-weight:700;font-size:11px;
@@ -456,28 +505,43 @@ def _render_node(node: dict, positions: dict) -> str:
                        font-family:'Red Hat Display',Arial,sans-serif;">
             {_esc(ws_type)}
           </text>
+          {net_line}
+          {cv_line}
         </g>'''
 
     if kind == "user":
-        name = _truncate(node["label"], 20)
-        dept = _truncate(node["sub"] or "User", 20)
+        # Bei Details Karte größer machen und Email zeigen
+        u_w = 180 if details else 140
+        u_h = 60 if details else 48
+        name = _truncate(node["label"], 32 if details else 20)
+        dept = _truncate(node["sub"] or "User", 24 if details else 20)
+        email = (node["meta"].get("email") or "").strip()
+        email_line = ""
+        if details and email:
+            email_line = f'''<text x="10" y="20" fill="{DARK_GREEN}"
+                                  text-anchor="middle"
+                                  style="font-weight:500;font-size:8px;
+                                         font-family:monospace;">
+                              {_esc(_truncate(email, 30))}
+                            </text>'''
         return f'''
         <g transform="translate({x},{y})">
-          <rect x="-70" y="-24" width="140" height="48" rx="24"
-                fill="{GREEN}" opacity=".18"
+          <rect x="-{u_w//2}" y="-{u_h//2}" width="{u_w}" height="{u_h}"
+                rx="{u_h//2}" fill="{GREEN}" opacity=".18"
                 stroke="{DARK_GREEN}" stroke-width="1" stroke-opacity=".4"/>
-          <use href="#ico-user" x="-60" y="-16" width="32" height="32"
+          <use href="#ico-user" x="-{u_w//2 - 6}" y="-16" width="32" height="32"
                color="{DARK_GREEN}"/>
-          <text x="10" y="-2" fill="{NAVY}" text-anchor="middle"
+          <text x="10" y="-4" fill="{NAVY}" text-anchor="middle"
                 style="font-weight:700;font-size:10px;
                        font-family:'Red Hat Display',Arial,sans-serif;">
             {_esc(name)}
           </text>
-          <text x="10" y="12" fill="{DARK_GREEN}" text-anchor="middle"
+          <text x="10" y="10" fill="{DARK_GREEN}" text-anchor="middle"
                 style="font-weight:500;font-size:9px;
                        font-family:'Red Hat Display',Arial,sans-serif;">
             {_esc(dept)}
           </text>
+          {email_line}
         </g>'''
 
     return ""
@@ -496,17 +560,19 @@ def _iter_nodes(nodes: list[dict]):
         yield from _iter_nodes(n.get("_children") or [])
 
 
-def _node_bottom(kind: str) -> int:
+def _node_bottom(kind: str, details: bool = False) -> int:
     if kind == "root": return ROOT_H // 2
     if kind == "site": return SITE_H // 2
     if kind == "network": return NET_H // 2
-    if kind in ("printer", "workstation"): return LEAF_H // 2
-    if kind == "user": return 24
+    if kind in ("printer", "workstation"):
+        return (LEAF_H + 34) // 2 if details else LEAF_H // 2
+    if kind == "user":
+        return 30 if details else 24
     return 0
 
 
-def _node_top(kind: str) -> int:
-    return _node_bottom(kind)
+def _node_top(kind: str, details: bool = False) -> int:
+    return _node_bottom(kind, details)
 
 
 def render_svg(topology: dict, filters: dict) -> tuple[str, dict]:
@@ -517,7 +583,10 @@ def render_svg(topology: dict, filters: dict) -> tuple[str, dict]:
     if not tree:
         return ("", {"empty": True})
 
-    used_w, positions = _layout_tree(tree, 0, LEFT_PAD, LEAF_SLOT_W)
+    # Bei Details ON: Slots etwas breiter machen fuer laengere Texte
+    details_on = bool(filters.get("show_details") or filters.get("show_netdetails"))
+    slot_w = 220 if details_on else LEAF_SLOT_W
+    used_w, positions = _layout_tree(tree, 0, LEFT_PAD, slot_w)
     _assign_y(tree, positions)
 
     # Overall dimensions
@@ -533,8 +602,8 @@ def render_svg(topology: dict, filters: dict) -> tuple[str, dict]:
     for parent, child in _iter_edges(tree):
         px, py = positions[parent["id"]]
         cx, cy = positions[child["id"]]
-        p_bottom = py + _node_bottom(parent["kind"])
-        c_top    = cy - _node_top(child["kind"])
+        p_bottom = py + _node_bottom(parent["kind"], details_on)
+        c_top    = cy - _node_top(child["kind"], details_on)
         mid_y = (p_bottom + c_top) // 2
         edges.append(
             f'<path d="M {px} {p_bottom} C {px} {mid_y}, {cx} {mid_y}, '
@@ -544,18 +613,21 @@ def render_svg(topology: dict, filters: dict) -> tuple[str, dict]:
 
     nodes_svg = [_render_node(n, positions) for n in _iter_nodes(tree)]
 
-    # Feste Breite in Pixel — bei vielen Druckern scrollt der Canvas
-    # horizontal. Auf schmalen Bildschirmen zoomt via CSS wenn Container
-    # kleiner ist als natural size (dank max-width).
+    # Alle Nodes+Edges in einer Pan-Zoom-Ebene wrappen — JS ueber der Seite
+    # transformiert diese Ebene fuer Zoom/Pan.
     svg = f'''
     <svg xmlns="http://www.w3.org/2000/svg"
          viewBox="0 0 {width} {height}"
          width="{width}" height="{height}"
+         class="nm-svg"
          style="max-width: 100%; height: auto; display: block; margin: 0 auto;
-                font-family: 'Red Hat Display', Arial, sans-serif;">
+                font-family: 'Red Hat Display', Arial, sans-serif;
+                cursor: grab; touch-action: none; user-select: none;">
       {_svg_defs()}
-      <g class="edges">{''.join(edges)}</g>
-      <g class="nodes">{''.join(nodes_svg)}</g>
+      <g class="pan-zoom-layer" transform="translate(0,0) scale(1)">
+        <g class="edges">{''.join(edges)}</g>
+        <g class="nodes">{''.join(nodes_svg)}</g>
+      </g>
     </svg>
     '''
     return (svg, {"empty": False, "width": width, "height": height})

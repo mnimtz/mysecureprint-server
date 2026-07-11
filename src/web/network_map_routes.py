@@ -68,6 +68,8 @@ def register_network_map_routes(app: FastAPI,
         show_printers = qp.get("printers", "1") != "0"
         show_workstations = qp.get("workstations", "1") != "0"
         show_users = qp.get("users", "0") == "1"
+        show_details = qp.get("details", "0") == "1"
+        show_netdetails = qp.get("netdetails", "0") == "1"
 
         filters = {
             "sites": sel_sites,
@@ -75,6 +77,8 @@ def register_network_map_routes(app: FastAPI,
             "show_printers": show_printers,
             "show_workstations": show_workstations,
             "show_users": show_users,
+            "show_details": show_details,
+            "show_netdetails": show_netdetails,
         }
 
         svg, stats = render_svg(topology, filters) if topology else ("", {"empty": True})

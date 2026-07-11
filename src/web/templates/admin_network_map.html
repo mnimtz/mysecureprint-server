@@ -57,7 +57,24 @@
 
   .nm-canvas {
     background: #fff; border: 1px solid #D9DFE6; border-radius: 14px;
-    padding: 20px; overflow: auto; max-height: 78vh;
+    padding: 20px; overflow: hidden; max-height: 78vh; position: relative;
+  }
+  .nm-zoom-controls {
+    position: absolute; bottom: 20px; right: 20px; z-index: 10;
+    display: flex; flex-direction: column; gap: 6px;
+    background: rgba(255,255,255,0.95); border: 1px solid #D9DFE6;
+    border-radius: 10px; padding: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .nm-zoom-btn {
+    width: 36px; height: 36px; border-radius: 8px; border: 0;
+    background: #fff; color: #002854; font-size: 1.1em; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .nm-zoom-btn:hover { background: #F5F7FA; }
+  .nm-zoom-btn:active { transform: scale(0.95); }
+  .nm-zoom-level {
+    font-size: .72em; color: #8094AA; text-align: center; font-weight: 600;
+    padding: 4px 0;
   }
   .nm-banner {
     padding: 14px 16px; border-radius: 10px; margin-bottom: 16px;
@@ -122,6 +139,18 @@
                  onchange="document.getElementById('filter-form').submit()">
           👤 {{ _('netmap_show_users') }}
         </label>
+        <label class="nm-toggle">
+          <input type="checkbox" name="details" value="1"
+                 {% if filters.show_details %}checked{% endif %}
+                 onchange="document.getElementById('filter-form').submit()">
+          📝 {{ _('netmap_show_details') }}
+        </label>
+        <label class="nm-toggle">
+          <input type="checkbox" name="netdetails" value="1"
+                 {% if filters.show_netdetails %}checked{% endif %}
+                 onchange="document.getElementById('filter-form').submit()">
+          🌐 {{ _('netmap_show_netdetails') }}
+        </label>
 
         {% if topology and topology.sites %}
           <div style="margin-top:14px;">
@@ -175,6 +204,19 @@
     <section class="nm-canvas" id="nm-canvas">
       {% if svg %}
         {{ svg|safe }}
+        <div class="nm-zoom-controls">
+          <button type="button" class="nm-zoom-btn" onclick="nmZoomIn()"
+                  title="{{ _('netmap_zoom_in') }}">＋</button>
+          <div class="nm-zoom-level" id="nm-zoom-level">100%</div>
+          <button type="button" class="nm-zoom-btn" onclick="nmZoomOut()"
+                  title="{{ _('netmap_zoom_out') }}">−</button>
+          <button type="button" class="nm-zoom-btn" onclick="nmZoomReset()"
+                  title="{{ _('netmap_zoom_reset') }}"
+                  style="font-size:.85em;">⌂</button>
+          <button type="button" class="nm-zoom-btn" onclick="nmZoomFit()"
+                  title="{{ _('netmap_zoom_fit') }}"
+                  style="font-size:.85em;">⤢</button>
+        </div>
       {% else %}
         <div class="nm-empty">
           {% if not bi_configured %}
@@ -214,5 +256,130 @@ function downloadSvg() {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+// ── Pan + Zoom ─────────────────────────────────────────────────────
+(function() {
+  const svg = document.querySelector('#nm-canvas svg.nm-svg');
+  if (!svg) return;
+  const layer = svg.querySelector('.pan-zoom-layer');
+  if (!layer) return;
+
+  let scale = 1, tx = 0, ty = 0;
+  let dragging = false, dragStart = null;
+  const MIN_SCALE = 0.15, MAX_SCALE = 5;
+
+  function apply() {
+    layer.setAttribute('transform', `translate(${tx},${ty}) scale(${scale})`);
+    const lvl = document.getElementById('nm-zoom-level');
+    if (lvl) lvl.textContent = Math.round(scale * 100) + '%';
+  }
+
+  function zoomAt(delta, cx, cy) {
+    const factor = Math.exp(delta);
+    const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * factor));
+    // Kursor-relatives Zoom (Position bleibt unter Cursor)
+    tx = cx - (cx - tx) * (newScale / scale);
+    ty = cy - (cy - ty) * (newScale / scale);
+    scale = newScale;
+    apply();
+  }
+
+  // Wheel-Zoom
+  svg.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = svg.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    // Cursor-Position in SVG-Koordinaten skalieren
+    const sx = cx * (svg.viewBox.baseVal.width / rect.width);
+    const sy = cy * (svg.viewBox.baseVal.height / rect.height);
+    zoomAt(-e.deltaY * 0.0015, sx, sy);
+  }, {passive: false});
+
+  // Maus-Drag zum Pannen
+  svg.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    dragging = true;
+    dragStart = {x: e.clientX, y: e.clientY, tx, ty};
+    svg.style.cursor = 'grabbing';
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const rect = svg.getBoundingClientRect();
+    const dx = (e.clientX - dragStart.x) * (svg.viewBox.baseVal.width / rect.width);
+    const dy = (e.clientY - dragStart.y) * (svg.viewBox.baseVal.height / rect.height);
+    tx = dragStart.tx + dx;
+    ty = dragStart.ty + dy;
+    apply();
+  });
+  window.addEventListener('mouseup', () => {
+    if (dragging) { dragging = false; svg.style.cursor = 'grab'; }
+  });
+
+  // Touch — Pinch Zoom + Pan
+  let touchStart = null;
+  svg.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchStart = {dist: Math.hypot(dx, dy), scale: scale};
+    } else if (e.touches.length === 1) {
+      dragging = true;
+      dragStart = {x: e.touches[0].clientX, y: e.touches[0].clientY, tx, ty};
+    }
+  });
+  svg.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (e.touches.length === 2 && touchStart) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const factor = dist / touchStart.dist;
+      const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, touchStart.scale * factor));
+      const rect = svg.getBoundingClientRect();
+      const cx = ((e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left)
+                 * (svg.viewBox.baseVal.width / rect.width);
+      const cy = ((e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top)
+                 * (svg.viewBox.baseVal.height / rect.height);
+      tx = cx - (cx - tx) * (newScale / scale);
+      ty = cy - (cy - ty) * (newScale / scale);
+      scale = newScale;
+      apply();
+    } else if (e.touches.length === 1 && dragging) {
+      const rect = svg.getBoundingClientRect();
+      const dx = (e.touches[0].clientX - dragStart.x) * (svg.viewBox.baseVal.width / rect.width);
+      const dy = (e.touches[0].clientY - dragStart.y) * (svg.viewBox.baseVal.height / rect.height);
+      tx = dragStart.tx + dx;
+      ty = dragStart.ty + dy;
+      apply();
+    }
+  }, {passive: false});
+  svg.addEventListener('touchend', () => {
+    dragging = false; touchStart = null;
+  });
+
+  // Button-API
+  const centerX = () => svg.viewBox.baseVal.width / 2;
+  const centerY = () => svg.viewBox.baseVal.height / 2;
+  window.nmZoomIn    = () => zoomAt(0.4, centerX(), centerY());
+  window.nmZoomOut   = () => zoomAt(-0.4, centerX(), centerY());
+  window.nmZoomReset = () => { scale = 1; tx = 0; ty = 0; apply(); };
+  window.nmZoomFit = () => {
+    // Fit-to-window: skaliere so, dass die gesamte SVG in den sichtbaren
+    // Canvas passt (mit 20px Padding)
+    const canvas = document.getElementById('nm-canvas');
+    const cw = canvas.clientWidth - 40;
+    const ch = canvas.clientHeight - 40;
+    const vw = svg.viewBox.baseVal.width;
+    const vh = svg.viewBox.baseVal.height;
+    scale = Math.min(cw / vw, ch / vh, 1);
+    tx = (cw - vw * scale) / 2;
+    ty = (ch - vh * scale) / 2;
+    apply();
+  };
+
+  svg.style.cursor = 'grab';
+  apply();
+})();
 </script>
 {% endblock %}

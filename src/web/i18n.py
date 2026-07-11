@@ -41301,3 +41301,74 @@ _I18N_BACKFILL_V273 = {
 }
 for _lg, _kv in _I18N_BACKFILL_V273.items():
     TRANSLATIONS.setdefault(_lg, {}).update(_kv)
+
+# ─── Netzwerk-Plan v0.7.276: Zoom + Detail-Toggles ─────────────────────────
+_NETMAP_V2 = {
+    "de": {
+        "netmap_show_details":    "Erweiterte Details",
+        "netmap_show_netdetails": "Netzwerk-Details (IP/SSID)",
+        "netmap_zoom_in":         "Reinzoomen",
+        "netmap_zoom_out":        "Rauszoomen",
+        "netmap_zoom_reset":      "Zoom zuruecksetzen",
+        "netmap_zoom_fit":        "An Fenster anpassen",
+    },
+    "en": {
+        "netmap_show_details":    "Extended details",
+        "netmap_show_netdetails": "Network details (IP/SSID)",
+        "netmap_zoom_in":         "Zoom in",
+        "netmap_zoom_out":        "Zoom out",
+        "netmap_zoom_reset":      "Reset zoom",
+        "netmap_zoom_fit":        "Fit to window",
+    },
+    "fr": {
+        "netmap_show_details":    "Détails étendus",
+        "netmap_show_netdetails": "Détails réseau (IP/SSID)",
+        "netmap_zoom_in":         "Zoom avant",
+        "netmap_zoom_out":        "Zoom arrière",
+        "netmap_zoom_reset":      "Réinitialiser le zoom",
+        "netmap_zoom_fit":        "Ajuster à la fenêtre",
+    },
+    "it": {
+        "netmap_show_details":    "Dettagli estesi",
+        "netmap_show_netdetails": "Dettagli rete (IP/SSID)",
+        "netmap_zoom_in":         "Zoom avanti",
+        "netmap_zoom_out":        "Zoom indietro",
+        "netmap_zoom_reset":      "Reimposta zoom",
+        "netmap_zoom_fit":        "Adatta alla finestra",
+    },
+    "es": {
+        "netmap_show_details":    "Detalles ampliados",
+        "netmap_show_netdetails": "Detalles de red (IP/SSID)",
+        "netmap_zoom_in":         "Acercar",
+        "netmap_zoom_out":        "Alejar",
+        "netmap_zoom_reset":      "Restablecer zoom",
+        "netmap_zoom_fit":        "Ajustar a la ventana",
+    },
+    "nl": {
+        "netmap_show_details":    "Uitgebreide details",
+        "netmap_show_netdetails": "Netwerk-details (IP/SSID)",
+        "netmap_zoom_in":         "Inzoomen",
+        "netmap_zoom_out":        "Uitzoomen",
+        "netmap_zoom_reset":      "Zoom resetten",
+        "netmap_zoom_fit":        "Aanpassen aan venster",
+    },
+    "no": {
+        "netmap_show_details":    "Utvidede detaljer",
+        "netmap_show_netdetails": "Nettverk-detaljer (IP/SSID)",
+        "netmap_zoom_in":         "Zoom inn",
+        "netmap_zoom_out":        "Zoom ut",
+        "netmap_zoom_reset":      "Nullstill zoom",
+        "netmap_zoom_fit":        "Tilpass vindu",
+    },
+    "sv": {
+        "netmap_show_details":    "Utökade detaljer",
+        "netmap_show_netdetails": "Nätverksdetaljer (IP/SSID)",
+        "netmap_zoom_in":         "Zooma in",
+        "netmap_zoom_out":        "Zooma ut",
+        "netmap_zoom_reset":      "Återställ zoom",
+        "netmap_zoom_fit":        "Anpassa till fönster",
+    },
+}
+for _lg, _kv in _NETMAP_V2.items():
+    TRANSLATIONS.setdefault(_lg, {}).update(_kv)
+TRANSLATIONS.setdefault("nb", {}).update(_NETMAP_V2["no"])

@@ -350,8 +350,12 @@ def fetch_network_topology(tenant: dict) -> Optional[dict]:
             else:
                 printers_unassigned.append(p)
 
-        # Workstations + Users
-        cur.execute("""SELECT id, name, os, ws_type, network_ssid
+        # Workstations + Users (v0.7.276: erweitert um IP/Host/Client-Version
+        # fuer den Netzwerk-Details-Toggle im Netzwerk-Plan)
+        cur.execute("""SELECT id, name, os, ws_type, network_ssid,
+                              network_extenral_address_ip AS ext_ip,
+                              network_external_address_name AS ext_host,
+                              client_version
                          FROM dbo.workstations
                         WHERE meta_status = 'ACTIVE'""")
         workstations = [{
@@ -360,6 +364,9 @@ def fetch_network_topology(tenant: dict) -> Optional[dict]:
             "os": r.get("os") or "",
             "type": r.get("ws_type") or "",
             "ssid": r.get("network_ssid") or "",
+            "ip": (r.get("ext_ip") or "").strip(),
+            "host": (r.get("ext_host") or "").strip(),
+            "client_version": (r.get("client_version") or "").strip(),
             "users": [],
         } for r in cur.fetchall()]
         ws_by_id = {w["id"]: w for w in workstations}
