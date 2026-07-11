@@ -1,14 +1,16 @@
-"""Server-side Netzwerk-Topologie-Diagramm.
+"""Server-side Netzwerk-Topologie-Diagramm — v2 Redesign.
 
 Nimmt einen `fetch_network_topology`-Baum von bi_client, filtert nach
-User-Auswahl (welche Sites, ob Drucker/Workstations/Users) und rendert
-das Ganze als inline-SVG. Layout ist ein einfacher bottom-up-tidy-tree:
-Leaves bekommen einen Slot fester Breite, innere Knoten sitzen zentriert
-ueber ihren Kindern.
+User-Auswahl, rendert als inline-SVG mit modernen Karten in Tungsten-
+Brand-Farben.
 
-Icons sind minimalistische Inline-SVGs — Drucker sind pro Hersteller
-farb-differenziert (vendor-aware), Workstations nach OS/Typ. User sind
-generisch.
+Design-Prinzipien:
+- Jede Karte kompakt aber informativ mit Icon + zentriertem Text
+- Drucker-Karten zeigen echte MFP-Illustration in Vendor-Farbe
+- Workstation-Karten zeigen Typ-Icon (Laptop/Desktop/Server/Mobile)
+- Keine Ueberlagerung — Layout-Padding stellt Abstand sicher
+- Icons via explizite width/height auf <use> (Cross-Browser-safe)
+- Skaliert fuer grosse Tenants (Canvas scrollt)
 """
 from __future__ import annotations
 
@@ -25,20 +27,29 @@ DARK_GREEN = "#016839"
 BLACK      = "#231F20"
 GRAY_MUTE  = "#8094AA"
 GRAY_BORD  = "#D9DFE6"
+GRAY_SUB   = "#E4E4E4"
+BG_SUBTLE  = "#F5F7FA"
 
-# ── Layout-Parameter ─────────────────────────────────────────────────
-SLOT_W = 130          # px pro Leaf
-LEVEL_H = 140         # px zwischen Ebenen
-TOP_PAD = 60
-LEFT_PAD = 40
-NODE_W = 100          # Karten-Breite
-NODE_H = 90           # Karten-Hoehe fuer Drucker/Workstation
-NODE_H_USER = 46
-SITE_H = 44           # Kleinere Karten fuer Sites+Networks
-NET_H = 44
+# ── Layout-Parameter (v2 großzügiger, keine Overlaps) ────────────────
+LEAF_SLOT_W = 170     # Breite pro Leaf-Karte (Drucker/Workstation/User)
+LEAF_H      = 130     # Höhe der Leaf-Karten
+NET_H       = 60      # Höhe der Network-Pill
+SITE_H      = 62      # Höhe der Site-Pill
+ROOT_H      = 56
+LEVEL_GAP   = 90      # Vertikaler Abstand zwischen Ebenen
+TOP_PAD     = 30
+LEFT_PAD    = 40
+BOTTOM_PAD  = 40
+
+# Y-Positionen der Ebenen (statisch berechnet)
+Y_ROOT = TOP_PAD + ROOT_H // 2
+Y_SITE = Y_ROOT + ROOT_H // 2 + LEVEL_GAP + SITE_H // 2
+Y_NET  = Y_SITE + SITE_H // 2 + LEVEL_GAP + NET_H // 2
+Y_LEAF = Y_NET + NET_H // 2 + LEVEL_GAP + LEAF_H // 2
+Y_USER = Y_LEAF + LEAF_H // 2 + LEVEL_GAP + 40
 
 
-# ── Vendor-Farbmapping fuer Drucker-Icons ────────────────────────────
+# ── Vendor-Farbmapping ───────────────────────────────────────────────
 _VENDOR_COLORS = {
     "hp":       "#0096d6",
     "hewlett":  "#0096d6",
@@ -52,6 +63,7 @@ _VENDOR_COLORS = {
     "oki":      "#005baa",
     "samsung":  "#1428a0",
     "konica":   "#0091d9",
+    "smart":    NAVY,  # z.B. "Smart Tank" ohne HP-Prefix
 }
 
 
@@ -63,99 +75,107 @@ def _vendor_color(vendor: str) -> str:
     return NAVY
 
 
-# ── Icons als Inline-SVG-Symbols ─────────────────────────────────────
+# ── Icons (Symbole in <defs>) — mit Verwendung via explizitem width/height ──
 def _svg_defs() -> str:
-    """Alle Icon-Definitionen fuer <use>-Referenzen."""
     return f'''
     <defs>
-      <!-- Drucker (Multifunktions-MFP) mit Scanner-Deckel + Bedienpanel -->
-      <symbol id="ico-mfp" viewBox="0 0 60 60">
-        <rect x="6" y="6" width="48" height="6" rx="1" fill="#334155"/>
-        <rect x="10" y="12" width="40" height="12" rx="1" fill="#94a3b8" opacity=".5"/>
-        <rect x="6" y="24" width="48" height="26" rx="2" fill="currentColor"/>
-        <rect x="38" y="27" width="12" height="8" rx="1" fill="#1e293b"/>
-        <rect x="40" y="29" width="8" height="4" fill="{TUNGSTEN_BLUE}" opacity=".9"/>
-        <rect x="10" y="38" width="26" height="10" rx="1" fill="#334155"/>
-        <rect x="10" y="34" width="30" height="3" fill="#f8fafc"/>
-        <rect x="6" y="50" width="48" height="4" rx="1" fill="#334155"/>
+      <!-- Modern MFP: Body, Screen, Slot, Papierschacht -->
+      <symbol id="ico-mfp" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+        <!-- ADF Top -->
+        <rect x="18" y="14" width="64" height="8" rx="2" fill="currentColor"/>
+        <!-- Scanner strip -->
+        <rect x="14" y="22" width="72" height="3" fill="{DEEP_NAVY}" opacity=".4"/>
+        <!-- Body -->
+        <rect x="10" y="25" width="80" height="52" rx="5" fill="currentColor"/>
+        <!-- Screen -->
+        <rect x="52" y="32" width="30" height="16" rx="2" fill="{TUNGSTEN_BLUE}"/>
+        <rect x="55" y="35" width="4" height="4" rx="1" fill="{GREEN}"/>
+        <rect x="61" y="35" width="4" height="4" rx="1" fill="#fff" opacity=".7"/>
+        <!-- Paper slot -->
+        <rect x="18" y="54" width="60" height="8" rx="1" fill="#fff"/>
+        <rect x="20" y="56" width="56" height="1" fill="{GRAY_BORD}"/>
+        <!-- Paper tray -->
+        <rect x="14" y="66" width="72" height="14" rx="2" fill="{DEEP_NAVY}" opacity=".7"/>
+        <rect x="42" y="72" width="16" height="3" rx="1" fill="{TUNGSTEN_BLUE}"/>
+        <!-- LED strip left -->
+        <rect x="12" y="34" width="2" height="30" rx="1" fill="{GREEN}"/>
+        <!-- Base -->
+        <rect x="12" y="80" width="76" height="3" rx="1" fill="{DEEP_NAVY}"/>
       </symbol>
-      <!-- Reiner Printer (kein Scanner) -->
-      <symbol id="ico-printer" viewBox="0 0 60 60">
-        <rect x="10" y="16" width="40" height="4" fill="#334155"/>
-        <rect x="6" y="20" width="48" height="26" rx="2" fill="currentColor"/>
-        <rect x="42" y="24" width="8" height="4" rx="1" fill="{TUNGSTEN_BLUE}"/>
-        <rect x="14" y="32" width="32" height="10" rx="1" fill="#f8fafc"/>
+
+      <!-- Laptop (Clamshell) -->
+      <symbol id="ico-laptop" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+        <path d="M 20 22 h 60 v 44 h -60 z" fill="currentColor"/>
+        <rect x="24" y="26" width="52" height="34" fill="#0f172a"/>
+        <rect x="28" y="30" width="44" height="24" fill="{TUNGSTEN_BLUE}" opacity=".55"/>
+        <path d="M 8 70 h 84 v 4 l -6 6 h -72 l -6 -6 z" fill="#94a3b8"/>
+        <rect x="46" y="72" width="8" height="1.5" rx="1" fill="#64748b"/>
       </symbol>
-      <!-- Desktop-Tower -->
-      <symbol id="ico-desktop" viewBox="0 0 60 60">
-        <rect x="18" y="8" width="24" height="40" rx="2" fill="currentColor"/>
-        <circle cx="30" cy="16" r="1.5" fill="{GREEN}"/>
-        <rect x="22" y="22" width="16" height="2" fill="#334155"/>
-        <rect x="22" y="26" width="16" height="2" fill="#334155"/>
-        <rect x="14" y="52" width="32" height="4" rx="1" fill="#334155"/>
+
+      <!-- Desktop Tower -->
+      <symbol id="ico-desktop" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+        <rect x="30" y="14" width="40" height="68" rx="3" fill="currentColor"/>
+        <circle cx="50" cy="24" r="2" fill="{GREEN}"/>
+        <rect x="36" y="34" width="28" height="2" fill="#334155"/>
+        <rect x="36" y="40" width="28" height="2" fill="#334155"/>
+        <rect x="36" y="46" width="28" height="2" fill="#334155"/>
+        <rect x="36" y="60" width="28" height="10" rx="1" fill="#334155"/>
+        <rect x="26" y="86" width="48" height="4" rx="1" fill="{DEEP_NAVY}"/>
       </symbol>
-      <!-- Laptop / MacBook (Clamshell) -->
-      <symbol id="ico-laptop" viewBox="0 0 60 60">
-        <path d="M 10 14 h 40 v 26 h -40 z" fill="currentColor"/>
-        <rect x="13" y="17" width="34" height="20" fill="#0f172a"/>
-        <rect x="15" y="19" width="30" height="16" fill="{TUNGSTEN_BLUE}" opacity=".4"/>
-        <path d="M 4 44 h 52 v 4 l -4 4 h -44 l -4 -4 z" fill="#94a3b8"/>
+
+      <!-- Server (rack) -->
+      <symbol id="ico-server" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+        <rect x="18" y="14" width="64" height="16" rx="2" fill="currentColor"/>
+        <circle cx="24" cy="22" r="1.5" fill="{GREEN}"/>
+        <circle cx="30" cy="22" r="1.5" fill="{TUNGSTEN_BLUE}"/>
+        <rect x="54" y="20" width="24" height="4" fill="#fff" opacity=".2"/>
+        <rect x="18" y="34" width="64" height="16" rx="2" fill="currentColor"/>
+        <circle cx="24" cy="42" r="1.5" fill="{GREEN}"/>
+        <circle cx="30" cy="42" r="1.5" fill="{TUNGSTEN_BLUE}"/>
+        <rect x="54" y="40" width="24" height="4" fill="#fff" opacity=".2"/>
+        <rect x="18" y="54" width="64" height="16" rx="2" fill="currentColor"/>
+        <circle cx="24" cy="62" r="1.5" fill="{GREEN}"/>
+        <circle cx="30" cy="62" r="1.5" fill="{TUNGSTEN_BLUE}"/>
+        <rect x="54" y="60" width="24" height="4" fill="#fff" opacity=".2"/>
+        <rect x="18" y="74" width="64" height="10" rx="2" fill="#334155"/>
       </symbol>
-      <!-- Server (Rack-Style, gestapelt) -->
-      <symbol id="ico-server" viewBox="0 0 60 60">
-        <rect x="10" y="8" width="40" height="12" rx="1" fill="currentColor"/>
-        <circle cx="14" cy="14" r="1" fill="{GREEN}"/>
-        <circle cx="18" cy="14" r="1" fill="{TUNGSTEN_BLUE}"/>
-        <rect x="10" y="22" width="40" height="12" rx="1" fill="currentColor"/>
-        <circle cx="14" cy="28" r="1" fill="{GREEN}"/>
-        <circle cx="18" cy="28" r="1" fill="{TUNGSTEN_BLUE}"/>
-        <rect x="10" y="36" width="40" height="12" rx="1" fill="currentColor"/>
-        <circle cx="14" cy="42" r="1" fill="{GREEN}"/>
-        <circle cx="18" cy="42" r="1" fill="{TUNGSTEN_BLUE}"/>
-        <rect x="10" y="50" width="40" height="4" rx="1" fill="#334155"/>
+
+      <!-- Mobile phone -->
+      <symbol id="ico-mobile" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+        <rect x="34" y="12" width="32" height="76" rx="5" fill="currentColor"/>
+        <rect x="38" y="20" width="24" height="52" fill="#0f172a"/>
+        <rect x="40" y="22" width="20" height="48" fill="{TUNGSTEN_BLUE}" opacity=".55"/>
+        <circle cx="50" cy="80" r="2.5" fill="#334155"/>
       </symbol>
-      <!-- Mobile -->
-      <symbol id="ico-mobile" viewBox="0 0 60 60">
-        <rect x="18" y="6" width="24" height="48" rx="4" fill="currentColor"/>
-        <rect x="21" y="12" width="18" height="30" fill="#0f172a"/>
-        <rect x="22" y="13" width="16" height="28" fill="{TUNGSTEN_BLUE}" opacity=".5"/>
-        <circle cx="30" cy="48" r="2" fill="#334155"/>
+
+      <!-- User (generic) -->
+      <symbol id="ico-user" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+        <circle cx="50" cy="34" r="16" fill="currentColor"/>
+        <path d="M 18 88 c 0 -18 14 -30 32 -30 s 32 12 32 30 z" fill="currentColor"/>
       </symbol>
-      <!-- User (generisch) -->
-      <symbol id="ico-user" viewBox="0 0 60 60">
-        <circle cx="30" cy="22" r="10" fill="currentColor"/>
-        <path d="M 12 52 c 0 -10 8 -16 18 -16 s 18 6 18 16 z" fill="currentColor"/>
+
+      <!-- Site (building) — kleiner, mit Fenstern -->
+      <symbol id="ico-site" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+        <path d="M 14 84 v -56 l 36 -20 l 36 20 v 56 z" fill="currentColor"/>
+        <rect x="26" y="46" width="10" height="10" fill="{LIGHT_BLUE}"/>
+        <rect x="45" y="46" width="10" height="10" fill="{LIGHT_BLUE}"/>
+        <rect x="64" y="46" width="10" height="10" fill="{LIGHT_BLUE}"/>
+        <rect x="26" y="62" width="10" height="10" fill="{LIGHT_BLUE}"/>
+        <rect x="45" y="62" width="10" height="18" fill="{TUNGSTEN_BLUE}"/>
+        <rect x="64" y="62" width="10" height="10" fill="{LIGHT_BLUE}"/>
       </symbol>
-      <!-- Site (Gebaeude) -->
-      <symbol id="ico-site" viewBox="0 0 60 60">
-        <path d="M 8 52 v -32 l 22 -12 l 22 12 v 32 z" fill="currentColor"/>
-        <rect x="16" y="28" width="6" height="6" fill="{LIGHT_BLUE}"/>
-        <rect x="27" y="28" width="6" height="6" fill="{LIGHT_BLUE}"/>
-        <rect x="38" y="28" width="6" height="6" fill="{LIGHT_BLUE}"/>
-        <rect x="16" y="40" width="6" height="6" fill="{LIGHT_BLUE}"/>
-        <rect x="27" y="40" width="6" height="10" fill="{TUNGSTEN_BLUE}"/>
-        <rect x="38" y="40" width="6" height="6" fill="{LIGHT_BLUE}"/>
-      </symbol>
-      <!-- Network (Cloud / SSID) -->
-      <symbol id="ico-network" viewBox="0 0 60 60">
-        <path d="M 12 40 a 10 10 0 0 1 4 -19 a 12 12 0 0 1 23 -1 a 8 8 0 0 1 9 20 z"
-              fill="currentColor"/>
-        <circle cx="22" cy="34" r="1.5" fill="#f8fafc"/>
-        <circle cx="30" cy="34" r="1.5" fill="#f8fafc"/>
-        <circle cx="38" cy="34" r="1.5" fill="#f8fafc"/>
+
+      <!-- Network (WiFi cloud) -->
+      <symbol id="ico-network" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+        <path d="M 20 62 a 16 16 0 0 1 6 -30
+                 a 20 20 0 0 1 38 -1
+                 a 14 14 0 0 1 14 32 z" fill="currentColor"/>
+        <circle cx="36" cy="52" r="2.5" fill="#fff"/>
+        <circle cx="50" cy="52" r="2.5" fill="#fff"/>
+        <circle cx="64" cy="52" r="2.5" fill="#fff"/>
       </symbol>
     </defs>
     '''
-
-
-def _icon_for_printer(vendor: str, model: str) -> str:
-    """Wahl zwischen mfp und printer-only anhand Modell-Heuristik."""
-    m = (model or "").lower()
-    if any(k in m for k in ("mfp", "mfc", "taskalfa", "aficio", "workcentre",
-                             "colorjet mfp", "imagerunner", "smart tank",
-                             "workforce", "printix2me")):
-        return "ico-mfp"
-    return "ico-mfp"  # Default MFP — die meisten Firmen-Drucker sind MFPs
 
 
 def _icon_for_workstation(ws: dict) -> str:
@@ -170,252 +190,293 @@ def _icon_for_workstation(ws: dict) -> str:
     return "ico-desktop"
 
 
+def _ws_color(ws: dict) -> str:
+    os_str = (ws.get("os") or "").lower()
+    if "mac" in os_str or "darwin" in os_str:
+        return "#94a3b8"
+    if "linux" in os_str:
+        return "#f59e0b"
+    if "server" in os_str:
+        return "#dc2626"
+    return TUNGSTEN_BLUE
+
+
 # ── Layout ──────────────────────────────────────────────────────────
 
-def _layout_tree(nodes: list[dict], level: int, x_start: int,
-                 slot_width: int, level_height: int) -> tuple[int, dict]:
-    """Rechnet Positionen. Jeder Node hat 'id' + optional 'children'.
-    Returns (used_width, {id: (x, y)}).
+def _layout_tree(nodes: list[dict], depth: int, x_start: int,
+                 slot_width: int) -> tuple[int, dict]:
+    """Bottom-up Slot-Layout. Jeder Leaf-Node bekommt slot_width, innere
+    Knoten liegen zentriert ueber ihren Kindern. Returns (used_w, positions).
+    Y-Werte werden ausserhalb per _y_for(depth) gesetzt.
     """
     if not nodes:
         return (0, {})
-    positions = {}
+    positions: dict = {}
     x = x_start
     for node in nodes:
         children = node.get("_children") or []
         if not children:
-            positions[node["id"]] = (x + slot_width // 2, level * level_height + TOP_PAD)
+            positions[node["id"]] = (x + slot_width // 2, 0)  # y wird spaeter gesetzt
+            node["_depth"] = depth
             x += slot_width
         else:
-            w, cp = _layout_tree(children, level + 1, x, slot_width, level_height)
+            w, cp = _layout_tree(children, depth + 1, x, slot_width)
             positions.update(cp)
-            first = cp[children[0]["id"]][0]
-            last = cp[children[-1]["id"]][0]
-            positions[node["id"]] = ((first + last) // 2, level * level_height + TOP_PAD)
+            first_x = cp[children[0]["id"]][0]
+            last_x  = cp[children[-1]["id"]][0]
+            positions[node["id"]] = ((first_x + last_x) // 2, 0)
+            node["_depth"] = depth
             x += max(w, slot_width)
     return (x - x_start, positions)
 
 
+def _assign_y(nodes: list[dict], positions: dict) -> None:
+    """Setzt Y-Koordinate pro Node abhaengig von node.kind."""
+    for n in nodes:
+        kind = n["kind"]
+        if kind == "root":
+            y = Y_ROOT
+        elif kind == "site":
+            y = Y_SITE
+        elif kind == "network":
+            y = Y_NET
+        elif kind in ("printer", "workstation"):
+            y = Y_LEAF
+        elif kind == "user":
+            y = Y_USER
+        else:
+            y = 0
+        x, _ = positions[n["id"]]
+        positions[n["id"]] = (x, y)
+        _assign_y(n.get("_children") or [], positions)
+
+
+# ── Filter-Baum ─────────────────────────────────────────────────────
 def _build_render_tree(topology: dict, filters: dict) -> list[dict]:
-    """Nimmt den topology-Baum und die Filter, gibt Nodes zurueck die
-    _layout_tree versteht. Jeder Node: {id, kind, label, sub, meta,
-    _children[]}.
-    """
     sel_sites = set(filters.get("sites") or [])
     show_all_sites = filters.get("show_all_sites", True)
     show_printers = filters.get("show_printers", True)
     show_workstations = filters.get("show_workstations", True)
     show_users = filters.get("show_users", False)
 
-    def _mkuser(u: dict) -> dict:
-        return {
-            "id":    f"u:{u['id']}",
-            "kind":  "user",
-            "label": u.get("name") or u.get("email") or "?",
-            "sub":   u.get("department") or "",
-            "meta":  u,
-            "_children": [],
-        }
+    def _mkuser(u):
+        return {"id": f"u:{u['id']}", "kind": "user",
+                "label": u.get("name") or u.get("email") or "?",
+                "sub": u.get("department") or "",
+                "meta": u, "_children": []}
 
-    def _mkws(w: dict) -> dict:
+    def _mkws(w):
         kids = [_mkuser(u) for u in w.get("users", [])] if show_users else []
-        return {
-            "id":    f"w:{w['id']}",
-            "kind":  "workstation",
-            "label": w.get("name") or "?",
-            "sub":   (w.get("os") or "").strip(),
-            "meta":  w,
-            "_children": kids,
-        }
+        return {"id": f"w:{w['id']}", "kind": "workstation",
+                "label": w.get("name") or "?",
+                "sub": (w.get("os") or "").strip(),
+                "meta": w, "_children": kids}
 
-    def _mkprinter(p: dict) -> dict:
-        return {
-            "id":    f"p:{p['id']}",
-            "kind":  "printer",
-            "label": p.get("name") or "?",
-            "sub":   p.get("vendor") or p.get("model") or "",
-            "meta":  p,
-            "_children": [],
-        }
+    def _mkp(p):
+        return {"id": f"p:{p['id']}", "kind": "printer",
+                "label": p.get("name") or "?",
+                "sub": (p.get("model") or p.get("vendor") or "").strip(),
+                "meta": p, "_children": []}
 
-    result_sites = []
+    sites_out = []
     for site in topology.get("sites", []):
         if not show_all_sites and site["id"] not in sel_sites:
             continue
-        net_children = []
+        nets = []
         for net in site.get("networks", []):
-            printer_kids = ([_mkprinter(p) for p in net.get("printers", [])]
-                            if show_printers else [])
-            ws_kids = ([_mkws(w) for w in net.get("workstations", [])]
-                       if show_workstations else [])
-            children = printer_kids + ws_kids
+            pkids = ([_mkp(p) for p in net.get("printers", [])]
+                     if show_printers else [])
+            wkids = ([_mkws(w) for w in net.get("workstations", [])]
+                     if show_workstations else [])
+            children = pkids + wkids
             if not children:
                 continue
-            net_children.append({
-                "id":    f"n:{net['id']}",
-                "kind":  "network",
+            nets.append({
+                "id": f"n:{net['id']}", "kind": "network",
                 "label": net.get("name") or "?",
-                "sub":   "mobile" if net.get("mobile_print") else "",
-                "meta":  net,
-                "_children": children,
+                "sub": "mobile" if net.get("mobile_print") else "",
+                "meta": net, "_children": children,
             })
-        if not net_children:
+        if not nets:
             continue
-        result_sites.append({
-            "id":    f"s:{site['id']}",
-            "kind":  "site",
+        sites_out.append({
+            "id": f"s:{site['id']}", "kind": "site",
             "label": site.get("name") or "?",
-            "sub":   site.get("type") or "",
-            "meta":  site,
-            "_children": net_children,
+            "sub": site.get("type") or "",
+            "meta": site, "_children": nets,
         })
 
-    # Root-Wrapper — falls > 1 Site, sonst direkt die Site als Root
-    if not result_sites:
+    # Unassigned-Bucket: Drucker+Workstations ohne Site/Network-Zuordnung
+    ua = topology.get("unassigned", {}) or {}
+    ua_printers = ([_mkp(p) for p in ua.get("printers", [])]
+                   if show_printers else [])
+    ua_ws = ([_mkws(w) for w in ua.get("workstations", [])]
+             if show_workstations else [])
+    if ua_printers or ua_ws:
+        sites_out.append({
+            "id": "s:_unassigned", "kind": "site",
+            "label": "Sonstige", "sub": "MIXED",
+            "meta": {}, "_children": [{
+                "id": "n:_unassigned", "kind": "network",
+                "label": "Ungeordnete Geraete",
+                "sub": "",
+                "meta": {}, "_children": ua_printers + ua_ws,
+            }],
+        })
+
+    if not sites_out:
         return []
-    return [{
-        "id":    "root",
-        "kind":  "root",
-        "label": "Tenant",
-        "sub":   "",
-        "meta":  {},
-        "_children": result_sites,
-    }]
+    return [{"id": "root", "kind": "root", "label": "Tenant",
+             "sub": "", "meta": {}, "_children": sites_out}]
 
 
-# ── SVG-Rendering ────────────────────────────────────────────────────
+# ── Rendering ───────────────────────────────────────────────────────
 
 def _esc(s: str) -> str:
     return html.escape(str(s or ""), quote=True)
 
 
 def _truncate(s: str, n: int) -> str:
-    if len(s) <= n:
-        return s
+    if not s or len(s) <= n:
+        return s or ""
     return s[: n - 1] + "…"
 
 
 def _render_node(node: dict, positions: dict) -> str:
     x, y = positions[node["id"]]
     kind = node["kind"]
-    label = _truncate(node["label"], 18)
-    sub = _truncate(node["sub"], 22)
 
     if kind == "root":
         return f'''
-        <g class="node root" transform="translate({x},{y})">
-          <rect x="-70" y="-24" width="140" height="48" rx="10"
+        <g transform="translate({x},{y})">
+          <rect x="-70" y="-{ROOT_H//2}" width="140" height="{ROOT_H}" rx="10"
                 fill="{DEEP_NAVY}"/>
-          <text x="0" y="0" fill="#fff" text-anchor="middle"
-                dominant-baseline="middle"
-                style="font-weight:700;font-size:14px;">Tenant</text>
-          <text x="0" y="14" fill="{LIGHT_BLUE}" text-anchor="middle"
-                dominant-baseline="middle"
-                style="font-weight:500;font-size:11px;">
-            {_esc(node["sub"])}
-          </text>
+          <text x="0" y="6" fill="#fff" text-anchor="middle"
+                style="font-weight:700;font-size:14px;
+                       font-family:'Red Hat Display',Arial,sans-serif;">Tenant</text>
         </g>'''
 
     if kind == "site":
+        label = _truncate(node["label"], 22)
+        sub = _truncate(node["sub"] or "Site", 20)
         return f'''
-        <g class="node site" transform="translate({x},{y})">
-          <rect x="-70" y="-22" width="140" height="44" rx="8"
+        <g transform="translate({x},{y})">
+          <rect x="-90" y="-{SITE_H//2}" width="180" height="{SITE_H}" rx="12"
                 fill="#fff" stroke="{NAVY}" stroke-width="2"/>
-          <g transform="translate(-58,-14) scale(0.45)" color="{NAVY}">
-            <use href="#ico-site"/>
-          </g>
-          <text x="-20" y="-4" fill="{NAVY}"
-                style="font-weight:700;font-size:12px;">
+          <use href="#ico-site" x="-84" y="-14" width="26" height="26"
+               color="{NAVY}"/>
+          <text x="0" y="-4" fill="{NAVY}" text-anchor="middle"
+                style="font-weight:700;font-size:13px;
+                       font-family:'Red Hat Display',Arial,sans-serif;">
             {_esc(label)}
           </text>
-          <text x="-20" y="10" fill="{GRAY_MUTE}"
-                style="font-weight:500;font-size:10px;">
-            {_esc(sub or "Site")}
+          <text x="0" y="14" fill="{GRAY_MUTE}" text-anchor="middle"
+                style="font-weight:500;font-size:10px;letter-spacing:.5px;
+                       font-family:'Red Hat Display',Arial,sans-serif;">
+            {_esc(sub.upper())}
           </text>
         </g>'''
 
     if kind == "network":
+        label = _truncate(node["label"], 20)
+        mobile_txt = "· mobile print" if node["sub"] == "mobile" else ""
         return f'''
-        <g class="node network" transform="translate({x},{y})">
-          <rect x="-65" y="-22" width="130" height="44" rx="8"
-                fill="{LIGHT_BLUE}" opacity=".2"
+        <g transform="translate({x},{y})">
+          <rect x="-85" y="-{NET_H//2}" width="170" height="{NET_H}" rx="30"
+                fill="{LIGHT_BLUE}" opacity=".25"
                 stroke="{TUNGSTEN_BLUE}" stroke-width="1.5"/>
-          <g transform="translate(-56,-14) scale(0.42)" color="{TUNGSTEN_BLUE}">
-            <use href="#ico-network"/>
-          </g>
-          <text x="-22" y="-4" fill="{NAVY}"
-                style="font-weight:700;font-size:11px;">
+          <use href="#ico-network" x="-78" y="-12" width="24" height="24"
+               color="{TUNGSTEN_BLUE}"/>
+          <text x="0" y="-2" fill="{NAVY}" text-anchor="middle"
+                style="font-weight:700;font-size:12px;
+                       font-family:'Red Hat Display',Arial,sans-serif;">
             {_esc(label)}
           </text>
-          <text x="-22" y="9" fill="{GRAY_MUTE}"
-                style="font-weight:500;font-size:9px;">
-            {_esc("Netzwerk" + (" · mobile" if sub == "mobile" else ""))}
+          <text x="0" y="14" fill="{GRAY_MUTE}" text-anchor="middle"
+                style="font-weight:500;font-size:9px;letter-spacing:.5px;
+                       font-family:'Red Hat Display',Arial,sans-serif;">
+            NETZWERK {_esc(mobile_txt)}
           </text>
         </g>'''
 
     if kind == "printer":
-        vendor_color = _vendor_color(node["meta"].get("vendor", ""))
-        icon = _icon_for_printer(node["meta"].get("vendor", ""),
-                                 node["meta"].get("model", ""))
+        color = _vendor_color(node["meta"].get("vendor", ""))
+        model = _truncate((node["meta"].get("model") or "").strip(), 22)
+        name = _truncate(node["label"], 18)
+        vendor = _truncate((node["meta"].get("vendor") or "").upper(), 20)
         return f'''
-        <g class="node printer" transform="translate({x},{y})">
-          <rect x="-55" y="-45" width="110" height="90" rx="10"
+        <g transform="translate({x},{y})">
+          <rect x="-{LEAF_SLOT_W//2 - 8}" y="-{LEAF_H//2}"
+                width="{LEAF_SLOT_W - 16}" height="{LEAF_H}" rx="10"
                 fill="#fff" stroke="{GRAY_BORD}" stroke-width="1"/>
-          <g transform="translate(-25,-40) scale(0.85)" color="{vendor_color}">
-            <use href="#ico-mfp"/>
-          </g>
-          <text x="0" y="24" fill="{NAVY}" text-anchor="middle"
-                style="font-weight:700;font-size:11px;">
-            {_esc(label)}
+          <use href="#ico-mfp" x="-32" y="-{LEAF_H//2 - 6}"
+               width="64" height="64" color="{color}"/>
+          <text x="0" y="30" fill="{NAVY}" text-anchor="middle"
+                style="font-weight:700;font-size:11px;
+                       font-family:'Red Hat Display',Arial,sans-serif;">
+            {_esc(name)}
           </text>
-          <text x="0" y="38" fill="{GRAY_MUTE}" text-anchor="middle"
-                style="font-weight:500;font-size:9px;">
-            {_esc(sub)}
+          <text x="0" y="44" fill="{GRAY_MUTE}" text-anchor="middle"
+                style="font-weight:500;font-size:9px;
+                       font-family:'Red Hat Display',Arial,sans-serif;">
+            {_esc(model)}
+          </text>
+          <text x="0" y="56" fill="{color}" text-anchor="middle"
+                style="font-weight:700;font-size:8px;letter-spacing:.5px;
+                       font-family:'Red Hat Display',Arial,sans-serif;">
+            {_esc(vendor)}
           </text>
         </g>'''
 
     if kind == "workstation":
         icon = _icon_for_workstation(node["meta"])
-        # Farbe: nach OS
-        os_str = (node["meta"].get("os") or "").lower()
-        if "mac" in os_str or "darwin" in os_str:
-            wcol = "#94a3b8"
-        elif "linux" in os_str:
-            wcol = "#f59e0b"
-        else:
-            wcol = TUNGSTEN_BLUE
+        col = _ws_color(node["meta"])
+        name = _truncate(node["label"], 18)
+        os_str = _truncate((node["meta"].get("os") or "").strip(), 20)
+        ws_type = (node["meta"].get("type") or "").upper()
         return f'''
-        <g class="node workstation" transform="translate({x},{y})">
-          <rect x="-55" y="-45" width="110" height="90" rx="10"
+        <g transform="translate({x},{y})">
+          <rect x="-{LEAF_SLOT_W//2 - 8}" y="-{LEAF_H//2}"
+                width="{LEAF_SLOT_W - 16}" height="{LEAF_H}" rx="10"
                 fill="#fff" stroke="{GRAY_BORD}" stroke-width="1"/>
-          <g transform="translate(-25,-40) scale(0.85)" color="{wcol}">
-            <use href="#{icon}"/>
-          </g>
-          <text x="0" y="24" fill="{NAVY}" text-anchor="middle"
-                style="font-weight:700;font-size:11px;">
-            {_esc(label)}
+          <use href="#{icon}" x="-32" y="-{LEAF_H//2 - 8}"
+               width="64" height="64" color="{col}"/>
+          <text x="0" y="30" fill="{NAVY}" text-anchor="middle"
+                style="font-weight:700;font-size:11px;
+                       font-family:'Red Hat Display',Arial,sans-serif;">
+            {_esc(name)}
           </text>
-          <text x="0" y="38" fill="{GRAY_MUTE}" text-anchor="middle"
-                style="font-weight:500;font-size:9px;">
-            {_esc(sub)}
+          <text x="0" y="44" fill="{GRAY_MUTE}" text-anchor="middle"
+                style="font-weight:500;font-size:9px;
+                       font-family:'Red Hat Display',Arial,sans-serif;">
+            {_esc(os_str)}
+          </text>
+          <text x="0" y="56" fill="{col}" text-anchor="middle"
+                style="font-weight:700;font-size:8px;letter-spacing:.5px;
+                       font-family:'Red Hat Display',Arial,sans-serif;">
+            {_esc(ws_type)}
           </text>
         </g>'''
 
     if kind == "user":
+        name = _truncate(node["label"], 20)
+        dept = _truncate(node["sub"] or "User", 20)
         return f'''
-        <g class="node user" transform="translate({x},{y})">
-          <rect x="-52" y="-22" width="104" height="44" rx="22"
-                fill="{GREEN}" opacity=".15"/>
-          <g transform="translate(-45,-14) scale(0.45)" color="{DARK_GREEN}">
-            <use href="#ico-user"/>
-          </g>
-          <text x="-14" y="-4" fill="{NAVY}"
-                style="font-weight:700;font-size:10px;">
-            {_esc(label)}
+        <g transform="translate({x},{y})">
+          <rect x="-70" y="-24" width="140" height="48" rx="24"
+                fill="{GREEN}" opacity=".18"
+                stroke="{DARK_GREEN}" stroke-width="1" stroke-opacity=".4"/>
+          <use href="#ico-user" x="-60" y="-16" width="32" height="32"
+               color="{DARK_GREEN}"/>
+          <text x="10" y="-2" fill="{NAVY}" text-anchor="middle"
+                style="font-weight:700;font-size:10px;
+                       font-family:'Red Hat Display',Arial,sans-serif;">
+            {_esc(name)}
           </text>
-          <text x="-14" y="9" fill="{GRAY_MUTE}"
-                style="font-weight:500;font-size:9px;">
-            {_esc(sub or "User")}
+          <text x="10" y="12" fill="{DARK_GREEN}" text-anchor="middle"
+                style="font-weight:500;font-size:9px;
+                       font-family:'Red Hat Display',Arial,sans-serif;">
+            {_esc(dept)}
           </text>
         </g>'''
 
@@ -423,7 +484,6 @@ def _render_node(node: dict, positions: dict) -> str:
 
 
 def _iter_edges(nodes: list[dict]):
-    """Yields (parent, child) fuer alle Kind-Kanten."""
     for n in nodes:
         for c in n.get("_children") or []:
             yield n, c
@@ -436,8 +496,20 @@ def _iter_nodes(nodes: list[dict]):
         yield from _iter_nodes(n.get("_children") or [])
 
 
+def _node_bottom(kind: str) -> int:
+    if kind == "root": return ROOT_H // 2
+    if kind == "site": return SITE_H // 2
+    if kind == "network": return NET_H // 2
+    if kind in ("printer", "workstation"): return LEAF_H // 2
+    if kind == "user": return 24
+    return 0
+
+
+def _node_top(kind: str) -> int:
+    return _node_bottom(kind)
+
+
 def render_svg(topology: dict, filters: dict) -> tuple[str, dict]:
-    """Rendert die vollständige SVG. Returns (svg_str, stats)."""
     if not topology:
         return ("", {"empty": True})
 
@@ -445,40 +517,45 @@ def render_svg(topology: dict, filters: dict) -> tuple[str, dict]:
     if not tree:
         return ("", {"empty": True})
 
-    used_w, positions = _layout_tree(tree, 0, LEFT_PAD, SLOT_W, LEVEL_H)
+    used_w, positions = _layout_tree(tree, 0, LEFT_PAD, LEAF_SLOT_W)
+    _assign_y(tree, positions)
 
-    # Hoehe = max_level * LEVEL_H + Bottom-Padding
-    max_y = max(y for (_, y) in positions.values()) if positions else 0
-    height = max_y + 80
+    # Overall dimensions
+    if not positions:
+        return ("", {"empty": True})
+    max_x = max(x for (x, _) in positions.values())
+    max_y = max(y for (_, y) in positions.values())
+    width = max_x + LEAF_SLOT_W // 2 + LEFT_PAD
+    height = max_y + LEAF_H // 2 + BOTTOM_PAD
 
-    # Edges zuerst rendern (unter den Nodes)
+    # Edges (Bezier von Parent-Bottom zu Child-Top)
     edges = []
     for parent, child in _iter_edges(tree):
         px, py = positions[parent["id"]]
         cx, cy = positions[child["id"]]
-        # Curved Bezier von parent-unten zu child-oben
-        mid_y = (py + cy) // 2
+        p_bottom = py + _node_bottom(parent["kind"])
+        c_top    = cy - _node_top(child["kind"])
+        mid_y = (p_bottom + c_top) // 2
         edges.append(
-            f'<path d="M {px} {py + 22} C {px} {mid_y}, {cx} {mid_y}, '
-            f'{cx} {cy - 22}" fill="none" stroke="{GRAY_BORD}" '
-            f'stroke-width="1.5"/>'
+            f'<path d="M {px} {p_bottom} C {px} {mid_y}, {cx} {mid_y}, '
+            f'{cx} {c_top}" fill="none" stroke="{GRAY_BORD}" '
+            f'stroke-width="1.5" opacity=".7"/>'
         )
 
     nodes_svg = [_render_node(n, positions) for n in _iter_nodes(tree)]
 
-    stats = {
-        "empty": False,
-        "width": used_w + LEFT_PAD,
-        "height": height,
-    }
-
+    # Feste Breite in Pixel — bei vielen Druckern scrollt der Canvas
+    # horizontal. Auf schmalen Bildschirmen zoomt via CSS wenn Container
+    # kleiner ist als natural size (dank max-width).
     svg = f'''
     <svg xmlns="http://www.w3.org/2000/svg"
-         viewBox="0 0 {stats["width"]} {stats["height"]}"
-         style="width: 100%; height: auto; font-family: 'Red Hat Display', Arial, sans-serif;">
+         viewBox="0 0 {width} {height}"
+         width="{width}" height="{height}"
+         style="max-width: 100%; height: auto; display: block; margin: 0 auto;
+                font-family: 'Red Hat Display', Arial, sans-serif;">
       {_svg_defs()}
       <g class="edges">{''.join(edges)}</g>
       <g class="nodes">{''.join(nodes_svg)}</g>
     </svg>
     '''
-    return (svg, stats)
+    return (svg, {"empty": False, "width": width, "height": height})
