@@ -39307,3 +39307,82 @@ for _lg, _kv in _TONER_ALERTS_KEYS.items():
     TRANSLATIONS.setdefault(_lg, {}).update(_kv)
 # nb (Norwegian bokmål) teilt Übersetzung mit "no"
 TRANSLATIONS.setdefault("nb", {}).update(_TONER_ALERTS_KEYS["no"])
+
+# ─── Printix BI-DB Formular (v0.7.263) ──────────────────────────────────────
+_BI_DB_KEYS = {
+    "de": {
+        "printix_bi_db_title":    "Printix BI-DB (Azure SQL)",
+        "printix_bi_db_optional": "optional",
+        "printix_bi_db_hint":     "Nur noetig fuer Toner-Alerts + erweiterte Reports. Diese Zugangsdaten liefert Printix in deinem Tenant-Portal unter 'Analytics' bzw. 'Data Access'.",
+        "printix_bi_db_server":   "SQL-Server",
+        "printix_bi_db_database": "Datenbank",
+        "printix_bi_db_username": "Benutzername",
+        "printix_bi_db_password": "Passwort",
+    },
+    "en": {
+        "printix_bi_db_title":    "Printix BI DB (Azure SQL)",
+        "printix_bi_db_optional": "optional",
+        "printix_bi_db_hint":     "Only needed for toner alerts and advanced reports. Printix provides these credentials in your tenant portal under \"Analytics\" or \"Data Access\".",
+        "printix_bi_db_server":   "SQL server",
+        "printix_bi_db_database": "Database",
+        "printix_bi_db_username": "Username",
+        "printix_bi_db_password": "Password",
+    },
+    "fr": {
+        "printix_bi_db_title":    "BI DB Printix (Azure SQL)",
+        "printix_bi_db_optional": "optionnel",
+        "printix_bi_db_hint":     "Nécessaire uniquement pour les alertes toner et les rapports avancés. Printix fournit ces identifiants dans votre portail sous « Analytics » / « Data Access ».",
+        "printix_bi_db_server":   "Serveur SQL",
+        "printix_bi_db_database": "Base de données",
+        "printix_bi_db_username": "Nom d'utilisateur",
+        "printix_bi_db_password": "Mot de passe",
+    },
+    "it": {
+        "printix_bi_db_title":    "BI DB Printix (Azure SQL)",
+        "printix_bi_db_optional": "opzionale",
+        "printix_bi_db_hint":     "Serve solo per gli avvisi toner e i report avanzati. Printix fornisce queste credenziali nel portale del tenant in «Analytics» / «Data Access».",
+        "printix_bi_db_server":   "Server SQL",
+        "printix_bi_db_database": "Database",
+        "printix_bi_db_username": "Nome utente",
+        "printix_bi_db_password": "Password",
+    },
+    "es": {
+        "printix_bi_db_title":    "BI DB de Printix (Azure SQL)",
+        "printix_bi_db_optional": "opcional",
+        "printix_bi_db_hint":     "Solo necesario para alertas de tóner e informes avanzados. Printix proporciona estas credenciales en el portal del inquilino en «Analytics» / «Data Access».",
+        "printix_bi_db_server":   "Servidor SQL",
+        "printix_bi_db_database": "Base de datos",
+        "printix_bi_db_username": "Usuario",
+        "printix_bi_db_password": "Contraseña",
+    },
+    "nl": {
+        "printix_bi_db_title":    "Printix BI DB (Azure SQL)",
+        "printix_bi_db_optional": "optioneel",
+        "printix_bi_db_hint":     "Alleen nodig voor toner-meldingen en uitgebreide rapporten. Printix levert deze gegevens in je tenant-portal onder \"Analytics\" / \"Data Access\".",
+        "printix_bi_db_server":   "SQL-server",
+        "printix_bi_db_database": "Database",
+        "printix_bi_db_username": "Gebruikersnaam",
+        "printix_bi_db_password": "Wachtwoord",
+    },
+    "no": {
+        "printix_bi_db_title":    "Printix BI DB (Azure SQL)",
+        "printix_bi_db_optional": "valgfritt",
+        "printix_bi_db_hint":     "Trengs kun for toner-varsler og avanserte rapporter. Printix leverer disse i tenant-portalen under «Analytics» / «Data Access».",
+        "printix_bi_db_server":   "SQL-server",
+        "printix_bi_db_database": "Database",
+        "printix_bi_db_username": "Brukernavn",
+        "printix_bi_db_password": "Passord",
+    },
+    "sv": {
+        "printix_bi_db_title":    "Printix BI DB (Azure SQL)",
+        "printix_bi_db_optional": "valfritt",
+        "printix_bi_db_hint":     "Behövs endast för toner-larm och avancerade rapporter. Printix tillhandahåller uppgifterna i din tenant-portal under «Analytics» / «Data Access».",
+        "printix_bi_db_server":   "SQL-server",
+        "printix_bi_db_database": "Databas",
+        "printix_bi_db_username": "Användarnamn",
+        "printix_bi_db_password": "Lösenord",
+    },
+}
+for _lg, _kv in _BI_DB_KEYS.items():
+    TRANSLATIONS.setdefault(_lg, {}).update(_kv)
+TRANSLATIONS.setdefault("nb", {}).update(_BI_DB_KEYS["no"])

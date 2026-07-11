@@ -368,6 +368,45 @@
       </details>
       {% endfor %}
 
+      {# ── Printix BI-DB (Azure SQL) — optional, fuer Toner-Alerts & Reports ── #}
+      <details style="margin-bottom:12px;">
+        <summary style="cursor:pointer; font-size:.9em; font-weight:600; color:#002854; padding:8px 0;">
+          {{ _('printix_bi_db_title') }}
+          <span style="color:var(--text-muted); font-weight:400;">
+            — {{ _('printix_bi_db_optional') }}
+          </span>
+        </summary>
+        <p style="font-size:.85em; color:var(--text-muted); margin:8px 0 12px;">
+          {{ _('printix_bi_db_hint') }}
+        </p>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label>{{ _('printix_bi_db_server') }}</label>
+            <input type="text" name="sql_server"
+                   value="{{ tenant_full.sql_server | default('') }}"
+                   placeholder="printix-bi-data-2.database.windows.net">
+          </div>
+          <div class="form-group">
+            <label>{{ _('printix_bi_db_database') }}</label>
+            <input type="text" name="sql_database"
+                   value="{{ tenant_full.sql_database | default('') }}"
+                   placeholder="printix_bi_data_X_Y">
+          </div>
+          <div class="form-group">
+            <label>{{ _('printix_bi_db_username') }}</label>
+            <input type="text" name="sql_username"
+                   value="{{ tenant_full.sql_username | default('') }}"
+                   placeholder="printixbiuser…">
+          </div>
+          <div class="form-group">
+            <label>{{ _('printix_bi_db_password') }}</label>
+            <input type="password" name="sql_password"
+                   placeholder="{% if tenant_full.sql_password %}{{ _('printix_creds_secret_set') }}{% else %}{{ _('printix_creds_secret_empty') }}{% endif %}">
+            <small class="hint">{{ _('printix_creds_secret_help') }}</small>
+          </div>
+        </div>
+      </details>
+
       <button type="submit" class="btn btn-primary">{{ _('btn_save') }}</button>
     </form>
   </div>

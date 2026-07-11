@@ -6465,6 +6465,10 @@ def create_app(session_secret: str) -> FastAPI:
         um_client_secret:     str = Form(default=""),
         shared_client_id:     str = Form(default=""),
         shared_client_secret: str = Form(default=""),
+        sql_server:           str = Form(default=""),
+        sql_database:         str = Form(default=""),
+        sql_username:         str = Form(default=""),
+        sql_password:         str = Form(default=""),
     ):
         user = get_session_user(request)
         if not user or not user.get("is_admin"):
@@ -6489,6 +6493,12 @@ def create_app(session_secret: str) -> FastAPI:
                 "ws_client_id":         ws_client_id.strip() or None,
                 "um_client_id":         um_client_id.strip() or None,
                 "shared_client_id":     shared_client_id.strip() or None,
+                # v0.7.263: Printix BI-DB (Azure SQL) — optional, freischaltbar
+                # aus dem selben Formular. Werden fuer Toner-Alerts benoetigt.
+                # Leere Textfelder ueberschreiben mit "" (Deaktivierung erlaubt).
+                "sql_server":           sql_server.strip(),
+                "sql_database":         sql_database.strip(),
+                "sql_username":         sql_username.strip(),
             }
             # Secrets nur ueberschreiben wenn neuer Wert eingegeben
             if print_client_secret.strip():
@@ -6501,6 +6511,8 @@ def create_app(session_secret: str) -> FastAPI:
                 kwargs["um_client_secret"] = um_client_secret.strip()
             if shared_client_secret.strip():
                 kwargs["shared_client_secret"] = shared_client_secret.strip()
+            if sql_password.strip():
+                kwargs["sql_password"] = sql_password.strip()
             update_tenant_credentials(owner_id, **kwargs)
             audit(user["id"], "printix_credentials_updated",
                   f"tenant={tenant.get('id') if tenant else owner_id}")
