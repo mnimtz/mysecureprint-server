@@ -229,7 +229,14 @@ def upsert_settings(tenant_id: str, **fields) -> None:
                       f"VALUES ({placeholders})", tuple(merged.values()))
 
 
+_TIMESTAMP_FIELDS = frozenset({"last_check_at", "last_digest_at"})
+
+
 def _mark_check(tenant_id: str, field: str) -> None:
+    # v0.7.280: Whitelist statt f-string-Interpolation, damit ein neuer
+    # Aufrufer nicht versehentlich SQL-Injection oeffnet.
+    if field not in _TIMESTAMP_FIELDS:
+        raise ValueError(f"invalid timestamp field: {field}")
     init_schema()
     now = _dt.datetime.utcnow().isoformat(timespec="seconds") + "Z"
     with _conn() as c:
@@ -630,23 +637,33 @@ def evaluate_and_notify(tenant: dict, *, force_send: bool = False,
             if lead > 0:
                 days_left = estimate_days_until_empty(tenant, pid, color, level)
             sev = classify_severity(level, warn, crit, days_left, lead)
+            # v0.7.280: aktive Bestellung schliessen wenn Level deutlich
+            # angestiegen ist gegenueber level_at_order (>= +30 Prozent-Punkte
+            # ODER wieder oberhalb warn+hyst). Deckt den Fall ab, dass Toner
+            # gewechselt wurde aber neuer Toner nicht sofort auf "voll" reagiert.
+            existing_order = active_orders.get((pid, color))
+            if existing_order:
+                lvl_at_order = int(existing_order.get("level_at_order", -1) or -1)
+                grew_a_lot = (lvl_at_order >= 0
+                              and level >= lvl_at_order + 30)
+                back_to_ok = level >= warn + hyst
+                if grew_a_lot or back_to_ok:
+                    try:
+                        import toner_orders as _to
+                        _to.mark_installed(tenant_id, pid, color)
+                        active_orders.pop((pid, color), None)
+                        existing_order = None
+                    except Exception:
+                        pass
             if sev == "ok":
                 # State ggf. zurücksetzen wenn wieder oberhalb hyst-Schwelle
                 st = get_state(tenant_id, pid, color)
                 if st and st.get("armed", 1) == 0 and level >= warn + hyst:
                     upsert_state(tenant_id, pid, color, level, "ok", armed=True)
-                # v0.7.279: aktive Bestellung schliessen wenn Level wieder OK
-                if (pid, color) in active_orders and level >= warn + hyst:
-                    try:
-                        import toner_orders as _to
-                        _to.mark_installed(tenant_id, pid, color)
-                    except Exception:
-                        pass
                 continue
-            # Wenn fuer (pid, color) eine aktive Bestellung existiert, kein
-            # weiterer Alarm — auch nicht bei Critical. Er sieht die Meldung
-            # ja auf der Uebersicht via Badge.
-            if (pid, color) in active_orders:
+            # Wenn fuer (pid, color) noch eine aktive Bestellung existiert,
+            # kein weiterer Alarm — Meldung sichtbar via Badge auf der UI.
+            if existing_order is not None:
                 continue
             low_items.append({
                 "printer_id":   pid,
@@ -814,7 +831,14 @@ _BOOT_DELAY = 90        # Boot-Delay
 
 def start_runner():
     import asyncio
-    loop = asyncio.get_event_loop()
+    # v0.7.280: get_event_loop() ist in 3.12 deprecated ohne running loop.
+    # start_runner wird aus einem @app.on_event("startup") coroutine
+    # aufgerufen; get_running_loop() ist der korrekte Weg.
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.create_task(_runner_loop())
 
 
@@ -859,4 +883,4 @@ def _tick_all_tenants() -> None:
             evaluate_and_notify(tenant)
         except Exception as e:  # noqa: BLE001
             logger.info("toner_alerts tick tenant %s failed: %s",
-                        row.get("user_id"), e)
+                        row["user_id"], e)

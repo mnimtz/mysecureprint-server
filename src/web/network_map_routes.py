@@ -136,7 +136,15 @@ def register_network_map_routes(app: FastAPI,
             return JSONResponse({"error": "bi_unreachable"}, status_code=503)
 
         filters = _parse_filters(request)
-        svg, stats = render_svg(topology, filters)
+        ctx = t_ctx(request)
+        translator = ctx.get("_")
+        labels = {
+            "tenant":          (translator("nav_tenant") if translator else None) or "Tenant",
+            "network":         (translator("netmap_pill_network") if translator else None) or "NETWORK",
+            "unassigned_site": (translator("netmap_unassigned_site") if translator else None) or "Other",
+            "unassigned_net":  (translator("netmap_unassigned_net") if translator else None) or "Unassigned devices",
+        }
+        svg, stats = render_svg(topology, filters, labels)
         # Auch die Site-Liste zurueckliefern damit das Frontend die Sidebar
         # nachtraeglich befuellen kann (falls initial ohne Cache geladen)
         sites_meta = [{"id": s["id"], "name": s["name"]}

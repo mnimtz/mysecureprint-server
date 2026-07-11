@@ -66,16 +66,22 @@ def fetch_printer_supplies(tenant: dict, printer_id: str) -> Optional[list[dict]
 
     with _CACHE_LOCK:
         entry = _SUPPLIES_CACHE.get(key)
-        if entry and (now - entry[0]) < _SUPPLIES_TTL_SEC:
-            cached = entry[1]
-            return cached if cached else None
+        # v0.7.280: Eintrag ist 3-Tuple (ts, data, ttl_sec) — pro Eintrag
+        # eigene TTL statt Timestamp-Manipulation.
+        if entry:
+            stored_ts = entry[0]
+            data = entry[1]
+            entry_ttl = entry[2] if len(entry) > 2 else _SUPPLIES_TTL_SEC
+            if (now - stored_ts) < entry_ttl:
+                return data if data else None
 
     supplies = _query_supplies(tenant, printer_id)
+    # v0.7.280 Fix: konsistente TTL statt Timestamp-Manipulation.
+    # Positiv 5 min, Negativ 60s. Cache-Read prueft (now - stored_ts) >=
+    # entry-TTL.
+    ttl = 60 if not supplies else _SUPPLIES_TTL_SEC
     with _CACHE_LOCK:
-        # Positiv-Cache 5 min, Negativ-Cache nur 60s
-        ttl_offset = _SUPPLIES_TTL_SEC - 60 if not supplies else 0
-        _SUPPLIES_CACHE[key] = (now - ttl_offset if not supplies else now,
-                                supplies or [])
+        _SUPPLIES_CACHE[key] = (now, supplies or [], ttl)
     return supplies
 
 

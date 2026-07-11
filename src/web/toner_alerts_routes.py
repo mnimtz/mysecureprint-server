@@ -330,6 +330,19 @@ def register_toner_alert_routes(app: FastAPI,
         try:
             report = await asyncio.to_thread(
                 ta.evaluate_and_notify, tenant, force_send=True)
+            # v0.7.280: Test-Mail sollte harten Fehler zurueckgeben wenn
+            # nichts geschickt werden konnte (z.B. Empfaenger leer).
+            if report.get("skipped_reason"):
+                return JSONResponse({"ok": False,
+                                     "error": report["skipped_reason"],
+                                     "report": report}, status_code=400)
+            # Wenn Aktionen da sind aber alle fehlgeschlagen, ebenfalls Fehler
+            actions = report.get("actions") or []
+            if actions and not any(a.get("ok") for a in actions):
+                return JSONResponse({"ok": False,
+                                     "error": (actions[0].get("detail")
+                                               or "send_failed"),
+                                     "report": report}, status_code=502)
             return JSONResponse({"ok": True, "report": report})
         except Exception as e:  # noqa: BLE001
             logger.warning("toner test failed: %s", e)

@@ -17,6 +17,12 @@ from __future__ import annotations
 import html
 from typing import Optional
 
+# Modul-globale Default-Labels; werden per render_svg(labels=...) ueberschrieben.
+_LABEL_TENANT = "Tenant"
+_LABEL_NETWORK = "NETWORK"
+_LABEL_UNASSIGNED_SITE = "Other"
+_LABEL_UNASSIGNED_NET = "Unassigned devices"
+
 # ── Tungsten Brand Tokens ────────────────────────────────────────────
 NAVY       = "#002854"
 DEEP_NAVY  = "#00123B"
@@ -320,10 +326,10 @@ def _build_render_tree(topology: dict, filters: dict) -> list[dict]:
     if ua_printers or ua_ws:
         sites_out.append({
             "id": "s:_unassigned", "kind": "site",
-            "label": "Sonstige", "sub": "MIXED",
+            "label": _LABEL_UNASSIGNED_SITE, "sub": "MIXED",
             "meta": {}, "_children": [{
                 "id": "n:_unassigned", "kind": "network",
-                "label": "Ungeordnete Geraete",
+                "label": _LABEL_UNASSIGNED_NET,
                 "sub": "",
                 "meta": {}, "_children": ua_printers + ua_ws,
             }],
@@ -331,7 +337,7 @@ def _build_render_tree(topology: dict, filters: dict) -> list[dict]:
 
     if not sites_out:
         return []
-    return [{"id": "root", "kind": "root", "label": "Tenant",
+    return [{"id": "root", "kind": "root", "label": _LABEL_TENANT,
              "sub": "", "meta": {}, "_children": sites_out}]
 
 
@@ -358,7 +364,7 @@ def _render_node(node: dict, positions: dict) -> str:
                 fill="{DEEP_NAVY}"/>
           <text x="0" y="6" fill="#fff" text-anchor="middle"
                 style="font-weight:700;font-size:14px;
-                       font-family:'Red Hat Display',Arial,sans-serif;">Tenant</text>
+                       font-family:'Red Hat Display',Arial,sans-serif;">{_esc(node.get("label") or "Tenant")}</text>
         </g>'''
 
     if kind == "site":
@@ -400,7 +406,7 @@ def _render_node(node: dict, positions: dict) -> str:
           <text x="0" y="14" fill="{GRAY_MUTE}" text-anchor="middle"
                 style="font-weight:500;font-size:9px;letter-spacing:.5px;
                        font-family:'Red Hat Display',Arial,sans-serif;">
-            NETZWERK {_esc(mobile_txt)}
+            {_esc(_LABEL_NETWORK)} {_esc(mobile_txt)}
           </text>
         </g>'''
 
@@ -575,9 +581,21 @@ def _node_top(kind: str, details: bool = False) -> int:
     return _node_bottom(kind, details)
 
 
-def render_svg(topology: dict, filters: dict) -> tuple[str, dict]:
+def render_svg(topology: dict, filters: dict,
+               labels: Optional[dict] = None) -> tuple[str, dict]:
     if not topology:
         return ("", {"empty": True})
+
+    # Labels aus Route (i18n) fuer Root/Netzwerk-Pill/Unassigned uebernehmen.
+    # Wir setzen die Modul-Globals fuer diesen Aufruf; nicht threadsicher,
+    # aber render_svg wird nur pro Request aufgerufen und Django-artige
+    # Concurrent-Rewrites gibt es hier nicht.
+    if labels:
+        global _LABEL_TENANT, _LABEL_NETWORK, _LABEL_UNASSIGNED_SITE, _LABEL_UNASSIGNED_NET
+        _LABEL_TENANT           = labels.get("tenant", _LABEL_TENANT)
+        _LABEL_NETWORK          = labels.get("network", _LABEL_NETWORK)
+        _LABEL_UNASSIGNED_SITE  = labels.get("unassigned_site", _LABEL_UNASSIGNED_SITE)
+        _LABEL_UNASSIGNED_NET   = labels.get("unassigned_net", _LABEL_UNASSIGNED_NET)
 
     tree = _build_render_tree(topology, filters)
     if not tree:

@@ -826,16 +826,30 @@
                   </span>
                 </div>
 
-                {# Bestellungs-Badges pro Farbe #}
-                {% set order_badges = namespace(html='') %}
+                {# Bestellungs-Badges pro Farbe — mit Jinja Auto-Escape #}
+                {% set open_orders_for_card = [] %}
                 {% for s in p.supplies %}
                   {% set ok = active_orders.get((p.printer_id, s.color)) %}
-                  {% if ok %}
-                    {% set order_badges.html = order_badges.html ~ '<span class="order-badge" title="Bestellt von ' ~ ok.ordered_by ~ '"><b>' ~ (_('toner_color_black') if s.color == 'black' else (_('toner_color_yellow') if s.color == 'yellow' else s.color|capitalize)) ~ '</b> ' ~ _('toner_order_badge_prefix') ~ ' ' ~ ok.ordered_at[:10] ~ ' · ' ~ ok.ordered_by ~ ' <button type="button" class="order-cancel-btn" onclick="cancelOrder(' ~ ok.id ~ ')" title="' ~ _('toner_order_cancel') ~ '">✕</button></span>' %}
-                  {% endif %}
+                  {% if ok %}{% set _ = open_orders_for_card.append((s.color, ok)) %}{% endif %}
                 {% endfor %}
-                {% if order_badges.html %}
-                  <div class="alert-orders">{{ order_badges.html|safe }}</div>
+                {% if open_orders_for_card %}
+                  <div class="alert-orders">
+                    {% for color, ok in open_orders_for_card %}
+                      <span class="order-badge"
+                            title="{{ _('toner_order_ordered_by') }}: {{ ok.ordered_by }}">
+                        <b>
+                          {% if color == 'black' %}{{ _('toner_color_black') }}
+                          {% elif color == 'yellow' %}{{ _('toner_color_yellow') }}
+                          {% else %}{{ color|capitalize }}{% endif %}
+                        </b>
+                        {{ _('toner_order_badge_prefix') }} {{ ok.ordered_at[:10] }}
+                        · {{ ok.ordered_by }}
+                        <button type="button" class="order-cancel-btn"
+                                onclick="cancelOrder({{ ok.id }})"
+                                title="{{ _('toner_order_cancel') }}">✕</button>
+                      </span>
+                    {% endfor %}
+                  </div>
                 {% endif %}
 
                 {% if p.error_states %}
@@ -1015,10 +1029,13 @@
               {{ _('toner_email_preview_heading') }} —
               <b id="email-preview-subject"></b>
             </div>
-            <div id="email-preview-body"
-                 style="border: 1px solid var(--border);
-                        border-radius: 10px; padding: 16px; background: #fff;
-                        max-height: 400px; overflow-y: auto;"></div>
+            {# v0.7.280: iframe statt div für XSS-Isolation. srcdoc + sandbox
+               verhindert dass Kunden-Template im Editor JS ausfuehrt. #}
+            <iframe id="email-preview-body"
+                    sandbox="allow-same-origin"
+                    style="border: 1px solid var(--border);
+                           border-radius: 10px; padding: 0; background: #fff;
+                           width: 100%; height: 400px;"></iframe>
           </div>
         </details>
       </div>
@@ -1099,8 +1116,10 @@
 let orderCtx = null;
 function openOrderModal(printerId, printerName, color, level) {
   orderCtx = {printerId, printerName, color, level};
-  const colorLabel = color === 'black' ? '{{ _("toner_color_black") }}'
-                   : color === 'yellow' ? '{{ _("toner_color_yellow") }}'
+  const L_BLACK = {{ _("toner_color_black")|tojson }};
+  const L_YELLOW = {{ _("toner_color_yellow")|tojson }};
+  const colorLabel = color === 'black' ? L_BLACK
+                   : color === 'yellow' ? L_YELLOW
                    : color.charAt(0).toUpperCase() + color.slice(1);
   document.getElementById('order-modal-target').textContent =
     printerName + ' · ' + colorLabel + ' · ' + level + '%';
@@ -1136,7 +1155,7 @@ async function submitOrder() {
   }
 }
 async function cancelOrder(orderId) {
-  if (!confirm('{{ _("toner_order_confirm_cancel") }}')) return;
+  if (!confirm({{ _("toner_order_confirm_cancel")|tojson }})) return;
   try {
     const r = await fetch('/admin/toner/order/' + orderId + '/cancel',
                           {method: 'POST'});
@@ -1177,7 +1196,7 @@ const ERROR_LABELS = {
   {% endfor %}
 };
 function errLabel(code) {
-  return ERROR_LABELS[code] || code || '{{ _("err_generic") }}';
+  return ERROR_LABELS[code] || code || {{ _("err_generic")|tojson }};
 }
 
 function openPicker() {
@@ -1202,7 +1221,7 @@ function selectPrinter(idx) {
   if (!p) return;
   document.getElementById('pv-name').textContent = p.name;
   const metaBits = [];
-  metaBits.push(p.location || '{{ _("toner_no_location") }}');
+  metaBits.push(p.location || {{ _("toner_no_location")|tojson }});
   if (p.state) metaBits.push(p.state);
   document.getElementById('pv-meta').textContent = metaBits.join(' · ');
 
@@ -1222,7 +1241,9 @@ function selectPrinter(idx) {
         </div>`;
     }).join('');
   } else {
-    sup.innerHTML = `<div class="preview-empty">{{ _("toner_preview_no_data") }}</div>`;
+    const noDataMsg = {{ _("toner_preview_no_data")|tojson }};
+    sup.innerHTML = '<div class="preview-empty"></div>';
+    sup.querySelector('.preview-empty').textContent = noDataMsg;
   }
 
   const errs = document.getElementById('pv-errors');
@@ -1256,8 +1277,8 @@ async function tonerAction(url, label) {
     box.innerHTML = '<span style="color:#dc2626;">✗ ' + e.message + '</span>';
   }
 }
-function tonerTest() { tonerAction('/admin/toner/test', '{{ _("toner_test_send") }}'); }
-function tonerRunNow() { tonerAction('/admin/toner/run', '{{ _("toner_run_now") }}'); }
+function tonerTest() { tonerAction('/admin/toner/test', {{ _("toner_test_send")|tojson }}); }
+function tonerRunNow() { tonerAction('/admin/toner/run', {{ _("toner_run_now")|tojson }}); }
 
 // ── Filter-Chips ────────────────────────────────────────────────────
 function setFilter(sev) {
@@ -1299,7 +1320,7 @@ async function showRawData() {
   const host = document.getElementById('raw-diagnostic');
   const pre  = document.getElementById('raw-diagnostic-json');
   host.style.display = '';
-  pre.textContent = '{{ _("toner_raw_loading") }}';
+  pre.textContent = {{ _("toner_raw_loading")|tojson }};
   host.scrollIntoView({behavior:'smooth', block:'nearest'});
   try {
     const r = await fetch('/admin/toner/raw/' + encodeURIComponent(p.id));
@@ -1326,7 +1347,8 @@ async function previewEmail() {
     const data = await r.json();
     document.getElementById('email-preview-subject').textContent =
       data.subject || '(kein Subject)';
-    document.getElementById('email-preview-body').innerHTML = data.body_html || '';
+    // v0.7.280: srcdoc statt innerHTML — Kunden-Template lauft isoliert
+    document.getElementById('email-preview-body').srcdoc = data.body_html || '';
     host.style.display = '';
     host.scrollIntoView({behavior:'smooth', block:'nearest'});
   } catch (e) {

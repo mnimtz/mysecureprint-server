@@ -298,7 +298,9 @@
         const img = new Image();
         img.onload = () => { if (++ready === total) onReady(); };
         img.onerror = () => { if (++ready === total) onReady(); };
-        img.src = 'data:image/svg+xml;base64,' + btoa(svg);
+        // v0.7.280: btoa() kotzt bei non-ASCII. Erst UTF-8 → dann Base64.
+        img.src = 'data:image/svg+xml;base64,' +
+                  btoa(unescape(encodeURIComponent(svg)));
         iconImages[colName][name] = img;
       }
     }
@@ -398,7 +400,7 @@
     const t0 = performance.now();
     // Nach 4s: "immer noch am laden" nachreichen
     let msgTimer = setTimeout(() => {
-      setSubtle('{{ _("netmap_loader_slow") }}');
+      setSubtle({{ _("netmap_loader_slow")|tojson }});
     }, 4000);
 
     const r = await fetch(url, {credentials: 'same-origin'});
@@ -435,11 +437,11 @@
     const emptyBox = document.getElementById('nm-empty');
     const msg = document.getElementById('nm-empty-msg');
     if (reason === 'no_creds') {
-      msg.textContent = '{{ _("netmap_empty_no_bi") }}';
+      msg.textContent = {{ _("netmap_empty_no_bi")|tojson }};
     } else if (reason === 'bi_unreachable') {
-      msg.textContent = '{{ _("netmap_empty_unreachable") }}';
+      msg.textContent = {{ _("netmap_empty_unreachable")|tojson }};
     } else if (reason === 'nothing_selected') {
-      msg.textContent = '{{ _("netmap_empty_nothing_selected") }}';
+      msg.textContent = {{ _("netmap_empty_nothing_selected")|tojson }};
     } else {
       msg.textContent = reason;
     }
@@ -581,16 +583,20 @@ function nmSetupPanZoom() {
   window.nmZoomOut   = () => zoomAt(-0.4, centerX(), centerY());
   window.nmZoomReset = () => { scale = 1; tx = 0; ty = 0; apply(); };
   window.nmZoomFit = () => {
-    // Fit-to-window: skaliere so, dass die gesamte SVG in den sichtbaren
-    // Canvas passt (mit 20px Padding)
+    // Fit-to-window: alle Berechnungen in SVG-Space (viewBox-Units), damit
+    // die Zoom-/Pan-Transform konsistent zum Wheel-Zoom-Modell ist.
     const canvas = document.getElementById('nm-canvas');
-    const cw = canvas.clientWidth - 40;
-    const ch = canvas.clientHeight - 40;
+    const rect = svg.getBoundingClientRect();
     const vw = svg.viewBox.baseVal.width;
     const vh = svg.viewBox.baseVal.height;
-    scale = Math.min(cw / vw, ch / vh, 1);
-    tx = (cw - vw * scale) / 2;
-    ty = (ch - vh * scale) / 2;
+    // Sichtbare Canvas-Groesse in SVG-Space
+    const svgPxRatioX = vw / rect.width;
+    const svgPxRatioY = vh / rect.height;
+    const availWidthSvg  = (canvas.clientWidth  - 40) * svgPxRatioX;
+    const availHeightSvg = (canvas.clientHeight - 40) * svgPxRatioY;
+    scale = Math.min(availWidthSvg / vw, availHeightSvg / vh, 1);
+    tx = (availWidthSvg  - vw * scale) / 2;
+    ty = (availHeightSvg - vh * scale) / 2;
     apply();
   };
 

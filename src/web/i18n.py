@@ -41498,3 +41498,26 @@ _ORDER_KEYS = {
 for _lg, _kv in _ORDER_KEYS.items():
     TRANSLATIONS.setdefault(_lg, {}).update(_kv)
 TRANSLATIONS.setdefault("nb", {}).update(_ORDER_KEYS["no"])
+
+# ─── Netmap Labels v0.7.280 (Root/Netzwerk/Unassigned) ───────────────────
+_NM_LBL = {
+    "de": {"nav_tenant":"Tenant","netmap_pill_network":"NETZWERK",
+           "netmap_unassigned_site":"Sonstige","netmap_unassigned_net":"Ungeordnete Geraete"},
+    "en": {"nav_tenant":"Tenant","netmap_pill_network":"NETWORK",
+           "netmap_unassigned_site":"Other","netmap_unassigned_net":"Unassigned devices"},
+    "fr": {"nav_tenant":"Tenant","netmap_pill_network":"RESEAU",
+           "netmap_unassigned_site":"Autre","netmap_unassigned_net":"Appareils non affectes"},
+    "it": {"nav_tenant":"Tenant","netmap_pill_network":"RETE",
+           "netmap_unassigned_site":"Altri","netmap_unassigned_net":"Dispositivi non assegnati"},
+    "es": {"nav_tenant":"Tenant","netmap_pill_network":"RED",
+           "netmap_unassigned_site":"Otros","netmap_unassigned_net":"Dispositivos sin asignar"},
+    "nl": {"nav_tenant":"Tenant","netmap_pill_network":"NETWERK",
+           "netmap_unassigned_site":"Overig","netmap_unassigned_net":"Niet toegewezen apparaten"},
+    "no": {"nav_tenant":"Tenant","netmap_pill_network":"NETTVERK",
+           "netmap_unassigned_site":"Annet","netmap_unassigned_net":"Ikke tilordnede enheter"},
+    "sv": {"nav_tenant":"Tenant","netmap_pill_network":"NATVERK",
+           "netmap_unassigned_site":"Ovrigt","netmap_unassigned_net":"Otilldelade enheter"},
+}
+for _lg, _kv in _NM_LBL.items():
+    TRANSLATIONS.setdefault(_lg, {}).update(_kv)
+TRANSLATIONS.setdefault("nb", {}).update(_NM_LBL["no"])
