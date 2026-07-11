@@ -39386,3 +39386,90 @@ _BI_DB_KEYS = {
 for _lg, _kv in _BI_DB_KEYS.items():
     TRANSLATIONS.setdefault(_lg, {}).update(_kv)
 TRANSLATIONS.setdefault("nb", {}).update(_BI_DB_KEYS["no"])
+
+# ─── Onboarding v2 + Setup-Checkliste (v0.7.264) ─────────────────────────────
+_ONBOARDING_V2 = {
+    "de": {
+        "reg_account_subtitle_v2": "Nur ein Schritt — Admin-Konto anlegen, danach alle Konfigurationen bequem im Dashboard.",
+        "welcome_onboarding_heading": "Willkommen bei MySecurePrint!",
+        "welcome_onboarding_sub":     "Ein paar Zugangsdaten fehlen noch. Erledige die Punkte unten in deinem Tempo — die Pflicht-Punkte sind rot markiert.",
+        "welcome_required":    "erforderlich",
+        "welcome_recommended": "empfohlen",
+        "welcome_optional":    "optional",
+        "welcome_status_mail": "Mail-Versand",
+        "welcome_status_bidb": "Printix BI-DB (Toner + Reports)",
+    },
+    "en": {
+        "reg_account_subtitle_v2": "Just one step — create your admin account, then configure everything comfortably from the dashboard.",
+        "welcome_onboarding_heading": "Welcome to MySecurePrint!",
+        "welcome_onboarding_sub":     "A few credentials are still missing. Tackle the items below at your own pace — required items are marked in red.",
+        "welcome_required":    "required",
+        "welcome_recommended": "recommended",
+        "welcome_optional":    "optional",
+        "welcome_status_mail": "Email delivery",
+        "welcome_status_bidb": "Printix BI DB (toner + reports)",
+    },
+    "fr": {
+        "reg_account_subtitle_v2": "Une seule étape — crée ton compte admin, puis configure le reste tranquillement depuis le tableau de bord.",
+        "welcome_onboarding_heading": "Bienvenue sur MySecurePrint !",
+        "welcome_onboarding_sub":     "Quelques identifiants manquent encore. Traite les éléments ci-dessous à ton rythme — les obligatoires sont en rouge.",
+        "welcome_required":    "obligatoire",
+        "welcome_recommended": "recommandé",
+        "welcome_optional":    "optionnel",
+        "welcome_status_mail": "Envoi d'emails",
+        "welcome_status_bidb": "BI DB Printix (toner + rapports)",
+    },
+    "it": {
+        "reg_account_subtitle_v2": "Un solo passaggio — crea il tuo account admin, poi configura tutto comodamente dalla dashboard.",
+        "welcome_onboarding_heading": "Benvenuto su MySecurePrint!",
+        "welcome_onboarding_sub":     "Mancano ancora alcune credenziali. Gestisci gli elementi sotto con calma — i punti obbligatori sono in rosso.",
+        "welcome_required":    "obbligatorio",
+        "welcome_recommended": "consigliato",
+        "welcome_optional":    "opzionale",
+        "welcome_status_mail": "Invio email",
+        "welcome_status_bidb": "BI DB Printix (toner + report)",
+    },
+    "es": {
+        "reg_account_subtitle_v2": "Solo un paso — crea tu cuenta de administrador y luego configura todo cómodamente desde el panel.",
+        "welcome_onboarding_heading": "¡Bienvenido a MySecurePrint!",
+        "welcome_onboarding_sub":     "Faltan algunas credenciales. Gestiona los puntos siguientes a tu ritmo — los obligatorios están en rojo.",
+        "welcome_required":    "obligatorio",
+        "welcome_recommended": "recomendado",
+        "welcome_optional":    "opcional",
+        "welcome_status_mail": "Envío de emails",
+        "welcome_status_bidb": "BI DB de Printix (tóner + informes)",
+    },
+    "nl": {
+        "reg_account_subtitle_v2": "Slechts één stap — maak je admin-account aan en configureer daarna alles rustig vanuit het dashboard.",
+        "welcome_onboarding_heading": "Welkom bij MySecurePrint!",
+        "welcome_onboarding_sub":     "Enkele gegevens ontbreken nog. Werk de punten hieronder in je eigen tempo af — verplichte items zijn rood gemarkeerd.",
+        "welcome_required":    "verplicht",
+        "welcome_recommended": "aanbevolen",
+        "welcome_optional":    "optioneel",
+        "welcome_status_mail": "E-mailverzending",
+        "welcome_status_bidb": "Printix BI DB (toner + rapporten)",
+    },
+    "no": {
+        "reg_account_subtitle_v2": "Bare ett steg — opprett admin-kontoen, konfigurer alt annet i ro og mak fra dashbordet.",
+        "welcome_onboarding_heading": "Velkommen til MySecurePrint!",
+        "welcome_onboarding_sub":     "Noen legitimasjoner mangler fortsatt. Ta punktene under i ditt eget tempo — obligatoriske punkter er røde.",
+        "welcome_required":    "obligatorisk",
+        "welcome_recommended": "anbefalt",
+        "welcome_optional":    "valgfritt",
+        "welcome_status_mail": "E-post-utsending",
+        "welcome_status_bidb": "Printix BI DB (toner + rapporter)",
+    },
+    "sv": {
+        "reg_account_subtitle_v2": "Bara ett steg — skapa admin-kontot, konfigurera resten i lugn och ro från panelen.",
+        "welcome_onboarding_heading": "Välkommen till MySecurePrint!",
+        "welcome_onboarding_sub":     "Några uppgifter saknas fortfarande. Beta av punkterna nedan i din egen takt — obligatoriska punkter är röda.",
+        "welcome_required":    "obligatoriskt",
+        "welcome_recommended": "rekommenderat",
+        "welcome_optional":    "valfritt",
+        "welcome_status_mail": "E-postutskick",
+        "welcome_status_bidb": "Printix BI DB (toner + rapporter)",
+    },
+}
+for _lg, _kv in _ONBOARDING_V2.items():
+    TRANSLATIONS.setdefault(_lg, {}).update(_kv)
+TRANSLATIONS.setdefault("nb", {}).update(_ONBOARDING_V2["no"])

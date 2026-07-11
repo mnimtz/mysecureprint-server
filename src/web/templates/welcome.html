@@ -164,27 +164,79 @@
     </div>
   </div>
 
-  {# ── Status-Indikatoren ─────────────────────────────────────────── #}
-  <div class="welcome-card">
-    <div class="section-title">{{ _('welcome_server_status_heading') }}</div>
+  {# ── Setup-Checkliste (v0.7.264) ────────────────────────────────
+     Prominente Karte fuer offene Setup-Punkte. Bei ?onboarding=1 oder
+     wenn kritische Konfigurationen fehlen wird die Karte eingeblendet
+     mit einem hervorhebenden Header; sonst nur die "Server-Status"-
+     Ueberschrift wie frueher. #}
+  <div class="welcome-card"
+       style="{% if show_onboarding_card %}border-left:4px solid #2563eb;{% endif %}">
+    {% if show_onboarding_card %}
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">
+        <div style="font-size:1.6em;">🎯</div>
+        <div>
+          <div class="section-title" style="margin:0;">
+            {{ _('welcome_onboarding_heading') }}
+          </div>
+          <div style="font-size:.88em;color:var(--text-muted);">
+            {{ _('welcome_onboarding_sub') }}
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <div class="section-title">{{ _('welcome_server_status_heading') }}</div>
+    {% endif %}
+
     <ul class="status-list">
       <li class="status-row">
         <span class="status-dot {{ 'ok' if printix_ok else 'miss' }}"></span>
-        <span class="status-label">{{ _('welcome_status_printix') }}</span>
+        <span class="status-label">{{ _('welcome_status_printix') }}
+          <span style="font-size:.7em;color:#dc2626;font-weight:600;">
+            {{ _('welcome_required') }}
+          </span>
+        </span>
         <span class="status-state">{{ _('welcome_status_ok') if printix_ok else _('welcome_status_missing') }}</span>
-        <a class="status-link" href="/admin/settings#printix">{{ _('welcome_configure') }} →</a>
-      </li>
-      <li class="status-row">
-        <span class="status-dot {{ 'ok' if entra_ok else 'miss' }}"></span>
-        <span class="status-label">{{ _('welcome_status_entra') }}</span>
-        <span class="status-state">{{ _('welcome_status_ok') if entra_ok else _('welcome_status_missing') }}</span>
-        <a class="status-link" href="/admin/settings#entra">{{ _('welcome_configure') }} →</a>
+        <a class="status-link" href="/admin/settings?section=printix">{{ _('welcome_configure') }} →</a>
       </li>
       <li class="status-row">
         <span class="status-dot {{ 'ok' if legal_ok else 'warn' }}"></span>
-        <span class="status-label">{{ _('welcome_status_legal') }}</span>
+        <span class="status-label">{{ _('welcome_status_legal') }}
+          <span style="font-size:.7em;color:#dc2626;font-weight:600;">
+            {{ _('welcome_required') }}
+          </span>
+        </span>
         <span class="status-state">{{ _('welcome_status_ok') if legal_ok else _('welcome_status_missing') }}</span>
-        <a class="status-link" href="/admin/settings#legal">{{ _('welcome_configure') }} →</a>
+        <a class="status-link" href="/admin/settings?section=general#legal">{{ _('welcome_configure') }} →</a>
+      </li>
+      <li class="status-row">
+        <span class="status-dot {{ 'ok' if mail_ok else 'warn' }}"></span>
+        <span class="status-label">{{ _('welcome_status_mail') }}
+          <span style="font-size:.7em;color:#f59e0b;font-weight:600;">
+            {{ _('welcome_recommended') }}
+          </span>
+        </span>
+        <span class="status-state">{{ _('welcome_status_ok') if mail_ok else _('welcome_status_missing') }}</span>
+        <a class="status-link" href="/admin/settings?section=general#mail">{{ _('welcome_configure') }} →</a>
+      </li>
+      <li class="status-row">
+        <span class="status-dot {{ 'ok' if entra_ok else 'warn' }}"></span>
+        <span class="status-label">{{ _('welcome_status_entra') }}
+          <span style="font-size:.7em;color:var(--text-muted);font-weight:600;">
+            {{ _('welcome_optional') }}
+          </span>
+        </span>
+        <span class="status-state">{{ _('welcome_status_ok') if entra_ok else _('welcome_status_missing') }}</span>
+        <a class="status-link" href="/admin/settings?section=entra">{{ _('welcome_configure') }} →</a>
+      </li>
+      <li class="status-row">
+        <span class="status-dot {{ 'ok' if bidb_ok else 'warn' }}"></span>
+        <span class="status-label">{{ _('welcome_status_bidb') }}
+          <span style="font-size:.7em;color:var(--text-muted);font-weight:600;">
+            {{ _('welcome_optional') }}
+          </span>
+        </span>
+        <span class="status-state">{{ _('welcome_status_ok') if bidb_ok else _('welcome_status_missing') }}</span>
+        <a class="status-link" href="/admin/settings?section=printix">{{ _('welcome_configure') }} →</a>
       </li>
       <li class="status-row">
         <span class="status-dot {{ 'ok' if admin_ok else 'miss' }}"></span>
@@ -194,7 +246,11 @@
       </li>
       <li class="status-row">
         <span class="status-dot {{ 'ok' if mcp_ok else 'warn' }}"></span>
-        <span class="status-label">{{ _('welcome_status_mcp') }}</span>
+        <span class="status-label">{{ _('welcome_status_mcp') }}
+          <span style="font-size:.7em;color:var(--text-muted);font-weight:600;">
+            {{ _('welcome_optional') }}
+          </span>
+        </span>
         <span class="status-state">{{ _('welcome_status_mcp_on') if mcp_ok else _('welcome_status_mcp_off') }}</span>
         <a class="status-link" href="/admin/mcp-access">{{ _('welcome_configure') }} →</a>
       </li>

@@ -584,6 +584,48 @@ def create_app(session_secret: str) -> FastAPI:
         except Exception:
             return False, "missing"
 
+    def _get_bidb_status() -> tuple[bool, str]:
+        """True wenn mindestens ein Tenant SQL-Zugangsdaten hat.
+        Optional-Feature — 'missing' bedeutet nur "nicht konfiguriert",
+        keine echte Warnung."""
+        try:
+            from db import _conn
+            with _conn() as conn:
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM tenants "
+                    "WHERE sql_server != '' AND sql_username != '' "
+                    "  AND sql_password != ''"
+                ).fetchone()
+                return (int(row[0]) > 0 if row else False), "configured"
+        except Exception:
+            return False, "missing"
+
+    def _get_mail_status() -> tuple[bool, str]:
+        """True wenn ein Mail-Provider konfiguriert ist (Tenant, global
+        Setting oder ENV Resend/Graph)."""
+        try:
+            from db import _conn, get_setting
+            with _conn() as conn:
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM tenants "
+                    "WHERE mail_api_key != '' AND mail_from != ''"
+                ).fetchone()
+                if row and int(row[0]) > 0:
+                    return True, "configured"
+            if (get_setting("global_mail_api_key", "")
+                    and get_setting("global_mail_from", "")):
+                return True, "configured"
+            if (get_setting("mail_provider", "") == "graph"
+                    and get_setting("entra_client_id", "")
+                    and get_setting("mail_graph_sender", "")):
+                return True, "configured"
+            if (os.environ.get("RESEND_API_KEY", "")
+                    and os.environ.get("RESEND_FROM", "")):
+                return True, "configured"
+            return False, "missing"
+        except Exception:
+            return False, "missing"
+
     def _make_welcome_qr_svg(payload: str) -> str:
         """Erzeugt einen inline PNG-data-URI QR fuer den Welcome-Screen.
 
@@ -658,6 +700,16 @@ def create_app(session_secret: str) -> FastAPI:
         legal_ok, _     = _get_legal_status()
         admin_ok, _     = _get_admin_status()
         mcp_ok, _       = _get_mcp_status()
+        bidb_ok, _      = _get_bidb_status()
+        mail_ok, _      = _get_mail_status()
+
+        # v0.7.264: Onboarding-Highlight — wenn frisch aus dem
+        # Registration-Redirect (?onboarding=1) ODER wenn essenzielle
+        # Konfiguration fehlt, wird die Setup-Card oben expandiert
+        # dargestellt.
+        onboarding_flag = request.query_params.get("onboarding") == "1"
+        pending_count = sum(1 for ok in (printix_ok, legal_ok) if not ok)
+        show_onboarding_card = onboarding_flag or pending_count > 0
 
         user = get_session_user(request)
         ctx = t_ctx(request)
@@ -673,6 +725,10 @@ def create_app(session_secret: str) -> FastAPI:
             "legal_ok":       legal_ok,
             "admin_ok":       admin_ok,
             "mcp_ok":         mcp_ok,
+            "bidb_ok":        bidb_ok,
+            "mail_ok":        mail_ok,
+            "show_onboarding_card": show_onboarding_card,
+            "onboarding_flag": onboarding_flag,
             "active_page":    "welcome",
             "version":        current_app_version(),
             "app_store_url":  _app_store_url(ctx.get("lang", "en")),
@@ -847,12 +903,47 @@ def create_app(session_secret: str) -> FastAPI:
                 "full_name": full_name, "company": company, **tc,
             })
 
-        request.session["reg_username"]  = username
-        request.session["reg_password"]  = password
-        request.session["reg_email"]     = email
-        request.session["reg_full_name"] = full_name
-        request.session["reg_company"]   = company
-        return RedirectResponse("/register/api", status_code=302)
+        # v0.7.264: 2-Phasen-Onboarding.
+        # Step 1 legt jetzt schon User + leeren Tenant an und loggt sofort
+        # ein. Alle weiteren Konfigurations-Schritte (Printix, Entra, BI-DB,
+        # Mail) laufen ueber die Setup-Checkliste auf /welcome, damit der
+        # Admin nach der Registrierung nicht durch mehrere Wizard-Seiten
+        # muss um zum eigentlichen UI zu kommen.
+        try:
+            from db import create_user, create_tenant, has_users, audit
+            is_first = not has_users()
+            user = create_user(
+                username=username, password=password, email=email,
+                is_first=is_first, full_name=full_name, company=company,
+            )
+            # Leerer Tenant — Zugangsdaten werden im /welcome-Checklisten-
+            # Workflow ueber /admin/settings?section=printix eingetragen.
+            tenant = create_tenant(
+                user_id=user["id"], printix_tenant_id="",
+                name=company.strip() or username,
+            )
+            audit(user["id"], "register",
+                  f"Tenant '{tenant.get('name','')}' angelegt (Onboarding-v2)")
+            if not is_first:
+                try:
+                    _notify_admins_of_user_registered(user)
+                except Exception as e:
+                    logger.warning("Admin-Notification 'user_registered' "
+                                   "fehlgeschlagen: %s", e)
+        except Exception as e:
+            logger.error("Registrierung fehlgeschlagen: %s", e)
+            return templates.TemplateResponse("register_step1.html", {
+                "request": request, "step": 1, "error": str(e)[:200],
+                "username": username, "email": email,
+                "full_name": full_name, "company": company, **tc,
+            })
+
+        # Admin wird sofort eingeloggt → /welcome zeigt die Checkliste.
+        # Non-Admins landen auf /pending bis ein Admin sie freischaltet.
+        request.session["user_id"] = user["id"]
+        if user.get("is_admin"):
+            return RedirectResponse("/welcome?onboarding=1", status_code=302)
+        return RedirectResponse("/pending", status_code=302)
 
     @app.get("/register/api", response_class=HTMLResponse)
     async def register_step2_get(request: Request):
