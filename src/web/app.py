@@ -8796,4 +8796,26 @@ def create_app(session_secret: str) -> FastAPI:
         except Exception as e:
             logger.warning("Guest-Print runner startup failed: %s", e)
 
+    # v0.7.261: Toner-Alerts (Printix BI-DB → Email-Benachrichtigung bevor Toner
+    # leer ist). Routes + Background-Runner.
+    try:
+        from web.toner_alerts_routes import register_toner_alert_routes
+        register_toner_alert_routes(app, templates=templates,
+                                    get_session_user=get_session_user,
+                                    t_ctx=t_ctx)
+        logger.info("Toner-Alerts routes registriert")
+    except Exception as e:
+        logger.warning("Toner-Alerts routes registration failed: %s", e)
+
+    @app.on_event("startup")
+    async def _start_toner_alerts_runner():
+        try:
+            import toner_alerts as _ta
+            _ta.init_schema()
+            _ta.start_runner()
+            logger.info("Toner-Alerts runner bereit "
+                        "(opt-in pro Tenant über /admin/toner)")
+        except Exception as e:
+            logger.warning("Toner-Alerts runner startup failed: %s", e)
+
     return app

@@ -382,6 +382,21 @@ def register_desktop_management_routes(app: FastAPI) -> None:
                                    code="queue_unknown", status=404)
             detail = await asyncio.to_thread(
                 lambda: client.get_printer(printer_id, qid))
+            # Toner-Level aus Printix BI-DB (Azure SQL) anreichern, falls
+            # der Tenant SQL-Creds hinterlegt hat. Kein Fehler wenn nichts
+            # zurückkommt — Feld bleibt dann einfach weg (iOS zeigt Fallback).
+            try:
+                import sys as _s, os as _o
+                src_dir = _o.path.dirname(_o.path.dirname(__file__))
+                if src_dir not in _s.path:
+                    _s.path.insert(0, src_dir)
+                from bi_client import fetch_printer_supplies
+                supplies = await asyncio.to_thread(
+                    fetch_printer_supplies, tenant, printer_id)
+                if supplies and isinstance(detail, dict):
+                    detail["supplies"] = supplies
+            except Exception as e:
+                logger.debug("BI-DB supplies enrichment skipped: %s", e)
             logger.info(
                 "Desktop-Mgmt printer-detail OK — user='%s' pid=%s qid=%s peer=%s",
                 user.get("username"), printer_id, qid, ci["peer"],
