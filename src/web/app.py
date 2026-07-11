@@ -708,7 +708,10 @@ def create_app(session_secret: str) -> FastAPI:
         # Konfiguration fehlt, wird die Setup-Card oben expandiert
         # dargestellt.
         onboarding_flag = request.query_params.get("onboarding") == "1"
-        pending_count = sum(1 for ok in (printix_ok, legal_ok) if not ok)
+        # v0.7.265: legal ist raus aus Setup-Highlight — fuer Test-Setups
+        # nebensaechlich. Nur printix zaehlt als "wirklich fehlend" fuer
+        # den Onboarding-Header. Rest gilt als optional/empfohlen.
+        pending_count = 0 if printix_ok else 1
         show_onboarding_card = onboarding_flag or pending_count > 0
 
         user = get_session_user(request)

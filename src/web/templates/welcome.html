@@ -199,16 +199,6 @@
         <a class="status-link" href="/admin/settings?section=printix">{{ _('welcome_configure') }} →</a>
       </li>
       <li class="status-row">
-        <span class="status-dot {{ 'ok' if legal_ok else 'warn' }}"></span>
-        <span class="status-label">{{ _('welcome_status_legal') }}
-          <span style="font-size:.7em;color:#dc2626;font-weight:600;">
-            {{ _('welcome_required') }}
-          </span>
-        </span>
-        <span class="status-state">{{ _('welcome_status_ok') if legal_ok else _('welcome_status_missing') }}</span>
-        <a class="status-link" href="/admin/settings?section=general#legal">{{ _('welcome_configure') }} →</a>
-      </li>
-      <li class="status-row">
         <span class="status-dot {{ 'ok' if mail_ok else 'warn' }}"></span>
         <span class="status-label">{{ _('welcome_status_mail') }}
           <span style="font-size:.7em;color:#f59e0b;font-weight:600;">
