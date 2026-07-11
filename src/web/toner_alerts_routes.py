@@ -64,6 +64,8 @@ def register_toner_alert_routes(app: FastAPI,
                 "default_email_subject": ta.DEFAULT_EMAIL_SUBJECT,
                 "default_email_body_html": ta.DEFAULT_EMAIL_BODY_HTML,
                 "error_label_keys": {},
+                "active_orders": {},
+                "current_user_email": "",
                 "tenant_key": "",
                 "active_page": "admin_toner",
                 **t_ctx(request),
@@ -71,6 +73,12 @@ def register_toner_alert_routes(app: FastAPI,
 
         tid = _tenant_key(tenant)
         cfg = ta.get_settings(tid)
+        # v0.7.279: aktive Bestellungen fuer diesen Tenant
+        try:
+            import toner_orders as _to
+            active_orders = _to.get_active_orders_map(tid)
+        except Exception:
+            active_orders = {}
 
         # v0.7.267: unterscheide "keine Creds hinterlegt" (bi_configured=False)
         # von "Creds da, aber DB gerade nicht erreichbar" (bi_configured=True,
@@ -151,6 +159,8 @@ def register_toner_alert_routes(app: FastAPI,
             "default_email_subject": ta.DEFAULT_EMAIL_SUBJECT,
             "default_email_body_html": ta.DEFAULT_EMAIL_BODY_HTML,
             "error_label_keys": ERROR_LABEL_KEYS,
+            "active_orders": active_orders,
+            "current_user_email": user.get("email") or user.get("username") or "",
             "tenant_key": tid,
             "active_page": "admin_toner",
             **t_ctx(request),
@@ -236,6 +246,47 @@ def register_toner_alert_routes(app: FastAPI,
             return JSONResponse(data)
         except Exception as e:  # noqa: BLE001
             return JSONResponse({"error": str(e)[:200]}, status_code=500)
+
+    @app.post("/admin/toner/order", response_class=JSONResponse)
+    async def toner_order_create(request: Request,
+                                  printer_id: str = Form(...),
+                                  printer_name: str = Form(default=""),
+                                  color: str = Form(...),
+                                  ordered_by: str = Form(default=""),
+                                  notes: str = Form(default=""),
+                                  level: int = Form(default=-1)):
+        user = _admin_or_login(request)
+        if not user:
+            return JSONResponse({"error": "auth"}, status_code=403)
+        tenant = _load_tenant(user)
+        if not tenant:
+            return JSONResponse({"error": "no_tenant"}, status_code=404)
+        import sys, os
+        src_dir = os.path.dirname(os.path.dirname(__file__))
+        if src_dir not in sys.path:
+            sys.path.insert(0, src_dir)
+        import toner_orders as to
+        tid = _tenant_key(tenant)
+        by = (ordered_by or "").strip() or (user.get("email") or user.get("username") or "")
+        order_id = to.create_order(tid, printer_id, printer_name, color,
+                                   by, notes, level)
+        return JSONResponse({"ok": True, "order_id": order_id, "ordered_by": by})
+
+    @app.post("/admin/toner/order/{order_id}/cancel", response_class=JSONResponse)
+    async def toner_order_cancel(request: Request, order_id: int):
+        user = _admin_or_login(request)
+        if not user:
+            return JSONResponse({"error": "auth"}, status_code=403)
+        tenant = _load_tenant(user)
+        if not tenant:
+            return JSONResponse({"error": "no_tenant"}, status_code=404)
+        import sys, os
+        src_dir = os.path.dirname(os.path.dirname(__file__))
+        if src_dir not in sys.path:
+            sys.path.insert(0, src_dir)
+        import toner_orders as to
+        ok = to.cancel_order(order_id, _tenant_key(tenant))
+        return JSONResponse({"ok": ok})
 
     @app.post("/admin/toner/preview-email", response_class=JSONResponse)
     async def toner_preview_email(request: Request,

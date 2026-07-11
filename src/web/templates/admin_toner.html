@@ -210,13 +210,72 @@
   }
   .alert-supply-row {
     display: grid;
-    grid-template-columns: 14px 62px 1fr 40px 44px;
+    grid-template-columns: 14px 62px 1fr 40px 44px 28px;
     gap: 8px; align-items: center;
     font-size: .82em;
   }
   .alert-supply-row.sev-ok       { opacity: .5; }
   .alert-supply-row.sev-warn     { }
   .alert-supply-row.sev-critical { font-weight: 600; }
+  .alert-supply-row.ordered { opacity: .55; text-decoration: line-through; }
+  .alert-supply-action { text-align: right; }
+  .btn-order {
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 6px; padding: 3px 6px; cursor: pointer;
+    font-size: .95em; color: var(--text);
+    transition: all .15s;
+  }
+  .btn-order:hover {
+    background: #dcfce7; border-color: #16a34a; color: #16a34a;
+  }
+  .order-mark {
+    display: inline-block; color: #16a34a; font-weight: 700;
+    font-size: 1em;
+  }
+  .alert-orders {
+    padding: 8px 0; border-bottom: 1px solid var(--border-faint);
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .order-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #dcfce7; color: #14532d;
+    padding: 4px 8px 4px 10px; border-radius: 20px;
+    font-size: .72em; font-weight: 500;
+  }
+  .order-badge b { color: #14532d; }
+  .order-cancel-btn {
+    background: transparent; border: 0; color: #14532d; cursor: pointer;
+    font-size: .95em; padding: 0 2px; margin-left: 2px;
+    opacity: .55;
+  }
+  .order-cancel-btn:hover { opacity: 1; color: #dc2626; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55);
+    z-index: 1000; display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal-card {
+    background: var(--bg); border-radius: 14px; padding: 24px;
+    max-width: 460px; width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,.3);
+  }
+  .modal-card h3 { margin: 0 0 6px 0; font-size: 1.1em; color: var(--text); }
+  .modal-card .sub { color: var(--text-muted); font-size: .88em; margin-bottom: 18px; }
+  .modal-field { margin-bottom: 12px; }
+  .modal-field label { display:block; font-size:.82em; font-weight:600;
+                       color: var(--text-muted); margin-bottom: 4px; }
+  .modal-field input, .modal-field textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--bg); color: var(--text);
+    font-size: .9em; font-family: inherit;
+  }
+  .modal-field textarea { min-height: 60px; resize: vertical; }
+  .modal-actions {
+    display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px;
+  }
   .alert-supply-dot {
     width: 12px; height: 12px; border-radius: 50%;
   }
@@ -767,6 +826,18 @@
                   </span>
                 </div>
 
+                {# Bestellungs-Badges pro Farbe #}
+                {% set order_badges = namespace(html='') %}
+                {% for s in p.supplies %}
+                  {% set ok = active_orders.get((p.printer_id, s.color)) %}
+                  {% if ok %}
+                    {% set order_badges.html = order_badges.html ~ '<span class="order-badge" title="Bestellt von ' ~ ok.ordered_by ~ '"><b>' ~ (_('toner_color_black') if s.color == 'black' else (_('toner_color_yellow') if s.color == 'yellow' else s.color|capitalize)) ~ '</b> ' ~ _('toner_order_badge_prefix') ~ ' ' ~ ok.ordered_at[:10] ~ ' · ' ~ ok.ordered_by ~ ' <button type="button" class="order-cancel-btn" onclick="cancelOrder(' ~ ok.id ~ ')" title="' ~ _('toner_order_cancel') ~ '">✕</button></span>' %}
+                  {% endif %}
+                {% endfor %}
+                {% if order_badges.html %}
+                  <div class="alert-orders">{{ order_badges.html|safe }}</div>
+                {% endif %}
+
                 {% if p.error_states %}
                   <div class="alert-errors">
                     {% for err in p.error_states %}
@@ -780,7 +851,8 @@
                 {% if p.supplies %}
                   <div class="alert-supplies">
                     {% for s in p.supplies %}
-                      <div class="alert-supply-row sev-{{ s.severity }}">
+                      {% set has_order = active_orders.get((p.printer_id, s.color)) %}
+                      <div class="alert-supply-row sev-{{ s.severity }}{% if has_order %} ordered{% endif %}">
                         <div class="alert-supply-dot fill-{{ s.color }}"></div>
                         <div class="alert-supply-label">
                           {% if s.color == 'black' %}{{ _('toner_color_black') }}
@@ -798,6 +870,20 @@
                           {% if s.days_left is not none %}
                             ~{{ s.days_left|round(0)|int }}{{ _('toner_days_short') }}
                           {% else %}—{% endif %}
+                        </div>
+                        <div class="alert-supply-action">
+                          {% if s.severity != 'ok' %}
+                            {% if not has_order %}
+                              <button type="button" class="btn-order"
+                                      onclick="openOrderModal('{{ p.printer_id }}',
+                                              '{{ p.printer_name|e }}', '{{ s.color }}', {{ s.level }})"
+                                      title="{{ _('toner_order_btn') }}">
+                                🛒
+                              </button>
+                            {% else %}
+                              <span class="order-mark" title="{{ has_order.ordered_by }}">✓</span>
+                            {% endif %}
+                          {% endif %}
                         </div>
                       </div>
                     {% endfor %}
@@ -981,7 +1067,94 @@
   </div>
 </div>
 
+<!-- Modal: Toner-Bestellung erfassen -->
+<div class="modal-overlay hidden" id="order-modal">
+  <div class="modal-card">
+    <h3>🛒 {{ _('toner_order_modal_title') }}</h3>
+    <div class="sub" id="order-modal-target"></div>
+    <div class="modal-field">
+      <label>{{ _('toner_order_ordered_by') }}</label>
+      <input type="text" id="order-ordered-by"
+             value="{{ current_user_email }}"
+             placeholder="{{ _('toner_order_ordered_by_placeholder') }}">
+    </div>
+    <div class="modal-field">
+      <label>{{ _('toner_order_notes') }}</label>
+      <textarea id="order-notes"
+                placeholder="{{ _('toner_order_notes_placeholder') }}"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" onclick="closeOrderModal()">
+        {{ _('toner_order_cancel_dialog') }}
+      </button>
+      <button type="button" class="btn btn-primary" onclick="submitOrder()">
+        ✓ {{ _('toner_order_confirm') }}
+      </button>
+    </div>
+  </div>
+</div>
+
 <script>
+// ── Order-Modal ─────────────────────────────────────────────────────
+let orderCtx = null;
+function openOrderModal(printerId, printerName, color, level) {
+  orderCtx = {printerId, printerName, color, level};
+  const colorLabel = color === 'black' ? '{{ _("toner_color_black") }}'
+                   : color === 'yellow' ? '{{ _("toner_color_yellow") }}'
+                   : color.charAt(0).toUpperCase() + color.slice(1);
+  document.getElementById('order-modal-target').textContent =
+    printerName + ' · ' + colorLabel + ' · ' + level + '%';
+  document.getElementById('order-modal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('order-ordered-by').focus(), 50);
+}
+function closeOrderModal() {
+  document.getElementById('order-modal').classList.add('hidden');
+  orderCtx = null;
+}
+async function submitOrder() {
+  if (!orderCtx) return;
+  const orderedBy = document.getElementById('order-ordered-by').value.trim();
+  const notes = document.getElementById('order-notes').value.trim();
+  const fd = new FormData();
+  fd.append('printer_id', orderCtx.printerId);
+  fd.append('printer_name', orderCtx.printerName);
+  fd.append('color', orderCtx.color);
+  fd.append('ordered_by', orderedBy);
+  fd.append('notes', notes);
+  fd.append('level', String(orderCtx.level));
+  try {
+    const r = await fetch('/admin/toner/order', {method: 'POST', body: fd});
+    const data = await r.json();
+    if (r.ok && data.ok) {
+      closeOrderModal();
+      window.location.reload();
+    } else {
+      alert('Fehler: ' + (data.error || 'unbekannt'));
+    }
+  } catch (e) {
+    alert('Fehler: ' + e.message);
+  }
+}
+async function cancelOrder(orderId) {
+  if (!confirm('{{ _("toner_order_confirm_cancel") }}')) return;
+  try {
+    const r = await fetch('/admin/toner/order/' + orderId + '/cancel',
+                          {method: 'POST'});
+    const data = await r.json();
+    if (r.ok && data.ok) {
+      window.location.reload();
+    } else {
+      alert('Fehler: ' + (data.error || 'unbekannt'));
+    }
+  } catch (e) {
+    alert('Fehler: ' + e.message);
+  }
+}
+// Modal via ESC schliessen
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeOrderModal();
+});
+
 // ── Drucker-Picker mit Search-while-typing ──────────────────────────
 const PRINTERS = [
   {% for p in preview_printers %}

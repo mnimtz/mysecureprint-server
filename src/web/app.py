@@ -8938,8 +8938,9 @@ def create_app(session_secret: str) -> FastAPI:
     @app.on_event("startup")
     async def _start_toner_alerts_runner():
         try:
-            import toner_alerts as _ta
+            import toner_alerts as _ta, toner_orders as _to
             _ta.init_schema()
+            _to.init_schema()
             _ta.start_runner()
             logger.info("Toner-Alerts runner bereit "
                         "(opt-in pro Tenant über /admin/toner)")

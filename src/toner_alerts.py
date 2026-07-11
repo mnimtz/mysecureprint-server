@@ -585,6 +585,12 @@ def evaluate_and_notify(tenant: dict, *, force_send: bool = False,
     cfg = get_settings(tenant_id)
     report = {"tenant_id": tenant_id, "actions": [], "checked_printers": 0,
               "low_items": [], "cfg": cfg, "skipped_reason": ""}
+    # v0.7.279: aktive Bestellungen dieser Tenant laden
+    try:
+        import toner_orders as _to
+        active_orders = _to.get_active_orders_map(tenant_id)
+    except Exception:
+        active_orders = {}
 
     if not cfg.get("enabled") and not force_send:
         report["skipped_reason"] = "disabled"
@@ -629,6 +635,18 @@ def evaluate_and_notify(tenant: dict, *, force_send: bool = False,
                 st = get_state(tenant_id, pid, color)
                 if st and st.get("armed", 1) == 0 and level >= warn + hyst:
                     upsert_state(tenant_id, pid, color, level, "ok", armed=True)
+                # v0.7.279: aktive Bestellung schliessen wenn Level wieder OK
+                if (pid, color) in active_orders and level >= warn + hyst:
+                    try:
+                        import toner_orders as _to
+                        _to.mark_installed(tenant_id, pid, color)
+                    except Exception:
+                        pass
+                continue
+            # Wenn fuer (pid, color) eine aktive Bestellung existiert, kein
+            # weiterer Alarm — auch nicht bei Critical. Er sieht die Meldung
+            # ja auf der Uebersicht via Badge.
+            if (pid, color) in active_orders:
                 continue
             low_items.append({
                 "printer_id":   pid,
