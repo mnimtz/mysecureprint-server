@@ -753,6 +753,10 @@ private func formatTimestamp(_ raw: String) -> String {
         "yyyy-MM-dd HH:mm:ss",
     ]
     let df = DateFormatter()
+    // v1.6.1: Fixed-format parsing braucht en_US_POSIX + UTC — sonst
+    // schlaegt es auf Devices mit persian/buddhist Kalendern fehl.
+    df.locale = Locale(identifier: "en_US_POSIX")
+    df.timeZone = TimeZone(secondsFromGMT: 0)
     for fmt in formats {
         df.dateFormat = fmt
         if let d = df.date(from: raw) {

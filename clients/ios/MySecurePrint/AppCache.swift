@@ -87,9 +87,10 @@ final class AppCache: ObservableObject {
     /// Schreibt den aktuellen Job-Zustand ins App Group und weist WidgetKit
     /// an, die Lock Screen Widget Timeline sofort neu zu rendern.
     func updateWidgetState(jobs: [PrintJob]) {
-        let pending = jobs.filter {
-            ["queued", "forwarding"].contains($0.status.lowercased())
-        }.count
+        // v1.6.1: PrintJob.isTerminal statt hardcoded status-Liste, damit
+        // widget-Badge und Poll-Loop nicht drift wenn ein neuer non-terminal
+        // status auftaucht.
+        let pending = jobs.filter { !PrintJob.isTerminal($0.status) }.count
         let last = jobs.first
         let state = WidgetJobState(
             pendingCount: pending,

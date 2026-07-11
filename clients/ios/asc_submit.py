@@ -75,7 +75,7 @@ LISTING_DE = {
         "Markenzeichen von Tungsten Automation Corp. und wird hier "
         "ausschliesslich zur Beschreibung der API-Kompatibilitaet genannt."
     ),
-    "whatsNew": "Neu: iOS-Drucker-Profile. Installiere den Firmen-SecurePrint oder eigene Direkt-Drucker mit einem Tipp aufs iPhone, iPad oder Mac — danach druckst du aus jeder App (Fotos, Safari, Mail, Notizen) direkt an deine Printix-Queue. Farbdruck, Kopien, Format wählbar. Plus Fehlerbild-Vorschau und stabilerer Job-Status.",
+    "whatsNew": "Fehlerbehebungen und Verbesserungen: robusteres Datums-Handling bei Job-Details (funktioniert jetzt auch mit persischem/buddhistischem Kalender), Upload-Anfragen mit Sonderzeichen im Dateinamen brechen nicht mehr, Widget-Zähler bleibt konsistent mit dem Job-Status, Deep-Link-Server-URL wird strikt validiert. Kleinere i18n-Nachträge.",
     "supportUrl": "https://github.com/mnimtz/mysecureprint-server/issues",
     "marketingUrl": "https://github.com/mnimtz/mysecureprint-server",
     "privacyPolicyUrl": "https://printix-sp.azurewebsites.net/privacy",

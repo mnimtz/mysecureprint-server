@@ -71,6 +71,16 @@ struct ContentView: View {
             var s = server.trimmingCharacters(in: .whitespacesAndNewlines)
             while s.hasSuffix("/") { s.removeLast() }
             if !s.lowercased().hasPrefix("http") { s = "https://" + s }
+            // v1.6.1: URL-Validierung — verhindert dass ein malicious
+            // Deep-Link http://attacker/ einschmuggelt. Nur https oder
+            // localhost akzeptieren.
+            guard let u = URL(string: s),
+                  let host = u.host?.lowercased(),
+                  (u.scheme?.lowercased() == "https" ||
+                   host == "localhost" || host == "127.0.0.1")
+            else {
+                return
+            }
             // M-1: Server-Wechsel = anderer Tenant/Bearer-Token. Aktive
             // Session sauber beenden, damit der User nicht versehentlich
             // mit altem Token gegen den neuen Server feuert.

@@ -121,7 +121,7 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
             if #available(iOS 16.2, *) {
                 endActivity(batchID: batchID,
                             finalState: .init(phase: .failed, targetDisplay: firstDisplay,
-                                             errorMessage: "Ungültige Server-URL"))
+                                             errorMessage: String(localized: "Ungültige Server-URL")))
             }
             throw URLError(.badURL)
         }
@@ -143,7 +143,7 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
                 req.setValue("multipart/form-data; boundary=\(boundary)",
                              forHTTPHeaderField: "Content-Type")
                 req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-                req.setValue(Locale.preferredLanguages.first ?? "de", forHTTPHeaderField: "Accept-Language")
+                req.setValue(Locale.preferredLanguages.first ?? "en", forHTTPHeaderField: "Accept-Language")
                 req.timeoutInterval = 180
                 let (data, response) = try await URLSession.shared.upload(for: req, from: bodyData)
                 if let http = response as? HTTPURLResponse,
@@ -237,7 +237,7 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
         req.setValue("multipart/form-data; boundary=\(boundary)",
                      forHTTPHeaderField: "Content-Type")
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        req.setValue(Locale.preferredLanguages.first ?? "de", forHTTPHeaderField: "Accept-Language")
+        req.setValue(Locale.preferredLanguages.first ?? "en", forHTTPHeaderField: "Accept-Language")
         req.timeoutInterval = 180
 
         let task = session.uploadTask(with: req, fromFile: tempFile)
@@ -277,7 +277,14 @@ final class BackgroundUploadManager: NSObject, ObservableObject {
 
         let ext  = (filename as NSString).pathExtension
         let mime = guessMime(ext)
-        let fileHeader = "--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\nContent-Type: \(mime)\r\n\r\n"
+        // v1.6.1: Filename sanitieren — Anfuehrungszeichen/CR/LF zerbrechen
+        // den multipart-Header. Realer Trigger: von Web gespeicherte Dateien
+        // mit Interpunktion im Titel.
+        let safeName = filename
+            .replacingOccurrences(of: "\"", with: "_")
+            .replacingOccurrences(of: "\r", with: "_")
+            .replacingOccurrences(of: "\n", with: "_")
+        let fileHeader = "--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(safeName)\"\r\nContent-Type: \(mime)\r\n\r\n"
         body.append(Data(fileHeader.utf8))
         body.append(fileData)
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))
