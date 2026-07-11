@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}{{ _('netmap_title') }}{% endblock %}
+
+{% block content %}
+<style>
+  .nm-wrap { max-width: 1600px; margin: 24px auto; padding: 0 16px; }
+  .nm-header {
+    display:flex; justify-content:space-between; align-items:center;
+    gap:16px; margin-bottom:20px; flex-wrap:wrap;
+  }
+  .nm-title h1 { font-size:1.6em; margin:0 0 4px 0; color:#002854; }
+  .nm-title p  { color:#8094AA; font-size:.9em; margin:0; }
+  .nm-grid {
+    display:grid; grid-template-columns: 1fr; gap: 20px;
+  }
+  @media (min-width: 1100px) {
+    .nm-grid { grid-template-columns: 260px 1fr; }
+  }
+  .nm-card {
+    background: #fff; border: 1px solid #D9DFE6; border-radius: 14px;
+    padding: 20px;
+  }
+  .nm-card h2 { color:#002854; font-size:1em; margin: 0 0 14px 0; }
+  .nm-toggle {
+    display:flex; align-items:center; gap:8px; padding: 8px 10px;
+    border-radius: 6px; cursor:pointer; margin-bottom: 6px;
+    font-size:.88em; color:#231F20;
+  }
+  .nm-toggle:hover { background: #f8fafc; }
+  .nm-toggle input { width: 16px; height: 16px; accent-color: #00A0FB; }
+  .nm-sites-list {
+    max-height: 260px; overflow-y: auto; padding: 6px 0;
+    border-top: 1px solid #D9DFE6;
+    border-bottom: 1px solid #D9DFE6;
+    margin: 10px 0;
+  }
+  .nm-stats {
+    display:grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+    margin-top: 14px; font-size:.82em;
+  }
+  .nm-stat {
+    background: #f8fafc; padding: 8px 10px; border-radius: 6px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .nm-stat b { color:#002854; font-size:1.2em; }
+  .nm-btn-row { display:flex; gap:8px; margin-top: 14px; flex-wrap: wrap; }
+  .nm-btn {
+    background: #00A0FB; color:#fff; border: 0; padding: 8px 14px;
+    border-radius: 6px; font-size:.85em; font-weight:700; cursor:pointer;
+    text-decoration: none; display: inline-block;
+  }
+  .nm-btn:hover { background: #0080cf; }
+  .nm-btn-secondary {
+    background: #fff; color:#002854; border: 1px solid #D9DFE6;
+  }
+  .nm-btn-secondary:hover { background: #f8fafc; }
+
+  .nm-canvas {
+    background: #fff; border: 1px solid #D9DFE6; border-radius: 14px;
+    padding: 20px; overflow: auto; max-height: 78vh;
+  }
+  .nm-banner {
+    padding: 14px 16px; border-radius: 10px; margin-bottom: 16px;
+    background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b;
+    font-size: .9em;
+  }
+  .nm-empty {
+    text-align:center; color:#8094AA; padding: 60px 20px;
+    font-size:.95em;
+  }
+
+  @media print {
+    aside.sb, .nm-sidebar, .nm-header, .brand-header, header { display: none !important; }
+    .nm-canvas { border: none !important; padding: 0 !important; max-height: none !important; }
+    .nm-grid { grid-template-columns: 1fr !important; }
+    body, .nm-wrap { max-width: none !important; padding: 0 !important; margin: 0 !important; }
+  }
+</style>
+
+<div class="nm-wrap">
+  <div class="nm-header">
+    <div class="nm-title">
+      <h1>🗺️ {{ _('netmap_title') }}</h1>
+      <p>{{ _('netmap_intro') }}</p>
+    </div>
+  </div>
+
+  {% if not bi_configured %}
+    <div class="nm-banner">
+      <b>{{ _('netmap_no_bi_heading') }}</b><br>
+      {{ _('netmap_no_bi_hint') }}
+      <a href="/admin/settings?section=printix" style="color:inherit;text-decoration:underline;">
+        {{ _('toner_link_to_settings') }} →
+      </a>
+    </div>
+  {% elif not topology %}
+    <div class="nm-banner" style="background:#fef3c7; border-color:#fcd34d; color:#92400e;">
+      <b>{{ _('netmap_unreachable_heading') }}</b><br>
+      {{ _('netmap_unreachable_hint') }}
+    </div>
+  {% endif %}
+
+  <div class="nm-grid">
+    <aside class="nm-sidebar nm-card">
+      <h2>⚙️ {{ _('netmap_filters') }}</h2>
+      <form method="get" action="/admin/network-map" id="filter-form">
+        <label class="nm-toggle">
+          <input type="checkbox" name="printers" value="1"
+                 {% if filters.show_printers %}checked{% endif %}
+                 onchange="document.getElementById('filter-form').submit()">
+          🖨️ {{ _('netmap_show_printers') }}
+        </label>
+        <label class="nm-toggle">
+          <input type="checkbox" name="workstations" value="1"
+                 {% if filters.show_workstations %}checked{% endif %}
+                 onchange="document.getElementById('filter-form').submit()">
+          💻 {{ _('netmap_show_workstations') }}
+        </label>
+        <label class="nm-toggle">
+          <input type="checkbox" name="users" value="1"
+                 {% if filters.show_users %}checked{% endif %}
+                 onchange="document.getElementById('filter-form').submit()">
+          👤 {{ _('netmap_show_users') }}
+        </label>
+
+        {% if topology and topology.sites %}
+          <div style="margin-top:14px;">
+            <h2 style="font-size:.9em; margin-bottom: 8px;">
+              🏢 {{ _('netmap_filter_sites') }}
+            </h2>
+            <div class="nm-sites-list">
+              {% for site in topology.sites %}
+                <label class="nm-toggle">
+                  <input type="checkbox" name="sites-cb" value="{{ site.id }}"
+                         data-site="{{ site.id }}"
+                         {% if not filters.sites or site.id in filters.sites %}checked{% endif %}
+                         onchange="collectSites()">
+                  {{ site.name or _('netmap_unnamed_site') }}
+                </label>
+              {% endfor %}
+            </div>
+            <input type="hidden" name="sites" id="sites-hidden"
+                   value="{{ filters.sites|join(',') }}">
+          </div>
+        {% endif %}
+      </form>
+
+      {% if topology and topology.counts %}
+        <div class="nm-stats">
+          <div class="nm-stat"><span>{{ _('netmap_stat_sites') }}</span>
+            <b>{{ topology.counts.sites }}</b></div>
+          <div class="nm-stat"><span>{{ _('netmap_stat_networks') }}</span>
+            <b>{{ topology.counts.networks }}</b></div>
+          <div class="nm-stat"><span>{{ _('netmap_stat_printers') }}</span>
+            <b>{{ topology.counts.printers }}</b></div>
+          <div class="nm-stat"><span>{{ _('netmap_stat_workstations') }}</span>
+            <b>{{ topology.counts.workstations }}</b></div>
+          <div class="nm-stat" style="grid-column: span 2;">
+            <span>{{ _('netmap_stat_users') }}</span>
+            <b>{{ topology.counts.users }}</b></div>
+        </div>
+      {% endif %}
+
+      <div class="nm-btn-row">
+        <button type="button" class="nm-btn" onclick="window.print()">
+          🖨️ {{ _('netmap_print_pdf') }}
+        </button>
+        <button type="button" class="nm-btn nm-btn-secondary"
+                onclick="downloadSvg()">
+          ⬇ {{ _('netmap_download_svg') }}
+        </button>
+      </div>
+    </aside>
+
+    <section class="nm-canvas" id="nm-canvas">
+      {% if svg %}
+        {{ svg|safe }}
+      {% else %}
+        <div class="nm-empty">
+          {% if not bi_configured %}
+            {{ _('netmap_empty_no_bi') }}
+          {% elif not topology %}
+            {{ _('netmap_empty_unreachable') }}
+          {% else %}
+            {{ _('netmap_empty_nothing_selected') }}
+          {% endif %}
+        </div>
+      {% endif %}
+    </section>
+  </div>
+</div>
+
+<script>
+function collectSites() {
+  const boxes = document.querySelectorAll('input[name="sites-cb"]');
+  const all = boxes.length;
+  const checked = [...boxes].filter(b => b.checked);
+  // wenn alle checked → leerer sites-Param (bedeutet "alle")
+  const value = (checked.length === all) ? '' : checked.map(b => b.value).join(',');
+  document.getElementById('sites-hidden').value = value;
+  document.getElementById('filter-form').submit();
+}
+
+function downloadSvg() {
+  const svg = document.querySelector('#nm-canvas svg');
+  if (!svg) return;
+  const clone = svg.cloneNode(true);
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  const blob = new Blob([clone.outerHTML], {type: 'image/svg+xml'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'network-map.svg';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+</script>
+{% endblock %}

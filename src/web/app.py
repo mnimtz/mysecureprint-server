@@ -8924,6 +8924,17 @@ def create_app(session_secret: str) -> FastAPI:
     except Exception as e:
         logger.warning("Toner-Alerts routes registration failed: %s", e)
 
+    # v0.7.271: Netzwerk-Topologie-Plan (Sites → Networks → Printers +
+    # Workstations + User) als inline-SVG mit Filter-Sidebar, PDF-Export.
+    try:
+        from web.network_map_routes import register_network_map_routes
+        register_network_map_routes(app, templates=templates,
+                                    get_session_user=get_session_user,
+                                    t_ctx=t_ctx)
+        logger.info("Network-Map routes registriert")
+    except Exception as e:
+        logger.warning("Network-Map routes registration failed: %s", e)
+
     @app.on_event("startup")
     async def _start_toner_alerts_runner():
         try:

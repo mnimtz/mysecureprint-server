@@ -277,6 +277,164 @@ def _parse_error_states(raw) -> list[str]:
     return []
 
 
+def fetch_network_topology(tenant: dict) -> Optional[dict]:
+    """Kompletter Tenant-Baum: Sites → Networks → Printers + Workstations + Users.
+
+    Returns:
+        {
+          "sites": [{"id","name","type","networks":[
+              {"id","name","mobile_print","printers":[...],"workstations":[...]}
+          ]}],
+          "unassigned": {"printers":[...], "workstations":[...]},
+          "counts": {"sites":N, "networks":N, "printers":N, "workstations":N, "users":N},
+        }
+
+    Workstations bringen eingeloggte User in `users:[]` mit.
+    None wenn keine Creds oder DB-Fehler.
+    """
+    if not _has_creds(tenant):
+        return None
+    try:
+        import pymssql
+    except ImportError:
+        return None
+    conn = None
+    try:
+        conn = pymssql.connect(
+            server=tenant["sql_server"], user=tenant["sql_username"],
+            password=tenant["sql_password"], database=tenant["sql_database"],
+            port=1433, tds_version="7.4",
+            login_timeout=30, timeout=60,
+        )
+        cur = conn.cursor(as_dict=True)
+
+        cur.execute("""SELECT id, name, type FROM dbo.sites
+                        WHERE meta_status = 'ACTIVE'
+                     ORDER BY name""")
+        sites = [{"id": str(r["id"]), "name": r["name"] or "",
+                  "type": r.get("type") or "", "networks": []}
+                 for r in cur.fetchall()]
+
+        cur.execute("""SELECT sn.site_id, sn.network_id, n.name, n.mobile_print
+                         FROM dbo.site_networks sn
+                         JOIN dbo.networks n ON n.id = sn.network_id
+                        WHERE n.meta_status = 'ACTIVE'""")
+        site_networks_map = {}
+        network_to_site = {}
+        for r in cur.fetchall():
+            nid = str(r["network_id"])
+            sid = str(r["site_id"])
+            site_networks_map.setdefault(sid, []).append({
+                "id": nid, "name": r["name"] or "",
+                "mobile_print": bool(r.get("mobile_print", 0)),
+                "printers": [], "workstations": [],
+            })
+            network_to_site[nid] = sid
+
+        cur.execute("""SELECT id, name, model_name, vendor_name, location, network_id
+                         FROM dbo.printers
+                        WHERE meta_status = 'ACTIVE'""")
+        printers_by_network: dict = {}
+        printers_unassigned = []
+        for r in cur.fetchall():
+            p = {
+                "id":     str(r["id"]),
+                "name":   r["name"] or "",
+                "model":  r.get("model_name") or "",
+                "vendor": r.get("vendor_name") or "",
+                "location": r.get("location") or "",
+            }
+            nid = str(r.get("network_id") or "")
+            if nid and nid != "None":
+                printers_by_network.setdefault(nid, []).append(p)
+            else:
+                printers_unassigned.append(p)
+
+        # Workstations + Users
+        cur.execute("""SELECT id, name, os, ws_type, network_ssid
+                         FROM dbo.workstations
+                        WHERE meta_status = 'ACTIVE'""")
+        workstations = [{
+            "id": str(r["id"]),
+            "name": r["name"] or "",
+            "os": r.get("os") or "",
+            "type": r.get("ws_type") or "",
+            "ssid": r.get("network_ssid") or "",
+            "users": [],
+        } for r in cur.fetchall()]
+        ws_by_id = {w["id"]: w for w in workstations}
+
+        cur.execute("""SELECT wu.workstation_id, wu.user_id,
+                              u.name AS user_name, u.email, u.department
+                         FROM dbo.workstation_users wu
+                         JOIN dbo.users u ON u.id = wu.user_id
+                        WHERE u.meta_status = 'ACTIVE'""")
+        for r in cur.fetchall():
+            wid = str(r["workstation_id"])
+            if wid in ws_by_id:
+                ws_by_id[wid]["users"].append({
+                    "id":         str(r["user_id"]),
+                    "name":       r.get("user_name") or "",
+                    "email":      r.get("email") or "",
+                    "department": r.get("department") or "",
+                })
+
+        # Workstations mappen sich per SSID auf Network — wir sortieren sie
+        # dem passenden Netzwerk zu falls SSID matches, sonst "unassigned".
+        network_ssid_map = {}
+        for site in sites:
+            for net in site_networks_map.get(site["id"], []):
+                network_ssid_map[net["name"].lower()] = net["id"]
+        ws_by_network: dict = {}
+        ws_unassigned = []
+        for w in workstations:
+            ssid = (w.get("ssid") or "").lower().strip()
+            nid = network_ssid_map.get(ssid, "")
+            if nid:
+                ws_by_network.setdefault(nid, []).append(w)
+            else:
+                ws_unassigned.append(w)
+
+        # Baum zusammenbauen
+        user_ids_seen = set()
+        printer_count = 0
+        ws_count = 0
+        for site in sites:
+            site["networks"] = site_networks_map.get(site["id"], [])
+            for net in site["networks"]:
+                net["printers"]     = printers_by_network.get(net["id"], [])
+                net["workstations"] = ws_by_network.get(net["id"], [])
+                printer_count += len(net["printers"])
+                ws_count += len(net["workstations"])
+                for w in net["workstations"]:
+                    for u in w["users"]:
+                        user_ids_seen.add(u["id"])
+
+        return {
+            "sites": sites,
+            "unassigned": {
+                "printers": printers_unassigned,
+                "workstations": ws_unassigned,
+            },
+            "counts": {
+                "sites": len(sites),
+                "networks": sum(len(s["networks"]) for s in sites),
+                "printers": printer_count + len(printers_unassigned),
+                "workstations": ws_count + len(ws_unassigned),
+                "users": len(user_ids_seen),
+            },
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.info("bi_client.fetch_network_topology failed: %s", str(e)[:200])
+        return None
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
 def fetch_raw_reading(tenant: dict, printer_id: str) -> Optional[dict]:
     """Roh-Datensatz vom neuesten device_reading fuer einen Drucker.
 
