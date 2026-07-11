@@ -160,6 +160,54 @@
   .sev-critical { background:#dc2626; color:#fff; }
   .sev-warn     { background:#f59e0b; color:#fff; }
   .sev-ok       { background:#10b981; color:#fff; }
+  /* ── Aktive Alerts: Grid mit Drucker-Karten ─────────────────── */
+  .alert-grid {
+    display: grid; gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  }
+  .alert-card {
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; background: var(--bg);
+    border-left-width: 4px;
+  }
+  .alert-card.sev-critical { border-left-color: #dc2626; }
+  .alert-card.sev-warn     { border-left-color: #f59e0b; }
+  .alert-card.sev-ok       { border-left-color: #10b981; }
+  .alert-card-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 10px; margin-bottom: 10px;
+  }
+  .alert-p-name {
+    font-weight: 600; font-size: .95em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .alert-p-loc {
+    font-size: .76em; color: var(--text-muted); margin-top: 2px;
+  }
+  .alert-errors { margin-bottom: 10px; }
+  .alert-errors .preview-error-chip { margin-right: 4px; }
+  .alert-supplies {
+    display: flex; flex-direction: column; gap: 8px;
+    padding-top: 10px; border-top: 1px solid var(--border-faint);
+  }
+  .alert-supply-row {
+    display: grid;
+    grid-template-columns: 14px 62px 1fr 40px 44px;
+    gap: 8px; align-items: center;
+    font-size: .82em;
+  }
+  .alert-supply-row.sev-ok       { opacity: .5; }
+  .alert-supply-row.sev-warn     { }
+  .alert-supply-row.sev-critical { font-weight: 600; }
+  .alert-supply-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+  }
+  .alert-supply-label { color: var(--text); }
+  .alert-supply-pct   { text-align: right; }
+  .alert-supply-days {
+    text-align: right; color: var(--text-muted); font-size: .8em;
+  }
+
   .log-list { max-height: 320px; overflow-y: auto; }
   .log-entry {
     padding: 8px 10px; border-bottom: 1px solid var(--border-faint);
@@ -470,57 +518,69 @@
         </div>
       {% endif %}
 
-      {# ── Aktive Alerts ────────────────────────────────────────── #}
+      {# ── Aktive Alerts (Grid: eine Karte pro Drucker) ─────────── #}
       <div class="card" style="margin-bottom: 20px;">
         <h2>🚨 {{ _('toner_alerts_active_heading') }}
           <span style="font-weight:400; font-size:.78em; color:var(--text-muted);">
-            ({{ printers|length }})
+            ({{ alert_printers|length }})
           </span>
         </h2>
-        {% if printers %}
-          <div style="overflow-x:auto;">
-            <table class="compact">
-              <thead>
-                <tr>
-                  <th>{{ _('toner_col_status') }}</th>
-                  <th>{{ _('toner_col_printer') }}</th>
-                  <th>{{ _('toner_col_color') }}</th>
-                  <th>{{ _('toner_col_level') }}</th>
-                  <th>{{ _('toner_col_days') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-              {% for r in printers %}
-                <tr>
-                  <td>
-                    <span class="sev-chip sev-{{ r.severity }}">
-                      {% if r.severity == 'critical' %}{{ _('toner_sev_critical') }}
-                      {% else %}{{ _('toner_sev_warn') }}{% endif %}
-                    </span>
-                  </td>
-                  <td>
-                    <div style="font-weight:600;">{{ r.printer_name }}</div>
-                    <div style="font-size:.75em; color: var(--text-muted);">
-                      {{ r.location }}
+        {% if alert_printers %}
+          <div class="alert-grid">
+            {% for p in alert_printers %}
+              <div class="alert-card sev-{{ p.worst_sev }}">
+                <div class="alert-card-head">
+                  <div style="min-width:0;">
+                    <div class="alert-p-name" title="{{ p.printer_name }}">
+                      {{ p.printer_name }}
                     </div>
-                  </td>
-                  <td>{{ r.color }}</td>
-                  <td>
-                    <div class="toner-bar-outer" style="width:100px; display:inline-block; vertical-align:middle;">
-                      <div class="toner-bar-fill fill-{{ r.color }}"
-                           style="width: {{ r.level }}%;"></div>
+                    <div class="alert-p-loc">
+                      {{ p.location or _('toner_no_location') }}
+                      {% if p.state %} · {{ p.state }}{% endif %}
                     </div>
-                    <span style="margin-left:6px;">{{ r.level }}%</span>
-                  </td>
-                  <td>
-                    {% if r.days_left is not none %}
-                      ~{{ r.days_left|round(0)|int }} {{ _('toner_days') }}
-                    {% else %}—{% endif %}
-                  </td>
-                </tr>
-              {% endfor %}
-              </tbody>
-            </table>
+                  </div>
+                  <span class="sev-chip sev-{{ p.worst_sev }}">
+                    {% if p.worst_sev == 'critical' %}{{ _('toner_sev_critical') }}
+                    {% else %}{{ _('toner_sev_warn') }}{% endif %}
+                  </span>
+                </div>
+
+                {% if p.error_states %}
+                  <div class="alert-errors">
+                    {% for err in p.error_states %}
+                      <span class="preview-error-chip">⚠ {{ err }}</span>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+
+                {% if p.supplies %}
+                  <div class="alert-supplies">
+                    {% for s in p.supplies %}
+                      <div class="alert-supply-row sev-{{ s.severity }}">
+                        <div class="alert-supply-dot fill-{{ s.color }}"></div>
+                        <div class="alert-supply-label">
+                          {% if s.color == 'black' %}{{ _('toner_color_black') }}
+                          {% elif s.color == 'yellow' %}{{ _('toner_color_yellow') }}
+                          {% else %}{{ s.color|capitalize }}{% endif %}
+                        </div>
+                        <div class="alert-supply-bar">
+                          <div class="toner-bar-outer">
+                            <div class="toner-bar-fill fill-{{ s.color }}"
+                                 style="width: {{ s.level }}%;"></div>
+                          </div>
+                        </div>
+                        <div class="alert-supply-pct">{{ s.level }}%</div>
+                        <div class="alert-supply-days">
+                          {% if s.days_left is not none %}
+                            ~{{ s.days_left|round(0)|int }}{{ _('toner_days_short') }}
+                          {% else %}—{% endif %}
+                        </div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
           </div>
         {% else %}
           <p style="color: var(--text-muted); font-size:.88em; margin:0;">

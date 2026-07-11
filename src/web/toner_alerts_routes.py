@@ -58,7 +58,7 @@ def register_toner_alert_routes(app: FastAPI,
             return templates.TemplateResponse("admin_toner.html", {
                 "request": request, "user": user,
                 "cfg": ta.DEFAULT_SETTINGS,
-                "printers": [], "preview_printers": [], "log_entries": [],
+                "alert_printers": [], "preview_printers": [], "log_entries": [],
                 "bi_configured": False, "bi_reachable": False,
                 "tenant_key": "",
                 "active_page": "admin_toner",
@@ -81,10 +81,10 @@ def register_toner_alert_routes(app: FastAPI,
         printers = fetch_all_printer_supplies(tenant) if bi_configured else None
         bi_reachable = printers is not None
 
-        # Low-Severity-Zeilen fuer die "Alerts jetzt aktiv"-Tabelle (nur die
-        # Farben unter Schwelle) + kompletter Drucker-Katalog fuer den Live-
-        # Preview-Picker.
-        rows = []
+        # v0.7.268: pro Drucker eine Karte fuer aktive Alarme. Enthaelt
+        # ALLE Supplies des Druckers (auch die im gruenen Bereich) — nur
+        # Drucker die mind. eine Farbe unter Schwelle haben werden gezeigt.
+        alert_printers = []
         preview_printers = []
         if printers:
             warn_v = int(cfg.get("threshold_warn", 20))
@@ -92,42 +92,51 @@ def register_toner_alert_routes(app: FastAPI,
             lead = int(cfg.get("lead_time_days", 0))
             for p in printers:
                 p_supplies = []
+                worst_sev = "ok"
                 for s in p.get("supplies", []):
                     d = (estimate_days_until_empty(
                             tenant, p["printer_id"], s["color"], s["level"])
                          if lead > 0 else None)
                     sev = ta.classify_severity(s["level"], warn_v, crit_v, d, lead)
-                    supply_data = {
+                    p_supplies.append({
                         "color": s["color"], "level": s["level"],
                         "days_left": d, "severity": sev,
-                    }
-                    p_supplies.append(supply_data)
-                    if sev != "ok":
-                        rows.append({
-                            "printer_id":   p["printer_id"],
-                            "printer_name": p.get("printer_name") or p["printer_id"][:8],
-                            "location":     p.get("location") or "",
-                            "state":        p.get("reported_state") or "",
-                            "color":        s["color"],
-                            "level":        s["level"],
-                            "days_left":    d,
-                            "severity":     sev,
-                        })
+                    })
+                    if sev == "critical" or (sev == "warn" and worst_sev != "critical"):
+                        worst_sev = sev
+                errs = p.get("error_states") or []
+                # Ein Drucker landet in alert_printers wenn mind. eine Farbe
+                # unter Schwelle liegt ODER ein Error-State (LOW_TONER etc)
+                # gemeldet ist.
+                if worst_sev != "ok" or errs:
+                    alert_printers.append({
+                        "printer_id":   p["printer_id"],
+                        "printer_name": p.get("printer_name") or p["printer_id"][:8],
+                        "location":     p.get("location") or "",
+                        "state":        p.get("reported_state") or "",
+                        "error_states": errs,
+                        "supplies":     p_supplies,
+                        "worst_sev":    "critical" if errs and worst_sev == "ok" else worst_sev,
+                    })
                 # Auch Drucker ohne Toner-Daten in den Picker aufnehmen
-                # (sinnvoll um zu sehen "der Drucker liefert nichts").
                 preview_printers.append({
                     "printer_id":   p["printer_id"],
                     "printer_name": p.get("printer_name") or p["printer_id"][:8],
                     "location":     p.get("location") or "",
                     "state":        p.get("reported_state") or "",
-                    "error_states": p.get("error_states") or [],
+                    "error_states": errs,
                     "supplies":     p_supplies,
                 })
+            # Kritische Drucker nach oben sortieren
+            alert_printers.sort(
+                key=lambda a: (0 if a["worst_sev"] == "critical" else 1,
+                               a["printer_name"].lower()))
 
         log_entries = ta.recent_log(tid, limit=30)
         return templates.TemplateResponse("admin_toner.html", {
             "request": request, "user": user,
-            "cfg": cfg, "printers": rows,
+            "cfg": cfg,
+            "alert_printers": alert_printers,
             "preview_printers": preview_printers,
             "log_entries": log_entries,
             "bi_configured": bi_configured,

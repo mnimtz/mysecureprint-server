@@ -39632,3 +39632,8 @@ _TONER_V2 = {
 for _lg, _kv in _TONER_V2.items():
     TRANSLATIONS.setdefault(_lg, {}).update(_kv)
 TRANSLATIONS.setdefault("nb", {}).update(_TONER_V2["no"])
+
+# v0.7.268: kompakter "days" label fuer Karten
+for _lg, _v in {"de":"d","en":"d","fr":"j","it":"g","es":"d","nl":"d","no":"d","sv":"d"}.items():
+    TRANSLATIONS.setdefault(_lg, {})["toner_days_short"] = _v
+TRANSLATIONS.setdefault("nb", {})["toner_days_short"] = "d"
