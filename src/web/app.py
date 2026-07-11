@@ -8761,6 +8761,16 @@ def create_app(session_secret: str) -> FastAPI:
     # Setting jeden Tick, so dass Toggle ohne App-Restart funktioniert.
     try:
         from web.guestprint_routes import register as _gp_register
+        # v0.7.262 Fix: set_setting/get_setting/audit sind im create_app-Scope
+        # nicht als Namen verfügbar (nur lokale Imports in Funktionen weiter
+        # oben). Ohne diese Imports schlug _gp_register mit NameError fehl,
+        # die Guest-Print-Routen wurden gar nicht registriert und /admin/
+        # guestprint lieferte "detail: not found".
+        from db import set_setting as _set_setting, get_setting as _get_setting
+        try:
+            from db import audit as _audit
+        except ImportError:
+            _audit = None
 
         def _gp_resolve_tenant_id(user):
             if not user:
@@ -8777,9 +8787,9 @@ def create_app(session_secret: str) -> FastAPI:
             require_login_fn=require_login,
             get_active_tenant_id_fn=_gp_resolve_tenant_id,
             templates=templates,
-            set_setting_fn=set_setting,
-            get_setting_fn=get_setting,
-            audit_fn=audit,
+            set_setting_fn=_set_setting,
+            get_setting_fn=_get_setting,
+            audit_fn=_audit,
         )
         logger.info("Guest-Print routes registriert")
     except Exception as e:
