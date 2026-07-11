@@ -202,8 +202,8 @@ def _query_all_supplies(tenant: dict) -> Optional[list[dict]]:
             database=tenant["sql_database"],
             port=1433,
             tds_version="7.4",
-            login_timeout=8,
-            timeout=45,
+            login_timeout=30,  # Azure Auto-Pause: erster Connect kann 15-25s dauern
+            timeout=60,
         )
         cur = conn.cursor(as_dict=True)
         # Zweistufig — vermeidet OUTER APPLY über 143k Printer-Rows global:

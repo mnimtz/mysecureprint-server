@@ -3,240 +3,513 @@
 
 {% block content %}
 <style>
-  .toner-grid { display:grid; grid-template-columns: 1fr; gap:24px;
-                max-width:1100px; margin:24px auto; padding:0 16px; }
-  @media (min-width: 1100px) {
-    .toner-grid { grid-template-columns: 380px 1fr; }
+  /* ── Layout ─────────────────────────────────────────────────────── */
+  .toner-wrap { max-width: 1280px; margin: 24px auto; padding: 0 16px; }
+  .toner-header {
+    display:flex; justify-content:space-between; align-items:center;
+    gap:16px; margin-bottom: 20px; flex-wrap:wrap;
   }
-  .toner-card { background:var(--bg); border:1px solid var(--border);
-                border-radius:12px; padding:20px; }
-  .toner-card h2 { font-size:1.05em; margin-top:0; margin-bottom:16px; }
-  .toner-field { margin-bottom:14px; }
-  .toner-field label { display:block; font-size:.85em; font-weight:600;
-                        color:var(--text-muted); margin-bottom:4px; }
-  .toner-field input[type=number],
-  .toner-field input[type=text],
-  .toner-field textarea,
-  .toner-field select { width:100%; padding:8px 10px; border:1px solid var(--border);
-                         border-radius:6px; background:var(--bg); color:var(--text);
-                         font-size:.9em; }
-  .toner-field textarea { min-height: 60px; font-family:inherit; }
-  .toner-field .hint { color:var(--text-faint); font-size:.78em; margin-top:4px; }
-  .toner-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .toner-toggle { display:flex; align-items:center; gap:10px;
-                  padding:12px; border:1px solid var(--border); border-radius:8px;
-                  background:var(--bg-subtle); margin-bottom:16px; cursor:pointer; }
-  .toner-toggle input { width:18px; height:18px; }
-  .toner-btn { padding:9px 16px; border:0; border-radius:6px; cursor:pointer;
-                font-weight:600; font-size:.9em; }
-  .toner-btn-primary { background: var(--accent, #2563eb); color:#fff; }
-  .toner-btn-secondary { background: var(--bg-subtle); color: var(--text);
-                          border:1px solid var(--border); }
+  .toner-title h1 { font-size:1.6em; margin:0 0 4px 0; }
+  .toner-title p { color: var(--text-muted); font-size:.9em; margin:0; }
+  .status-pill {
+    display:inline-flex; align-items:center; gap:6px;
+    padding: 7px 14px; border-radius: 20px; font-size:.85em; font-weight:600;
+    white-space:nowrap;
+  }
+  .status-pill .dot { width:8px; height:8px; border-radius:50%; }
+  .status-pill.ok    { background:#d1fae5; color:#047857; }
+  .status-pill.ok .dot    { background:#10b981; }
+  .status-pill.warn  { background:#fef3c7; color:#92400e; }
+  .status-pill.warn .dot  { background:#f59e0b; }
+  .status-pill.miss  { background:#fee2e2; color:#991b1b; }
+  .status-pill.miss .dot  { background:#dc2626; }
 
-  table.printers { border-collapse: collapse; width:100%; font-size:.88em; }
-  table.printers th { text-align:left; font-size:.75em; color:var(--text-muted);
-                       text-transform:uppercase; padding:6px 8px;
-                       border-bottom:1px solid var(--border); }
-  table.printers td { padding:8px; border-bottom:1px solid var(--border-faint); }
-  .bar-wrap { background: rgba(0,0,0,.06); height:8px; border-radius:4px;
-              width:140px; overflow:hidden; display:inline-block;
-              vertical-align:middle; }
-  .bar-fill { height:100%; }
-  .bar-black { background:#333; }
-  .bar-cyan { background:#0088cc; }
-  .bar-magenta { background:#c6238a; }
-  .bar-yellow { background:#e0a800; }
-  .sev-chip { display:inline-block; padding:2px 8px; border-radius:10px;
-              font-size:.72em; font-weight:600; }
+  .toner-grid {
+    display:grid; grid-template-columns: 1fr; gap: 20px;
+  }
+  @media (min-width: 1000px) {
+    .toner-grid.two-col { grid-template-columns: 380px 1fr; }
+  }
+  .card {
+    background: var(--bg); border:1px solid var(--border);
+    border-radius: 14px; padding: 22px;
+  }
+  .card h2 { margin-top: 0; margin-bottom: 16px; font-size:1.05em; }
+  .subcard { padding: 16px 18px; border:1px solid var(--border);
+             border-radius: 10px; background: var(--bg-subtle); }
+  .banner {
+    padding: 14px 16px; border-radius: 10px; margin-bottom: 16px;
+    font-size: .9em; line-height:1.4;
+  }
+  .banner-ok   { background:#d1fae5; border:1px solid #6ee7b7; color:#047857; }
+  .banner-warn { background:#fef3c7; border:1px solid #fcd34d; color:#92400e; }
+  .banner-miss { background:#fee2e2; border:1px solid #fca5a5; color:#991b1b; }
+
+  /* ── Formular ──────────────────────────────────────────────────── */
+  .field { margin-bottom: 14px; }
+  .field label { display:block; font-size:.82em; font-weight:600;
+                 color: var(--text-muted); margin-bottom: 4px; }
+  .field input[type=number], .field input[type=text],
+  .field textarea, .field select {
+    width:100%; padding: 8px 10px; border:1px solid var(--border);
+    border-radius:6px; background:var(--bg); color:var(--text); font-size:.9em;
+  }
+  .field textarea { min-height: 60px; font-family: inherit; resize:vertical; }
+  .field .hint  { color: var(--text-faint); font-size:.75em; margin-top:4px; }
+  .row-2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .toggle {
+    display:flex; align-items:center; gap:10px; padding: 12px;
+    border:1px solid var(--border); border-radius: 8px;
+    background: var(--bg-subtle); margin-bottom: 14px; cursor:pointer;
+  }
+  .toggle input { width: 18px; height: 18px; }
+  .btn {
+    padding: 9px 16px; border: 0; border-radius: 6px; cursor:pointer;
+    font-weight:600; font-size:.9em;
+  }
+  .btn-primary   { background: var(--accent, #2563eb); color:#fff; }
+  .btn-secondary { background: var(--bg-subtle); color: var(--text);
+                   border:1px solid var(--border); }
+  .btn-row { display:flex; gap:10px; flex-wrap:wrap; margin-top: 20px; }
+
+  /* ── Preview: Drucker-Picker + MFP-Illustration ────────────────── */
+  .picker-wrap { position:relative; margin-bottom: 20px; }
+  .picker-input {
+    width:100%; padding: 12px 14px; border:2px solid var(--border);
+    border-radius: 10px; font-size: 1em; background: var(--bg);
+    color: var(--text);
+  }
+  .picker-input:focus { border-color: var(--accent, #2563eb); outline: none; }
+  .picker-dropdown {
+    position:absolute; top: calc(100% + 4px); left:0; right:0;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; max-height: 280px; overflow-y: auto;
+    z-index: 10; display:none;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  }
+  .picker-dropdown.open { display:block; }
+  .picker-item {
+    padding: 10px 14px; cursor:pointer; border-bottom: 1px solid var(--border-faint);
+    display:flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .picker-item:hover, .picker-item.active { background: var(--bg-subtle); }
+  .picker-item .p-name { font-weight: 600; font-size:.92em; }
+  .picker-item .p-loc  { font-size: .75em; color: var(--text-muted); }
+  .picker-item .p-state { font-size:.72em; padding: 2px 7px; border-radius: 10px;
+                          background: #e0e7ff; color: #3730a3; }
+
+  .preview-panel {
+    display:flex; gap: 28px; align-items: center; padding: 24px;
+    background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+    border: 1px solid #e0e7ff; border-radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    .preview-panel {
+      background: linear-gradient(135deg, #1f2937 0%, #312e81 100%);
+      border-color: #4338ca;
+    }
+  }
+  .mfp-illus { flex-shrink: 0; }
+  .preview-info { flex-grow: 1; min-width: 0; }
+  .preview-info h3 { margin: 0 0 4px 0; font-size: 1.15em; }
+  .preview-info .p-meta {
+    color: var(--text-muted); font-size:.82em; margin-bottom: 14px;
+  }
+  .toner-bar-row {
+    display:grid; grid-template-columns: 32px 1fr 46px;
+    gap: 8px; align-items: center; margin-bottom: 6px;
+    font-size:.85em;
+  }
+  .toner-bar-row .label { font-weight:600; text-align:center; }
+  .toner-bar-outer {
+    height: 10px; border-radius: 5px; overflow:hidden;
+    background: rgba(0,0,0,0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    .toner-bar-outer { background: rgba(255,255,255,0.1); }
+  }
+  .toner-bar-fill { height: 100%; transition: width .3s; }
+  .fill-black   { background: #333; }
+  .fill-cyan    { background: #0088cc; }
+  .fill-magenta { background: #c6238a; }
+  .fill-yellow  { background: #e0a800; }
+  .fill-empty   { background: rgba(0,0,0,0.15); }
+  .preview-empty {
+    color: var(--text-muted); font-size:.88em; padding: 12px 0;
+  }
+  .preview-error-chip {
+    display:inline-block; margin-top:8px; padding: 3px 8px;
+    border-radius: 10px; font-size:.72em; font-weight:600;
+    background:#fef3c7; color:#92400e;
+  }
+
+  /* ── Alert-Tabelle + History ──────────────────────────────────── */
+  table.compact { border-collapse:collapse; width:100%; font-size:.88em; }
+  table.compact th {
+    text-align:left; font-size:.72em; color:var(--text-muted);
+    text-transform: uppercase; padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  table.compact td {
+    padding: 8px; border-bottom: 1px solid var(--border-faint);
+  }
+  .sev-chip {
+    display:inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: .72em; font-weight:600;
+  }
   .sev-critical { background:#dc2626; color:#fff; }
-  .sev-warn { background:#f59e0b; color:#fff; }
-  .sev-ok { background:#10b981; color:#fff; }
-  .log-list { max-height:340px; overflow-y:auto; }
-  .log-entry { padding:8px 10px; border-bottom:1px solid var(--border-faint);
-               font-size:.85em; }
-  .log-entry .log-ts { color:var(--text-muted); font-size:.75em; }
-  .banner-ok { background:#d1fae5; border:1px solid #6ee7b7; padding:10px 14px;
-                border-radius:8px; margin-bottom:16px; color:#047857; }
-  .banner-warn { background:#fef3c7; border:1px solid #fcd34d; padding:10px 14px;
-                  border-radius:8px; margin-bottom:16px; color:#92400e; }
+  .sev-warn     { background:#f59e0b; color:#fff; }
+  .sev-ok       { background:#10b981; color:#fff; }
+  .log-list { max-height: 320px; overflow-y: auto; }
+  .log-entry {
+    padding: 8px 10px; border-bottom: 1px solid var(--border-faint);
+    font-size: .85em;
+  }
+  .log-entry .log-ts { color: var(--text-muted); font-size: .72em; }
+
+  #toner-action-result { margin-top: 10px; font-size:.85em; }
 </style>
 
-<div class="toner-grid">
+<div class="toner-wrap">
 
-  <!-- Sidebar: Settings -->
-  <div>
-    <div class="toner-card">
-      <h1 style="font-size:1.4em; margin:0 0 4px 0;">🖨️ {{ _('toner_alerts_title') }}</h1>
-      <p style="color:var(--text-muted); font-size:.88em; margin-bottom:20px;">
-        {{ _('toner_alerts_intro') }}
-      </p>
-
-      {% if request.query_params.get('ok') %}
-        <div class="banner-ok">✓ {{ _('toner_saved') }}</div>
-      {% endif %}
-      {% if not bi_available %}
-        <div class="banner-warn">
-          ⚠ {{ _('toner_no_bi_db') }}
-        </div>
-      {% endif %}
-
-      <form method="post" action="/admin/toner/settings">
-        <label class="toner-toggle">
-          <input type="checkbox" name="enabled" value="1"
-                 {% if cfg.enabled %}checked{% endif %}>
-          <span>{{ _('toner_enable') }}</span>
-        </label>
-
-        <h2>{{ _('toner_thresholds') }}</h2>
-        <div class="toner-row">
-          <div class="toner-field">
-            <label>{{ _('toner_warn_threshold') }}</label>
-            <input type="number" name="threshold_warn" min="1" max="99"
-                   value="{{ cfg.threshold_warn }}">
-            <div class="hint">{{ _('toner_warn_hint') }}</div>
-          </div>
-          <div class="toner-field">
-            <label>{{ _('toner_critical_threshold') }}</label>
-            <input type="number" name="threshold_critical" min="0" max="99"
-                   value="{{ cfg.threshold_critical }}">
-            <div class="hint">{{ _('toner_critical_hint') }}</div>
-          </div>
-        </div>
-        <div class="toner-field">
-          <label>{{ _('toner_hysteresis') }}</label>
-          <input type="number" name="hysteresis_percent" min="0" max="50"
-                 value="{{ cfg.hysteresis_percent }}">
-          <div class="hint">{{ _('toner_hysteresis_hint') }}</div>
-        </div>
-        <div class="toner-field">
-          <label>{{ _('toner_lead_time') }}</label>
-          <input type="number" name="lead_time_days" min="0" max="30"
-                 value="{{ cfg.lead_time_days }}">
-          <div class="hint">{{ _('toner_lead_time_hint') }}</div>
-        </div>
-
-        <h2 style="margin-top:20px;">{{ _('toner_recipients') }}</h2>
-        <div class="toner-field">
-          <label>{{ _('toner_recipients_label') }}</label>
-          <textarea name="recipients"
-                    placeholder="admin@example.com, order@example.com">{{ cfg.recipients }}</textarea>
-          <div class="hint">{{ _('toner_recipients_hint') }}</div>
-        </div>
-
-        <h2 style="margin-top:20px;">{{ _('toner_delivery') }}</h2>
-        <div class="toner-field">
-          <label class="toner-toggle" style="margin:0;">
-            <input type="checkbox" name="digest_mode" value="1"
-                   {% if cfg.digest_mode %}checked{% endif %}>
-            <span>{{ _('toner_digest_mode') }}</span>
-          </label>
-          <div class="hint">{{ _('toner_digest_hint') }}</div>
-        </div>
-        <div class="toner-row">
-          <div class="toner-field">
-            <label>{{ _('toner_interval') }}</label>
-            <input type="number" name="check_interval_min" min="15" max="1440"
-                   value="{{ cfg.check_interval_min }}">
-            <div class="hint">{{ _('toner_interval_hint') }}</div>
-          </div>
-          <div class="toner-field">
-            <label>{{ _('toner_digest_hour') }}</label>
-            <input type="number" name="digest_hour_utc" min="0" max="23"
-                   value="{{ cfg.digest_hour_utc }}">
-            <div class="hint">{{ _('toner_digest_hour_hint') }}</div>
-          </div>
-        </div>
-        <div class="toner-row">
-          <div class="toner-field">
-            <label>{{ _('toner_quiet_start') }}</label>
-            <input type="number" name="quiet_hours_start" min="-1" max="23"
-                   value="{{ cfg.quiet_hours_start }}">
-            <div class="hint">{{ _('toner_quiet_hint') }}</div>
-          </div>
-          <div class="toner-field">
-            <label>{{ _('toner_quiet_end') }}</label>
-            <input type="number" name="quiet_hours_end" min="-1" max="23"
-                   value="{{ cfg.quiet_hours_end }}">
-            <div class="hint">&nbsp;</div>
-          </div>
-        </div>
-
-        <div class="toner-field">
-          <label class="toner-toggle" style="margin:0;">
-            <input type="checkbox" name="include_error_states" value="1"
-                   {% if cfg.include_error_states %}checked{% endif %}>
-            <span>{{ _('toner_include_errors') }}</span>
-          </label>
-          <div class="hint">{{ _('toner_include_errors_hint') }}</div>
-        </div>
-
-        <div style="display:flex; gap:10px; margin-top:20px;">
-          <button type="submit" class="toner-btn toner-btn-primary">
-            {{ _('toner_save') }}
-          </button>
-          <button type="button" class="toner-btn toner-btn-secondary"
-                  onclick="tonerTest()">
-            ✉ {{ _('toner_test_send') }}
-          </button>
-          <button type="button" class="toner-btn toner-btn-secondary"
-                  onclick="tonerRunNow()">
-            ↻ {{ _('toner_run_now') }}
-          </button>
-        </div>
-        <div id="toner-action-result" style="margin-top:10px; font-size:.85em;"></div>
-      </form>
+  {# ── Header ───────────────────────────────────────────────────── #}
+  <div class="toner-header">
+    <div class="toner-title">
+      <h1>🖨️ {{ _('toner_alerts_title') }}</h1>
+      <p>{{ _('toner_alerts_intro') }}</p>
     </div>
+    {% if not bi_configured %}
+      <span class="status-pill miss">
+        <span class="dot"></span> {{ _('toner_status_no_creds') }}
+      </span>
+    {% elif not bi_reachable %}
+      <span class="status-pill warn">
+        <span class="dot"></span> {{ _('toner_status_unreachable') }}
+      </span>
+    {% else %}
+      <span class="status-pill ok">
+        <span class="dot"></span> {{ _('toner_status_active') }}
+        · {{ preview_printers|length }} {{ _('toner_printers_word') }}
+      </span>
+    {% endif %}
   </div>
 
-  <!-- Main: Übersicht + History -->
-  <div>
-    <div class="toner-card">
-      <h2>{{ _('toner_overview') }}
-        <span style="font-weight:400;font-size:.75em;color:var(--text-muted);
-                     margin-left:8px;">
-          ({{ printers|length }} {{ _('toner_readings') }})
-        </span>
-      </h2>
-      {% if printers %}
-        <div style="overflow-x:auto;">
-          <table class="printers">
-            <thead>
-              <tr>
-                <th>{{ _('toner_col_status') }}</th>
-                <th>{{ _('toner_col_printer') }}</th>
-                <th>{{ _('toner_col_color') }}</th>
-                <th>{{ _('toner_col_level') }}</th>
-                <th>{{ _('toner_col_days') }}</th>
-              </tr>
-            </thead>
-            <tbody>
+  {% if request.query_params.get('ok') %}
+    <div class="banner banner-ok">✓ {{ _('toner_saved') }}</div>
+  {% endif %}
+  {% if not bi_configured %}
+    <div class="banner banner-miss">
+      <b>{{ _('toner_no_bi_db_heading') }}</b><br>
+      {{ _('toner_no_bi_db') }}
+      <a href="/admin/settings?section=printix" style="color:inherit;text-decoration:underline;">
+        {{ _('toner_link_to_settings') }} →
+      </a>
+    </div>
+  {% elif not bi_reachable %}
+    <div class="banner banner-warn">
+      <b>{{ _('toner_bi_unreachable_heading') }}</b><br>
+      {{ _('toner_bi_unreachable_hint') }}
+    </div>
+  {% endif %}
+
+  {# ── 2-Spalten-Grid: Settings | Preview + Overview + History ─── #}
+  <div class="toner-grid two-col">
+
+    {# ── Linke Spalte: Settings-Formular ────────────────────────── #}
+    <div>
+      <div class="card">
+        <h2>⚙️ {{ _('toner_settings_heading') }}</h2>
+        <form method="post" action="/admin/toner/settings">
+          <label class="toggle">
+            <input type="checkbox" name="enabled" value="1"
+                   {% if cfg.enabled %}checked{% endif %}>
+            <div>
+              <div style="font-weight:600;">{{ _('toner_enable') }}</div>
+              <div style="font-size:.78em; color: var(--text-muted);">
+                {{ _('toner_enable_hint') }}
+              </div>
+            </div>
+          </label>
+
+          <h3 style="font-size:.92em; margin: 18px 0 10px 0;">
+            {{ _('toner_thresholds') }}
+          </h3>
+          <div class="row-2">
+            <div class="field">
+              <label>{{ _('toner_warn_threshold') }}</label>
+              <input type="number" name="threshold_warn" min="1" max="99"
+                     value="{{ cfg.threshold_warn }}">
+              <div class="hint">{{ _('toner_warn_hint') }}</div>
+            </div>
+            <div class="field">
+              <label>{{ _('toner_critical_threshold') }}</label>
+              <input type="number" name="threshold_critical" min="0" max="99"
+                     value="{{ cfg.threshold_critical }}">
+              <div class="hint">{{ _('toner_critical_hint') }}</div>
+            </div>
+          </div>
+          <div class="row-2">
+            <div class="field">
+              <label>{{ _('toner_hysteresis') }}</label>
+              <input type="number" name="hysteresis_percent" min="0" max="50"
+                     value="{{ cfg.hysteresis_percent }}">
+            </div>
+            <div class="field">
+              <label>{{ _('toner_lead_time') }}</label>
+              <input type="number" name="lead_time_days" min="0" max="30"
+                     value="{{ cfg.lead_time_days }}">
+            </div>
+          </div>
+
+          <h3 style="font-size:.92em; margin: 18px 0 10px 0;">
+            📧 {{ _('toner_recipients') }}
+          </h3>
+          <div class="field">
+            <textarea name="recipients"
+                      placeholder="admin@firma.de, einkauf@firma.de">{{ cfg.recipients }}</textarea>
+            <div class="hint">{{ _('toner_recipients_hint') }}</div>
+          </div>
+
+          <h3 style="font-size:.92em; margin: 18px 0 10px 0;">
+            🕐 {{ _('toner_delivery') }}
+          </h3>
+          <label class="toggle">
+            <input type="checkbox" name="digest_mode" value="1"
+                   {% if cfg.digest_mode %}checked{% endif %}>
+            <div>
+              <div style="font-weight:600;">{{ _('toner_digest_mode') }}</div>
+              <div style="font-size:.78em; color: var(--text-muted);">
+                {{ _('toner_digest_hint') }}
+              </div>
+            </div>
+          </label>
+          <div class="row-2">
+            <div class="field">
+              <label>{{ _('toner_interval') }}</label>
+              <input type="number" name="check_interval_min" min="15" max="1440"
+                     value="{{ cfg.check_interval_min }}">
+            </div>
+            <div class="field">
+              <label>{{ _('toner_digest_hour') }}</label>
+              <input type="number" name="digest_hour_utc" min="0" max="23"
+                     value="{{ cfg.digest_hour_utc }}">
+            </div>
+          </div>
+          <div class="row-2">
+            <div class="field">
+              <label>{{ _('toner_quiet_start') }}</label>
+              <input type="number" name="quiet_hours_start" min="-1" max="23"
+                     value="{{ cfg.quiet_hours_start }}">
+            </div>
+            <div class="field">
+              <label>{{ _('toner_quiet_end') }}</label>
+              <input type="number" name="quiet_hours_end" min="-1" max="23"
+                     value="{{ cfg.quiet_hours_end }}">
+            </div>
+          </div>
+          <div class="hint" style="margin-top:-4px;">{{ _('toner_quiet_hint') }}</div>
+
+          <label class="toggle" style="margin-top:14px;">
+            <input type="checkbox" name="include_error_states" value="1"
+                   {% if cfg.include_error_states %}checked{% endif %}>
+            <div>
+              <div style="font-weight:600;">{{ _('toner_include_errors') }}</div>
+              <div style="font-size:.78em; color: var(--text-muted);">
+                {{ _('toner_include_errors_hint') }}
+              </div>
+            </div>
+          </label>
+
+          <div class="btn-row">
+            <button type="submit" class="btn btn-primary">
+              💾 {{ _('toner_save') }}
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="tonerTest()">
+              ✉ {{ _('toner_test_send') }}
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="tonerRunNow()">
+              ↻ {{ _('toner_run_now') }}
+            </button>
+          </div>
+          <div id="toner-action-result"></div>
+        </form>
+      </div>
+    </div>
+
+    {# ── Rechte Spalte: Preview + Alerts + History ──────────────── #}
+    <div>
+
+      {% if bi_configured and bi_reachable %}
+        {# ── Live-Preview: Drucker-Picker + MFP-Karte ────────────── #}
+        <div class="card" style="margin-bottom: 20px;">
+          <h2>🔍 {{ _('toner_preview_heading') }}</h2>
+          <p style="color: var(--text-muted); font-size:.85em; margin: 0 0 14px 0;">
+            {{ _('toner_preview_intro') }}
+          </p>
+
+          <div class="picker-wrap">
+            <input type="text" class="picker-input" id="printer-picker"
+                   placeholder="{{ _('toner_picker_placeholder') }}"
+                   autocomplete="off"
+                   oninput="filterPicker(this.value)"
+                   onfocus="openPicker()"
+                   onblur="setTimeout(closePicker, 200)">
+            <div class="picker-dropdown" id="picker-dropdown">
+              {% for p in preview_printers %}
+                <div class="picker-item" data-idx="{{ loop.index0 }}"
+                     data-name="{{ p.printer_name|lower }}"
+                     data-loc="{{ p.location|lower }}"
+                     onclick="selectPrinter({{ loop.index0 }})">
+                  <div>
+                    <div class="p-name">{{ p.printer_name }}</div>
+                    <div class="p-loc">{{ p.location or _('toner_no_location') }}</div>
+                  </div>
+                  {% if p.state %}
+                    <span class="p-state">{{ p.state }}</span>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div id="preview-panel-host">
+            {# Initial: erster Drucker mit Supplies, sonst leerer Panel #}
+            {% set first_with_supplies = namespace(idx=-1) %}
+            {% for p in preview_printers %}
+              {% if p.supplies and first_with_supplies.idx == -1 %}
+                {% set first_with_supplies.idx = loop.index0 %}
+              {% endif %}
+            {% endfor %}
+            {% if first_with_supplies.idx == -1 and preview_printers %}
+              {% set first_with_supplies.idx = 0 %}
+            {% endif %}
+            {% if first_with_supplies.idx >= 0 %}
+              {% set p = preview_printers[first_with_supplies.idx] %}
+              <div class="preview-panel" id="preview-panel">
+                <div class="mfp-illus">
+                  {% include "_mfp_illustration.svg" ignore missing %}
+                  <svg width="160" height="140" viewBox="0 0 160 140" fill="none"
+                       xmlns="http://www.w3.org/2000/svg" style="display:block;">
+                    <!-- Top: Scanner-Deckel -->
+                    <rect x="15" y="8" width="130" height="10" rx="2"
+                          fill="#334155" opacity=".9"/>
+                    <!-- Scanner-Glas -->
+                    <rect x="20" y="18" width="120" height="18" rx="2"
+                          fill="#94a3b8" opacity=".4"/>
+                    <!-- Bedienpanel -->
+                    <rect x="105" y="40" width="35" height="18" rx="3"
+                          fill="#1e293b"/>
+                    <rect x="108" y="43" width="29" height="12" rx="1"
+                          fill="#60a5fa" opacity=".8"/>
+                    <!-- Body -->
+                    <rect x="15" y="40" width="130" height="70" rx="4"
+                          fill="#64748b"/>
+                    <!-- Papierschacht Front-Klappe -->
+                    <rect x="25" y="72" width="60" height="30" rx="3"
+                          fill="#475569" stroke="#334155" stroke-width="1"/>
+                    <line x1="25" y1="85" x2="85" y2="85"
+                          stroke="#334155" stroke-width="1" opacity=".6"/>
+                    <!-- Toner-Klappe -->
+                    <rect x="90" y="72" width="55" height="20" rx="2"
+                          fill="#475569" stroke="#334155" stroke-width="1"/>
+                    <circle cx="140" cy="82" r="2" fill="#22d3ee"/>
+                    <!-- Fuss -->
+                    <rect x="12" y="110" width="136" height="8" rx="1"
+                          fill="#334155"/>
+                    <rect x="18" y="118" width="12" height="12" rx="1"
+                          fill="#1e293b"/>
+                    <rect x="130" y="118" width="12" height="12" rx="1"
+                          fill="#1e293b"/>
+                    <!-- Papier-Ausgabe -->
+                    <rect x="30" y="60" width="55" height="4" fill="#f8fafc"/>
+                  </svg>
+                </div>
+                <div class="preview-info">
+                  <h3 id="pv-name">{{ p.printer_name }}</h3>
+                  <div class="p-meta" id="pv-meta">
+                    {{ p.location or _('toner_no_location') }}
+                    {% if p.state %} · {{ p.state }}{% endif %}
+                  </div>
+                  <div id="pv-supplies">
+                    {% if p.supplies %}
+                      {% for s in p.supplies %}
+                        <div class="toner-bar-row">
+                          <span class="label">
+                            {% if s.color == 'black' %}K
+                            {% elif s.color == 'cyan' %}C
+                            {% elif s.color == 'magenta' %}M
+                            {% elif s.color == 'yellow' %}Y
+                            {% else %}{{ s.color[0]|upper }}{% endif %}
+                          </span>
+                          <div class="toner-bar-outer">
+                            <div class="toner-bar-fill fill-{{ s.color }}"
+                                 style="width: {{ s.level }}%;"></div>
+                          </div>
+                          <span style="text-align:right;">{{ s.level }}%</span>
+                        </div>
+                      {% endfor %}
+                    {% else %}
+                      <div class="preview-empty">
+                        {{ _('toner_preview_no_data') }}
+                      </div>
+                    {% endif %}
+                  </div>
+                  <div id="pv-errors">
+                    {% for err in p.error_states %}
+                      <span class="preview-error-chip">⚠ {{ err }}</span>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+            {% else %}
+              <div class="preview-empty">
+                {{ _('toner_no_printers') }}
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+
+      {# ── Aktive Alerts ────────────────────────────────────────── #}
+      <div class="card" style="margin-bottom: 20px;">
+        <h2>🚨 {{ _('toner_alerts_active_heading') }}
+          <span style="font-weight:400; font-size:.78em; color:var(--text-muted);">
+            ({{ printers|length }})
+          </span>
+        </h2>
+        {% if printers %}
+          <div style="overflow-x:auto;">
+            <table class="compact">
+              <thead>
+                <tr>
+                  <th>{{ _('toner_col_status') }}</th>
+                  <th>{{ _('toner_col_printer') }}</th>
+                  <th>{{ _('toner_col_color') }}</th>
+                  <th>{{ _('toner_col_level') }}</th>
+                  <th>{{ _('toner_col_days') }}</th>
+                </tr>
+              </thead>
+              <tbody>
               {% for r in printers %}
                 <tr>
                   <td>
                     <span class="sev-chip sev-{{ r.severity }}">
                       {% if r.severity == 'critical' %}{{ _('toner_sev_critical') }}
-                      {% elif r.severity == 'warn' %}{{ _('toner_sev_warn') }}
-                      {% else %}OK{% endif %}
+                      {% else %}{{ _('toner_sev_warn') }}{% endif %}
                     </span>
                   </td>
                   <td>
                     <div style="font-weight:600;">{{ r.printer_name }}</div>
-                    <div style="font-size:.78em;color:var(--text-muted);">
-                      {{ r.location }}{% if r.state %} · {{ r.state }}{% endif %}
+                    <div style="font-size:.75em; color: var(--text-muted);">
+                      {{ r.location }}
                     </div>
                   </td>
+                  <td>{{ r.color }}</td>
                   <td>
-                    {% if r.color == 'black' %}{{ _('toner_color_black') }}
-                    {% elif r.color == 'cyan' %}Cyan
-                    {% elif r.color == 'magenta' %}Magenta
-                    {% elif r.color == 'yellow' %}{{ _('toner_color_yellow') }}
-                    {% else %}{{ r.color }}{% endif %}
-                  </td>
-                  <td>
-                    <span class="bar-wrap">
-                      <span class="bar-fill bar-{{ r.color }}"
-                            style="width: {{ r.level }}%;"></span>
-                    </span>
+                    <div class="toner-bar-outer" style="width:100px; display:inline-block; vertical-align:middle;">
+                      <div class="toner-bar-fill fill-{{ r.color }}"
+                           style="width: {{ r.level }}%;"></div>
+                    </div>
                     <span style="margin-left:6px;">{{ r.level }}%</span>
                   </td>
                   <td>
@@ -246,63 +519,132 @@
                   </td>
                 </tr>
               {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      {% else %}
-        <p style="color:var(--text-muted); font-size:.9em;">
-          {% if bi_available %}
-            {{ _('toner_no_printers') }}
-          {% else %}
-            {{ _('toner_no_bi_db_short') }}
-          {% endif %}
-        </p>
-      {% endif %}
-    </div>
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p style="color: var(--text-muted); font-size:.88em; margin:0;">
+            {% if bi_configured and bi_reachable %}
+              ✓ {{ _('toner_no_alerts_active') }}
+            {% else %}
+              {{ _('toner_no_bi_db_short') }}
+            {% endif %}
+          </p>
+        {% endif %}
+      </div>
 
-    <div class="toner-card" style="margin-top:16px;">
-      <h2>{{ _('toner_history') }}</h2>
-      {% if log_entries %}
-        <div class="log-list">
-          {% for e in log_entries %}
-            <div class="log-entry">
-              <div class="log-ts">{{ e.ts }}</div>
-              <div>
-                {% if e.kind == 'alert' %}
-                  <span class="sev-chip sev-{{ e.severity or 'warn' }}">
-                    {% if e.severity == 'critical' %}{{ _('toner_sev_critical') }}
-                    {% else %}{{ _('toner_sev_warn') }}{% endif %}
-                  </span>
-                  <b>{{ e.printer_name }}</b> —
-                  {{ e.color }} @ {{ e.level }}%
-                {% elif e.kind == 'digest' %}
-                  <b>{{ _('toner_digest_sent') }}</b> — {{ e.note }}
-                {% elif e.kind == 'test_mail' %}
-                  <b>✉ {{ _('toner_test_sent') }}</b>
-                {% elif e.kind.endswith('_failed') %}
-                  <span style="color:#dc2626;">✗ {{ e.kind }}</span> — {{ e.note }}
-                {% else %}
-                  {{ e.kind }} — {{ e.note }}
-                {% endif %}
-                {% if e.recipients %}
-                  <div style="font-size:.78em;color:var(--text-muted);">
-                    → {{ e.recipients }}
-                  </div>
-                {% endif %}
+      {# ── History ─────────────────────────────────────────────── #}
+      <div class="card">
+        <h2>📜 {{ _('toner_history') }}</h2>
+        {% if log_entries %}
+          <div class="log-list">
+            {% for e in log_entries %}
+              <div class="log-entry">
+                <div class="log-ts">{{ e.ts }}</div>
+                <div>
+                  {% if e.kind == 'alert' %}
+                    <span class="sev-chip sev-{{ e.severity or 'warn' }}">
+                      {% if e.severity == 'critical' %}{{ _('toner_sev_critical') }}
+                      {% else %}{{ _('toner_sev_warn') }}{% endif %}
+                    </span>
+                    <b>{{ e.printer_name }}</b> — {{ e.color }} @ {{ e.level }}%
+                  {% elif e.kind == 'digest' %}
+                    <b>{{ _('toner_digest_sent') }}</b> — {{ e.note }}
+                  {% elif e.kind == 'test_mail' %}
+                    <b>✉ {{ _('toner_test_sent') }}</b>
+                  {% elif e.kind.endswith('_failed') %}
+                    <span style="color:#dc2626;">✗ {{ e.kind }}</span> — {{ e.note }}
+                  {% else %}
+                    {{ e.kind }} — {{ e.note }}
+                  {% endif %}
+                  {% if e.recipients %}
+                    <div style="font-size:.75em; color: var(--text-muted);">
+                      → {{ e.recipients }}
+                    </div>
+                  {% endif %}
+                </div>
               </div>
-            </div>
-          {% endfor %}
-        </div>
-      {% else %}
-        <p style="color:var(--text-muted); font-size:.9em;">
-          {{ _('toner_no_history') }}
-        </p>
-      {% endif %}
+            {% endfor %}
+          </div>
+        {% else %}
+          <p style="color: var(--text-muted); font-size:.88em; margin:0;">
+            {{ _('toner_no_history') }}
+          </p>
+        {% endif %}
+      </div>
+
     </div>
   </div>
 </div>
 
 <script>
+// ── Drucker-Picker mit Search-while-typing ──────────────────────────
+const PRINTERS = [
+  {% for p in preview_printers %}
+    {
+      name: {{ p.printer_name|tojson }},
+      location: {{ (p.location or "")|tojson }},
+      state: {{ (p.state or "")|tojson }},
+      supplies: {{ p.supplies|tojson }},
+      errors: {{ p.error_states|tojson }},
+    }{% if not loop.last %},{% endif %}
+  {% endfor %}
+];
+
+function openPicker() {
+  document.getElementById('picker-dropdown').classList.add('open');
+}
+function closePicker() {
+  document.getElementById('picker-dropdown').classList.remove('open');
+}
+function filterPicker(q) {
+  q = (q || '').toLowerCase().trim();
+  const items = document.querySelectorAll('.picker-item');
+  items.forEach(item => {
+    const name = item.dataset.name || '';
+    const loc  = item.dataset.loc  || '';
+    item.style.display = (!q || name.includes(q) || loc.includes(q)) ? '' : 'none';
+  });
+  openPicker();
+}
+function selectPrinter(idx) {
+  const p = PRINTERS[idx];
+  if (!p) return;
+  document.getElementById('pv-name').textContent = p.name;
+  const metaBits = [];
+  metaBits.push(p.location || '{{ _("toner_no_location") }}');
+  if (p.state) metaBits.push(p.state);
+  document.getElementById('pv-meta').textContent = metaBits.join(' · ');
+
+  const sup = document.getElementById('pv-supplies');
+  if (p.supplies && p.supplies.length) {
+    sup.innerHTML = p.supplies.map(s => {
+      const label = s.color === 'black' ? 'K' : s.color === 'cyan' ? 'C'
+                  : s.color === 'magenta' ? 'M' : s.color === 'yellow' ? 'Y'
+                  : s.color[0].toUpperCase();
+      return `
+        <div class="toner-bar-row">
+          <span class="label">${label}</span>
+          <div class="toner-bar-outer">
+            <div class="toner-bar-fill fill-${s.color}" style="width:${s.level}%;"></div>
+          </div>
+          <span style="text-align:right;">${s.level}%</span>
+        </div>`;
+    }).join('');
+  } else {
+    sup.innerHTML = `<div class="preview-empty">{{ _("toner_preview_no_data") }}</div>`;
+  }
+
+  const errs = document.getElementById('pv-errors');
+  errs.innerHTML = (p.errors || []).map(e =>
+    `<span class="preview-error-chip">⚠ ${e}</span>`
+  ).join('');
+
+  document.getElementById('printer-picker').value = p.name;
+  closePicker();
+}
+
+// ── Test/Run-Buttons ────────────────────────────────────────────────
 async function tonerAction(url, label) {
   const box = document.getElementById('toner-action-result');
   box.innerHTML = '⏳ ' + label + '…';

@@ -58,8 +58,8 @@ def register_toner_alert_routes(app: FastAPI,
             return templates.TemplateResponse("admin_toner.html", {
                 "request": request, "user": user,
                 "cfg": ta.DEFAULT_SETTINGS,
-                "printers": [], "log_entries": [],
-                "bi_available": False,
+                "printers": [], "preview_printers": [], "log_entries": [],
+                "bi_configured": False, "bi_reachable": False,
                 "tenant_key": "",
                 "active_page": "admin_toner",
                 **t_ctx(request),
@@ -67,35 +67,71 @@ def register_toner_alert_routes(app: FastAPI,
 
         tid = _tenant_key(tenant)
         cfg = ta.get_settings(tid)
-        printers = fetch_all_printer_supplies(tenant)
-        bi_available = printers is not None
+
+        # v0.7.267: unterscheide "keine Creds hinterlegt" (bi_configured=False)
+        # von "Creds da, aber DB gerade nicht erreichbar" (bi_configured=True,
+        # bi_reachable=False). Vorher haben beide Faelle den gleichen gelben
+        # Banner produziert — irrefuehrend wenn die Creds eigentlich drin sind.
+        bi_configured = all([
+            (tenant.get("sql_server")   or "").strip(),
+            (tenant.get("sql_database") or "").strip(),
+            (tenant.get("sql_username") or "").strip(),
+            (tenant.get("sql_password") or "").strip(),
+        ])
+        printers = fetch_all_printer_supplies(tenant) if bi_configured else None
+        bi_reachable = printers is not None
+
+        # Low-Severity-Zeilen fuer die "Alerts jetzt aktiv"-Tabelle (nur die
+        # Farben unter Schwelle) + kompletter Drucker-Katalog fuer den Live-
+        # Preview-Picker.
         rows = []
+        preview_printers = []
         if printers:
+            warn_v = int(cfg.get("threshold_warn", 20))
+            crit_v = int(cfg.get("threshold_critical", 5))
+            lead = int(cfg.get("lead_time_days", 0))
             for p in printers:
+                p_supplies = []
                 for s in p.get("supplies", []):
-                    d = estimate_days_until_empty(
-                        tenant, p["printer_id"], s["color"], s["level"]
-                    ) if int(cfg.get("lead_time_days", 0)) > 0 else None
-                    sev = ta.classify_severity(
-                        s["level"], int(cfg.get("threshold_warn", 20)),
-                        int(cfg.get("threshold_critical", 5)),
-                        d, int(cfg.get("lead_time_days", 0)))
-                    rows.append({
-                        "printer_id":   p["printer_id"],
-                        "printer_name": p.get("printer_name") or p["printer_id"][:8],
-                        "location":     p.get("location") or "",
-                        "state":        p.get("reported_state") or "",
-                        "color":        s["color"],
-                        "level":        s["level"],
-                        "days_left":    d,
-                        "severity":     sev,
-                    })
+                    d = (estimate_days_until_empty(
+                            tenant, p["printer_id"], s["color"], s["level"])
+                         if lead > 0 else None)
+                    sev = ta.classify_severity(s["level"], warn_v, crit_v, d, lead)
+                    supply_data = {
+                        "color": s["color"], "level": s["level"],
+                        "days_left": d, "severity": sev,
+                    }
+                    p_supplies.append(supply_data)
+                    if sev != "ok":
+                        rows.append({
+                            "printer_id":   p["printer_id"],
+                            "printer_name": p.get("printer_name") or p["printer_id"][:8],
+                            "location":     p.get("location") or "",
+                            "state":        p.get("reported_state") or "",
+                            "color":        s["color"],
+                            "level":        s["level"],
+                            "days_left":    d,
+                            "severity":     sev,
+                        })
+                # Auch Drucker ohne Toner-Daten in den Picker aufnehmen
+                # (sinnvoll um zu sehen "der Drucker liefert nichts").
+                preview_printers.append({
+                    "printer_id":   p["printer_id"],
+                    "printer_name": p.get("printer_name") or p["printer_id"][:8],
+                    "location":     p.get("location") or "",
+                    "state":        p.get("reported_state") or "",
+                    "error_states": p.get("error_states") or [],
+                    "supplies":     p_supplies,
+                })
+
         log_entries = ta.recent_log(tid, limit=30)
         return templates.TemplateResponse("admin_toner.html", {
             "request": request, "user": user,
             "cfg": cfg, "printers": rows,
+            "preview_printers": preview_printers,
             "log_entries": log_entries,
-            "bi_available": bi_available,
+            "bi_configured": bi_configured,
+            "bi_reachable":  bi_reachable,
             "tenant_key": tid,
             "active_page": "admin_toner",
             **t_ctx(request),
