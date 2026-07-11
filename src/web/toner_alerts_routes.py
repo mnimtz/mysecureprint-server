@@ -60,6 +60,8 @@ def register_toner_alert_routes(app: FastAPI,
                 "cfg": ta.DEFAULT_SETTINGS,
                 "alert_printers": [], "preview_printers": [], "log_entries": [],
                 "bi_configured": False, "bi_reachable": False,
+                "default_email_subject": ta.DEFAULT_EMAIL_SUBJECT,
+                "default_email_body_html": ta.DEFAULT_EMAIL_BODY_HTML,
                 "tenant_key": "",
                 "active_page": "admin_toner",
                 **t_ctx(request),
@@ -141,6 +143,8 @@ def register_toner_alert_routes(app: FastAPI,
             "log_entries": log_entries,
             "bi_configured": bi_configured,
             "bi_reachable":  bi_reachable,
+            "default_email_subject": ta.DEFAULT_EMAIL_SUBJECT,
+            "default_email_body_html": ta.DEFAULT_EMAIL_BODY_HTML,
             "tenant_key": tid,
             "active_page": "admin_toner",
             **t_ctx(request),
@@ -159,7 +163,9 @@ def register_toner_alert_routes(app: FastAPI,
                          quiet_hours_start: int = Form(default=-1),
                          quiet_hours_end: int = Form(default=-1),
                          lead_time_days: int = Form(default=0),
-                         include_error_states: str = Form(default="")):
+                         include_error_states: str = Form(default=""),
+                         email_subject_template: str = Form(default=""),
+                         email_body_template: str = Form(default="")):
         user = _admin_or_login(request)
         if not user:
             return RedirectResponse("/login", status_code=302)
@@ -199,8 +205,36 @@ def register_toner_alert_routes(app: FastAPI,
             quiet_hours_end=quiet_hours_end,
             lead_time_days=lead_time_days,
             include_error_states=1 if include_error_states else 0,
+            email_subject_template=(email_subject_template or "")[:200],
+            email_body_template=(email_body_template or "")[:8000],
         )
         return RedirectResponse("/admin/toner?ok=1", status_code=303)
+
+    @app.post("/admin/toner/preview-email", response_class=JSONResponse)
+    async def toner_preview_email(request: Request,
+                                   subject: str = Form(default=""),
+                                   body: str = Form(default="")):
+        """Rendert das Email-Template mit Sample-Daten für Live-Preview."""
+        user = _admin_or_login(request)
+        if not user:
+            return JSONResponse({"error": "auth"}, status_code=403)
+        import sys, os
+        src_dir = os.path.dirname(os.path.dirname(__file__))
+        if src_dir not in sys.path:
+            sys.path.insert(0, src_dir)
+        import toner_alerts as ta
+        sample_item = {
+            "printer_name": "Kyocera TASKalfa 3554ci",
+            "location":     "Büro 3.OG",
+            "state":        "IDLE",
+            "color":        "cyan",
+            "level":        12,
+            "severity":     "warn",
+            "days_left":    4.2,
+        }
+        cfg = {"email_subject_template": subject, "email_body_template": body}
+        s, b = ta.render_alert_email(cfg, sample_item)
+        return JSONResponse({"subject": s, "body_html": b})
 
     @app.post("/admin/toner/test", response_class=JSONResponse)
     async def toner_test(request: Request):

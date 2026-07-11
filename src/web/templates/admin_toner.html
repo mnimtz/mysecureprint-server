@@ -160,6 +160,24 @@
   .sev-critical { background:#dc2626; color:#fff; }
   .sev-warn     { background:#f59e0b; color:#fff; }
   .sev-ok       { background:#10b981; color:#fff; }
+  /* ── Filter-Chips ────────────────────────────────────────────── */
+  .filter-row {
+    display:flex; gap: 6px; flex-wrap: wrap;
+  }
+  .filter-chip {
+    padding: 6px 12px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text);
+    border-radius: 20px; cursor: pointer; font-size:.82em;
+    font-weight: 600; transition: all .15s;
+  }
+  .filter-chip:hover { background: var(--bg-subtle); }
+  .filter-chip.active {
+    background: #2563eb; color: #fff; border-color: #2563eb;
+  }
+  .filter-chip.crit.active { background: #dc2626; border-color: #dc2626; }
+  .filter-chip.warn.active { background: #f59e0b; border-color: #f59e0b; }
+  .filter-chip.ok.active   { background: #10b981; border-color: #10b981; }
+
   /* ── Aktive Alerts: Grid mit Drucker-Karten ─────────────────── */
   .alert-grid {
     display: grid; gap: 14px;
@@ -518,17 +536,69 @@
         </div>
       {% endif %}
 
-      {# ── Aktive Alerts (Grid: eine Karte pro Drucker) ─────────── #}
+      {# ── Drucker-Übersicht mit Filter (Kritisch/Mittel/OK) ────── #}
       <div class="card" style="margin-bottom: 20px;">
-        <h2>🚨 {{ _('toner_alerts_active_heading') }}
-          <span style="font-weight:400; font-size:.78em; color:var(--text-muted);">
-            ({{ alert_printers|length }})
-          </span>
-        </h2>
-        {% if alert_printers %}
-          <div class="alert-grid">
-            {% for p in alert_printers %}
-              <div class="alert-card sev-{{ p.worst_sev }}">
+        <div style="display:flex;justify-content:space-between;align-items:center;
+                    gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+          <h2 style="margin:0;">📊 {{ _('toner_overview_heading') }}
+            <span style="font-weight:400;font-size:.78em;color:var(--text-muted);">
+              ({{ preview_printers|length }})
+            </span>
+          </h2>
+          <div class="filter-row" id="filter-row" data-active="all">
+            {# Aggregate: count printers per severity worst-supply #}
+            {% set c_crit = namespace(n=0) %}
+            {% set c_warn = namespace(n=0) %}
+            {% set c_ok = namespace(n=0) %}
+            {% for p in preview_printers %}
+              {% set worst = namespace(v='ok') %}
+              {% for s in p.supplies %}
+                {% if s.severity == 'critical' %}{% set worst.v = 'critical' %}{% endif %}
+                {% if s.severity == 'warn' and worst.v != 'critical' %}{% set worst.v = 'warn' %}{% endif %}
+              {% endfor %}
+              {% if p.error_states and worst.v == 'ok' %}{% set worst.v = 'warn' %}{% endif %}
+              {% if worst.v == 'critical' %}{% set c_crit.n = c_crit.n + 1 %}
+              {% elif worst.v == 'warn' %}{% set c_warn.n = c_warn.n + 1 %}
+              {% else %}{% set c_ok.n = c_ok.n + 1 %}{% endif %}
+            {% endfor %}
+            <button type="button" class="filter-chip active" data-filter="all"
+                    onclick="setFilter('all')">
+              {{ _('toner_filter_all') }} · {{ preview_printers|length }}
+            </button>
+            <button type="button" class="filter-chip crit" data-filter="critical"
+                    onclick="setFilter('critical')">
+              🔴 {{ _('toner_filter_critical') }} · {{ c_crit.n }}
+            </button>
+            <button type="button" class="filter-chip warn" data-filter="warn"
+                    onclick="setFilter('warn')">
+              🟡 {{ _('toner_filter_medium') }} · {{ c_warn.n }}
+            </button>
+            <button type="button" class="filter-chip ok" data-filter="ok"
+                    onclick="setFilter('ok')">
+              🟢 {{ _('toner_filter_ok') }} · {{ c_ok.n }}
+            </button>
+          </div>
+        </div>
+
+        <p style="color:var(--text-muted);font-size:.82em;margin:0 0 14px 0;">
+          {{ _('toner_overview_intro') }}
+          <a href="#threshold_warn" onclick="scrollToThresholds();return false;"
+             style="color:inherit;text-decoration:underline;">
+            {{ _('toner_change_thresholds') }} →
+          </a>
+        </p>
+
+        {% if preview_printers %}
+          <div class="alert-grid" id="alert-grid">
+            {% for p in preview_printers %}
+              {# Compute worst severity same as filter chips #}
+              {% set worst = namespace(v='ok') %}
+              {% for s in p.supplies %}
+                {% if s.severity == 'critical' %}{% set worst.v = 'critical' %}{% endif %}
+                {% if s.severity == 'warn' and worst.v != 'critical' %}{% set worst.v = 'warn' %}{% endif %}
+              {% endfor %}
+              {% if p.error_states and worst.v == 'ok' %}{% set worst.v = 'warn' %}{% endif %}
+              <div class="alert-card sev-{{ worst.v }}" data-sev="{{ worst.v }}">
                 <div class="alert-card-head">
                   <div style="min-width:0;">
                     <div class="alert-p-name" title="{{ p.printer_name }}">
@@ -539,9 +609,10 @@
                       {% if p.state %} · {{ p.state }}{% endif %}
                     </div>
                   </div>
-                  <span class="sev-chip sev-{{ p.worst_sev }}">
-                    {% if p.worst_sev == 'critical' %}{{ _('toner_sev_critical') }}
-                    {% else %}{{ _('toner_sev_warn') }}{% endif %}
+                  <span class="sev-chip sev-{{ worst.v }}">
+                    {% if worst.v == 'critical' %}{{ _('toner_sev_critical') }}
+                    {% elif worst.v == 'warn' %}{{ _('toner_sev_warn') }}
+                    {% else %}OK{% endif %}
                   </span>
                 </div>
 
@@ -578,9 +649,17 @@
                       </div>
                     {% endfor %}
                   </div>
+                {% else %}
+                  <div class="preview-empty" style="padding: 6px 0;">
+                    {{ _('toner_preview_no_data') }}
+                  </div>
                 {% endif %}
               </div>
             {% endfor %}
+          </div>
+          <div id="filter-empty" style="display:none; padding:24px 0;
+               text-align:center; color:var(--text-muted); font-size:.9em;">
+            {{ _('toner_filter_none_match') }}
           </div>
         {% else %}
           <p style="color: var(--text-muted); font-size:.88em; margin:0;">
@@ -591,6 +670,118 @@
             {% endif %}
           </p>
         {% endif %}
+      </div>
+
+      {# ── Email-Template-Editor (aufklappbar) ──────────────────── #}
+      <div class="card" style="margin-bottom: 20px;">
+        <details>
+          <summary style="cursor:pointer; font-weight:600; font-size:1.05em;
+                          padding:6px 0; user-select:none;">
+            ✉️ {{ _('toner_email_editor_heading') }}
+          </summary>
+          <p style="color:var(--text-muted); font-size:.85em; margin: 10px 0 14px;">
+            {{ _('toner_email_editor_intro') }}
+          </p>
+          <form method="post" action="/admin/toner/settings" id="email-form">
+            {# Alle bestehenden Setting-Felder als Hidden mitsenden, damit
+               das Speichern des Templates die anderen Settings nicht auf
+               Default zuruecksetzt. #}
+            <input type="hidden" name="enabled"
+                   value="{{ '1' if cfg.enabled else '' }}">
+            <input type="hidden" name="threshold_warn" value="{{ cfg.threshold_warn }}">
+            <input type="hidden" name="threshold_critical" value="{{ cfg.threshold_critical }}">
+            <input type="hidden" name="hysteresis_percent" value="{{ cfg.hysteresis_percent }}">
+            <input type="hidden" name="recipients" value="{{ cfg.recipients }}">
+            <input type="hidden" name="check_interval_min" value="{{ cfg.check_interval_min }}">
+            <input type="hidden" name="digest_mode"
+                   value="{{ '1' if cfg.digest_mode else '' }}">
+            <input type="hidden" name="digest_hour_utc" value="{{ cfg.digest_hour_utc }}">
+            <input type="hidden" name="quiet_hours_start" value="{{ cfg.quiet_hours_start }}">
+            <input type="hidden" name="quiet_hours_end" value="{{ cfg.quiet_hours_end }}">
+            <input type="hidden" name="lead_time_days" value="{{ cfg.lead_time_days }}">
+            <input type="hidden" name="include_error_states"
+                   value="{{ '1' if cfg.include_error_states else '' }}">
+
+            <div class="field">
+              <label>{{ _('toner_email_subject_label') }}</label>
+              <input type="text" name="email_subject_template" id="email-subject"
+                     value="{{ cfg.email_subject_template or '' }}"
+                     placeholder="{{ _('toner_email_subject_placeholder') }}">
+            </div>
+            <div class="field">
+              <label>{{ _('toner_email_body_label') }}</label>
+              <textarea name="email_body_template" id="email-body"
+                        placeholder="{{ _('toner_email_body_placeholder') }}"
+                        style="min-height: 220px; font-family: monospace;
+                               font-size:.82em;">{{ cfg.email_body_template or '' }}</textarea>
+              <div class="hint">
+                {{ _('toner_email_body_hint') }}
+              </div>
+            </div>
+
+            <details style="margin: 12px 0;">
+              <summary style="cursor:pointer; font-size:.85em; color:#2563eb;
+                              font-weight:600;">
+                📋 {{ _('toner_email_vars_heading') }}
+              </summary>
+              <div style="margin-top:10px; font-size:.82em;">
+                <table style="width:100%; font-family: monospace;">
+                  <tbody>
+                    <tr><td style="padding:3px 8px;color:#2563eb;">{{'{{ printer_name }}'}}</td>
+                        <td style="padding:3px 8px;color:var(--text-muted);">{{ _('toner_var_printer_name') }}</td></tr>
+                    <tr><td style="padding:3px 8px;color:#2563eb;">{{'{{ location }}'}}</td>
+                        <td style="padding:3px 8px;color:var(--text-muted);">{{ _('toner_var_location') }}</td></tr>
+                    <tr><td style="padding:3px 8px;color:#2563eb;">{{'{{ color_label }}'}}</td>
+                        <td style="padding:3px 8px;color:var(--text-muted);">{{ _('toner_var_color_label') }}</td></tr>
+                    <tr><td style="padding:3px 8px;color:#2563eb;">{{'{{ color }}'}}</td>
+                        <td style="padding:3px 8px;color:var(--text-muted);">{{ _('toner_var_color') }}</td></tr>
+                    <tr><td style="padding:3px 8px;color:#2563eb;">{{'{{ level }}'}}</td>
+                        <td style="padding:3px 8px;color:var(--text-muted);">{{ _('toner_var_level') }}</td></tr>
+                    <tr><td style="padding:3px 8px;color:#2563eb;">{{'{{ severity_label }}'}}</td>
+                        <td style="padding:3px 8px;color:var(--text-muted);">{{ _('toner_var_severity_label') }}</td></tr>
+                    <tr><td style="padding:3px 8px;color:#2563eb;">{{'{{ severity_icon }}'}}</td>
+                        <td style="padding:3px 8px;color:var(--text-muted);">{{ _('toner_var_severity_icon') }}</td></tr>
+                    <tr><td style="padding:3px 8px;color:#2563eb;">{{'{{ severity_bg }}'}}</td>
+                        <td style="padding:3px 8px;color:var(--text-muted);">{{ _('toner_var_severity_bg') }}</td></tr>
+                    <tr><td style="padding:3px 8px;color:#2563eb;">{{'{{ days_left }}'}}</td>
+                        <td style="padding:3px 8px;color:var(--text-muted);">{{ _('toner_var_days_left') }}</td></tr>
+                    <tr><td style="padding:3px 8px;color:#2563eb;">{{'{{ days_left_row }}'}}</td>
+                        <td style="padding:3px 8px;color:var(--text-muted);">{{ _('toner_var_days_left_row') }}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </details>
+
+            <div class="btn-row">
+              <button type="submit" class="btn btn-primary">
+                💾 {{ _('toner_save') }}
+              </button>
+              <button type="button" class="btn btn-secondary"
+                      onclick="previewEmail()">
+                👁 {{ _('toner_email_preview_btn') }}
+              </button>
+              <button type="button" class="btn btn-secondary"
+                      onclick="loadDefaults()">
+                ↺ {{ _('toner_email_load_defaults') }}
+              </button>
+              <button type="button" class="btn btn-secondary"
+                      onclick="tonerTest()">
+                ✉ {{ _('toner_test_send') }}
+              </button>
+            </div>
+          </form>
+
+          <div id="email-preview-host" style="display:none; margin-top:16px;">
+            <div style="font-size:.85em; color:var(--text-muted); margin-bottom:6px;">
+              {{ _('toner_email_preview_heading') }} —
+              <b id="email-preview-subject"></b>
+            </div>
+            <div id="email-preview-body"
+                 style="border: 1px solid var(--border);
+                        border-radius: 10px; padding: 16px; background: #fff;
+                        max-height: 400px; overflow-y: auto;"></div>
+          </div>
+        </details>
       </div>
 
       {# ── History ─────────────────────────────────────────────── #}
@@ -728,5 +919,58 @@ async function tonerAction(url, label) {
 }
 function tonerTest() { tonerAction('/admin/toner/test', '{{ _("toner_test_send") }}'); }
 function tonerRunNow() { tonerAction('/admin/toner/run', '{{ _("toner_run_now") }}'); }
+
+// ── Filter-Chips ────────────────────────────────────────────────────
+function setFilter(sev) {
+  document.querySelectorAll('.filter-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.filter === sev);
+  });
+  const grid = document.getElementById('alert-grid');
+  const empty = document.getElementById('filter-empty');
+  if (!grid) return;
+  let visible = 0;
+  grid.querySelectorAll('.alert-card').forEach(card => {
+    const s = card.dataset.sev || 'ok';
+    const show = (sev === 'all') || (s === sev);
+    card.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  if (empty) empty.style.display = visible === 0 ? '' : 'none';
+}
+
+function scrollToThresholds() {
+  const el = document.querySelector('input[name="threshold_warn"]');
+  if (el) { el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus(); }
+}
+
+// ── Email-Editor ────────────────────────────────────────────────────
+const DEFAULT_SUBJECT = "{{ _('toner_email_subject_default')|escape }}";
+const DEFAULT_BODY = {{ default_email_body_html|tojson }};
+
+function loadDefaults() {
+  if (!confirm("{{ _('toner_email_confirm_load_defaults') }}")) return;
+  document.getElementById('email-subject').value = DEFAULT_SUBJECT;
+  document.getElementById('email-body').value = DEFAULT_BODY;
+}
+
+async function previewEmail() {
+  const subject = document.getElementById('email-subject').value;
+  const body = document.getElementById('email-body').value;
+  const host = document.getElementById('email-preview-host');
+  const fd = new FormData();
+  fd.append('subject', subject);
+  fd.append('body', body);
+  try {
+    const r = await fetch('/admin/toner/preview-email', {method:'POST', body: fd});
+    const data = await r.json();
+    document.getElementById('email-preview-subject').textContent =
+      data.subject || '(kein Subject)';
+    document.getElementById('email-preview-body').innerHTML = data.body_html || '';
+    host.style.display = '';
+    host.scrollIntoView({behavior:'smooth', block:'nearest'});
+  } catch (e) {
+    alert('Preview failed: ' + e.message);
+  }
+}
 </script>
 {% endblock %}

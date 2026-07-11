@@ -66,6 +66,15 @@ def init_schema() -> None:
             last_check_at        TEXT NOT NULL DEFAULT '',
             last_digest_at       TEXT NOT NULL DEFAULT ''
         )""")
+        # v0.7.269 — Email-Template-Editor: 2 zusaetzliche Spalten falls die
+        # Tabelle schon existiert. IF-NOT-EXISTS gibt es nicht, deshalb
+        # try/except pro ALTER.
+        for col in ("email_subject_template", "email_body_template"):
+            try:
+                c.execute(f"ALTER TABLE toner_alert_settings "
+                          f"ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
+            except Exception:
+                pass  # existiert schon
         c.execute("""CREATE TABLE IF NOT EXISTS toner_alert_state (
             tenant_id     TEXT NOT NULL,
             printer_id    TEXT NOT NULL,
@@ -110,7 +119,73 @@ DEFAULT_SETTINGS = {
     "quiet_hours_end": -1,
     "lead_time_days": 0,
     "include_error_states": 1,
+    "email_subject_template": "",
+    "email_body_template": "",
 }
+
+
+# Default-Vorlagen fuer den Editor-Vorschlag. Kunden koennen sie in der UI
+# uebernehmen und anpassen. Variablen werden per _render_template ersetzt.
+DEFAULT_EMAIL_SUBJECT = (
+    "{{ severity_icon }} MySecurePrint — {{ printer_name }}: "
+    "{{ color_label }} {{ level }}%"
+)
+DEFAULT_EMAIL_BODY_HTML = """\
+<div style="font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif;
+            color: #111; max-width: 520px;">
+  <p><span style="background:{{ severity_bg }};color:#fff;padding:2px 8px;
+                   border-radius:10px;font-size:12px;font-weight:600;">
+     {{ severity_label }}
+  </span> &nbsp; Toner-Nachbestellung empfohlen.</p>
+  <h2 style="margin:12px 0 4px 0;">{{ printer_name }}</h2>
+  <p style="color:#666;margin:0 0 16px 0;">{{ location }}</p>
+  <table style="border-collapse:collapse; font-size:14px;">
+    <tr>
+      <td style="padding:6px 12px 6px 0;color:#666;">Farbe:</td>
+      <td><b>{{ color_label }}</b></td>
+    </tr>
+    <tr>
+      <td style="padding:6px 12px 6px 0;color:#666;">Aktueller Stand:</td>
+      <td>{{ level }}%</td>
+    </tr>
+    {{ days_left_row }}
+  </table>
+  <hr style="border:0;border-top:1px solid #eee;margin:20px 0;">
+  <p style="color:#888;font-size:12px;">
+    Diese Nachricht wurde automatisch von MySecurePrint versendet.
+  </p>
+</div>
+"""
+
+
+AVAILABLE_TEMPLATE_VARS = [
+    ("printer_name",   "Name des Druckers"),
+    ("location",       "Standort"),
+    ("state",          "Drucker-Status (IDLE/PRINTING/OTHER)"),
+    ("color",          "Toner-Farbe (black/cyan/magenta/yellow)"),
+    ("color_label",    "Farbe lokalisiert (Schwarz/Cyan/Magenta/Gelb)"),
+    ("level",          "Aktueller Prozent-Stand"),
+    ("severity",       "Severity (critical/warn)"),
+    ("severity_label", "Severity lokalisiert (Kritisch/Warnung)"),
+    ("severity_icon",  "Icon: 🚨 fuer critical, ⚠️ fuer warn"),
+    ("severity_bg",    "Hex-Farbe fuer Severity-Badge (#dc2626/#f59e0b)"),
+    ("days_left",      "Geschaetzte Tage bis leer (leer wenn Prognose aus)"),
+    ("days_left_row", "Vorgefertigte HTML-Zeile fuer Prognose, oder leer"),
+]
+
+
+def _render_template(text: str, context: dict) -> str:
+    """Einfacher {{ var }}-Substitutor. Kein Logic, kein Escaping —
+    Templates sind Admin-Content."""
+    if not text:
+        return text
+    out = text
+    for key, value in context.items():
+        needle = "{{ " + key + " }}"
+        out = out.replace(needle, str(value or ""))
+        # Auch ohne Spaces akzeptieren
+        out = out.replace("{{" + key + "}}", str(value or ""))
+    return out
 
 
 def get_settings(tenant_id: str) -> dict:
@@ -370,6 +445,55 @@ def _bar(level: int, color: str) -> str:
             f'</div>')
 
 
+def render_alert_email(cfg: dict, item: dict) -> tuple[str, str]:
+    """Rendert Subject + HTML fuer eine Alert-Mail.
+
+    Nutzt Kunden-Template aus cfg falls gesetzt, sonst DEFAULT_EMAIL_*.
+    item enthaelt printer_name, location, state, color, level, severity,
+    days_left (Optional), error_code (Optional).
+    """
+    color = item.get("color", "black")
+    level = int(item.get("level", 0))
+    sev = item.get("severity", "warn")
+
+    # Kontext fuer Substitution
+    label = _COLOR_LABEL_DE.get(color, color.title())
+    if color.startswith("_error_"):
+        label = item.get("error_code", "").replace("_", " ").title()
+    sev_label = "Kritisch" if sev == "critical" else "Warnung"
+    sev_icon = "🚨" if sev == "critical" else "⚠️"
+    sev_bg = "#dc2626" if sev == "critical" else "#f59e0b"
+    d = item.get("days_left")
+    days_left_str = str(int(round(d))) if d is not None else ""
+    days_left_row = ""
+    if d is not None:
+        days_left_row = (
+            f'<tr><td style="padding:6px 12px 6px 0;color:#666;">Prognose:</td>'
+            f'<td>~{int(round(d))} Tage bis leer</td></tr>'
+        )
+
+    ctx = {
+        "printer_name":   item.get("printer_name", ""),
+        "location":       item.get("location", "") or "Standort unbekannt",
+        "state":          item.get("state", ""),
+        "color":          color,
+        "color_label":    label,
+        "level":          str(level),
+        "severity":       sev,
+        "severity_label": sev_label,
+        "severity_icon":  sev_icon,
+        "severity_bg":    sev_bg,
+        "days_left":      days_left_str,
+        "days_left_row":  days_left_row,
+    }
+
+    subj_tmpl = (cfg.get("email_subject_template") or "").strip()
+    body_tmpl = (cfg.get("email_body_template") or "").strip()
+    subject = _render_template(subj_tmpl or DEFAULT_EMAIL_SUBJECT, ctx)
+    body    = _render_template(body_tmpl or DEFAULT_EMAIL_BODY_HTML, ctx)
+    return subject, body
+
+
 def build_single_alert_html(printer_name: str, location: str, color: str,
                             level: int, severity: str,
                             days_left: Optional[float]) -> str:
@@ -534,16 +658,16 @@ def evaluate_and_notify(tenant: dict, *, force_send: bool = False,
     report["low_items"] = low_items
 
     if force_send:
-        # Test-Mail: erster Low-Item oder Dummy
-        subj = "MySecurePrint — Toner-Alert Test"
+        # Test-Mail: erster Low-Item, oder Dummy-Item wenn alles OK
         if low_items:
             it = low_items[0]
-            html = build_single_alert_html(
-                it["printer_name"], it["location"], it["color"],
-                it["level"], it["severity"], it.get("days_left"))
         else:
-            html = ("<p>Test-Alarm: momentan liegt kein Drucker unter deinen "
-                    "Schwellen. Aber die Verbindung funktioniert!</p>")
+            it = {"printer_id": "test", "printer_name": "Test-Drucker",
+                  "location": "Testlabor", "state": "IDLE",
+                  "color": "black", "level": 42, "severity": "warn",
+                  "days_left": 5.0}
+        subj, html = render_alert_email(cfg, it)
+        subj = "[TEST] " + subj
         ok, msg = send_alert_mail(tenant, recipients, subj, html)
         report["actions"].append({"kind": "test_mail",
                                   "ok": ok, "detail": msg,
@@ -622,10 +746,7 @@ def evaluate_and_notify(tenant: dict, *, force_send: bool = False,
                          armed=False)
             continue
 
-        subj = _format_subject(it)
-        html = build_single_alert_html(
-            it["printer_name"], it["location"], it["color"],
-            it["level"], it["severity"], it.get("days_left"))
+        subj, html = render_alert_email(cfg, it)
         ok, msg = send_alert_mail(tenant, recipients, subj, html)
         report["actions"].append({"kind": "alert",
                                   "printer": it["printer_name"],
