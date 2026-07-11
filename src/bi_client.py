@@ -368,6 +368,8 @@ def fetch_network_topology(tenant: dict, force_refresh: bool = False) -> Optiona
 
         # Workstations + Users (v0.7.276: erweitert um IP/Host/Client-Version
         # fuer den Netzwerk-Details-Toggle im Netzwerk-Plan)
+        # NB: 'network_extenral_address_ip' ist eine Printix-BI-Schema-Typo
+        # (kein Tippfehler unsererseits) — bitte NICHT korrigieren.
         cur.execute("""SELECT id, name, os, ws_type, network_ssid,
                               network_extenral_address_ip AS ext_ip,
                               network_external_address_name AS ext_host,

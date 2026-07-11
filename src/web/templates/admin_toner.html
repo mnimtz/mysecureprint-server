@@ -889,8 +889,7 @@
                           {% if s.severity != 'ok' %}
                             {% if not has_order %}
                               <button type="button" class="btn-order"
-                                      onclick="openOrderModal('{{ p.printer_id }}',
-                                              '{{ p.printer_name|e }}', '{{ s.color }}', {{ s.level }})"
+                                      onclick="openOrderModal({{ p.printer_id|tojson }}, {{ p.printer_name|tojson }}, {{ s.color|tojson }}, {{ s.level }})"
                                       title="{{ _('toner_order_btn') }}">
                                 🛒
                               </button>
@@ -1112,6 +1111,11 @@
 </div>
 
 <script>
+// ── Global i18n JS constants ──────────────────────────────────────
+const ERR_PREFIX = {{ _('toner_error_prefix')|tojson }};
+const ERR_UNKNOWN = {{ _('toner_error_unknown')|tojson }};
+const PREVIEW_EMPTY_SUBJECT = {{ _('toner_preview_empty_subject')|tojson }};
+
 // ── Order-Modal ─────────────────────────────────────────────────────
 let orderCtx = null;
 function openOrderModal(printerId, printerName, color, level) {
@@ -1148,10 +1152,10 @@ async function submitOrder() {
       closeOrderModal();
       window.location.reload();
     } else {
-      alert('Fehler: ' + (data.error || 'unbekannt'));
+      alert(ERR_PREFIX + ' ' + (data.error || ERR_UNKNOWN));
     }
   } catch (e) {
-    alert('Fehler: ' + e.message);
+    alert(ERR_PREFIX + ' ' + e.message);
   }
 }
 async function cancelOrder(orderId) {
@@ -1163,10 +1167,10 @@ async function cancelOrder(orderId) {
     if (r.ok && data.ok) {
       window.location.reload();
     } else {
-      alert('Fehler: ' + (data.error || 'unbekannt'));
+      alert(ERR_PREFIX + ' ' + (data.error || ERR_UNKNOWN));
     }
   } catch (e) {
-    alert('Fehler: ' + e.message);
+    alert(ERR_PREFIX + ' ' + e.message);
   }
 }
 // Modal via ESC schliessen
@@ -1271,7 +1275,7 @@ async function tonerAction(url, label) {
                        + (summary || label + ' OK') + '</span>';
     } else {
       box.innerHTML = '<span style="color:#dc2626;">✗ '
-                       + (data.error || 'Fehler') + '</span>';
+                       + (data.error || ERR_UNKNOWN) + '</span>';
     }
   } catch (e) {
     box.innerHTML = '<span style="color:#dc2626;">✗ ' + e.message + '</span>';
@@ -1304,11 +1308,11 @@ function scrollToThresholds() {
 }
 
 // ── Email-Editor ────────────────────────────────────────────────────
-const DEFAULT_SUBJECT = "{{ _('toner_email_subject_default')|escape }}";
+const DEFAULT_SUBJECT = {{ _('toner_email_subject_default')|tojson }};
 const DEFAULT_BODY = {{ default_email_body_html|tojson }};
 
 function loadDefaults() {
-  if (!confirm("{{ _('toner_email_confirm_load_defaults') }}")) return;
+  if (!confirm({{ _('toner_email_confirm_load_defaults')|tojson }})) return;
   document.getElementById('email-subject').value = DEFAULT_SUBJECT;
   document.getElementById('email-body').value = DEFAULT_BODY;
 }
@@ -1328,7 +1332,7 @@ async function showRawData() {
     if (r.ok && data && data.history) {
       pre.textContent = JSON.stringify(data, null, 2);
     } else {
-      pre.textContent = 'Fehler: ' + (data.error || 'unbekannt');
+      pre.textContent = ERR_PREFIX + ' ' + (data.error || ERR_UNKNOWN);
     }
   } catch (e) {
     pre.textContent = 'Fehler: ' + e.message;
@@ -1346,7 +1350,7 @@ async function previewEmail() {
     const r = await fetch('/admin/toner/preview-email', {method:'POST', body: fd});
     const data = await r.json();
     document.getElementById('email-preview-subject').textContent =
-      data.subject || '(kein Subject)';
+      data.subject || PREVIEW_EMPTY_SUBJECT;
     // v0.7.280: srcdoc statt innerHTML — Kunden-Template lauft isoliert
     document.getElementById('email-preview-body').srcdoc = data.body_html || '';
     host.style.display = '';

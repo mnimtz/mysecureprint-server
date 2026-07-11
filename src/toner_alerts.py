@@ -175,16 +175,22 @@ AVAILABLE_TEMPLATE_VARS = [
 
 
 def _render_template(text: str, context: dict) -> str:
-    """Einfacher {{ var }}-Substitutor. Kein Logic, kein Escaping —
-    Templates sind Admin-Content."""
+    """Einfacher {{ var }}-Substitutor. Kunden-Template ist HTML —
+    externe Werte (printer_name, location aus BI-DB) werden HTML-escaped
+    damit ein umbenannter Drucker keinen Script-Injection-Vektor bietet.
+    Server-generierte HTML-Blocks (`days_left_row`) bleiben unescaped.
+    """
+    import html as _html
     if not text:
         return text
+    SERVER_HTML_KEYS = frozenset({"days_left_row"})
     out = text
     for key, value in context.items():
-        needle = "{{ " + key + " }}"
-        out = out.replace(needle, str(value or ""))
-        # Auch ohne Spaces akzeptieren
-        out = out.replace("{{" + key + "}}", str(value or ""))
+        v = "" if value is None else str(value)
+        if key not in SERVER_HTML_KEYS:
+            v = _html.escape(v, quote=True)
+        out = out.replace("{{ " + key + " }}", v)
+        out = out.replace("{{" + key + "}}", v)
     return out
 
 
@@ -800,16 +806,6 @@ def evaluate_and_notify(tenant: dict, *, force_send: bool = False,
                      last_notified=now_iso if ok else last_notified)
 
     return report
-
-
-def _format_subject(item: dict) -> str:
-    label = _COLOR_LABEL_DE.get(item["color"], item["color"].title())
-    if item["color"].startswith("_error_"):
-        code = item.get("error_code", "").replace("_", " ").title()
-        return f"MySecurePrint — {item['printer_name']}: {code}"
-    prefix = "🚨" if item["severity"] == "critical" else "⚠️"
-    return (f"{prefix} MySecurePrint — {item['printer_name']}: "
-            f"{label} {item['level']}%")
 
 
 def _hours_since(iso_ts: str) -> float:

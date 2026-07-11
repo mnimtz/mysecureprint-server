@@ -41521,3 +41521,18 @@ _NM_LBL = {
 for _lg, _kv in _NM_LBL.items():
     TRANSLATIONS.setdefault(_lg, {}).update(_kv)
 TRANSLATIONS.setdefault("nb", {}).update(_NM_LBL["no"])
+
+# ─── Toner JS Error Prefixes v0.7.281 ────────────────────────────────────
+_TONER_JS_ERR = {
+    "de": {"toner_error_prefix":"Fehler:","toner_error_unknown":"unbekannt","toner_preview_empty_subject":"(kein Betreff)"},
+    "en": {"toner_error_prefix":"Error:","toner_error_unknown":"unknown","toner_preview_empty_subject":"(no subject)"},
+    "fr": {"toner_error_prefix":"Erreur :","toner_error_unknown":"inconnu","toner_preview_empty_subject":"(sans objet)"},
+    "it": {"toner_error_prefix":"Errore:","toner_error_unknown":"sconosciuto","toner_preview_empty_subject":"(senza oggetto)"},
+    "es": {"toner_error_prefix":"Error:","toner_error_unknown":"desconocido","toner_preview_empty_subject":"(sin asunto)"},
+    "nl": {"toner_error_prefix":"Fout:","toner_error_unknown":"onbekend","toner_preview_empty_subject":"(geen onderwerp)"},
+    "no": {"toner_error_prefix":"Feil:","toner_error_unknown":"ukjent","toner_preview_empty_subject":"(uten emne)"},
+    "sv": {"toner_error_prefix":"Fel:","toner_error_unknown":"okand","toner_preview_empty_subject":"(inget amne)"},
+}
+for _lg,_kv in _TONER_JS_ERR.items():
+    TRANSLATIONS.setdefault(_lg,{}).update(_kv)
+TRANSLATIONS.setdefault("nb",{}).update(_TONER_JS_ERR["no"])

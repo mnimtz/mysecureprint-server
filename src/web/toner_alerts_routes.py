@@ -196,10 +196,9 @@ def register_toner_alert_routes(app: FastAPI,
         import toner_alerts as ta
 
         # Grenzen erzwingen
-        threshold_warn = max(0, min(99, int(threshold_warn)))
+        # v0.7.281: warn min 1 (0 waere sinnlos), critical strikt unter warn
+        threshold_warn = max(1, min(99, int(threshold_warn)))
         threshold_critical = max(0, min(threshold_warn - 1, int(threshold_critical)))
-        if threshold_critical < 0:
-            threshold_critical = 0
         hysteresis_percent = max(0, min(50, int(hysteresis_percent)))
         check_interval_min = max(15, min(1440, int(check_interval_min)))
         digest_hour_utc = max(0, min(23, int(digest_hour_utc)))

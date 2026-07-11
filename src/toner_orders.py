@@ -61,6 +61,15 @@ def init_schema() -> None:
                        ON toner_orders(tenant_id, printer_id, color, status)""")
         c.execute("""CREATE INDEX IF NOT EXISTS idx_orders_ts
                        ON toner_orders(tenant_id, ordered_at DESC)""")
+        # v0.7.281: nur EINE aktive Bestellung pro (tenant, printer, color)
+        # — verhindert Doppel-Klick-Race. Partial-Index nur auf 'ordered'.
+        try:
+            c.execute("""CREATE UNIQUE INDEX IF NOT EXISTS uidx_orders_active_one
+                           ON toner_orders(tenant_id, printer_id, color)
+                          WHERE status='ordered'""")
+        except Exception:
+            # aeltere SQLite ohne Partial-Index-Support ignorieren
+            pass
 
 
 # ── CRUD ────────────────────────────────────────────────────────────
@@ -91,24 +100,35 @@ def create_order(tenant_id: str, printer_id: str, printer_name: str,
                  color: str, ordered_by: str, notes: str = "",
                  level_at_order: int = -1) -> int:
     """Legt eine neue Bestellung an. Wenn es schon eine aktive gibt,
-    wird sie durch die neue ueberschrieben (die alte wird auf 'installed'
-    gesetzt — der Admin hat wohl vergessen)."""
+    wird sie auf 'superseded' gesetzt (nicht 'installed' — physisch wurde
+    ja nichts eingesetzt).
+
+    v0.7.281: Alles in einer expliziten Transaktion + Partial-Unique-Index
+    verhindert dass zwei parallele Clicks zwei aktive Zeilen erzeugen.
+    """
     init_schema()
     now = _dt.datetime.utcnow().isoformat(timespec="seconds") + "Z"
     with _conn() as c:
-        # Existierende aktive Bestellung schliessen
-        c.execute("""UPDATE toner_orders SET status='installed', installed_at=?
-                     WHERE tenant_id=? AND printer_id=? AND color=?
-                       AND status='ordered'""",
-                  (now, tenant_id, printer_id, color))
-        cur = c.execute("""INSERT INTO toner_orders
-                             (tenant_id, printer_id, printer_name, color,
-                              ordered_at, ordered_by, notes, status,
-                              level_at_order)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, 'ordered', ?)""",
-                        (tenant_id, printer_id, printer_name, color, now,
-                         ordered_by[:200], notes[:500], int(level_at_order)))
-        return cur.lastrowid
+        c.execute("BEGIN IMMEDIATE")
+        try:
+            # Existierende aktive Bestellung als 'superseded' markieren
+            c.execute("""UPDATE toner_orders SET status='superseded',
+                                installed_at=?
+                         WHERE tenant_id=? AND printer_id=? AND color=?
+                           AND status='ordered'""",
+                      (now, tenant_id, printer_id, color))
+            cur = c.execute("""INSERT INTO toner_orders
+                                 (tenant_id, printer_id, printer_name, color,
+                                  ordered_at, ordered_by, notes, status,
+                                  level_at_order)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, 'ordered', ?)""",
+                            (tenant_id, printer_id, printer_name, color, now,
+                             ordered_by[:200], notes[:500], int(level_at_order)))
+            c.execute("COMMIT")
+            return cur.lastrowid
+        except Exception:
+            c.execute("ROLLBACK")
+            raise
 
 
 def cancel_order(order_id: int, tenant_id: str) -> bool:

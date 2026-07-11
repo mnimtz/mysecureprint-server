@@ -317,12 +317,14 @@ def _build_render_tree(topology: dict, filters: dict) -> list[dict]:
             "meta": site, "_children": nets,
         })
 
-    # Unassigned-Bucket: Drucker+Workstations ohne Site/Network-Zuordnung
+    # Unassigned-Bucket: Drucker+Workstations ohne Site/Network-Zuordnung.
+    # v0.7.281: nur zeigen wenn kein Site-Filter aktiv ist — sonst wirkt es
+    # inkonsistent ("nur Site X anzeigen" zeigt trotzdem eine Sonstige-Spalte).
     ua = topology.get("unassigned", {}) or {}
     ua_printers = ([_mkp(p) for p in ua.get("printers", [])]
-                   if show_printers else [])
+                   if (show_printers and show_all_sites) else [])
     ua_ws = ([_mkws(w) for w in ua.get("workstations", [])]
-             if show_workstations else [])
+             if (show_workstations and show_all_sites) else [])
     if ua_printers or ua_ws:
         sites_out.append({
             "id": "s:_unassigned", "kind": "site",
