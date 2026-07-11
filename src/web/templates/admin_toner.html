@@ -525,7 +525,54 @@
                       <span class="preview-error-chip">⚠ {{ err }}</span>
                     {% endfor %}
                   </div>
+                  <div style="margin-top:10px;">
+                    <button type="button" class="btn btn-secondary"
+                            style="font-size:.8em;padding:6px 10px;"
+                            onclick="showRawData()">
+                      🔬 {{ _('toner_raw_btn') }}
+                    </button>
+                  </div>
                 </div>
+              </div>
+              <div id="raw-diagnostic" style="display:none; margin-top:14px;
+                   padding:14px; border:1px solid var(--border); border-radius:10px;
+                   background:var(--bg-subtle);">
+                <div style="display:flex;justify-content:space-between;align-items:center;
+                            margin-bottom:8px;">
+                  <b>🔬 {{ _('toner_raw_heading') }}</b>
+                  <button type="button" class="btn btn-secondary"
+                          style="font-size:.75em;padding:4px 8px;"
+                          onclick="document.getElementById('raw-diagnostic').style.display='none';">
+                    ✕
+                  </button>
+                </div>
+                <p style="color:var(--text-muted); font-size:.8em; margin:0 0 10px 0;">
+                  {{ _('toner_raw_intro') }}
+                </p>
+                <pre id="raw-diagnostic-json"
+                     style="font-family: monospace; font-size:.78em;
+                            background: var(--bg); padding: 10px; border-radius: 6px;
+                            max-height: 400px; overflow: auto; margin: 0;
+                            white-space: pre-wrap; word-break: break-word;">
+{{ _('toner_raw_loading') }}
+                </pre>
+                <details style="margin-top:10px; font-size:.82em;">
+                  <summary style="cursor:pointer; color:#2563eb; font-weight:600;">
+                    ℹ️ {{ _('toner_raw_help_heading') }}
+                  </summary>
+                  <div style="margin-top:8px; color:var(--text-muted); line-height:1.5;">
+                    <p style="margin:6px 0;"><b>MARKER_BLACK / CYAN / MAGENTA / YELLOW</b>
+                       — {{ _('toner_raw_help_markers') }}</p>
+                    <p style="margin:6px 0;"><b>SIMPLEX_SHEETS / DUPLEX_SHEETS</b>
+                       — {{ _('toner_raw_help_sheets') }}</p>
+                    <p style="margin:6px 0;"><b>MONO_IMPRESSIONS / COLOR_IMPRESSIONS</b>
+                       — {{ _('toner_raw_help_impressions') }}</p>
+                    <p style="margin:6px 0; padding: 8px; background:#fef3c7;
+                              color:#92400e; border-radius:6px;">
+                      {{ _('toner_raw_help_brother') }}
+                    </p>
+                  </div>
+                </details>
               </div>
             {% else %}
               <div class="preview-empty">
@@ -833,6 +880,7 @@
 const PRINTERS = [
   {% for p in preview_printers %}
     {
+      id: {{ p.printer_id|tojson }},
       name: {{ p.printer_name|tojson }},
       location: {{ (p.location or "")|tojson }},
       state: {{ (p.state or "")|tojson }},
@@ -841,6 +889,7 @@ const PRINTERS = [
     }{% if not loop.last %},{% endif %}
   {% endfor %}
 ];
+let CURRENT_PRINTER_IDX = -1;
 
 function openPicker() {
   document.getElementById('picker-dropdown').classList.add('open');
@@ -859,6 +908,7 @@ function filterPicker(q) {
   openPicker();
 }
 function selectPrinter(idx) {
+  CURRENT_PRINTER_IDX = idx;
   const p = PRINTERS[idx];
   if (!p) return;
   document.getElementById('pv-name').textContent = p.name;
@@ -951,6 +1001,28 @@ function loadDefaults() {
   if (!confirm("{{ _('toner_email_confirm_load_defaults') }}")) return;
   document.getElementById('email-subject').value = DEFAULT_SUBJECT;
   document.getElementById('email-body').value = DEFAULT_BODY;
+}
+
+async function showRawData() {
+  if (CURRENT_PRINTER_IDX < 0) return;
+  const p = PRINTERS[CURRENT_PRINTER_IDX];
+  if (!p || !p.id) return;
+  const host = document.getElementById('raw-diagnostic');
+  const pre  = document.getElementById('raw-diagnostic-json');
+  host.style.display = '';
+  pre.textContent = '{{ _("toner_raw_loading") }}';
+  host.scrollIntoView({behavior:'smooth', block:'nearest'});
+  try {
+    const r = await fetch('/admin/toner/raw/' + encodeURIComponent(p.id));
+    const data = await r.json();
+    if (r.ok && data && data.history) {
+      pre.textContent = JSON.stringify(data, null, 2);
+    } else {
+      pre.textContent = 'Fehler: ' + (data.error || 'unbekannt');
+    }
+  } catch (e) {
+    pre.textContent = 'Fehler: ' + e.message;
+  }
 }
 
 async function previewEmail() {

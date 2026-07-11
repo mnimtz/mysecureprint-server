@@ -210,6 +210,27 @@ def register_toner_alert_routes(app: FastAPI,
         )
         return RedirectResponse("/admin/toner?ok=1", status_code=303)
 
+    @app.get("/admin/toner/raw/{printer_id}", response_class=JSONResponse)
+    async def toner_raw(request: Request, printer_id: str):
+        user = _admin_or_login(request)
+        if not user:
+            return JSONResponse({"error": "auth"}, status_code=403)
+        tenant = _load_tenant(user)
+        if not tenant:
+            return JSONResponse({"error": "no_tenant"}, status_code=404)
+        import sys, os, asyncio
+        src_dir = os.path.dirname(os.path.dirname(__file__))
+        if src_dir not in sys.path:
+            sys.path.insert(0, src_dir)
+        from bi_client import fetch_raw_reading
+        try:
+            data = await asyncio.to_thread(fetch_raw_reading, tenant, printer_id)
+            if data is None:
+                return JSONResponse({"error": "no_data"}, status_code=404)
+            return JSONResponse(data)
+        except Exception as e:  # noqa: BLE001
+            return JSONResponse({"error": str(e)[:200]}, status_code=500)
+
     @app.post("/admin/toner/preview-email", response_class=JSONResponse)
     async def toner_preview_email(request: Request,
                                    subject: str = Form(default=""),

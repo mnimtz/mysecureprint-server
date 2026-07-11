@@ -277,6 +277,67 @@ def _parse_error_states(raw) -> list[str]:
     return []
 
 
+def fetch_raw_reading(tenant: dict, printer_id: str) -> Optional[dict]:
+    """Roh-Datensatz vom neuesten device_reading fuer einen Drucker.
+
+    Gibt alle Felder + parsed JSON zurueck, so wie sie im Printix BI-DB
+    liegen. Nuetzlich fuer Diagnose wenn die Marker-Werte nicht plausibel
+    sind (Brother-Trommel-vs-Toner, WASTE-Container, unbekannte Keys).
+    """
+    if not _has_creds(tenant) or not printer_id:
+        return None
+    try:
+        import pymssql
+    except ImportError:
+        return None
+    conn = None
+    try:
+        conn = pymssql.connect(
+            server=tenant["sql_server"], user=tenant["sql_username"],
+            password=tenant["sql_password"], database=tenant["sql_database"],
+            port=1433, tds_version="7.4",
+            login_timeout=15, timeout=20,
+        )
+        cur = conn.cursor(as_dict=True)
+        cur.execute("""
+            SELECT TOP 5 additional_readings, detected_error_states,
+                         printer_reported_state, received_time, meta_status
+              FROM dbo.device_readings
+             WHERE printer_id = %s
+          ORDER BY received_time DESC
+        """, (printer_id,))
+        rows = cur.fetchall()
+        if not rows:
+            return None
+        parsed_history = []
+        for r in rows:
+            try:
+                parsed = json.loads(r.get("additional_readings") or "{}")
+            except (ValueError, TypeError):
+                parsed = {}
+            try:
+                errs = json.loads(r.get("detected_error_states") or "[]")
+            except (ValueError, TypeError):
+                errs = []
+            parsed_history.append({
+                "received_time":   str(r.get("received_time") or ""),
+                "meta_status":     r.get("meta_status") or "",
+                "reported_state":  r.get("printer_reported_state") or "",
+                "error_states":    errs,
+                "readings":        parsed,
+            })
+        return {"printer_id": str(printer_id), "history": parsed_history}
+    except Exception as e:  # noqa: BLE001
+        logger.info("bi_client.fetch_raw_reading failed: %s", str(e)[:200])
+        return None
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
 def estimate_days_until_empty(tenant: dict, printer_id: str, color: str,
                               current_level: int) -> Optional[float]:
     """Grobe Prognose "Tage bis leer" basierend auf letzten 14 Tagen Verbrauch.

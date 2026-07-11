@@ -39908,3 +39908,98 @@ _TONER_V3 = {
 for _lg, _kv in _TONER_V3.items():
     TRANSLATIONS.setdefault(_lg, {}).update(_kv)
 TRANSLATIONS.setdefault("nb", {}).update(_TONER_V3["no"])
+
+# v0.7.270: Toner Raw-Diagnose
+_TONER_RAW = {
+    "de": {
+        "toner_raw_btn":              "Raw-Daten anzeigen",
+        "toner_raw_heading":          "SNMP-Rohdaten (BI-DB)",
+        "toner_raw_intro":            "Zeigt die letzten 5 Messungen so, wie Printix sie vom Drucker per SNMP empfaengt. Nuetzlich wenn ein Wert nicht plausibel ist.",
+        "toner_raw_loading":          "Lade Rohdaten…",
+        "toner_raw_help_heading":     "Was bedeuten diese Felder?",
+        "toner_raw_help_markers":     "Toner-Restbestand pro Farbe in Prozent. K = Key/Schwarz, C = Cyan, M = Magenta, Y = Yellow. Kommt direkt aus dem SNMP-MIB des Druckers.",
+        "toner_raw_help_sheets":      "Zaehler fuer bedruckte Blaetter (einseitig / duplex).",
+        "toner_raw_help_impressions": "Zaehler fuer gedruckte Seiten (mono/farbig).",
+        "toner_raw_help_brother":     "Achtung Brother: manche Modelle melden bei 'MARKER_BLACK' nicht die Toner-Kartusche, sondern die Trommel-Einheit oder eine Restseiten-Schaetzung. Wenn du gerade den Toner getauscht hast und trotzdem 2% siehst: pruef ob der Drucker nach dem Wechsel einen manuellen Reset braucht (Menue → Wartung → Toner-Reset), und ob es sich um Original- oder Refill-Kartuschen handelt (Chip-Erkennung).",
+    },
+    "en": {
+        "toner_raw_btn":              "Show raw data",
+        "toner_raw_heading":          "SNMP raw data (BI DB)",
+        "toner_raw_intro":            "Shows the last 5 readings as Printix receives them from the printer via SNMP. Useful when a value is not plausible.",
+        "toner_raw_loading":          "Loading raw data…",
+        "toner_raw_help_heading":     "What do these fields mean?",
+        "toner_raw_help_markers":     "Toner remaining per color in percent. K = Key/Black, C = Cyan, M = Magenta, Y = Yellow. Straight from the printer's SNMP MIB.",
+        "toner_raw_help_sheets":      "Counters for printed sheets (single-sided / duplex).",
+        "toner_raw_help_impressions": "Counters for printed impressions (mono/color).",
+        "toner_raw_help_brother":     "Note for Brother printers: some models report the drum unit or a page-count estimate under \"MARKER_BLACK\" — not the toner cartridge. If you just replaced the toner and still see 2%: check whether the printer needs a manual reset (Menu → Maintenance → Toner reset), and whether you're using original vs. refill cartridges (chip recognition).",
+    },
+    "fr": {
+        "toner_raw_btn":              "Afficher données brutes",
+        "toner_raw_heading":          "Données SNMP brutes (BI DB)",
+        "toner_raw_intro":            "Affiche les 5 dernières mesures reçues par Printix via SNMP. Utile quand une valeur ne semble pas plausible.",
+        "toner_raw_loading":          "Chargement…",
+        "toner_raw_help_heading":     "Que signifient ces champs ?",
+        "toner_raw_help_markers":     "Toner restant par couleur en %. K = Key/Noir, C = Cyan, M = Magenta, Y = Jaune. Directement depuis le MIB SNMP de l'imprimante.",
+        "toner_raw_help_sheets":      "Compteurs de feuilles imprimées (simple face / recto-verso).",
+        "toner_raw_help_impressions": "Compteurs d'impressions (mono/couleur).",
+        "toner_raw_help_brother":     "Attention Brother : certains modèles reportent sous « MARKER_BLACK » le tambour ou une estimation de pages restantes, pas la cartouche. Si tu viens de remplacer le toner et vois 2% : vérifie si l'imprimante a besoin d'un reset manuel (Menu → Maintenance → Reset toner), et si tu utilises des cartouches originales ou refill.",
+    },
+    "it": {
+        "toner_raw_btn":              "Mostra dati grezzi",
+        "toner_raw_heading":          "Dati SNMP grezzi (BI DB)",
+        "toner_raw_intro":            "Mostra le ultime 5 misure come Printix le riceve dalla stampante via SNMP. Utile quando un valore non è plausibile.",
+        "toner_raw_loading":          "Caricamento…",
+        "toner_raw_help_heading":     "Cosa significano questi campi?",
+        "toner_raw_help_markers":     "Toner residuo per colore in %. K = Key/Nero, C = Cyan, M = Magenta, Y = Giallo. Direttamente dal MIB SNMP della stampante.",
+        "toner_raw_help_sheets":      "Contatori fogli stampati (fronte / fronte-retro).",
+        "toner_raw_help_impressions": "Contatori impressioni (mono/colore).",
+        "toner_raw_help_brother":     "Nota Brother: alcuni modelli riportano sotto \"MARKER_BLACK\" il tamburo o una stima di pagine, non la cartuccia. Se hai appena sostituito il toner e vedi 2%: verifica se serve un reset manuale (Menu → Manutenzione → Reset toner) e se stai usando cartucce originali o rigenerate.",
+    },
+    "es": {
+        "toner_raw_btn":              "Mostrar datos brutos",
+        "toner_raw_heading":          "Datos SNMP brutos (BI DB)",
+        "toner_raw_intro":            "Muestra las últimas 5 mediciones tal como Printix las recibe de la impresora vía SNMP. Útil cuando un valor no parece plausible.",
+        "toner_raw_loading":          "Cargando…",
+        "toner_raw_help_heading":     "¿Qué significan estos campos?",
+        "toner_raw_help_markers":     "Tóner restante por color en %. K = Key/Negro, C = Cyan, M = Magenta, Y = Amarillo. Directamente del MIB SNMP.",
+        "toner_raw_help_sheets":      "Contadores de hojas impresas (una cara / dúplex).",
+        "toner_raw_help_impressions": "Contadores de impresiones (mono/color).",
+        "toner_raw_help_brother":     "Aviso Brother: algunos modelos reportan bajo \"MARKER_BLACK\" el tambor o una estimación, no la cartucha. Si acabas de reemplazar el tóner y ves 2%: verifica si la impresora necesita un reset manual (Menú → Mantenimiento → Reset tóner) y si usas cartuchos originales o refill.",
+    },
+    "nl": {
+        "toner_raw_btn":              "Ruwe data tonen",
+        "toner_raw_heading":          "SNMP ruwe data (BI DB)",
+        "toner_raw_intro":            "Toont de laatste 5 metingen zoals Printix ze via SNMP van de printer ontvangt. Nuttig als een waarde niet plausibel is.",
+        "toner_raw_loading":          "Laden…",
+        "toner_raw_help_heading":     "Wat betekenen deze velden?",
+        "toner_raw_help_markers":     "Toner-restant per kleur in %. K = Key/Zwart, C = Cyan, M = Magenta, Y = Geel. Direct uit de SNMP MIB van de printer.",
+        "toner_raw_help_sheets":      "Tellers voor bedrukte vellen (enkelzijdig / duplex).",
+        "toner_raw_help_impressions": "Tellers voor prints (mono/kleur).",
+        "toner_raw_help_brother":     "Let op Brother: sommige modellen rapporteren onder \"MARKER_BLACK\" de drum of paginaschatting, niet de cartridge. Als je net de toner hebt vervangen en toch 2% ziet: controleer of de printer een reset nodig heeft (Menu → Onderhoud → Toner-reset) en of je originele of refill-cartridges gebruikt.",
+    },
+    "no": {
+        "toner_raw_btn":              "Vis rådata",
+        "toner_raw_heading":          "SNMP rådata (BI DB)",
+        "toner_raw_intro":            "Viser de siste 5 målingene slik Printix mottar dem fra skriveren via SNMP. Nyttig når en verdi ikke virker plausibel.",
+        "toner_raw_loading":          "Laster…",
+        "toner_raw_help_heading":     "Hva betyr disse feltene?",
+        "toner_raw_help_markers":     "Toner-rest per farge i %. K = Key/Svart, C = Cyan, M = Magenta, Y = Gul. Direkte fra skriverens SNMP MIB.",
+        "toner_raw_help_sheets":      "Tellere for utskrevne ark (ensidig / dupleks).",
+        "toner_raw_help_impressions": "Tellere for utskrifter (mono/farge).",
+        "toner_raw_help_brother":     "Merk Brother: noen modeller rapporterer under \"MARKER_BLACK\" trommelenheten eller et sideanslag, ikke selve toneren. Hvis du nettopp har byttet toner og fortsatt ser 2%: sjekk om skriveren trenger manuell reset (Meny → Vedlikehold → Toner-reset) og om du bruker original- eller refill-patroner.",
+    },
+    "sv": {
+        "toner_raw_btn":              "Visa rådata",
+        "toner_raw_heading":          "SNMP-rådata (BI DB)",
+        "toner_raw_intro":            "Visar de senaste 5 mätningarna som Printix får dem från skrivaren via SNMP. Användbart när ett värde inte verkar rimligt.",
+        "toner_raw_loading":          "Laddar…",
+        "toner_raw_help_heading":     "Vad betyder dessa fält?",
+        "toner_raw_help_markers":     "Toner-återstod per färg i %. K = Key/Svart, C = Cyan, M = Magenta, Y = Gul. Direkt från skrivarens SNMP MIB.",
+        "toner_raw_help_sheets":      "Räknare för utskrivna ark (enkelsidiga / dubbelsidiga).",
+        "toner_raw_help_impressions": "Räknare för utskrifter (mono/färg).",
+        "toner_raw_help_brother":     "Obs Brother: vissa modeller rapporterar under \"MARKER_BLACK\" trummenheten eller en sid-uppskattning, inte kassetten. Om du precis bytt toner och ändå ser 2%: kolla om skrivaren behöver en manuell reset (Meny → Underhåll → Toner-reset) och om du använder original- eller refill-kassetter.",
+    },
+}
+for _lg, _kv in _TONER_RAW.items():
+    TRANSLATIONS.setdefault(_lg, {}).update(_kv)
+TRANSLATIONS.setdefault("nb", {}).update(_TONER_RAW["no"])
