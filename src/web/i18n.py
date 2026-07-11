@@ -41372,3 +41372,18 @@ _NETMAP_V2 = {
 for _lg, _kv in _NETMAP_V2.items():
     TRANSLATIONS.setdefault(_lg, {}).update(_kv)
 TRANSLATIONS.setdefault("nb", {}).update(_NETMAP_V2["no"])
+
+# ─── Netmap Loader v0.7.277 ────────────────────────────────────────────────
+_NM_LOADER = {
+    "de": {"netmap_loader_title":"Verbinde mit Printix BI-DB…","netmap_loader_sub":"Netzwerk-Struktur wird geladen","netmap_loader_slow":"Azure Auto-Pause — kann bis 30s dauern"},
+    "en": {"netmap_loader_title":"Connecting to Printix BI DB…","netmap_loader_sub":"Loading network structure","netmap_loader_slow":"Azure auto-pause — may take up to 30s"},
+    "fr": {"netmap_loader_title":"Connexion à la BI DB Printix…","netmap_loader_sub":"Chargement de la structure réseau","netmap_loader_slow":"Auto-pause Azure — jusqu'à 30s"},
+    "it": {"netmap_loader_title":"Connessione alla BI DB Printix…","netmap_loader_sub":"Caricamento struttura di rete","netmap_loader_slow":"Auto-pausa Azure — fino a 30s"},
+    "es": {"netmap_loader_title":"Conectando con la BI DB de Printix…","netmap_loader_sub":"Cargando estructura de red","netmap_loader_slow":"Auto-pausa de Azure — hasta 30s"},
+    "nl": {"netmap_loader_title":"Verbinden met Printix BI DB…","netmap_loader_sub":"Netwerk-structuur wordt geladen","netmap_loader_slow":"Azure auto-pauze — kan tot 30s duren"},
+    "no": {"netmap_loader_title":"Kobler til Printix BI DB…","netmap_loader_sub":"Laster nettverksstruktur","netmap_loader_slow":"Azure auto-pause — kan ta opptil 30s"},
+    "sv": {"netmap_loader_title":"Ansluter till Printix BI DB…","netmap_loader_sub":"Läser in nätverksstruktur","netmap_loader_slow":"Azure auto-paus — kan ta upp till 30s"},
+}
+for _lg, _kv in _NM_LOADER.items():
+    TRANSLATIONS.setdefault(_lg, {}).update(_kv)
+TRANSLATIONS.setdefault("nb", {}).update(_NM_LOADER["no"])

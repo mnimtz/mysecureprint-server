@@ -59,6 +59,34 @@
     background: #fff; border: 1px solid #D9DFE6; border-radius: 14px;
     padding: 20px; overflow: hidden; max-height: 78vh; position: relative;
   }
+  /* Matrix-Loader */
+  .matrix-loader {
+    position: absolute; inset: 0; z-index: 5;
+    background: #00123B;
+    border-radius: 14px; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .matrix-canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    display: block; opacity: .8;
+  }
+  .matrix-loader-msg {
+    position: relative; z-index: 2; text-align: center;
+    color: #fff; font-family: 'Red Hat Display', Arial, sans-serif;
+    text-shadow: 0 2px 20px rgba(0,0,0,.5);
+    padding: 40px;
+  }
+  .matrix-title {
+    font-size: 1.6em; font-weight: 700; color: #00EB86;
+    text-shadow: 0 0 20px rgba(0,235,134,.5);
+    margin-bottom: 8px;
+  }
+  .matrix-sub {
+    font-size: .95em; color: #9DDDF9;
+    font-weight: 500;
+  }
+  .matrix-loader.hidden { display: none; }
+
   .nm-zoom-controls {
     position: absolute; bottom: 20px; right: 20px; z-index: 10;
     display: flex; flex-direction: column; gap: 6px;
@@ -202,37 +230,170 @@
     </aside>
 
     <section class="nm-canvas" id="nm-canvas">
-      {% if svg %}
-        {{ svg|safe }}
-        <div class="nm-zoom-controls">
-          <button type="button" class="nm-zoom-btn" onclick="nmZoomIn()"
-                  title="{{ _('netmap_zoom_in') }}">＋</button>
-          <div class="nm-zoom-level" id="nm-zoom-level">100%</div>
-          <button type="button" class="nm-zoom-btn" onclick="nmZoomOut()"
-                  title="{{ _('netmap_zoom_out') }}">−</button>
-          <button type="button" class="nm-zoom-btn" onclick="nmZoomReset()"
-                  title="{{ _('netmap_zoom_reset') }}"
-                  style="font-size:.85em;">⌂</button>
-          <button type="button" class="nm-zoom-btn" onclick="nmZoomFit()"
-                  title="{{ _('netmap_zoom_fit') }}"
-                  style="font-size:.85em;">⤢</button>
+      <div id="nm-loader" class="matrix-loader"
+           style="{% if not async_load %}display:none;{% endif %}">
+        <canvas class="matrix-canvas" id="matrix-canvas"></canvas>
+        <div class="matrix-loader-msg">
+          <div class="matrix-title">{{ _('netmap_loader_title') }}</div>
+          <div class="matrix-sub" id="matrix-sub">{{ _('netmap_loader_sub') }}</div>
         </div>
-      {% else %}
-        <div class="nm-empty">
-          {% if not bi_configured %}
-            {{ _('netmap_empty_no_bi') }}
-          {% elif not topology %}
-            {{ _('netmap_empty_unreachable') }}
-          {% else %}
-            {{ _('netmap_empty_nothing_selected') }}
-          {% endif %}
-        </div>
-      {% endif %}
+      </div>
+      <div id="nm-svg-host">
+        <!-- SVG wird via XHR nachgeladen -->
+      </div>
+      <div id="nm-empty" style="display:none;">
+        <div class="nm-empty" id="nm-empty-msg"></div>
+      </div>
+      <div class="nm-zoom-controls" id="nm-zoom-controls" style="display:none;">
+        <button type="button" class="nm-zoom-btn" onclick="nmZoomIn()"
+                title="{{ _('netmap_zoom_in') }}">＋</button>
+        <div class="nm-zoom-level" id="nm-zoom-level">100%</div>
+        <button type="button" class="nm-zoom-btn" onclick="nmZoomOut()"
+                title="{{ _('netmap_zoom_out') }}">−</button>
+        <button type="button" class="nm-zoom-btn" onclick="nmZoomReset()"
+                title="{{ _('netmap_zoom_reset') }}"
+                style="font-size:.85em;">⌂</button>
+        <button type="button" class="nm-zoom-btn" onclick="nmZoomFit()"
+                title="{{ _('netmap_zoom_fit') }}"
+                style="font-size:.85em;">⤢</button>
+      </div>
     </section>
+
   </div>
 </div>
 
 <script>
+// ── Matrix Rain Animation ──────────────────────────────────────────
+(function matrixInit() {
+  const canvas = document.getElementById('matrix-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノMYSECUREPRINT01';
+  let cols = 0, drops = [];
+  let animId = null;
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width  = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    const fontSize = 16;
+    cols = Math.floor(rect.width / fontSize);
+    drops = Array(cols).fill(0).map(() => Math.random() * -50);
+  }
+
+  function draw() {
+    const rect = canvas.getBoundingClientRect();
+    // Trail-Effekt: leicht transparente dunkle Ueberdeckung
+    ctx.fillStyle = 'rgba(0, 18, 59, 0.08)';
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    ctx.font = "16px 'Red Hat Display', monospace";
+    for (let i = 0; i < cols; i++) {
+      const ch = chars[Math.floor(Math.random() * chars.length)];
+      const x = i * 16;
+      const y = drops[i] * 16;
+      // Head-Zeichen ist heller (Tungsten green glow)
+      ctx.fillStyle = 'rgba(0, 235, 134, 0.95)';
+      ctx.fillText(ch, x, y);
+      // Tail (dunkler)
+      if (drops[i] > 3) {
+        ctx.fillStyle = 'rgba(0, 160, 251, 0.65)';
+        ctx.fillText(ch, x, y - 32);
+      }
+      drops[i]++;
+      if (drops[i] * 16 > rect.height && Math.random() > 0.98) {
+        drops[i] = 0;
+      }
+    }
+    animId = requestAnimationFrame(draw);
+  }
+
+  window.matrixStart = function() {
+    if (animId) return;
+    resize();
+    draw();
+    window.addEventListener('resize', resize);
+  };
+  window.matrixStop = function() {
+    if (animId) cancelAnimationFrame(animId);
+    animId = null;
+    window.removeEventListener('resize', resize);
+  };
+
+  const loader = document.getElementById('nm-loader');
+  if (loader && loader.style.display !== 'none') {
+    window.matrixStart();
+  }
+})();
+
+// ── Async-Load des Netzwerk-Plans ──────────────────────────────────
+(async function nmAsyncLoad() {
+  const loader = document.getElementById('nm-loader');
+  if (!loader || loader.style.display === 'none') return;
+
+  const subMsg = document.getElementById('matrix-sub');
+  const setSubtle = (t) => { if (subMsg) subMsg.textContent = t; };
+
+  // Query-String uebernehmen fuer Filter-Params
+  const qs = window.location.search;
+  const url = '/admin/network-map/data' + qs;
+
+  try {
+    const t0 = performance.now();
+    // Nach 4s: "immer noch am laden" nachreichen
+    let msgTimer = setTimeout(() => {
+      setSubtle('{{ _("netmap_loader_slow") }}');
+    }, 4000);
+
+    const r = await fetch(url, {credentials: 'same-origin'});
+    clearTimeout(msgTimer);
+
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      showEmpty(data.error || 'error');
+      return;
+    }
+    const data = await r.json();
+    const host = document.getElementById('nm-svg-host');
+    host.innerHTML = data.svg || '';
+    if (data.svg) {
+      document.getElementById('nm-zoom-controls').style.display = '';
+      nmSetupPanZoom();
+    } else {
+      showEmpty('nothing_selected');
+    }
+    // Fade-Out Matrix
+    loader.style.transition = 'opacity .4s';
+    loader.style.opacity = '0';
+    setTimeout(() => {
+      loader.style.display = 'none';
+      window.matrixStop && window.matrixStop();
+    }, 400);
+    console.log('nm-load in', ((performance.now() - t0)/1000).toFixed(1), 's');
+  } catch (e) {
+    console.error(e);
+    showEmpty('exception');
+  }
+
+  function showEmpty(reason) {
+    const emptyBox = document.getElementById('nm-empty');
+    const msg = document.getElementById('nm-empty-msg');
+    if (reason === 'no_creds') {
+      msg.textContent = '{{ _("netmap_empty_no_bi") }}';
+    } else if (reason === 'bi_unreachable') {
+      msg.textContent = '{{ _("netmap_empty_unreachable") }}';
+    } else if (reason === 'nothing_selected') {
+      msg.textContent = '{{ _("netmap_empty_nothing_selected") }}';
+    } else {
+      msg.textContent = reason;
+    }
+    emptyBox.style.display = '';
+    loader.style.display = 'none';
+    window.matrixStop && window.matrixStop();
+  }
+})();
+
 function collectSites() {
   const boxes = document.querySelectorAll('input[name="sites-cb"]');
   const all = boxes.length;
@@ -258,7 +419,7 @@ function downloadSvg() {
 }
 
 // ── Pan + Zoom ─────────────────────────────────────────────────────
-(function() {
+function nmSetupPanZoom() {
   const svg = document.querySelector('#nm-canvas svg.nm-svg');
   if (!svg) return;
   const layer = svg.querySelector('.pan-zoom-layer');
@@ -380,6 +541,6 @@ function downloadSvg() {
 
   svg.style.cursor = 'grab';
   apply();
-})();
+}
 </script>
 {% endblock %}

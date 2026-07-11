@@ -157,7 +157,10 @@ def _parse_markers(raw: Optional[str]) -> Optional[list[dict]]:
 # ─── Batch-Queries für Toner-Alerts ───────────────────────────────────────────
 
 _ALL_SUPPLIES_CACHE: dict[str, tuple[float, list]] = {}
-_ALL_SUPPLIES_TTL_SEC = 180  # 3 min — der Alert-Runner ruft eh nur alle 15+ min
+_ALL_SUPPLIES_TTL_SEC = 600  # 10 min — UI-Sichten erwarten schnelle Antwort;
+                              # Runner refresht ohnehin eigenstaendig
+_TOPOLOGY_CACHE: dict[str, tuple[float, dict]] = {}
+_TOPOLOGY_TTL_SEC = 600  # 10 min — Netzwerk-Struktur aendert sich selten
 
 
 def fetch_all_printer_supplies(tenant: dict) -> Optional[list[dict]]:
@@ -277,7 +280,7 @@ def _parse_error_states(raw) -> list[str]:
     return []
 
 
-def fetch_network_topology(tenant: dict) -> Optional[dict]:
+def fetch_network_topology(tenant: dict, force_refresh: bool = False) -> Optional[dict]:
     """Kompletter Tenant-Baum: Sites → Networks → Printers + Workstations + Users.
 
     Returns:
@@ -294,6 +297,13 @@ def fetch_network_topology(tenant: dict) -> Optional[dict]:
     """
     if not _has_creds(tenant):
         return None
+    tenant_key = str(tenant.get("printix_tenant_id") or tenant.get("id") or "")
+    now = time.time()
+    if not force_refresh:
+        with _CACHE_LOCK:
+            entry = _TOPOLOGY_CACHE.get(tenant_key)
+            if entry and (now - entry[0]) < _TOPOLOGY_TTL_SEC:
+                return entry[1]
     try:
         import pymssql
     except ImportError:
@@ -417,7 +427,7 @@ def fetch_network_topology(tenant: dict) -> Optional[dict]:
                     for u in w["users"]:
                         user_ids_seen.add(u["id"])
 
-        return {
+        result = {
             "sites": sites,
             "unassigned": {
                 "printers": printers_unassigned,
@@ -431,6 +441,9 @@ def fetch_network_topology(tenant: dict) -> Optional[dict]:
                 "users": len(user_ids_seen),
             },
         }
+        with _CACHE_LOCK:
+            _TOPOLOGY_CACHE[tenant_key] = (now, result)
+        return result
     except Exception as e:  # noqa: BLE001
         logger.info("bi_client.fetch_network_topology failed: %s", str(e)[:200])
         return None
