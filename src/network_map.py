@@ -415,19 +415,25 @@ def _render_node(node: dict, positions: dict) -> str:
     # v0.7.276: opts fuer Detail-Toggles
     details = node.get("_details", False)
     netdetails = node.get("_netdetails", False)
-    # Karten-Breite/Hoehe: bei Details ON etwas groesser damit Zusatzzeilen passen
-    card_w = LEAF_SLOT_W - 16
+    # v0.7.284: Karte muss zur tatsaechlichen Slot-Breite passen — sonst
+    # ueberlaufen die Texte die schmaleren Karten bei Details ON.
+    slot_w_actual = 220 if (details or netdetails) else LEAF_SLOT_W
+    card_w = slot_w_actual - 16
     card_h = LEAF_H
-    if details or netdetails:
-        card_h = LEAF_H + 34  # Platz fuer 2 Extra-Zeilen
+    if details and netdetails:
+        card_h = LEAF_H + 50  # beide Zeilen aktiv → mehr Platz
+    elif details or netdetails:
+        card_h = LEAF_H + 34
 
     if kind == "printer":
         color = _vendor_color(node["meta"].get("vendor", ""))
+        # v0.7.284: Truncate-Grenzen angepasst an tatsaechliche Karten-Breite.
+        # 220-16=204px bei ~9-11px Font passen konservativ ~26-30 Zeichen rein.
         model = _truncate((node["meta"].get("model") or "").strip(),
-                          40 if details else 22)
-        name = _truncate(node["label"], 32 if details else 18)
+                          28 if details else 20)
+        name = _truncate(node["label"], 24 if details else 16)
         vendor = _truncate((node["meta"].get("vendor") or "").upper(), 20)
-        location = _truncate((node["meta"].get("location") or "").strip(), 24)
+        location = _truncate((node["meta"].get("location") or "").strip(), 26)
         extra = ""
         if details and location:
             extra = f'''<text x="0" y="{card_h//2 - 8}" fill="{GRAY_MUTE}"
@@ -464,24 +470,38 @@ def _render_node(node: dict, positions: dict) -> str:
     if kind == "workstation":
         icon = _icon_for_workstation(node["meta"])
         col = _ws_color(node["meta"])
-        name = _truncate(node["label"], 32 if details else 18)
+        name = _truncate(node["label"], 24 if details else 16)
         os_str = _truncate((node["meta"].get("os") or "").strip(),
-                           40 if details else 20)
+                           28 if details else 20)
         ws_type = (node["meta"].get("type") or "").upper()
-        ip = (node["meta"].get("ip") or "").strip()
-        cv = (node["meta"].get("client_version") or "").strip()
-        ssid = (node["meta"].get("ssid") or "").strip()
-        # Netzwerk-Details-Zeile
+        ip = _truncate((node["meta"].get("ip") or "").strip(), 22)
+        cv = _truncate((node["meta"].get("client_version") or "").strip(), 20)
+        ssid = _truncate((node["meta"].get("ssid") or "").strip(), 22)
+        # Netzwerk-Details-Zeile — v0.7.284: bei knapper Karte trennen
+        # damit lange IPv6/SSID nicht ueberlaufen.
         net_line = ""
         if netdetails and (ip or ssid):
-            bits = []
-            if ip:   bits.append(f"🌐 {ip}")
-            if ssid: bits.append(f"📶 {ssid}")
-            net_line = f'''<text x="0" y="{card_h//2 - 22}" fill="{TUNGSTEN_BLUE}"
-                                text-anchor="middle"
-                                style="font-weight:500;font-size:9px;font-family:monospace;">
-                            {_esc(" · ".join(bits))}
-                          </text>'''
+            if ip and ssid and (len(ip) + len(ssid) > 22):
+                net_line = (
+                    f'<text x="0" y="{card_h//2 - 28}" fill="{TUNGSTEN_BLUE}" '
+                    f'text-anchor="middle" '
+                    f'style="font-weight:500;font-size:8px;font-family:monospace;">'
+                    f'🌐 {_esc(ip)}</text>'
+                    f'<text x="0" y="{card_h//2 - 18}" fill="{TUNGSTEN_BLUE}" '
+                    f'text-anchor="middle" '
+                    f'style="font-weight:500;font-size:8px;font-family:monospace;">'
+                    f'📶 {_esc(ssid)}</text>'
+                )
+            else:
+                bits = []
+                if ip:   bits.append(f"🌐 {ip}")
+                if ssid: bits.append(f"📶 {ssid}")
+                net_line = (
+                    f'<text x="0" y="{card_h//2 - 22}" fill="{TUNGSTEN_BLUE}" '
+                    f'text-anchor="middle" '
+                    f'style="font-weight:500;font-size:9px;font-family:monospace;">'
+                    f'{_esc(" · ".join(bits))}</text>'
+                )
         # Client-Version bei Details oder Netdetails
         cv_line = ""
         if (details or netdetails) and cv:
@@ -568,19 +588,25 @@ def _iter_nodes(nodes: list[dict]):
         yield from _iter_nodes(n.get("_children") or [])
 
 
-def _node_bottom(kind: str, details: bool = False) -> int:
+def _node_bottom(kind: str, details: bool = False,
+                 netdetails: bool = False) -> int:
     if kind == "root": return ROOT_H // 2
     if kind == "site": return SITE_H // 2
     if kind == "network": return NET_H // 2
     if kind in ("printer", "workstation"):
-        return (LEAF_H + 34) // 2 if details else LEAF_H // 2
+        if details and netdetails:
+            return (LEAF_H + 50) // 2
+        if details or netdetails:
+            return (LEAF_H + 34) // 2
+        return LEAF_H // 2
     if kind == "user":
         return 30 if details else 24
     return 0
 
 
-def _node_top(kind: str, details: bool = False) -> int:
-    return _node_bottom(kind, details)
+def _node_top(kind: str, details: bool = False,
+              netdetails: bool = False) -> int:
+    return _node_bottom(kind, details, netdetails)
 
 
 def render_svg(topology: dict, filters: dict,
@@ -622,8 +648,10 @@ def render_svg(topology: dict, filters: dict,
     for parent, child in _iter_edges(tree):
         px, py = positions[parent["id"]]
         cx, cy = positions[child["id"]]
-        p_bottom = py + _node_bottom(parent["kind"], details_on)
-        c_top    = cy - _node_top(child["kind"], details_on)
+        netd_on = bool(filters.get("show_netdetails"))
+        det_on  = bool(filters.get("show_details"))
+        p_bottom = py + _node_bottom(parent["kind"], det_on, netd_on)
+        c_top    = cy - _node_top(child["kind"], det_on, netd_on)
         mid_y = (p_bottom + c_top) // 2
         edges.append(
             f'<path d="M {px} {p_bottom} C {px} {mid_y}, {cx} {mid_y}, '
