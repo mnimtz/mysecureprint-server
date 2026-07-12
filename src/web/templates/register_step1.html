@@ -317,7 +317,9 @@
 
     {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
 
-    <form method="post" action="/register">
+    <form method="post" action="/register"
+          data-matrix-splash="1"
+          data-matrix-msg="{{ _('register_matrix_msg') }}">
       <div class="form-group">
         <label for="username">{{ _('reg_username') }}</label>
         <input type="text" id="username" name="username" value="{{ username | default('') }}"

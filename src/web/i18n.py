@@ -41542,3 +41542,18 @@ for _lg,_v in {"de":"Laden…","en":"Loading…","fr":"Chargement…","it":"Cari
                "es":"Cargando…","nl":"Laden…","no":"Laster…","sv":"Laddar…"}.items():
     TRANSLATIONS.setdefault(_lg,{})["matrix_loading_default"] = _v
 TRANSLATIONS.setdefault("nb",{})["matrix_loading_default"] = "Laster…"
+
+# ─── Splash-Messages v0.7.283 ────────────────────────────────────────────
+_SPLASH = {
+    "de":{"login_matrix_msg":"Anmeldung läuft…","register_matrix_msg":"Konto wird erstellt…"},
+    "en":{"login_matrix_msg":"Signing in…","register_matrix_msg":"Creating account…"},
+    "fr":{"login_matrix_msg":"Connexion en cours…","register_matrix_msg":"Création du compte…"},
+    "it":{"login_matrix_msg":"Accesso in corso…","register_matrix_msg":"Creazione account…"},
+    "es":{"login_matrix_msg":"Iniciando sesión…","register_matrix_msg":"Creando cuenta…"},
+    "nl":{"login_matrix_msg":"Aanmelden…","register_matrix_msg":"Account wordt aangemaakt…"},
+    "no":{"login_matrix_msg":"Logger inn…","register_matrix_msg":"Oppretter konto…"},
+    "sv":{"login_matrix_msg":"Loggar in…","register_matrix_msg":"Skapar konto…"},
+}
+for _lg,_kv in _SPLASH.items():
+    TRANSLATIONS.setdefault(_lg,{}).update(_kv)
+TRANSLATIONS.setdefault("nb",{}).update(_SPLASH["no"])

@@ -329,7 +329,9 @@
     </div>
     {% endif %}
 
-    <form method="post" action="/login">
+    <form method="post" action="/login"
+          data-matrix-splash="1"
+          data-matrix-msg="{{ _('login_matrix_msg') }}">
       <div class="form-group">
         <label for="username">{{ _('login_username') }}</label>
         <input type="text" id="username" name="username"

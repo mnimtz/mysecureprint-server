@@ -18,14 +18,50 @@
 <style>
   .global-matrix-loader {
     position: fixed; inset: 0; z-index: 9999;
-    background: #00123B;
     display: flex; align-items: center; justify-content: center;
     opacity: 0; transition: opacity .3s;
+    pointer-events: none;
   }
-  .global-matrix-loader.visible { opacity: 1; }
+  .global-matrix-loader.visible { opacity: 1; pointer-events: auto; }
+
+  /* Overlay-Modus (Default) — transparent, Seite scheint durch */
+  .global-matrix-loader.mode-overlay {
+    background: rgba(0, 18, 59, 0.55);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+  .global-matrix-loader.mode-overlay .global-matrix-canvas {
+    opacity: .35;
+  }
+  .global-matrix-loader.mode-overlay .global-matrix-msg {
+    padding: 20px 32px;
+    background: rgba(0, 18, 59, 0.7);
+    border-radius: 14px;
+    border: 1px solid rgba(0, 160, 251, 0.35);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .global-matrix-loader.mode-overlay .global-matrix-title {
+    font-size: 1.1em;
+  }
+  .global-matrix-loader.mode-overlay .global-matrix-sub {
+    font-size: .85em;
+  }
+
+  /* Splash-Modus — full opaque, wie iOS-App Startsplash */
+  .global-matrix-loader.mode-splash {
+    background: #00123B;
+  }
+  .global-matrix-loader.mode-splash .global-matrix-canvas {
+    opacity: .8;
+  }
+  .global-matrix-loader.mode-splash .global-matrix-title {
+    font-size: 1.8em;
+  }
+
   .global-matrix-canvas {
     position: absolute; inset: 0; width: 100%; height: 100%;
-    display: block; opacity: .8;
+    display: block;
   }
   .global-matrix-msg {
     position: relative; z-index: 2; text-align: center;
@@ -35,18 +71,17 @@
     pointer-events: none;
   }
   .global-matrix-title {
-    font-size: 1.6em; font-weight: 700; color: #00EB86;
+    font-weight: 700; color: #00EB86;
     text-shadow: 0 0 20px rgba(0,235,134,.5);
     margin-bottom: 8px;
     letter-spacing: 1px;
   }
   .global-matrix-sub {
-    font-size: .95em; color: #9DDDF9; font-weight: 500;
+    color: #9DDDF9; font-weight: 500;
   }
   @media (prefers-reduced-motion: reduce) {
     /* Bei Reduce-Motion: kein Canvas-Regen, nur solid + Spinner-Punkt */
     .global-matrix-canvas { display: none; }
-    .global-matrix-loader { background: #00123B; }
   }
 </style>
 
@@ -148,9 +183,12 @@
     animId = requestAnimationFrame(draw);
   }
 
-  window.matrixShow = function(msg) {
+  window.matrixShow = function(msg, mode) {
+    // mode: 'overlay' (default, transparent) oder 'splash' (full opaque)
     if (pendingHide) { clearTimeout(pendingHide); pendingHide = null; }
     if (msg && sub) sub.textContent = msg;
+    overlay.classList.remove('mode-overlay', 'mode-splash');
+    overlay.classList.add(mode === 'splash' ? 'mode-splash' : 'mode-overlay');
     if (overlay.style.display === 'flex') return;
     overlay.style.display = 'flex';
     // Force reflow so the CSS transition triggers
@@ -209,7 +247,9 @@
       const url = new URL(el.href, window.location.href);
       if (url.origin !== window.location.origin) return;
     } catch { return; }
-    window.matrixShow();
+    // Link kann data-matrix-splash setzen um Full-Splash zu erzwingen
+    const mode = el.dataset.matrixSplash ? 'splash' : 'overlay';
+    window.matrixShow(el.dataset.matrixMsg, mode);
   }, true);
 
   // ── Auto-Hook: Form-Submit zeigt Loader ──────────────────────────
@@ -221,7 +261,9 @@
     if (target && target === '_blank') return;
     // Ajax-Formulare (data-noloader) ausschliessen
     if (form.dataset.noloader) return;
-    window.matrixShow();
+    // Form kann data-matrix-splash setzen (typisch: Login-Form)
+    const mode = form.dataset.matrixSplash ? 'splash' : 'overlay';
+    window.matrixShow(form.dataset.matrixMsg, mode);
   }, true);
 
   // ── Auto-Hide beim (initialen) Page-Load ─────────────────────────
