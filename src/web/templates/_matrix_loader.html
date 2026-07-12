@@ -1,0 +1,238 @@
+{# Global Matrix-Loader-Overlay — wird von base.html eingebunden und bei
+   Navigations-Clicks / Form-Submits / expliziten XHR-Calls aktiv.
+
+   API (window):
+     matrixShow(msg?)  — Overlay einblenden
+     matrixHide()      — sofort ausblenden
+     matrixWith(promise, msg?) — Overlay bis Promise fertig
+#}
+<div id="global-matrix-loader" class="global-matrix-loader" style="display:none;"
+     data-min-ms="400">
+  <canvas id="global-matrix-canvas" class="global-matrix-canvas"></canvas>
+  <div class="global-matrix-msg">
+    <div class="global-matrix-title" id="global-matrix-title">MySecurePrint</div>
+    <div class="global-matrix-sub" id="global-matrix-sub">{{ _('matrix_loading_default') }}</div>
+  </div>
+</div>
+
+<style>
+  .global-matrix-loader {
+    position: fixed; inset: 0; z-index: 9999;
+    background: #00123B;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity .3s;
+  }
+  .global-matrix-loader.visible { opacity: 1; }
+  .global-matrix-canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    display: block; opacity: .8;
+  }
+  .global-matrix-msg {
+    position: relative; z-index: 2; text-align: center;
+    color: #fff; font-family: 'Red Hat Display', Arial, sans-serif;
+    text-shadow: 0 2px 20px rgba(0,0,0,.5);
+    padding: 40px;
+    pointer-events: none;
+  }
+  .global-matrix-title {
+    font-size: 1.6em; font-weight: 700; color: #00EB86;
+    text-shadow: 0 0 20px rgba(0,235,134,.5);
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+  }
+  .global-matrix-sub {
+    font-size: .95em; color: #9DDDF9; font-weight: 500;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    /* Bei Reduce-Motion: kein Canvas-Regen, nur solid + Spinner-Punkt */
+    .global-matrix-canvas { display: none; }
+    .global-matrix-loader { background: #00123B; }
+  }
+</style>
+
+<script>
+(function() {
+  const overlay = document.getElementById('global-matrix-loader');
+  const canvas  = document.getElementById('global-matrix-canvas');
+  const sub     = document.getElementById('global-matrix-sub');
+  if (!overlay || !canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  // Icon-Set (analog zu netmap-Loader)
+  const ICONS = {
+    printer:  '<path d="M6 9V4h12v5M6 18h12v-8H6zM4 9h16v6h-4v-2H8v2H4z"/><rect x="8" y="15" width="8" height="6" rx="1"/>',
+    document: '<path d="M6 3h9l3 3v15H6z"/><path d="M15 3v3h3M8 10h8M8 13h8M8 16h5" fill="none" stroke="currentColor" stroke-width="1.5"/>',
+    mail:     '<path d="M3 6h18v12H3z"/><path d="M3 6l9 7 9-7" fill="none" stroke="currentColor" stroke-width="1.5"/>',
+    lock:     '<path d="M6 10V7a6 6 0 0112 0v3"/><rect x="4" y="10" width="16" height="12" rx="2"/><circle cx="12" cy="16" r="1.5" fill="#000"/>',
+    cloud:    '<path d="M7 18a4 4 0 010-8h.5A5 5 0 0117 10.5a3.5 3.5 0 010 7z"/>',
+    check:    '<circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"/>',
+    person:   '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>',
+    qr:       '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>',
+    upload:   '<path d="M12 15V3M8 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M5 15v4a2 2 0 002 2h10a2 2 0 002-2v-4"/>',
+    envelope: '<path d="M4 5h16v14H4z"/><path d="M4 5l8 7 8-7" fill="none" stroke="#000" stroke-width="1.5"/>',
+    key:      '<circle cx="8" cy="12" r="4"/><path d="M12 12h8v2h-2v2h-2v-2h-4"/>',
+  };
+  const iconNames = Object.keys(ICONS);
+  const iconImages = {green: {}, blue: {}};
+  const colors = {green: '#00EB86', blue: '#00A0FB'};
+  let iconsReady = false;
+
+  function preloadIcons() {
+    let loaded = 0;
+    const total = iconNames.length * 2;
+    for (const [colName, colHex] of Object.entries(colors)) {
+      for (const name of iconNames) {
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${colHex}">${ICONS[name]}</svg>`;
+        const img = new Image();
+        img.onload = () => { if (++loaded === total) iconsReady = true; };
+        img.onerror = () => { if (++loaded === total) iconsReady = true; };
+        img.src = 'data:image/svg+xml;base64,' +
+                  btoa(unescape(encodeURIComponent(svg)));
+        iconImages[colName][name] = img;
+      }
+    }
+  }
+  preloadIcons();
+
+  const CELL = 22;
+  let cols = 0, drops = [];
+  let animId = null;
+  let visibleSince = 0;
+  let pendingHide = null;
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = overlay.getBoundingClientRect();
+    canvas.width  = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+    cols = Math.floor(rect.width / CELL);
+    drops = Array(cols).fill(0).map(() => ({
+      y: Math.random() * -30,
+      speed: 0.3 + Math.random() * 0.5,
+      icons: Array(60).fill(0).map(() => iconNames[Math.floor(Math.random() * iconNames.length)]),
+    }));
+  }
+
+  function draw() {
+    const rect = overlay.getBoundingClientRect();
+    ctx.fillStyle = 'rgba(0, 18, 59, 0.10)';
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    for (let i = 0; i < cols; i++) {
+      const col = drops[i];
+      const x = i * CELL + 3;
+      const yPx = col.y * CELL;
+      const iconIdx = Math.floor(col.y) % col.icons.length;
+      const iconName = col.icons[Math.abs(iconIdx)];
+      const headImg = iconImages.green[iconName];
+      if (headImg && headImg.complete) {
+        ctx.globalAlpha = 1;
+        ctx.drawImage(headImg, x, yPx, 16, 16);
+      }
+      for (let t = 1; t < 4; t++) {
+        const tailName = col.icons[Math.abs((iconIdx - t + col.icons.length) % col.icons.length)];
+        const tailImg = iconImages.blue[tailName];
+        if (tailImg && tailImg.complete) {
+          ctx.globalAlpha = 0.7 - t * 0.15;
+          ctx.drawImage(tailImg, x, yPx - t * CELL, 16, 16);
+        }
+      }
+      ctx.globalAlpha = 1;
+      col.y += col.speed;
+      if (col.y * CELL > rect.height + 100 && Math.random() > 0.97) {
+        col.y = -Math.random() * 20;
+        col.icons = Array(60).fill(0).map(() => iconNames[Math.floor(Math.random() * iconNames.length)]);
+      }
+    }
+    animId = requestAnimationFrame(draw);
+  }
+
+  window.matrixShow = function(msg) {
+    if (pendingHide) { clearTimeout(pendingHide); pendingHide = null; }
+    if (msg && sub) sub.textContent = msg;
+    if (overlay.style.display === 'flex') return;
+    overlay.style.display = 'flex';
+    // Force reflow so the CSS transition triggers
+    overlay.offsetHeight;
+    overlay.classList.add('visible');
+    visibleSince = Date.now();
+    if (!animId) {
+      resize();
+      draw();
+      window.addEventListener('resize', resize);
+    }
+  };
+  window.matrixHide = function() {
+    if (!overlay.classList.contains('visible')) {
+      overlay.style.display = 'none';
+      return;
+    }
+    // Min-Anzeigedauer beachten (default 400ms)
+    const minMs = parseInt(overlay.dataset.minMs || '400', 10);
+    const elapsed = Date.now() - visibleSince;
+    const wait = Math.max(0, minMs - elapsed);
+    pendingHide = setTimeout(() => {
+      overlay.classList.remove('visible');
+      // Nach Fade-Out ausblenden
+      setTimeout(() => {
+        if (!overlay.classList.contains('visible')) {
+          overlay.style.display = 'none';
+          if (animId) { cancelAnimationFrame(animId); animId = null; }
+          window.removeEventListener('resize', resize);
+        }
+      }, 350);
+    }, wait);
+  };
+  window.matrixWith = async function(promise, msg) {
+    window.matrixShow(msg);
+    try { return await promise; }
+    finally { window.matrixHide(); }
+  };
+
+  // ── Auto-Hook: Navigation via <a>-Klick zeigt Loader ──────────────
+  document.addEventListener('click', (e) => {
+    // Nur linke Maustaste, ohne Modifier
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    let el = e.target;
+    while (el && el.tagName !== 'A') el = el.parentElement;
+    if (!el) return;
+    if (el.target && el.target === '_blank') return;
+    if (el.hasAttribute('download')) return;
+    const href = el.getAttribute('href') || '';
+    if (!href) return;
+    if (href.startsWith('#')) return;
+    if (href.startsWith('mailto:') || href.startsWith('tel:')
+        || href.startsWith('javascript:')) return;
+    // Cross-Origin ausschliessen
+    try {
+      const url = new URL(el.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+    } catch { return; }
+    window.matrixShow();
+  }, true);
+
+  // ── Auto-Hook: Form-Submit zeigt Loader ──────────────────────────
+  document.addEventListener('submit', (e) => {
+    const form = e.target;
+    if (!form || !(form instanceof HTMLFormElement)) return;
+    // Nur GET/POST wo Response die Seite ersetzt
+    const target = form.getAttribute('target');
+    if (target && target === '_blank') return;
+    // Ajax-Formulare (data-noloader) ausschliessen
+    if (form.dataset.noloader) return;
+    window.matrixShow();
+  }, true);
+
+  // ── Auto-Hide beim (initialen) Page-Load ─────────────────────────
+  // Falls die neue Seite beim Rendern schon läuft — überflüssig, aber safe
+  window.addEventListener('pageshow', () => {
+    // BFCache-Restore: Loader kann noch drueber liegen wenn User back-Button drueckte
+    window.matrixHide();
+  });
+  window.addEventListener('DOMContentLoaded', () => {
+    // Falls Loader beim Seiten-Enter noch drin ist
+    window.matrixHide();
+  });
+})();
+</script>

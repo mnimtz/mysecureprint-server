@@ -41536,3 +41536,9 @@ _TONER_JS_ERR = {
 for _lg,_kv in _TONER_JS_ERR.items():
     TRANSLATIONS.setdefault(_lg,{}).update(_kv)
 TRANSLATIONS.setdefault("nb",{}).update(_TONER_JS_ERR["no"])
+
+# ─── Global Matrix Loader v0.7.282 ─────────────────────────────────────────
+for _lg,_v in {"de":"Laden…","en":"Loading…","fr":"Chargement…","it":"Caricamento…",
+               "es":"Cargando…","nl":"Laden…","no":"Laster…","sv":"Laddar…"}.items():
+    TRANSLATIONS.setdefault(_lg,{})["matrix_loading_default"] = _v
+TRANSLATIONS.setdefault("nb",{})["matrix_loading_default"] = "Laster…"

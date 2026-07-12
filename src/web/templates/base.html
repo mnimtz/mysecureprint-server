@@ -1473,5 +1473,9 @@
     })();
   </script>
   {% block extra_scripts %}{% endblock %}
+  {# v0.7.282: Global Matrix-Loader — Overlay auf jeder Navigation +
+     Form-Submit, sichtbar mit Min 400ms damit auch schnelle Loads
+     Feedback zeigen. #}
+  {% include "_matrix_loader.html" %}
 </body>
 </html>
