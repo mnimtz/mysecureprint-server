@@ -1023,6 +1023,12 @@
   {% block extra_head %}{% endblock %}
 </head>
 <body{% if async_load %} data-matrix-hold="1"{% endif %}>
+  {# v0.7.286: Matrix-Loader AN DEN ANFANG des Body damit er sofort
+     verfuegbar ist wenn eine Navigation via sessionStorage geflagged
+     wurde. Frueher war er am Ende → sichtbarer Aussetzer zwischen
+     alter-Seite-verschwindet und Matrix-erscheint. #}
+  {% include "_matrix_loader.html" %}
+
   {% if show_nav | default(true) %}
   {# v7.9.1: Logged-in users — no top bar, sidebar handles everything.
      Only a minimal mobile hamburger floats top-right. #}
@@ -1473,9 +1479,7 @@
     })();
   </script>
   {% block extra_scripts %}{% endblock %}
-  {# v0.7.282: Global Matrix-Loader — Overlay auf jeder Navigation +
-     Form-Submit, sichtbar mit Min 400ms damit auch schnelle Loads
-     Feedback zeigen. #}
-  {% include "_matrix_loader.html" %}
+  {# v0.7.286: Matrix-Loader ist jetzt am Anfang von <body> (Zeile 1025)
+     damit er sofort bei sessionStorage-Handoff verfuegbar ist. #}
 </body>
 </html>

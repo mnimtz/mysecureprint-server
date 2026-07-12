@@ -191,6 +191,12 @@
     if (msg && sub) sub.textContent = msg;
     overlay.classList.remove('mode-overlay', 'mode-splash');
     overlay.classList.add(mode === 'splash' ? 'mode-splash' : 'mode-overlay');
+    // v0.7.286: SessionStorage-Handoff — falls die Seite navigiert, kann
+    // die naechste Seite den Loader sofort einblenden ohne Aussetzer.
+    try {
+      sessionStorage.setItem('matrix_pending', mode || 'overlay');
+      sessionStorage.setItem('matrix_pending_msg', msg || '');
+    } catch (e) {}
     if (overlay.style.display === 'flex') return;
     overlay.style.display = 'flex';
     // Force reflow so the CSS transition triggers
@@ -204,6 +210,12 @@
     }
   };
   window.matrixHide = function() {
+    // v0.7.286: SessionStorage-Flag entfernen — kein Ghost-Load bei
+    // nächster Navigation.
+    try {
+      sessionStorage.removeItem('matrix_pending');
+      sessionStorage.removeItem('matrix_pending_msg');
+    } catch (e) {}
     if (!overlay.classList.contains('visible')) {
       overlay.style.display = 'none';
       return;
@@ -224,6 +236,17 @@
       }, 350);
     }, wait);
   };
+
+  // v0.7.286: Beim Page-Load direkt pruefen ob eine pending Navigation
+  // laeuft — dann Matrix sofort einblenden ohne dass der Nutzer eine
+  // "leere Zwischenphase" sieht.
+  try {
+    const pendingMode = sessionStorage.getItem('matrix_pending');
+    if (pendingMode) {
+      const pendingMsg = sessionStorage.getItem('matrix_pending_msg') || '';
+      window.matrixShow(pendingMsg, pendingMode);
+    }
+  } catch (e) {}
   window.matrixWith = async function(promise, msg) {
     window.matrixShow(msg);
     try { return await promise; }
