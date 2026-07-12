@@ -1111,6 +1111,30 @@
 </div>
 
 <script>
+// ── Async-Load: BI-DB nachladen wenn kein Cache da war ────────────
+(function() {
+  if (!document.body.dataset.matrixHold) return;
+  // Server hat data-matrix-hold gesetzt → Cache war leer, jetzt XHR
+  window.matrixShow &&
+    window.matrixShow({{ _('matrix_loading_default')|tojson }}, 'overlay');
+  fetch('/admin/toner/refresh', {credentials: 'same-origin'})
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        // Cache jetzt warm → neu laden zeigt die Seite mit echten Daten
+        window.location.reload();
+      } else {
+        // BI-DB nicht erreichbar → Matrix ausblenden, Fehlerbanner reicht
+        window.matrixHide && window.matrixHide();
+        document.body.removeAttribute('data-matrix-hold');
+      }
+    })
+    .catch(() => {
+      window.matrixHide && window.matrixHide();
+      document.body.removeAttribute('data-matrix-hold');
+    });
+})();
+
 // ── Global i18n JS constants ──────────────────────────────────────
 const ERR_PREFIX = {{ _('toner_error_prefix')|tojson }};
 const ERR_UNKNOWN = {{ _('toner_error_unknown')|tojson }};

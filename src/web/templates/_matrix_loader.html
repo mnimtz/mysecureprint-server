@@ -269,14 +269,19 @@
   }, true);
 
   // ── Auto-Hide beim (initialen) Page-Load ─────────────────────────
-  // Falls die neue Seite beim Rendern schon läuft — überflüssig, aber safe
+  // Falls die Seite <body data-matrix-hold="1"> setzt, bleibt der Loader
+  // sichtbar bis die Seite explizit matrixHide() aufruft (fuer Pages die
+  // nach dem Rendern noch Daten via XHR nachladen).
+  function _autoHideIfNotHeld() {
+    if (document.body && document.body.dataset.matrixHold === '1') return;
+    window.matrixHide();
+  }
   window.addEventListener('pageshow', () => {
     // BFCache-Restore: Loader kann noch drueber liegen wenn User back-Button drueckte
-    window.matrixHide();
+    _autoHideIfNotHeld();
   });
   window.addEventListener('DOMContentLoaded', () => {
-    // Falls Loader beim Seiten-Enter noch drin ist
-    window.matrixHide();
+    _autoHideIfNotHeld();
   });
 })();
 </script>

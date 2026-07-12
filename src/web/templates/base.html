@@ -1022,7 +1022,7 @@
   </style>
   {% block extra_head %}{% endblock %}
 </head>
-<body>
+<body{% if async_load %} data-matrix-hold="1"{% endif %}>
   {% if show_nav | default(true) %}
   {# v7.9.1: Logged-in users — no top bar, sidebar handles everything.
      Only a minimal mobile hamburger floats top-right. #}

@@ -51,7 +51,9 @@ def register_toner_alert_routes(app: FastAPI,
         if src_dir not in sys.path:
             sys.path.insert(0, src_dir)
         import toner_alerts as ta
-        from bi_client import fetch_all_printer_supplies, estimate_days_until_empty
+        from bi_client import (fetch_all_printer_supplies,
+                                fetch_all_printer_supplies_cached_only,
+                                estimate_days_until_empty)
         from printix_errors import toner_only, ERROR_LABEL_KEYS
 
         tenant = _load_tenant(user)
@@ -90,8 +92,19 @@ def register_toner_alert_routes(app: FastAPI,
             (tenant.get("sql_username") or "").strip(),
             (tenant.get("sql_password") or "").strip(),
         ])
-        printers = fetch_all_printer_supplies(tenant) if bi_configured else None
-        bi_reachable = printers is not None
+        # v0.7.285: Cache-only lookup fuer instant page-render. Wenn nichts
+        # gecacht ist, wird die Seite mit Matrix-Hold ausgeliefert und der
+        # Client holt Daten via XHR nach.
+        printers = None
+        bi_reachable = False
+        async_load = False
+        if bi_configured:
+            printers = fetch_all_printer_supplies_cached_only(tenant)
+            if printers is None:
+                async_load = True   # kein Cache → Client soll nachladen
+                bi_reachable = None  # noch unbekannt
+            else:
+                bi_reachable = True
 
         # v0.7.268: pro Drucker eine Karte fuer aktive Alarme. Enthaelt
         # ALLE Supplies des Druckers (auch die im gruenen Bereich) — nur
@@ -162,6 +175,7 @@ def register_toner_alert_routes(app: FastAPI,
             "active_orders": active_orders,
             "current_user_email": user.get("email") or user.get("username") or "",
             "tenant_key": tid,
+            "async_load": async_load,
             "active_page": "admin_toner",
             **t_ctx(request),
         })
@@ -224,6 +238,31 @@ def register_toner_alert_routes(app: FastAPI,
             email_body_template=(email_body_template or "")[:8000],
         )
         return RedirectResponse("/admin/toner?ok=1", status_code=303)
+
+    @app.get("/admin/toner/refresh", response_class=JSONResponse)
+    async def toner_refresh(request: Request):
+        """v0.7.285: liefert BI-DB-Daten fuer async-load auf /admin/toner.
+        Client called das nach Page-Mount wenn kein Cache-Treffer war.
+        Antwort ist JSON — Client rendert dann selbst oder triggert reload.
+        """
+        user = _admin_or_login(request)
+        if not user:
+            return JSONResponse({"error": "auth"}, status_code=403)
+        tenant = _load_tenant(user)
+        if not tenant:
+            return JSONResponse({"error": "no_tenant"}, status_code=404)
+        import sys, os, asyncio
+        src_dir = os.path.dirname(os.path.dirname(__file__))
+        if src_dir not in sys.path:
+            sys.path.insert(0, src_dir)
+        from bi_client import fetch_all_printer_supplies
+        try:
+            data = await asyncio.to_thread(fetch_all_printer_supplies, tenant)
+            if data is None:
+                return JSONResponse({"ok": False, "error": "unreachable"})
+            return JSONResponse({"ok": True, "count": len(data)})
+        except Exception as e:  # noqa: BLE001
+            return JSONResponse({"ok": False, "error": str(e)[:200]})
 
     @app.get("/admin/toner/raw/{printer_id}", response_class=JSONResponse)
     async def toner_raw(request: Request, printer_id: str):

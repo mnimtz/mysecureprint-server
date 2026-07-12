@@ -169,6 +169,19 @@ _TOPOLOGY_CACHE: dict[str, tuple[float, dict]] = {}
 _TOPOLOGY_TTL_SEC = 600  # 10 min — Netzwerk-Struktur aendert sich selten
 
 
+def fetch_all_printer_supplies_cached_only(tenant: dict) -> Optional[list[dict]]:
+    """Nur Cache-Lookup, kein Fetch. Returns None wenn nichts gecacht ist."""
+    if not _has_creds(tenant):
+        return None
+    tenant_key = str(tenant.get("printix_tenant_id") or tenant.get("id") or "")
+    now = time.time()
+    with _CACHE_LOCK:
+        entry = _ALL_SUPPLIES_CACHE.get(tenant_key)
+        if entry and (now - entry[0]) < _ALL_SUPPLIES_TTL_SEC:
+            return entry[1]
+    return None
+
+
 def fetch_all_printer_supplies(tenant: dict) -> Optional[list[dict]]:
     """Jüngstes Reading pro Drucker im Tenant mit Toner-Levels + Name.
 
