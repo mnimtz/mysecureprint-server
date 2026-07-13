@@ -1,8 +1,10 @@
 # MySecurePrint Server
 
-**Self-hosted print backend for the [MySecurePrint iOS app](https://apps.apple.com/de/app/mysecureprint/id6785880823) and the [macOS Send client](https://github.com/mnimtz/mysecureprint-server/releases).**
+**Self-hosted print backend + admin cockpit for the [MySecurePrint iOS app](https://apps.apple.com/de/app/mysecureprint/id6785880823) and the [macOS Send client](https://github.com/mnimtz/mysecureprint-server/releases).**
 
 Deploys to your own Azure App Service in ~5 minutes. One Printix tenant per deployment, N end-users via Microsoft Entra ID and/or local accounts. Document conversion (Word / JPG / PDF → PCL XL via LibreOffice + Ghostscript) included. iOS app connects via OAuth PKCE + Bearer, no proprietary auth.
+
+**Beyond just a backend** — a full admin cockpit with **toner-alert emails** and **reorder-tracking** to prevent double-orders across teams, an auto-generated **network topology map** (Sites → Networks → Printers + Workstations, vendor-branded icons, pan/zoom, PDF export), plus **AI document analysis** with your choice of model. Everything wrapped in a Tungsten-branded Matrix-style loader UX that makes even 30 s BI-DB queries feel instant.
 
 > ⚠ Not affiliated with or endorsed by Tungsten Automation Corp. (the maker of Printix). This is an independent third-party companion server. "Printix" is used only to describe API compatibility.
 
@@ -52,6 +54,30 @@ Alternative: `az webapp` CLI walkthrough in [`docs/azure-deploy-guide.md`](docs/
 - **Audit log** — full JSON-detailed history of admin + user actions.
 - **API-Trace dashboard** — inspect outbound Printix/Graph HTTP calls per admin toggle (off by default).
 - **8 UI languages** — de / en / fr / es / it / nl / nb (Bokmål) / sv, plus 7 fun-mode dialects.
+- **Matrix-style loader UX** (v0.7.282+) — every navigation shows a Tungsten-branded print-icon rain overlay with `sessionStorage` handoff so it stays visible seamlessly across page transitions. Two modes: `splash` (full-opaque, used for login/register) and `overlay` (transparent glass with backdrop blur, used for regular navigation and slow BI-DB fetches).
+
+### Toner monitoring + reorder tracking (v0.7.261+)
+
+- **Live toner levels** — reads `MARKER_BLACK/CYAN/MAGENTA/YELLOW` values directly from Printix's Azure SQL BI-DB (`device_readings.additional_readings`) with a 10-min cache. The iOS app's printer-detail view surfaces these as coloured K/C/M/Y bars.
+- **Automatic email alerts** — background runner ticks per tenant, sends per-cartridge or daily-digest mails when a level drops below the configured `warn` threshold (default 20%) or `critical` threshold (default 5%). Hysteresis prevents ping-pong, quiet-hours window suppresses night-time noise.
+- **Predictive "days until empty"** — optional lead-time forecast built from 14-day consumption history — triggers alerts *before* levels physically drop, so partners can order in time.
+- **Reorder tracking (v0.7.279+)** — click 🛒 on any low cartridge to log a purchase order (with buyer name + note). Runner then **suppresses further alerts for that (printer × colour)** until either (a) the level rises back above the threshold + hysteresis, or (b) the level rises ≥ 30 percentage points above the ordered-at level. Auto-close via `mark_installed`; manual cancel via 🗑 on the badge.
+- **Prevents double-orders across teams** — the classic partner-workflow pain point: colleague A orders black toner on Monday, alerts keep firing, colleague B orders again on Tuesday. With this system the badge is visible on `/admin/toner` for everyone with access, and email alerts pause automatically until the physical swap happens.
+- **Live-preview picker** — search-as-you-type dropdown of all reporting printers with a stylised Tungsten-branded MFP illustration + real-time K/C/M/Y bars.
+- **Filter chips** — Critical / Medium / OK on the overview grid, computed from the same warn/critical thresholds.
+- **Custom email templates** — subject + HTML body editable per tenant with `{{ printer_name }}`, `{{ color_label }}`, `{{ level }}`, `{{ days_left_row }}` and 6 other placeholders. Sandboxed `<iframe srcdoc>` preview.
+- **Raw SNMP diagnostics** — 🔬 button shows the last 5 device_readings JSON blobs so admins can debug when a Brother reports "MARKER_BLACK: 2%" but the physical cartridge is new (drum-vs-toner-mapping is a Brother thing).
+- **Printix error-state alerts** — LOW_TONER / TONER_EMPTY / MARKER_WASTE_FULL error codes trigger alerts too, mapped to localised human strings ("Toner geht zur Neige") instead of raw codes.
+
+### Network topology map (v0.7.271+)
+
+- **Full tenant tree** — Sites → Networks → Printers + Workstations + optionally logged-in Users, auto-built from the Printix BI-DB.
+- **Vendor-branded printer icons** — MFP illustration colour-coded by manufacturer (HP cyan, Brother purple, Kyocera red, Ricoh, Canon, Epson, Xerox, Lexmark, Oki, Samsung, Konica Minolta).
+- **OS-aware workstation icons** — MacBook clamshell for macOS, tower for Windows, rack for servers, phone for iOS/Android — with OS-native accent colour.
+- **Filter sidebar** — toggle Printers / Workstations / Users, and multi-select individual Sites. Extra "Extended details" + "Network details (IP/SSID)" toggles reveal client version + external IP + adapter SSID per workstation.
+- **Interactive canvas** — pan/zoom with mouse wheel + drag, pinch on touch, 4 UI buttons (＋/−/⌂/⤢), zoom range 15% - 500%.
+- **PDF export** — browser print CSS hides the sidebar/nav so `Print to PDF` yields a clean vector diagram. SVG download also supported.
+- **Async load with matrix loader** — page shell renders in <200 ms, BI-DB fetch happens in the background with a transparent matrix overlay showing progress. Second visit hits the 10-min cache and is instant.
 
 ### Print pipeline
 
@@ -103,6 +129,8 @@ Hardened over v0.7.29–0.7.40 based on adversarial audits:
 | **Live job-status polling** — adaptive interval (20 s for fresh jobs → 30 min for waiting Anywhere), server-side Printix cross-check, Web-UI-delete detection | ✅ (v0.7.190+) |
 | **Print delegation** — send jobs to other users' SecurePrint queues (admin-controlled toggle, off by default for GDPR) | ✅ |
 | **Guest-Print / Email-to-Print gateway** — watch an O365 mailbox, print attachments on behalf of whitelisted external senders + auto-recognized internal users | ✅ (v0.7.28+) |
+| **Toner monitoring + reorder tracking** — live K/C/M/Y levels from Printix BI-DB, email alerts with warn/critical thresholds, hysteresis, quiet-hours, digest mode, predictive "days until empty", 🛒 order-tracking to prevent double-orders across teams, sandboxed HTML template editor, raw SNMP diagnostics | ✅ (v0.7.261+) |
+| **Network topology map** — auto-built Sites→Networks→Printers+Workstations→Users tree with vendor-branded icons, pan/zoom canvas, PDF export, async load with matrix loader | ✅ (v0.7.271+) |
 | **Document conversion** — Word / Excel / PowerPoint / images (HEIC/PNG/JPG) / plain text / PDF → PCL XL via LibreOffice + Ghostscript | ✅ |
 | **Microsoft Graph mail** — send system mails from your own O365 tenant, or fall back to Resend HTTP API | ✅ (v0.7.0+) |
 | **Entra ID auto-setup** — device-code wizard creates the App Registration, generates client secret, grants tenant-wide admin consent (openid/profile/email/User.Read + optional Mail.Send/Mail.Read) | ✅ |
