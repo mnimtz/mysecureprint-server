@@ -381,11 +381,13 @@
     /* Category items container */
     .sb-cat-items {
       max-height: 0; overflow: hidden;
-      transition: max-height .3s cubic-bezier(.4,0,.2,1);
+      padding-bottom: 0;
+      transition: max-height .25s cubic-bezier(.4,0,.2,1),
+                  padding-bottom .25s cubic-bezier(.4,0,.2,1);
     }
     .sb-cat-items.open {
-      max-height: 800px;
-      padding-bottom: 6px; /* Descender-Reserve fuer letztes Item */
+      max-height: 2000px; /* generous cap — Konfig hat 12+ Items */
+      padding-bottom: 6px;
     }
 
     /* Sub-link — dark theme */
@@ -418,9 +420,11 @@
     }
     .sb-sublink .sb-dot {
       width: 5px; height: 5px; border-radius: 50%;
-      background: rgba(255,255,255,.28); flex-shrink: 0;
+      background: rgba(255,255,255,.45); flex-shrink: 0;
+      transition: background var(--t-fast);
     }
-    .sb-sublink.active .sb-dot { background: var(--tw-green); }
+    .sb-sublink:hover .sb-dot { background: rgba(255,255,255,.75); }
+    .sb-sublink.active .sb-dot { background: var(--tw-green); box-shadow: 0 0 6px rgba(0,235,134,.55); }
 
     /* Sub-group label */
     .sb-subgroup-label {
