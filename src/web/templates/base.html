@@ -383,29 +383,37 @@
       max-height: 0; overflow: hidden;
       transition: max-height .3s cubic-bezier(.4,0,.2,1);
     }
-    .sb-cat-items.open { max-height: 800px; }
+    .sb-cat-items.open {
+      max-height: 800px;
+      padding-bottom: 6px; /* Descender-Reserve fuer letztes Item */
+    }
 
     /* Sub-link — dark theme */
     .sb-sublink {
       display: flex; align-items: center; gap: 10px;
-      padding: 8px 14px 8px 34px; margin: 1px 8px;
+      padding: 9px 14px 10px 38px; margin: 1px 8px;
       border-radius: var(--r-sm); text-decoration: none;
       color: rgba(255,255,255,.72); font-size: .88em; font-weight: 500;
+      line-height: 1.35;
       transition: background var(--t-fast), color var(--t-fast);
       white-space: nowrap;
-      overflow: hidden; text-overflow: ellipsis;
+      /* overflow: visible damit active-Indicator ::before sichtbar bleibt.
+         Text-Ellipsis liegt nur auf dem inneren Text-Span (falls vorhanden). */
+      overflow: visible;
       position: relative;
+      min-width: 0;
     }
     .sb-sublink:hover { background: rgba(255,255,255,.06); color: var(--tw-white); }
     .sb-sublink.active {
       background: rgba(0,160,251,.14); color: var(--tw-white);
       font-weight: 700;
     }
+    /* Active-Indicator INNERHALB der Padding-Zone (nicht mehr negativ links) */
     .sb-sublink.active::before {
       content: '';
       position: absolute;
-      left: -8px; top: 6px; bottom: 6px;
-      width: 3px; border-radius: 0 3px 3px 0;
+      left: 4px; top: 8px; bottom: 8px;
+      width: 3px; border-radius: 3px;
       background: var(--pillar-gradient);
     }
     .sb-sublink .sb-dot {
