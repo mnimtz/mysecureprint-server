@@ -108,12 +108,22 @@ def register_network_map_routes(app: FastAPI,
     @app.get("/admin/network-map/ping", response_class=JSONResponse)
     async def netmap_ping(request: Request):
         """Diagnose-Endpoint: kehrt sofort zurueck. Wenn dieser haengt,
-        liegt es NICHT an BI-DB sondern an Routing/Auth/App-Service."""
-        import time
+        liegt es NICHT an BI-DB sondern an Routing/Auth/App-Service.
+        Version wird zur Laufzeit gelesen — kein Hardcoded-Stale."""
+        import time, os
+        version = "unknown"
+        try:
+            vf = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "VERSION")
+            if os.path.isfile(vf):
+                with open(vf, "r") as f:
+                    version = f.read().strip()
+        except Exception:
+            pass
         return JSONResponse({
             "ok": True,
             "ts": time.time(),
-            "version": "0.7.293",
+            "version": version,
+            "has_manual_load_gate": True,  # marker: v0.7.296+ has the load-button
         })
 
     @app.get("/admin/network-map/data", response_class=JSONResponse)
