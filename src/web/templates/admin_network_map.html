@@ -402,6 +402,18 @@
   }
 })();
 
+// ── FIX v0.7.298: GLOBALEN Matrix-Loader (aus _matrix_loader.html) sofort
+// ausblenden. Wir sind jetzt Manual-Load und brauchen den page-transition-
+// Matrix nicht mehr fest zu halten (base.html setzt data-matrix-hold=1 weil
+// async_load=True). Sonst laeuft der globale Matrix ewig weiter.
+(function releaseGlobalMatrix() {
+  function hide() {
+    try { window.matrixHide && window.matrixHide(); } catch(e){}
+  }
+  hide();
+  document.addEventListener('DOMContentLoaded', hide);
+})();
+
 // ── Manual-Load: kein Auto-Fetch mehr. User klickt "Netzwerk-Plan laden" ──
 window.nmStartLoad = function() {
   const gate = document.getElementById('nm-loadgate');
