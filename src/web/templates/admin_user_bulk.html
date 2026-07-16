@@ -12,22 +12,22 @@
 
     {% if results %}
     <div class="alert alert-info" style="margin-bottom:18px;">
-      <strong>Ergebnis:</strong>
-      {{ summary.ok }} angelegt ·
-      {{ summary.skipped }} übersprungen ·
-      {{ summary.failed }} fehlgeschlagen
-      {% if summary.mail_sent %} · {{ summary.mail_sent }} Mails verschickt{% endif %}
-      {% if summary.printix_ok %} · {{ summary.printix_ok }} Printix-User angelegt{% endif %}
+      <strong>{{ _('bulk_result_label') }}</strong>
+      {{ summary.ok }} {{ _('bulk_summary_created') }} ·
+      {{ summary.skipped }} {{ _('bulk_summary_skipped') }} ·
+      {{ summary.failed }} {{ _('bulk_summary_failed') }}
+      {% if summary.mail_sent %} · {{ summary.mail_sent }} {{ _('bulk_summary_mail_sent') }}{% endif %}
+      {% if summary.printix_ok %} · {{ summary.printix_ok }} {{ _('bulk_summary_printix_ok') }}{% endif %}
     </div>
     <div style="overflow-x:auto;margin-bottom:18px;">
     <table>
       <thead>
         <tr>
-          <th>Zeile</th>
-          <th>E-Mail</th>
+          <th>{{ _('bulk_col_row') }}</th>
+          <th>{{ _('bulk_col_email') }}</th>
           <th>{{ _('bulk_col_username') }}</th>
-          <th>Status</th>
-          <th>Details</th>
+          <th>{{ _('bulk_col_status') }}</th>
+          <th>{{ _('bulk_col_details') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -42,7 +42,7 @@
             {% elif r.status == 'skipped' %}
               <span class="badge badge-yellow">⏭ skipped</span>
             {% else %}
-              <span class="badge badge-red">✗ Fehler</span>
+              <span class="badge badge-red">✗ {{ _('bulk_status_error') }}</span>
             {% endif %}
           </td>
           <td style="font-size:.88em;">{{ r.detail or '' }}</td>
@@ -57,13 +57,7 @@
       <div class="form-group">
         <label>{{ _('bulk_csv_file') }}</label>
         <input type="file" name="csv_file" accept=".csv,text/csv">
-        <small class="hint">
-          UTF-8, erste Zeile = Header. Erlaubte Spalten:
-          <code>email</code> (Pflicht), <code>full_name</code>,
-          <code>username</code>, <code>company</code>,
-          <code>printix_role</code> (USER|GUEST_USER),
-          <code>local_role</code> (admin|employee).
-        </small>
+        <small class="hint">{{ _('bulk_csv_hint') | safe }}</small>
       </div>
 
       <div class="form-group">
@@ -74,7 +68,7 @@
       </div>
 
       <div class="form-group">
-        <label>Standard lokale Rolle</label>
+        <label>{{ _('bulk_default_local_role') }}</label>
         <select name="default_local_role">
           <option value="employee">{{ _('role_employee') }}</option>
           <option value="admin">{{ _('role_admin') }}</option>
@@ -112,10 +106,10 @@
       </div>
 
       <div class="form-group">
-        <label>Standard Printix-Rolle</label>
+        <label>{{ _('bulk_default_printix_role') }}</label>
         <select name="default_printix_role">
           <option value="USER">{{ _('bulk_role_user') }}</option>
-          <option value="GUEST_USER" selected>GUEST_USER (Gast mit Ablaufdatum)</option>
+          <option value="GUEST_USER" selected>{{ _('bulk_role_guest_full') }}</option>
         </select>
       </div>
 

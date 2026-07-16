@@ -66,12 +66,12 @@
           <input type="email" name="upn" placeholder="postfach@firma.com"
                  required style="padding:8px;border:1px solid var(--border);
                                   border-radius:6px;">
-          <input type="text" name="name" placeholder="Anzeigename (optional)"
+          <input type="text" name="name" placeholder="{{ _('guest_displayname_placeholder') }}"
                  style="padding:8px;border:1px solid var(--border);border-radius:6px;">
-          <label style="font-size:.9em;color:var(--text-muted);">Quell-Ordner
+          <label style="font-size:.9em;color:var(--text-muted);">{{ _('guest_source_folder_label') }}
             <select name="source_folder" id="gp-new-source-folder"
                     style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;">
-              <option value="Inbox">Inbox (Standard — ganze Inbox)</option>
+              <option value="Inbox">{{ _('guest_source_folder_inbox_default') }}</option>
             </select>
             <small class="hint" id="gp-new-folder-hint" style="font-size:.75em;color:var(--text-muted);">
               Erst UPN oben eintragen, dann <a href="#" onclick="gpLoadFolders('gp-new-source-folder', document.querySelector('input[name=upn]').value); return false;">Ordner laden</a>.
@@ -131,7 +131,7 @@
             <div style="background:#fee;border:1px solid #fcc;padding:10px;
                         border-radius:6px;color:#900;font-size:.85em;
                         margin-bottom:12px;">
-              <strong>Letzter Fehler:</strong> {{ selected.last_error }}
+              <strong>{{ _('guest_last_error_label') }}:</strong> {{ selected.last_error }}
             </div>
           {% endif %}
 
@@ -212,7 +212,7 @@
         <div style="background:white;border:1px solid var(--border);
                     border-radius:12px;padding:20px;margin-bottom:20px;">
           <h3 style="font-size:1.05em;margin-bottom:12px;">
-            🛡️ Gast-Whitelist
+            🛡️ {{ _('guest_whitelist_title') }}
           </h3>
           <p style="font-size:.85em;color:var(--text-muted);margin-bottom:14px;">{{ _('guest_whitelist_intro') }}</p>
           {% if guests %}
@@ -220,11 +220,11 @@
                           margin-bottom:14px;">
               <thead>
                 <tr style="background:var(--bg);text-align:left;">
-                  <th style="padding:8px;">Email</th>
-                  <th style="padding:8px;">Name</th>
-                  <th style="padding:8px;">Drucker</th>
+                  <th style="padding:8px;">{{ _('common_email') }}</th>
+                  <th style="padding:8px;">{{ _('common_name') }}</th>
+                  <th style="padding:8px;">{{ _('common_printer') }}</th>
                   <th style="padding:8px;">{{ _('guest_valid_until') }}</th>
-                  <th style="padding:8px;">Status</th>
+                  <th style="padding:8px;">{{ _('common_status') }}</th>
                   <th style="padding:8px;"></th>
                 </tr>
               </thead>
@@ -304,11 +304,11 @@
             <table style="width:100%;font-size:.85em;border-collapse:collapse;">
               <thead>
                 <tr style="background:var(--bg);text-align:left;">
-                  <th style="padding:6px;">Zeit</th>
-                  <th style="padding:6px;">Sender</th>
-                  <th style="padding:6px;">Betreff</th>
-                  <th style="padding:6px;">Datei</th>
-                  <th style="padding:6px;">Status</th>
+                  <th style="padding:6px;">{{ _('common_time') }}</th>
+                  <th style="padding:6px;">{{ _('common_sender') }}</th>
+                  <th style="padding:6px;">{{ _('common_subject') }}</th>
+                  <th style="padding:6px;">{{ _('common_file') }}</th>
+                  <th style="padding:6px;">{{ _('common_status') }}</th>
                 </tr>
               </thead>
               <tbody>

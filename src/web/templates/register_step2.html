@@ -298,7 +298,7 @@
         <label for="tenant_name">{{ _('reg_account_label_optional') }}</label>
         <input type="text" id="tenant_name" name="tenant_name"
                value="{{ tenant_name | default('') }}"
-               placeholder="z.B. Firma GmbH oder Standort München">
+               placeholder="{{ _('reg_placeholder_company') }}">
         <small class="hint" style="font-size:.76rem; color:#8094AA; margin-top:4px; display:block;">{{ _('reg_account_label_hint') }}</small>
       </div>
       <div class="form-group">
@@ -325,7 +325,7 @@
           </div>
           <div class="form-group">
             <label>{{ _('common_client_secret') }}</label>
-            <input type="password" name="print_client_secret" placeholder="Geheimer Schlüssel">
+            <input type="password" name="print_client_secret" placeholder="{{ _('reg_placeholder_secret') }}">
           </div>
         </div>
       </details>
@@ -343,7 +343,7 @@
           </div>
           <div class="form-group">
             <label>{{ _('common_client_secret') }}</label>
-            <input type="password" name="card_client_secret" placeholder="Geheimer Schlüssel">
+            <input type="password" name="card_client_secret" placeholder="{{ _('reg_placeholder_secret') }}">
           </div>
         </div>
       </details>
@@ -361,7 +361,7 @@
           </div>
           <div class="form-group">
             <label>{{ _('common_client_secret') }}</label>
-            <input type="password" name="ws_client_secret" placeholder="Geheimer Schlüssel">
+            <input type="password" name="ws_client_secret" placeholder="{{ _('reg_placeholder_secret') }}">
           </div>
         </div>
       </details>
@@ -379,7 +379,7 @@
           </div>
           <div class="form-group">
             <label>{{ _('common_client_secret') }}</label>
-            <input type="password" name="um_client_secret" placeholder="Geheimer Schlüssel">
+            <input type="password" name="um_client_secret" placeholder="{{ _('reg_placeholder_secret') }}">
           </div>
         </div>
       </details>
@@ -397,7 +397,7 @@
           </div>
           <div class="form-group">
             <label>{{ _('reg_shared_client_secret') }}</label>
-            <input type="password" name="shared_client_secret" placeholder="Geheimer Schlüssel">
+            <input type="password" name="shared_client_secret" placeholder="{{ _('reg_placeholder_secret') }}">
           </div>
         </div>
       </details>

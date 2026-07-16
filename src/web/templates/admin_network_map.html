@@ -245,17 +245,12 @@
       <div id="nm-loadgate" style="display:flex;align-items:center;justify-content:center;min-height:60vh;padding:32px;position:relative;z-index:20;">
         <div style="text-align:center;max-width:520px;">
           <div style="font-size:3em;margin-bottom:14px;opacity:.55;">🗺️</div>
-          <h2 style="margin-bottom:10px;color:var(--text-strong);">Netzwerk-Plan</h2>
-          <p style="color:var(--text-muted);margin-bottom:24px;line-height:1.5;">
-            Die Netzwerk-Topologie wird aus der Printix BI-Datenbank geladen.
-            Der erste Aufruf kann bis zu 30 Sekunden dauern (Azure SQL Cold-Start).
-          </p>
+          <h2 style="margin-bottom:10px;color:var(--text-strong);">{{ _('netmap_load_title') }}</h2>
+          <p style="color:var(--text-muted);margin-bottom:24px;line-height:1.5;">{{ _('netmap_load_desc') }}</p>
           <button id="nm-loadbtn" type="button" class="btn btn-primary"
                   style="font-size:1em;padding:12px 32px;cursor:pointer;position:relative;z-index:21;"
-                  data-action="nm-load">Netzwerk-Plan jetzt laden</button>
-          <div style="margin-top:14px;font-size:.82em;color:var(--text-muted);">
-            Die Seite lädt nicht automatisch, damit sie bei BI-Problemen nicht hängt.
-          </div>
+                  data-action="nm-load">{{ _('netmap_load_button') }}</button>
+          <div style="margin-top:14px;font-size:.82em;color:var(--text-muted);">{{ _('netmap_load_hint') }}</div>
         </div>
       </div>
       {% endif %}

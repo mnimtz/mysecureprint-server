@@ -127,13 +127,9 @@
         <label style="display:flex; align-items:center; gap:8px; font-weight:600;">
           <input type="checkbox" name="debug_job_status_audit" value="1"
                  {% if current_debug_job_status_audit %}checked{% endif %}>
-          Job-Status API-Aufrufe protokollieren
+          {{ _('settings_debug_job_status_audit_label') }}
         </label>
-        <small class="hint" style="margin-left:24px;">
-          Jeden Printix-API-Aufruf beim automatischen Job-Status-Poll im Audit-Log erfassen
-          (<code>job_status_printix_queried</code>, <code>job_status_checked</code>).
-          Nur temporär aktivieren — erzeugt bei vielen Jobs viele Einträge.
-        </small>
+        <small class="hint" style="margin-left:24px;">{{ _('settings_debug_job_status_audit_hint') | safe }}</small>
       </div>
 
       <button type="submit" class="btn btn-primary">{{ _('btn_save') }}</button>
@@ -246,7 +242,7 @@
       <div class="form-group" style="margin:0;">
         <label>{{ _('legal_admin_field_address') }} *</label>
         <textarea name="legal_operator_address" rows="4"
-                  placeholder="Musterstraße 1&#10;12345 Musterstadt&#10;Germany">{{ legal.operator_address }}</textarea>
+                  placeholder="{{ _('settings_placeholder_address') }}">{{ legal.operator_address }}</textarea>
         <small class="hint">{{ _('legal_admin_field_address_hint') }}</small>
       </div>
 
@@ -278,7 +274,7 @@
           <label>{{ _('legal_admin_field_dpo') }}</label>
           <input type="text" name="legal_data_protection_officer"
                  value="{{ legal.data_protection_officer }}"
-                 placeholder="Name + Kontakt">
+                 placeholder="{{ _('settings_placeholder_dpo') }}">
         </div>
       </div>
 
@@ -326,7 +322,7 @@
       <div class="form-group">
         <label>{{ _('printix_creds_tenant_name') }}</label>
         <input type="text" name="tenant_name" value="{{ tenant_full.name | default('') }}"
-               placeholder="z.B. Firma GmbH oder Standort München">
+               placeholder="{{ _('reg_placeholder_company') }}">
       </div>
       <div class="form-group">
         <label>Printix Tenant-ID <span style="color:#ef4444">*</span></label>
@@ -526,37 +522,25 @@
 
         <!-- v0.7.0: Provider-Auswahl Resend vs. Microsoft Graph -->
         <div class="form-group" style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--border);">
-          <label>Mail-Provider</label>
+          <label>{{ _('settings_mail_provider_label') }}</label>
           <select name="mail_provider"
                   onchange="document.getElementById('graph-mail-fields').style.display = this.value === 'graph' ? '' : 'none';">
-            <option value="resend" {% if (mail_provider or 'resend') == 'resend' %}selected{% endif %}>Resend (HTTPS, externer Dienst)</option>
+            <option value="resend" {% if (mail_provider or 'resend') == 'resend' %}selected{% endif %}>{{ _('settings_mail_provider_resend') }}</option>
             <option value="graph" {% if mail_provider == 'graph' %}selected{% endif %}
-                    {% if not entra_mail_send_enabled %}disabled title="Erst im Entra-Auto-Setup die Mail.Send-Permission aktivieren."{% endif %}>
-              Microsoft Graph (eigener O365-Tenant) {% if not entra_mail_send_enabled %}— Mail.Send-Permission fehlt{% endif %}
+                    {% if not entra_mail_send_enabled %}disabled title="{{ _('settings_mail_provider_graph_disabled_title') }}"{% endif %}>
+              {{ _('settings_mail_provider_graph') }} {% if not entra_mail_send_enabled %}— {{ _('settings_mail_provider_graph_missing') }}{% endif %}
             </option>
           </select>
-          <small class="hint">
-            Default = Resend (kompatibel mit bisherigen Tenants). „Microsoft Graph" nutzt
-            die im Entra-Auto-Setup registrierte App + eine Service-Mailbox in deinem Tenant.
-            Bei Graph-Fehler faellt der Versand automatisch auf Resend zurueck, wenn dort
-            Credentials konfiguriert sind.
-          </small>
+          <small class="hint">{{ _('settings_mail_provider_hint') }}</small>
         </div>
 
         <div id="graph-mail-fields" class="form-group"
              style="{% if mail_provider != 'graph' %}display:none;{% endif %}background:var(--bg);border-radius:8px;padding:12px;">
-          <label>Graph Service-Mailbox</label>
+          <label>{{ _('settings_mail_graph_sender_label') }}</label>
           <input type="email" name="mail_graph_sender"
                  value="{{ mail_graph_sender | default('') }}"
                  placeholder="noreply@deinedomain.de">
-          <small class="hint">
-            UPN/Adresse der Mailbox, von der aus gesendet werden soll
-            (muss eine echte Exchange-Online-Mailbox sein). Erscheint als
-            Absender. Engste Konfiguration: <code>New-ApplicationAccessPolicy
-            -AppId &lt;client_id&gt; -PolicyScopeGroupId &lt;diese-mailbox&gt;
-            -AccessRight RestrictAccess</code> in Exchange Online — sonst
-            kann die App-Identitaet von <em>jeder</em> Mailbox aus senden.
-          </small>
+          <small class="hint">{{ _('settings_mail_graph_sender_hint') | safe }}</small>
         </div>
 
         <!-- Email-to-Print / Guest-Print — Hinweis auf die dedizierte Seite -->
@@ -565,20 +549,7 @@
           <div style="font-weight:600;margin-bottom:6px;">
             📧 Email-to-Print Gateway
           </div>
-          <small class="hint">
-            <code>Mail.Read</code>-Permission ist registriert und das
-            Feature ist einsatzbereit. Verwaltung + An/Aus-Schalter
-            (<code>guestprint_enabled</code>), Mailbox-Konfiguration
-            und Gast-Whitelist unter
-            <a href="/admin/guestprint" style="font-weight:600;">
-              Guest-Print / Email-to-Print
-            </a>.
-            <br><br>
-            Kurzform: konfigurierte Mailbox pollen → Absender-Header
-            prüfen → Anhänge im Namen des Absenders drucken (interne
-            User: eigene SecurePrint-Queue; externe: nur wenn auf
-            der Whitelist).
-          </small>
+          <small class="hint">{{ _('settings_email_to_print_hint') | safe }}</small>
         </div>
         {% endif %}
       </div>
@@ -653,37 +624,24 @@
                  style="background:#fff;border:1px solid var(--border);border-radius:8px;
                         padding:12px 14px;margin-bottom:14px;">
               <div style="font-size:.85em;font-weight:600;color:#002854;margin-bottom:8px;">
-                Optionale Microsoft-Graph-Berechtigungen
+                {{ _('settings_entra_optional_perms_title') }}
               </div>
               <label style="display:flex;align-items:flex-start;gap:8px;font-size:.85em;color:var(--text-muted);margin-bottom:8px;cursor:pointer;">
                 <input type="checkbox" id="entra-perm-mailsend" style="margin-top:3px;"
                        {% if entra_mail_send_enabled %}checked{% endif %}>
                 <span>
-                  <strong>Mail-Versand ueber dieses O365-Konto erlauben</strong>
+                  <strong>{{ _('settings_entra_perm_mailsend_label') }}</strong>
                   (<code>Mail.Send</code> Application-Permission)
-                  <br><span style="color:var(--text-muted);font-size:.92em;">
-                    MySecurePrint kann dann Systemmails (Welcome, GDPR-Export, Mobile-Invite, …)
-                    von einer Service-Mailbox in deinem Tenant verschicken — keine
-                    Resend-Subscription noetig. Empfehlung: per
-                    <code>New-ApplicationAccessPolicy</code> in Exchange Online
-                    auf eine einzelne Mailbox einschraenken.
-                  </span>
+                  <br><span style="color:var(--text-muted);font-size:.92em;">{{ _('settings_entra_perm_mailsend_help') | safe }}</span>
                 </span>
               </label>
               <label style="display:flex;align-items:flex-start;gap:8px;font-size:.85em;color:var(--text-muted);cursor:pointer;">
                 <input type="checkbox" id="entra-perm-mailread" style="margin-top:3px;"
                        {% if entra_mail_read_enabled %}checked{% endif %}>
                 <span>
-                  <strong>Email-to-Print Gateway aktivieren</strong>
+                  <strong>{{ _('settings_entra_perm_mailread_label') }}</strong>
                   (<code>Mail.Read</code> Application-Permission)
-                  <br><span style="color:var(--text-muted);font-size:.92em;">
-                    Anhänge eines überwachten Postfachs werden im Namen des
-                    authentifizierten Absenders gedruckt. Verwaltung + An/Aus,
-                    Mailbox-Konfiguration und Gast-Whitelist unter
-                    <a href="/admin/guestprint">Guest-Print / Email-to-Print</a>.
-                    Diese Checkbox registriert nur die Graph-Permission —
-                    das eigentliche Polling schaltest du dort ein.
-                  </span>
+                  <br><span style="color:var(--text-muted);font-size:.92em;">{{ _('settings_entra_perm_mailread_help') | safe }}</span>
                 </span>
               </label>
               <label style="display:flex;align-items:flex-start;gap:8px;font-size:.85em;color:var(--text-muted);margin-top:8px;cursor:pointer;">
@@ -698,7 +656,7 @@
                 </span>
               </label>
               <div style="font-size:.78em;color:#166534;background:#dcfce7;border-radius:6px;padding:6px 10px;margin-top:8px;">
-                Admin-Consent für aktivierte Application-Permissions wird automatisch mit dem Einrichtungsschritt erteilt. Kein manueller Schritt im Azure-Portal nötig.
+                {{ _('settings_entra_admin_consent_note') }}
               </div>
             </div>
 
@@ -1076,10 +1034,10 @@ echo "{\"tenant_id\":\"$(az account show --query tenantId -o tsv)\",\"client_id\
           var changed = d.final !== val;
           resultEl.innerHTML = '→ <strong>' + _escHtml(d.final) + '</strong>'
             + (changed
-               ? ' <span style="color:#6b7280;font-size:.9em;">(war: ' + _escHtml(val) + ')</span>'
-               : ' <span style="color:#6b7280;font-size:.9em;">(unverändert)</span>');
+               ? ' <span style="color:#6b7280;font-size:.9em;">({{ _("settings_transform_preview_was") }}: ' + _escHtml(val) + ')</span>'
+               : ' <span style="color:#6b7280;font-size:.9em;">({{ _("settings_transform_preview_unchanged") }})</span>');
         })
-        .catch(function(e){ resultEl.textContent = '✗ Netzwerkfehler'; });
+        .catch(function(e){ resultEl.textContent = '✗ {{ _("common_network_error") }}'; });
       }
 
       function entraCardSync(dryRun) {
