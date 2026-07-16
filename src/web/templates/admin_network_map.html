@@ -403,9 +403,23 @@
     let msgTimer = setTimeout(() => {
       setSubtle({{ _("netmap_loader_slow")|tojson }});
     }, 4000);
+    // Nach 20s: Azure SQL Cold-Start-Hinweis
+    let msg2Timer = setTimeout(() => {
+      setSubtle('Azure SQL wacht auf — kann bis zu 60 Sekunden dauern...');
+    }, 20000);
 
-    const r = await fetch(url, {credentials: 'same-origin'});
-    clearTimeout(msgTimer);
+    // Harte Deadline: 90s. Danach abbrechen mit klarer Fehlermeldung.
+    const ctrl = new AbortController();
+    const abortTimer = setTimeout(() => ctrl.abort(), 90000);
+
+    let r;
+    try {
+      r = await fetch(url, {credentials: 'same-origin', signal: ctrl.signal});
+    } finally {
+      clearTimeout(msgTimer);
+      clearTimeout(msg2Timer);
+      clearTimeout(abortTimer);
+    }
 
     if (!r.ok) {
       const data = await r.json().catch(() => ({}));
@@ -431,7 +445,11 @@
     console.log('nm-load in', ((performance.now() - t0)/1000).toFixed(1), 's');
   } catch (e) {
     console.error(e);
-    showEmpty('exception');
+    if (e && e.name === 'AbortError') {
+      showEmpty('timeout');
+    } else {
+      showEmpty('exception');
+    }
   }
 
   function showEmpty(reason) {
@@ -443,6 +461,10 @@
       msg.textContent = {{ _("netmap_empty_unreachable")|tojson }};
     } else if (reason === 'nothing_selected') {
       msg.textContent = {{ _("netmap_empty_nothing_selected")|tojson }};
+    } else if (reason === 'timeout') {
+      msg.innerHTML = 'Netzwerk-Plan-Abfrage hat nach 90 Sekunden aufgegeben. Azure BI-DB antwortet nicht rechtzeitig. <br><a href="" onclick="location.reload();return false;" style="color:var(--accent);font-weight:600;text-decoration:underline;">Erneut versuchen</a>';
+    } else if (reason === 'exception') {
+      msg.innerHTML = 'Netzwerkfehler beim Laden. <br><a href="" onclick="location.reload();return false;" style="color:var(--accent);font-weight:600;text-decoration:underline;">Erneut versuchen</a>';
     } else {
       msg.textContent = reason;
     }
