@@ -459,6 +459,8 @@
       msg.textContent = {{ _("netmap_empty_no_bi")|tojson }};
     } else if (reason === 'bi_unreachable') {
       msg.textContent = {{ _("netmap_empty_unreachable")|tojson }};
+    } else if (reason === 'bi_timeout') {
+      msg.innerHTML = 'Azure BI-DB antwortet nicht (Server-Timeout nach 45s). Vermutlich Cold-Start oder DB steht. <br><a href="" onclick="location.reload();return false;" style="color:var(--accent);font-weight:600;text-decoration:underline;">Erneut versuchen</a>';
     } else if (reason === 'nothing_selected') {
       msg.textContent = {{ _("netmap_empty_nothing_selected")|tojson }};
     } else if (reason === 'timeout') {

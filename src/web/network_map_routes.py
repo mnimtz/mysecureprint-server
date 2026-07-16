@@ -127,13 +127,44 @@ def register_network_map_routes(app: FastAPI,
             return JSONResponse({"error": "no_creds"}, status_code=400)
 
         force = request.query_params.get("refresh") == "1"
+
+        # Stale-Cache-Fallback vorbereiten (falls BI haengt: alte Topologie zeigen)
+        stale_cache = None
         try:
-            topology = await asyncio.to_thread(
-                fetch_network_topology, tenant, force)
+            from bi_client import _TOPOLOGY_CACHE  # noqa: WPS437
+            tk = str(tenant.get("printix_tenant_id") or tenant.get("id") or "")
+            entry = _TOPOLOGY_CACHE.get(tk)
+            if entry:
+                stale_cache = entry[1]
+        except Exception:
+            stale_cache = None
+
+        # Harter Server-Timeout (45s). pymssql.login_timeout wird auf Linux
+        # nicht immer respektiert — asyncio.wait_for gibt uns garantiert eine
+        # Antwort, auch wenn der DB-Thread haengt (Thread laeuft weiter, aber
+        # die HTTP-Response geht raus).
+        topology = None
+        timed_out = False
+        try:
+            topology = await asyncio.wait_for(
+                asyncio.to_thread(fetch_network_topology, tenant, force),
+                timeout=45.0,
+            )
+        except asyncio.TimeoutError:
+            timed_out = True
+            logger.warning("netmap: fetch_network_topology timeout (45s) — using stale cache=%s", bool(stale_cache))
         except Exception as e:  # noqa: BLE001
-            return JSONResponse({"error": str(e)[:200]}, status_code=502)
+            if stale_cache is None:
+                return JSONResponse({"error": str(e)[:200]}, status_code=502)
+            topology = stale_cache
+
+        if topology is None and stale_cache is not None:
+            topology = stale_cache
+
         if topology is None:
-            return JSONResponse({"error": "bi_unreachable"}, status_code=503)
+            code = 504 if timed_out else 503
+            err = "bi_timeout" if timed_out else "bi_unreachable"
+            return JSONResponse({"error": err}, status_code=code)
 
         filters = _parse_filters(request)
         ctx = t_ctx(request)
