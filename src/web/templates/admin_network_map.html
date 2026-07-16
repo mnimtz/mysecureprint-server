@@ -242,7 +242,7 @@
         </div>
       </div>
       {% if async_load %}
-      <div id="nm-loadgate" style="display:flex;align-items:center;justify-content:center;min-height:60vh;padding:32px;">
+      <div id="nm-loadgate" style="display:flex;align-items:center;justify-content:center;min-height:60vh;padding:32px;position:relative;z-index:20;">
         <div style="text-align:center;max-width:520px;">
           <div style="font-size:3em;margin-bottom:14px;opacity:.55;">🗺️</div>
           <h2 style="margin-bottom:10px;color:var(--text-strong);">Netzwerk-Plan</h2>
@@ -251,8 +251,8 @@
             Der erste Aufruf kann bis zu 30 Sekunden dauern (Azure SQL Cold-Start).
           </p>
           <button id="nm-loadbtn" type="button" class="btn btn-primary"
-                  style="font-size:1em;padding:12px 32px;"
-                  onclick="nmStartLoad()">Netzwerk-Plan jetzt laden</button>
+                  style="font-size:1em;padding:12px 32px;cursor:pointer;position:relative;z-index:21;"
+                  data-action="nm-load">Netzwerk-Plan jetzt laden</button>
           <div style="margin-top:14px;font-size:.82em;color:var(--text-muted);">
             Die Seite lädt nicht automatisch, damit sie bei BI-Problemen nicht hängt.
           </div>
@@ -420,6 +420,7 @@
 
 // ── Manual-Load: kein Auto-Fetch mehr. User klickt "Netzwerk-Plan laden" ──
 window.nmStartLoad = function() {
+  console.log('[netmap] nmStartLoad() called');
   const gate = document.getElementById('nm-loadgate');
   const loader = document.getElementById('nm-loader');
   if (gate) gate.style.display = 'none';
@@ -427,6 +428,24 @@ window.nmStartLoad = function() {
   window.matrixStart && window.matrixStart();
   nmAsyncLoad();
 };
+
+// v0.7.300: Click-Handler via addEventListener statt inline onclick.
+// Robuster falls CSP inline-Handler blockiert oder onclick nicht durchkommt.
+// Handler wird sowohl direkt als auch via DOMContentLoaded angehängt.
+function nmWireLoadButton() {
+  const btn = document.getElementById('nm-loadbtn');
+  if (!btn || btn.__wired) return;
+  btn.__wired = true;
+  btn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('[netmap] load button clicked');
+    window.nmStartLoad();
+  });
+  console.log('[netmap] load button wired');
+}
+nmWireLoadButton();
+document.addEventListener('DOMContentLoaded', nmWireLoadButton);
 
 // SAFETY-NET: nach 35s Matrix garantiert wegmachen (falls Load lief)
 function nmArmSafetyNet() {
