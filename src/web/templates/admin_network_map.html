@@ -3,6 +3,10 @@
 
 {% block content %}
 <style>
+  /* v0.7.299: HARD-KILL globaler Matrix-Loader auf dieser Seite.
+     CSS !important ueberschreibt jeden inline style="display:flex" den JS setzt.
+     Seite hat eigenen Manual-Load-Button; globaler Overlay wuerde ihn nur ueberdecken. */
+  #global-matrix-loader { display: none !important; visibility: hidden !important; opacity: 0 !important; }
   .nm-wrap { max-width: 1600px; margin: 24px auto; padding: 0 16px; }
   .nm-header {
     display:flex; justify-content:space-between; align-items:center;
