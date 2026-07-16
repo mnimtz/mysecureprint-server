@@ -55,6 +55,7 @@ Alternative: `az webapp` CLI walkthrough in [`docs/azure-deploy-guide.md`](docs/
 - **API-Trace dashboard** — inspect outbound Printix/Graph HTTP calls per admin toggle (off by default).
 - **8 UI languages** — de / en / fr / es / it / nl / nb (Bokmål) / sv, plus 7 fun-mode dialects.
 - **Matrix-style loader UX** (v0.7.282+) — every navigation shows a Tungsten-branded print-icon rain overlay with `sessionStorage` handoff so it stays visible seamlessly across page transitions. Two modes: `splash` (full-opaque, used for login/register) and `overlay` (transparent glass with backdrop blur, used for regular navigation and slow BI-DB fetches).
+- **TonerWatch-inspired admin redesign** (v0.7.287+) — dark navy sidebar gradient with a green→cyan pillar-gradient active-indicator, Red Hat Display typography, avatar-based user card with inline logout icon, three-zone sidebar layout (fixed brand top, scrollable nav middle, fixed user card bottom) so no menu item ever falls off the fold. Full CSS-variable token system with legacy `--ta-*` aliases so existing pages keep rendering while the palette moves forward.
 
 ### Toner monitoring + reorder tracking (v0.7.261+)
 
@@ -77,7 +78,8 @@ Alternative: `az webapp` CLI walkthrough in [`docs/azure-deploy-guide.md`](docs/
 - **Filter sidebar** — toggle Printers / Workstations / Users, and multi-select individual Sites. Extra "Extended details" + "Network details (IP/SSID)" toggles reveal client version + external IP + adapter SSID per workstation.
 - **Interactive canvas** — pan/zoom with mouse wheel + drag, pinch on touch, 4 UI buttons (＋/−/⌂/⤢), zoom range 15% - 500%.
 - **PDF export** — browser print CSS hides the sidebar/nav so `Print to PDF` yields a clean vector diagram. SVG download also supported.
-- **Async load with matrix loader** — page shell renders in <200 ms, BI-DB fetch happens in the background with a transparent matrix overlay showing progress. Second visit hits the 10-min cache and is instant.
+- **Manual-load gate** (v0.7.296+) — the network-map page opens instantly with a "Load network map" button instead of auto-fetching; keeps the page reliably demoable even if the BI-DB is cold-starting or unreachable. Client-side safety-net force-clears the loader after 35 s in every failure mode.
+- **Async load with matrix loader** — after clicking Load, the page shell stays interactive while the BI-DB fetch runs in the background with a transparent matrix overlay showing progress. Second visit hits the 10-min cache and is instant.
 
 ### Print pipeline
 
