@@ -100,6 +100,17 @@ def register_network_map_routes(app: FastAPI,
             **t_ctx(request),
         })
 
+    @app.get("/admin/network-map/ping", response_class=JSONResponse)
+    async def netmap_ping(request: Request):
+        """Diagnose-Endpoint: kehrt sofort zurueck. Wenn dieser haengt,
+        liegt es NICHT an BI-DB sondern an Routing/Auth/App-Service."""
+        import time
+        return JSONResponse({
+            "ok": True,
+            "ts": time.time(),
+            "version": "0.7.293",
+        })
+
     @app.get("/admin/network-map/data", response_class=JSONResponse)
     async def netmap_data(request: Request):
         """Liefert das gerenderte SVG + Statistik als JSON. Wird vom
@@ -127,6 +138,9 @@ def register_network_map_routes(app: FastAPI,
             return JSONResponse({"error": "no_creds"}, status_code=400)
 
         force = request.query_params.get("refresh") == "1"
+        import time as _time
+        _t0 = _time.time()
+        logger.info("netmap: /data ENTER force=%s", force)
 
         # Stale-Cache-Fallback vorbereiten (falls BI haengt: alte Topologie zeigen)
         stale_cache = None
@@ -160,6 +174,9 @@ def register_network_map_routes(app: FastAPI,
 
         if topology is None and stale_cache is not None:
             topology = stale_cache
+
+        logger.info("netmap: /data topology_ready=%s timed_out=%s stale=%s after=%.1fs",
+                    topology is not None, timed_out, stale_cache is topology, _time.time() - _t0)
 
         if topology is None:
             code = 504 if timed_out else 503

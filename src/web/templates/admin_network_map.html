@@ -393,9 +393,12 @@
   const subMsg = document.getElementById('matrix-sub');
   const setSubtle = (t) => { if (subMsg) subMsg.textContent = t; };
 
-  // Query-String uebernehmen fuer Filter-Params
+  // Query-String uebernehmen fuer Filter-Params, +cache-buster damit
+  // kein Intermediate (Azure Front Door etc.) irgendwas cached
   const qs = window.location.search;
-  const url = '/admin/network-map/data' + qs;
+  const sep = qs ? '&' : '?';
+  const url = '/admin/network-map/data' + qs + sep + '_=' + Date.now();
+  console.log('[netmap] fetch start:', url);
 
   try {
     const t0 = performance.now();
@@ -414,7 +417,13 @@
 
     let r;
     try {
-      r = await fetch(url, {credentials: 'same-origin', signal: ctrl.signal});
+      r = await fetch(url, {
+        credentials: 'same-origin',
+        signal: ctrl.signal,
+        cache: 'no-store',
+        headers: {'Cache-Control': 'no-cache'},
+      });
+      console.log('[netmap] fetch response status:', r.status, 'after', ((performance.now()-t0)/1000).toFixed(1), 's');
     } finally {
       clearTimeout(msgTimer);
       clearTimeout(msg2Timer);
