@@ -264,23 +264,33 @@
     .lang-dropdown a.active { font-weight: 700; color: var(--tw-accent) !important; }
 
     /* ── Sidebar (dark navy TonerWatch style, MSP fixed 260px layout) ──── */
+    /* 3-Zonen-Layout: Brand (fix oben) / Scroll-Nav (fluid mitte) / Bottom (fix unten) */
     .sidebar {
       position: fixed; top: 0; left: 0; bottom: 0;
       width: var(--sidebar-w);
       background: var(--sidebar-bg);
       color: var(--tw-white);
       border-right: 1px solid rgba(255,255,255,.05);
-      overflow-y: auto; overflow-x: hidden;
-      z-index: 90; padding: 0 0 12px;
+      overflow: hidden; /* Scroll uebernimmt .sidebar-scroll */
+      z-index: 90; padding: 0;
       transition: transform .3s cubic-bezier(.4,0,.2,1);
       box-shadow: var(--shadow-side);
-      scrollbar-width: thin;
-      scrollbar-color: rgba(255,255,255,.15) transparent;
       display: flex; flex-direction: column;
     }
-    .sidebar::-webkit-scrollbar { width: 6px; }
-    .sidebar::-webkit-scrollbar-track { background: transparent; }
-    .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.10); border-radius: 6px; }
+
+    /* Scroll-Zone in der Mitte — fluid + eigener Scroll */
+    .sidebar-scroll {
+      flex: 1 1 auto;
+      min-height: 0; /* essentiell fuer flex-scroll-container */
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-bottom: 8px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,.15) transparent;
+    }
+    .sidebar-scroll::-webkit-scrollbar { width: 6px; }
+    .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+    .sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.10); border-radius: 6px; }
 
     /* Subtle pillar-gradient rhombus signature (TonerWatch flourish) */
     .sidebar::after {
@@ -436,14 +446,16 @@
     /* Sidebar divider */
     .sb-divider { height: 1px; background: rgba(255,255,255,.08); margin: 8px 14px; }
 
-    /* Sidebar bottom (user card + lang + logout) */
+    /* Sidebar bottom (user card + lang + logout) — fix unten, kein flex-shrink */
     .sidebar-bottom {
       padding: 8px 10px 4px;
-      margin-top: auto;
       border-top: 1px solid rgba(255,255,255,.08);
       display: flex; flex-direction: column;
       gap: 4px;
+      flex-shrink: 0;
     }
+    .sidebar-brand { flex-shrink: 0; }
+    .sidebar-version { flex-shrink: 0; }
 
     /* TonerWatch-style user card */
     .sidebar-user {
@@ -1071,6 +1083,7 @@
       <span class="sidebar-brand-logo">{% include "_brand_logo.svg" %}</span>
       <span class="sidebar-brand-text">{{ _('brand_console_name') }}</span>
     </div>
+    <div class="sidebar-scroll">
     <div class="sidebar-section">
       {% if user.is_admin %}
       <a href="/welcome" class="sidebar-top-link {% if active_page == 'welcome' %}active{% endif %}">
@@ -1158,6 +1171,8 @@
       </a>
     </div>
     {% endif %}
+
+    </div>{# /.sidebar-scroll #}
 
     {# ── Bottom: User-Card + Sprache + Logout ─────────────────────── #}
     <div class="sidebar-bottom">
