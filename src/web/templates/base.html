@@ -3,44 +3,87 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
   <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
-  <link href="https://fonts.bunny.net/css?family=red-hat-display:400,500,700&display=swap" rel="stylesheet">
+  <link href="https://fonts.bunny.net/css?family=red-hat-display:300,400,500,700,900&display=swap" rel="stylesheet">
   <title>{% block title %}{{ _('brand_console_name') }}{% endblock %}</title>
   <link rel="icon" type="image/png" href="/logo/icon.png">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    /* ─────────────────────────────────────────────────────────────────
+       Tungsten Automation Brand Book — Design Tokens
+       (Hybrid TonerWatch optic + MSP sidebar structure)
+       ───────────────────────────────────────────────────────────────── */
     :root {
+      /* Workspace */
       --workspace-max-width: 1460px;
       --workspace-gutter: 16px;
+      --sidebar-w: 260px;
 
-      /* Tungsten Automation Brand Design System */
-      /* Color palette — Tungsten Brand Book (Print & Workplace Automation) */
-      --bg: #f8fafc;
-      --surface: #ffffff;
-      --border: #D9DFE6;
-      --border-subtle: #E4E4E4;
-      --text-strong: #002854;
-      --text: #231F20;
-      --text-muted: #8094AA;
-      --text-faint: #D9DFE6;
-      --primary: #002854;
+      /* TonerWatch primary palette */
+      --tw-primary:        #002854;
+      --tw-deep:           #00123B;
+      --tw-primary-alt:    #004766;
+      --tw-accent:         #00A0FB;
+      --tw-accent-hover:   #0090E0;
+      --tw-light-blue:     #9DDDF9;
+      --tw-muted-blue:     #8094AA;
+      --tw-faint-blue:     #D9DFE6;
+      --tw-text:           #231F20;
+      --tw-white:          #FFFFFF;
+      --tw-gray-100:       #FAFAFA;
+      --tw-gray-200:       #F0F0F0;
+      --tw-gray-300:       #E4E4E4;
+      --tw-magenta:        #D030E8;
+      --tw-green:          #00EB86;
+      --tw-salmon:         #FF6D69;
+      --tw-yellow:         #FFC600;
+
+      /* Status */
+      --status-ok:         #016839;
+      --status-warn:       #FFC600;
+      --status-critical:   #DC2626;
+      --status-unknown:    #8094AA;
+
+      /* Product pillar gradient — Print & Workplace Automation */
+      --pillar-gradient:   linear-gradient(180deg, #00EB86 0%, #00A0FB 100%);
+      --pillar-gradient-h: linear-gradient(90deg, #00EB86 0%, #00A0FB 100%);
+
+      /* Sidebar backdrop — dark navy blue-domain gradient */
+      --sidebar-bg:        linear-gradient(180deg,
+                              #00123B 0%,
+                              #002854 55%,
+                              #00325F 100%);
+
+      /* Semantic aliases — MSP tokens (keep all child templates working) */
+      --bg: var(--tw-gray-100);
+      --surface: var(--tw-white);
+      --border: var(--tw-faint-blue);
+      --border-subtle: var(--tw-gray-300);
+      --border-faint: var(--tw-gray-200);
+      --bg-subtle: var(--tw-gray-100);
+      --text-strong: var(--tw-primary);
+      --text: var(--tw-text);
+      --text-muted: var(--tw-muted-blue);
+      --text-faint: #B7C0CC;
+      --muted: var(--tw-muted-blue);
+      --primary: var(--tw-primary);
       --primary-hover: #003A6E;
-      --deep: #00123B;
-      --accent: #00A0FB;
-      --accent-hover: #0090E0;
-      --brand-light: #9DDDF9;
-      --brand-green: #00EB86;
+      --deep: var(--tw-deep);
+      --accent: var(--tw-accent);
+      --accent-hover: var(--tw-accent-hover);
+      --brand-light: var(--tw-light-blue);
+      --brand-green: var(--tw-green);
       --success: #16A34A;
       --warning: #F59E0B;
-      --danger: #DC2626;
-      --code-bg: #00123B;
-      --code-text: #D9DFE6;
+      --danger: var(--tw-salmon);
+      --code-bg: var(--tw-deep);
+      --code-text: var(--tw-faint-blue);
 
-      /* Typography — Red Hat Display (Tungsten brand font) */
+      /* Typography */
       --font-sans: 'Red Hat Display', Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       --font-mono: ui-monospace, "SF Mono", Monaco, "Cascadia Mono", "Roboto Mono", monospace;
 
-      /* Spacing scale (4px-Grid) */
+      /* Spacing scale (4px-Grid) — MSP + TonerWatch */
       --space-1: 4px;
       --space-2: 8px;
       --space-3: 12px;
@@ -51,36 +94,45 @@
       --space-10: 40px;
       --space-12: 48px;
 
+      /* TonerWatch space aliases */
+      --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+      --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+      --sp-12: 48px; --sp-16: 64px;
+
       /* Radius */
       --radius-sm: 6px;
       --radius: 10px;
       --radius-lg: 14px;
+      --r-sm: 6px; --r: 10px; --r-lg: 14px;
 
       /* Shadows */
-      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
-      --shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
-      --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.10);
+      --shadow-sm: 0 1px 2px rgba(0, 18, 59, .04);
+      --shadow:    0 4px 12px rgba(0, 18, 59, .08);
+      --shadow-lg: 0 12px 32px rgba(0, 18, 59, .12);
+      --shadow-side: 4px 0 20px rgba(0, 18, 59, .10);
 
       /* Transitions */
       --t-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1);
       --t: 180ms cubic-bezier(0.4, 0, 0.2, 1);
 
-      /* Legacy aliases — keep existing templates working */
-      --ta-navy: var(--primary);
-      --ta-navy-dark: var(--deep);
-      --ta-cyan: var(--accent);
-      --ta-cyan-light: var(--brand-light);
+      /* Legacy --ta-* aliases (do not touch — 60+ child templates depend on this) */
+      --ta-navy: var(--tw-primary);
+      --ta-navy-dark: var(--tw-deep);
+      --ta-cyan: var(--tw-accent);
+      --ta-cyan-light: var(--tw-light-blue);
       --ta-cyan-dark: #0070C0;
-      --ta-green: var(--success);
-      --ta-gold: var(--accent);
-      --ta-gold-hover: var(--accent-hover);
-      --ta-gray-100: var(--border-subtle);
-      --ta-gray-200: var(--border);
-      --ta-gray-300: var(--border);
-      --ta-gray-400: var(--text-faint);
-      --ta-gray-500: var(--text-muted);
-      --ta-black: var(--text-strong);
+      --ta-green: var(--tw-green);
+      --ta-gold: var(--tw-yellow);
+      --ta-gold-hover: #E5B300;
+      --ta-gray-100: var(--tw-gray-100);
+      --ta-gray-200: var(--tw-gray-200);
+      --ta-gray-300: var(--tw-gray-300);
+      --ta-gray-400: var(--tw-faint-blue);
+      --ta-gray-500: var(--tw-muted-blue);
+      --ta-black: var(--tw-text);
     }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: var(--font-sans);
       font-size: 15px;
@@ -92,18 +144,18 @@
       color: var(--text);
       min-height: 100vh;
     }
-    h1, h2, h3 { color: var(--text-strong); letter-spacing: -0.01em; font-weight: 700; }
+    a { color: var(--tw-accent); text-decoration: none; transition: color var(--t-fast); }
+    a:hover { color: var(--tw-accent-hover); }
+    h1, h2, h3, h4 { color: var(--text-strong); letter-spacing: -0.01em; font-weight: 700; }
     h1 { font-size: 1.875rem; font-weight: 700; letter-spacing: -0.02em; }
     h2 { font-size: 1.375rem; }
     h3 { font-size: 1.125rem; }
-    img, svg, video, canvas {
-      max-width: 100%;
-      height: auto;
-    }
+    h4 { font-size: 1rem; font-weight: 500; }
+    img, svg, video, canvas { max-width: 100%; height: auto; }
 
-    /* ── Navigation ──────────────────────────────────────────────────────── */
+    /* ── Top nav (logged-out only) ──────────────────────────────────────── */
     nav {
-      background: linear-gradient(90deg, var(--ta-navy-dark) 0%, var(--ta-navy) 100%); color: #fff;
+      background: linear-gradient(90deg, var(--tw-deep) 0%, var(--tw-primary) 100%); color: #fff;
       min-height: 56px; box-shadow: 0 8px 24px rgba(0, 18, 59, .20);
       position: sticky; top: 0; z-index: 100;
       backdrop-filter: blur(10px);
@@ -119,38 +171,26 @@
       gap: 14px;
     }
     .nav-brand {
-      font-weight: 700; font-size: 1.05em;
+      font-weight: 900; font-size: 1.05em;
       display: flex; align-items: center; gap: 8px;
       white-space: nowrap; text-decoration: none; color: #fff;
     }
     .nav-brand-mark {
-      width: 28px;
-      height: 28px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      color: #fff;
+      width: 28px; height: 28px;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0; color: #fff;
     }
-    .nav-brand-mark img {
-      width: 100%;
-      height: auto;
-      display: block;
-    }
+    .nav-brand-mark img { width: 100%; height: auto; display: block; }
     .nav-right { display: flex; align-items: center; gap: 8px; }
 
-    /* Desktop links */
-    .nav-links {
-      display: flex; align-items: center; gap: 2px; flex-wrap: nowrap;
-    }
+    .nav-links { display: flex; align-items: center; gap: 2px; flex-wrap: nowrap; }
     .nav-links a {
-      color: rgba(255,255,255,.8); text-decoration: none;
+      color: rgba(255,255,255,.82); text-decoration: none;
       font-size: .875em; padding: 6px 10px; border-radius: 6px;
       transition: background .15s, color .15s; white-space: nowrap;
     }
     .nav-links a:hover { color: #fff; background: rgba(255,255,255,.12); }
 
-    /* Hamburger button — mobile only */
     .hamburger {
       display: none; background: none; border: none; cursor: pointer;
       padding: 8px; color: #fff; flex-direction: column; gap: 5px;
@@ -166,10 +206,9 @@
     .hamburger.open span:nth-child(2) { opacity: 0; }
     .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
-    /* Mobile drawer — rendered below sticky nav */
     .mobile-menu {
       display: none; position: fixed; top: 56px; left: 0; right: 0;
-      background: var(--ta-navy); box-shadow: 0 6px 24px rgba(0,0,0,.35);
+      background: var(--tw-primary); box-shadow: 0 6px 24px rgba(0,0,0,.35);
       z-index: 99; padding-bottom: 12px;
       max-height: calc(100vh - 56px); overflow-y: auto;
     }
@@ -181,9 +220,7 @@
       transition: background .15s;
     }
     .mobile-menu a:hover { background: rgba(255,255,255,.1); color: #fff; }
-    .mobile-menu .drawer-divider {
-      height: 1px; background: rgba(255,255,255,.12); margin: 8px 0;
-    }
+    .mobile-menu .drawer-divider { height: 1px; background: rgba(255,255,255,.12); margin: 8px 0; }
     .mobile-lang-section { padding: 10px 20px 6px; }
     .mobile-lang-section > small {
       display: block; font-size: .72em; color: rgba(255,255,255,.45);
@@ -197,11 +234,10 @@
       border-bottom: none !important; transition: background .15s;
     }
     .mobile-lang-grid a.active {
-      background: var(--ta-cyan); color: #fff !important; font-weight: 700;
+      background: var(--tw-accent); color: #fff !important; font-weight: 700;
     }
     .mobile-lang-grid a:hover { background: rgba(255,255,255,.2); }
 
-    /* Language Switcher — desktop */
     .lang-switcher { position: relative; }
     .lang-btn {
       background: rgba(255,255,255,.12); border: none; color: rgba(255,255,255,.9);
@@ -224,63 +260,123 @@
       display: block; padding: 8px 14px; color: #374151 !important;
       font-size: .88em; text-decoration: none; transition: background .1s;
     }
-    .lang-dropdown a:hover { background: #f1f5f9; color: var(--ta-navy) !important; }
-    .lang-dropdown a.active { font-weight: 700; color: var(--ta-cyan) !important; }
+    .lang-dropdown a:hover { background: #f1f5f9; color: var(--tw-primary) !important; }
+    .lang-dropdown a.active { font-weight: 700; color: var(--tw-accent) !important; }
 
-
-    /* ── Sidebar Navigation ─────────────────────────────────── */
+    /* ── Sidebar (dark navy TonerWatch style, MSP fixed 260px layout) ──── */
     .sidebar {
       position: fixed; top: 0; left: 0; bottom: 0;
-      width: 260px; background: var(--surface);
-      border-right: 1px solid var(--border);
+      width: var(--sidebar-w);
+      background: var(--sidebar-bg);
+      color: var(--tw-white);
+      border-right: 1px solid rgba(255,255,255,.05);
       overflow-y: auto; overflow-x: hidden;
-      z-index: 90; padding: 10px 0 80px;
+      z-index: 90; padding: 0 0 12px;
       transition: transform .3s cubic-bezier(.4,0,.2,1);
+      box-shadow: var(--shadow-side);
       scrollbar-width: thin;
-      scrollbar-color: var(--border) transparent;
+      scrollbar-color: rgba(255,255,255,.15) transparent;
+      display: flex; flex-direction: column;
     }
-    .sidebar::-webkit-scrollbar { width: 5px; }
-    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .sidebar::-webkit-scrollbar { width: 6px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.10); border-radius: 6px; }
+
+    /* Subtle pillar-gradient rhombus signature (TonerWatch flourish) */
+    .sidebar::after {
+      content: '';
+      position: absolute;
+      right: -20px;
+      bottom: 80px;
+      width: 90px;
+      height: 200px;
+      background: var(--pillar-gradient);
+      opacity: 0.12;
+      clip-path: polygon(30% 0, 100% 0, 70% 100%, 0 100%);
+      pointer-events: none;
+    }
+
+    /* Sidebar branding */
+    .sidebar-brand {
+      display: flex; align-items: center; gap: 10px;
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      margin-bottom: 6px;
+      position: relative;
+    }
+    .sidebar-brand-logo {
+      width: 32px; height: 32px; flex-shrink: 0;
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 4px;
+      box-shadow: 0 2px 6px rgba(0, 18, 59, .35);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .sidebar-brand-logo img,
+    .sidebar-brand-logo svg { width: 100%; height: 100%; object-fit: contain; }
+    .sidebar-brand-text {
+      font-size: .95em;
+      font-weight: 900;
+      color: var(--tw-white);
+      letter-spacing: 0.01em;
+      line-height: 1.15;
+    }
 
     .sidebar-section { padding: 4px 10px; }
 
-    /* Dashboard top link */
+    /* Dashboard top link (MSP structure, TonerWatch dark colors) */
     .sidebar-top-link {
       display: flex; align-items: center; gap: 10px;
-      padding: 10px 16px; margin: 0 10px 4px;
-      border-radius: var(--radius); text-decoration: none;
-      color: var(--text); font-weight: 600; font-size: .92em;
+      padding: 10px 14px; margin: 0 8px 4px;
+      border-radius: var(--r-sm); text-decoration: none;
+      color: rgba(255,255,255,.82); font-weight: 500; font-size: .92em;
       transition: background var(--t-fast), color var(--t-fast);
+      position: relative;
     }
-    .sidebar-top-link:hover { background: var(--border-subtle); color: var(--primary); }
+    .sidebar-top-link:hover { background: rgba(255,255,255,.06); color: var(--tw-white); }
     .sidebar-top-link.active {
-      background: var(--primary);
-      color: #fff; box-shadow: var(--shadow);
+      background: rgba(0, 160, 251, .14);
+      color: var(--tw-white);
+      font-weight: 700;
+    }
+    .sidebar-top-link.active::before {
+      content: '';
+      position: absolute;
+      left: -8px; top: 8px; bottom: 8px;
+      width: 3px; border-radius: 0 3px 3px 0;
+      background: var(--pillar-gradient);
     }
     .sidebar-top-link .sb-icon {
-      width: 28px; height: 28px; border-radius: var(--radius-sm);
+      width: 26px; height: 26px; border-radius: var(--r-sm);
       display: inline-flex; align-items: center; justify-content: center;
-      background: rgba(0,160,251,.10); font-size: .85em; flex-shrink: 0;
-      filter: brightness(0.95);
+      background: rgba(255,255,255,.08); font-size: .85em; flex-shrink: 0;
+      color: rgba(255,255,255,.9);
     }
-    .sidebar-top-link.active .sb-icon { background: rgba(255,255,255,.18); filter: none; }
+    .sidebar-top-link.active .sb-icon { background: rgba(0,160,251,.28); color: #fff; }
 
-    /* Category header (collapsible toggle) */
+    /* Category header (collapsible toggle) — MSP structure */
     .sb-cat-toggle {
-      display: flex; align-items: center; gap: 8px; width: 100%;
-      padding: 12px 16px; margin: 2px 10px; width: calc(100% - 20px);
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 14px; margin: 4px 8px;
+      width: calc(100% - 16px);
       border: none; background: none; cursor: pointer;
-      font-family: inherit; font-size: .76em; font-weight: 700;
-      color: var(--text-strong); text-transform: uppercase;
-      letter-spacing: .06em; border-radius: var(--radius-sm);
+      font-family: inherit; font-size: .70em; font-weight: 700;
+      color: rgba(255,255,255,.55); text-transform: uppercase;
+      letter-spacing: .12em; border-radius: var(--r-sm);
       transition: background var(--t-fast), color var(--t-fast);
     }
-    .sb-cat-toggle:hover { color: var(--primary); background: var(--border-subtle); }
+    .sb-cat-toggle:hover { color: var(--tw-white); background: rgba(255,255,255,.05); }
     .sb-cat-chevron {
-      margin-left: auto; font-size: .7em;
+      margin-left: auto; font-size: .8em; opacity: 0.7;
       transition: transform .25s; display: inline-block;
     }
-    .sb-cat-toggle.open .sb-cat-chevron { transform: rotate(90deg); }
+    .sb-cat-toggle.open .sb-cat-chevron { transform: rotate(90deg); opacity: 1; }
+    .sb-cat-icon {
+      display: inline-flex; align-items: center; flex-shrink: 0;
+      color: rgba(255,255,255,.55); width: 16px; height: 16px;
+    }
+    .sb-cat-toggle.open .sb-cat-icon,
+    .sb-cat-toggle:hover .sb-cat-icon { color: var(--tw-white); }
 
     /* Category items container */
     .sb-cat-items {
@@ -289,54 +385,169 @@
     }
     .sb-cat-items.open { max-height: 800px; }
 
-    /* Sub-link */
+    /* Sub-link — dark theme */
     .sb-sublink {
       display: flex; align-items: center; gap: 10px;
-      padding: 8px 16px 8px 36px; margin: 1px 10px;
-      border-radius: var(--radius-sm); text-decoration: none;
-      color: var(--text-muted); font-size: .9em; font-weight: 500;
-      transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+      padding: 8px 14px 8px 34px; margin: 1px 8px;
+      border-radius: var(--r-sm); text-decoration: none;
+      color: rgba(255,255,255,.72); font-size: .88em; font-weight: 500;
+      transition: background var(--t-fast), color var(--t-fast);
       white-space: nowrap;
       overflow: hidden; text-overflow: ellipsis;
-      border-left: 3px solid transparent;
+      position: relative;
     }
-    .sb-sublink:hover { background: var(--border-subtle); color: var(--primary); }
+    .sb-sublink:hover { background: rgba(255,255,255,.06); color: var(--tw-white); }
     .sb-sublink.active {
-      background: rgba(0,160,251,.10); color: var(--primary);
-      font-weight: 700; border-left-color: var(--accent);
+      background: rgba(0,160,251,.14); color: var(--tw-white);
+      font-weight: 700;
+    }
+    .sb-sublink.active::before {
+      content: '';
+      position: absolute;
+      left: -8px; top: 6px; bottom: 6px;
+      width: 3px; border-radius: 0 3px 3px 0;
+      background: var(--pillar-gradient);
     }
     .sb-sublink .sb-dot {
       width: 5px; height: 5px; border-radius: 50%;
-      background: var(--text-faint); flex-shrink: 0;
+      background: rgba(255,255,255,.28); flex-shrink: 0;
     }
-    .sb-sublink.active .sb-dot { background: var(--accent); }
+    .sb-sublink.active .sb-dot { background: var(--tw-green); }
 
-    /* Sub-group label inside Administration */
+    /* Sub-group label */
     .sb-subgroup-label {
-      font-size: .72em; font-weight: 700; color: var(--text-muted);
-      padding: 10px 16px 3px 36px; text-transform: uppercase;
-      letter-spacing: .06em;
+      font-size: .68em; font-weight: 700; color: rgba(255,255,255,.45);
+      padding: 10px 16px 3px 34px; text-transform: uppercase;
+      letter-spacing: .10em;
     }
 
     /* Sidebar divider */
-    .sb-divider { height: 1px; background: var(--border); margin: 8px 16px; }
+    .sb-divider { height: 1px; background: rgba(255,255,255,.08); margin: 8px 14px; }
 
-    /* Bottom section (profile, logout etc) */
+    /* Sidebar bottom (user card + lang + logout) */
     .sidebar-bottom {
-      padding: 4px 0; margin-top: 4px;
-      border-top: 1px solid var(--border-subtle);
+      padding: 8px 10px 4px;
+      margin-top: auto;
+      border-top: 1px solid rgba(255,255,255,.08);
+      display: flex; flex-direction: column;
+      gap: 4px;
     }
+
+    /* TonerWatch-style user card */
+    .sidebar-user {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; margin: 4px 4px 8px;
+      border-radius: var(--r);
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.06);
+    }
+    .sidebar-user .avatar {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--pillar-gradient-h);
+      color: var(--tw-deep);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 0.85em;
+      flex-shrink: 0;
+    }
+    .sidebar-user .who {
+      flex: 1; min-width: 0; line-height: 1.2;
+    }
+    .sidebar-user .who strong {
+      display: block;
+      color: var(--tw-white);
+      font-weight: 700; font-size: 0.82em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sidebar-user .who span {
+      display: block;
+      color: rgba(255,255,255,.55);
+      font-size: 0.68em; text-transform: uppercase; letter-spacing: 0.08em;
+      margin-top: 2px;
+    }
+    .sidebar-user .role-badge {
+      display: inline-block;
+      background: rgba(0,235,134,.20);
+      color: var(--tw-green);
+      padding: 2px 7px; border-radius: 999px;
+      font-size: .68em; font-weight: 700; margin-top: 3px;
+      letter-spacing: .04em;
+    }
+
+    /* Sidebar bottom link (logout etc.) */
     .sb-bottom-link {
       display: flex; align-items: center; gap: 10px;
-      padding: 8px 16px; margin: 1px 10px;
-      border-radius: var(--radius-sm); text-decoration: none;
-      color: var(--text-muted); font-size: .88em; font-weight: 500;
+      padding: 8px 14px; margin: 1px 4px;
+      border-radius: var(--r-sm); text-decoration: none;
+      color: rgba(255,255,255,.75); font-size: .86em; font-weight: 500;
       transition: background var(--t-fast), color var(--t-fast);
     }
-    .sb-bottom-link:hover { background: var(--border-subtle); color: var(--primary); }
-    .sb-bottom-link.active { background: rgba(0,160,251,.10); color: var(--primary); font-weight: 700; }
+    .sb-bottom-link:hover { background: rgba(255,255,255,.06); color: var(--tw-white); }
+    .sb-bottom-link.active { background: rgba(0,160,251,.14); color: var(--tw-white); font-weight: 700; }
     .sb-bottom-link .sb-icon {
       width: 22px; text-align: center; flex-shrink: 0; font-size: .85em;
+      color: rgba(255,255,255,.75);
+    }
+
+    /* Sidebar language switcher — dark theme */
+    .sb-lang-switcher { padding: 0 4px; }
+    .sb-lang-btn {
+      display: flex; align-items: center; gap: 6px;
+      width: 100%;
+      padding: 8px 12px;
+      border: none;
+      background: transparent;
+      color: rgba(255,255,255,.72);
+      font-size: .82em;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: var(--r-sm);
+      font-family: inherit;
+      transition: background .15s, color .15s;
+    }
+    .sb-lang-btn:hover { background: rgba(255,255,255,.06); color: var(--tw-white); }
+    .sb-lang-chevron {
+      margin-left: auto; font-size: .8em;
+      transition: transform .2s; opacity: 0.7;
+    }
+    .sb-lang-btn.open .sb-lang-chevron { transform: rotate(90deg); opacity: 1; }
+    .sb-lang-grid {
+      display: none;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+      padding: 4px 8px 8px;
+    }
+    .sb-lang-grid.open { display: grid; }
+    .sb-lang-option {
+      padding: 6px 8px;
+      border-radius: var(--r-sm);
+      font-size: .78em;
+      color: rgba(255,255,255,.72);
+      text-decoration: none;
+      text-align: center;
+      font-weight: 500;
+      transition: background .15s, color .15s;
+    }
+    .sb-lang-option:hover { background: rgba(255,255,255,.10); color: var(--tw-white); }
+    .sb-lang-option.active {
+      background: rgba(0,160,251,.24);
+      color: var(--tw-white);
+      font-weight: 700;
+    }
+
+    /* Sidebar version stamp — muted mono strip */
+    .sidebar-version {
+      padding: 8px 14px;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 0.70em;
+      color: rgba(255,255,255,.30);
+      letter-spacing: 0.04em;
+      border-top: 1px solid rgba(255,255,255,.04);
+    }
+    .sidebar-version strong {
+      color: rgba(255,255,255,.55);
+      font-weight: 700;
     }
 
     /* Main area offset for sidebar */
@@ -344,25 +555,25 @@
       margin-left: 260px;
       min-height: 100vh;
       transition: margin-left .3s cubic-bezier(.4,0,.2,1);
+      scrollbar-width: thin;
+      scrollbar-color: var(--ta-gray-300) transparent;
     }
 
     /* Sidebar overlay for mobile */
     .sidebar-overlay {
       display: none; position: fixed; inset: 0; top: 0;
-      background: rgba(0,0,0,.4); z-index: 89;
+      background: rgba(0, 18, 59, .5); z-index: 89;
       opacity: 0; transition: opacity .3s;
     }
     .sidebar-overlay.visible { display: block; opacity: 1; }
 
-
-    /* v7.9.1: Mobile hamburger (logged-in users — no top bar) */
+    /* Mobile hamburger (logged-in users — floats top-right) */
     .mobile-hamburger {
       display: none;
       position: fixed;
-      top: 12px;
-      right: 14px;
+      top: 12px; right: 14px;
       z-index: 1100;
-      background: var(--ta-navy);
+      background: var(--tw-primary);
       border: none;
       border-radius: 10px;
       padding: 10px;
@@ -372,159 +583,88 @@
       box-shadow: 0 4px 12px rgba(0,40,84,.25);
     }
     .mobile-hamburger span {
-      display: block;
-      width: 22px;
-      height: 2px;
-      background: #fff;
-      border-radius: 2px;
+      display: block; width: 22px; height: 2px;
+      background: #fff; border-radius: 2px;
     }
 
-    /* v7.9.1: Sidebar branding */
-    .sidebar-brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 16px 16px 12px;
-      border-bottom: 1px solid #e8ecf0;
-      margin-bottom: 4px;
-    }
-    .sidebar-brand-logo {
-      width: 28px;
-      height: 28px;
-      flex-shrink: 0;
-    }
-    .sidebar-brand-logo img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-    }
-    .sidebar-brand-text {
-      font-size: .9em;
-      font-weight: 700;
-      color: var(--text-strong);
-      letter-spacing: -0.01em;
-    }
-
-    /* v7.9.1: Language switcher in sidebar */
-    .sb-lang-switcher { padding: 0 4px; }
-    .sb-lang-btn {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      width: 100%;
-      padding: 7px 8px;
-      border: none;
-      background: transparent;
-      color: #64748b;
-      font-size: .82em;
-      font-weight: 600;
-      cursor: pointer;
-      border-radius: 6px;
-      font-family: inherit;
-      transition: background .15s;
-    }
-    .sb-lang-btn:hover { background: #f1f5f9; }
-    .sb-lang-chevron {
-      margin-left: auto;
-      font-size: .7em;
-      transition: transform .2s;
-    }
-    .sb-lang-btn.open .sb-lang-chevron { transform: rotate(90deg); }
-    .sb-lang-grid {
-      display: none;
-      grid-template-columns: 1fr 1fr;
-      gap: 2px;
-      padding: 4px 8px 8px;
-    }
-    .sb-lang-grid.open { display: grid; }
-    .sb-lang-option {
-      padding: 5px 8px;
-      border-radius: 6px;
-      font-size: .78em;
-      color: #334155;
-      text-decoration: none;
-      text-align: center;
-      font-weight: 500;
-      transition: background .15s;
-    }
-    .sb-lang-option:hover { background: #f1f5f9; }
-    .sb-lang-option.active {
-      background: var(--ta-navy);
-      color: #fff;
-      font-weight: 700;
-    }
-
-    /* v7.9.1: Prefetch pill floating (no top bar for logged-in users) */
+    /* Prefetch pill floating */
     .prefetch-pill-float {
       position: fixed;
-      top: 12px;
-      right: 14px;
+      top: 12px; right: 14px;
       z-index: 1050;
     }
-    /* ── Layout ──────────────────────────────────────────────────────────── */
+
+    /* ── Content topbar (TonerWatch breadcrumb style) ─────────────────── */
+    .content-topbar {
+      background: var(--tw-white);
+      border-bottom: 1px solid var(--tw-gray-300);
+      padding: var(--sp-3) var(--sp-6);
+      display: flex; align-items: center;
+      gap: var(--sp-3);
+      min-height: 56px;
+    }
+    .content-topbar .breadcrumb {
+      font-size: 0.9em;
+      color: var(--tw-muted-blue);
+      font-weight: 500;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .content-topbar .breadcrumb a {
+      color: var(--tw-muted-blue);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .content-topbar .breadcrumb a:hover { color: var(--tw-primary); }
+    .content-topbar .breadcrumb strong {
+      color: var(--tw-primary);
+      font-weight: 700;
+    }
+    .content-topbar .breadcrumb .sep { opacity: 0.4; }
+
+    /* ── Layout ─────────────────────────────────────────────────────── */
     .container {
       width: min(100%, var(--workspace-max-width));
       margin: 16px auto;
       padding: 0 var(--workspace-gutter);
     }
 
-    /* ── Card ────────────────────────────────────────────────────────────── */
+    /* ── Card ───────────────────────────────────────────────────────── */
     .card {
       background: var(--surface);
-      border-radius: var(--radius);
+      border-radius: var(--radius-lg);
       padding: var(--space-6);
       box-shadow: var(--shadow-sm);
       border: 1px solid var(--border);
       overflow-x: clip;
     }
 
-
-    /* -- Modern Sub-Page Styling -- */
-
+    /* Section header */
     .section-title {
-      font-size: 1.15rem;
-      font-weight: 700;
-      color: var(--text-strong);
-      letter-spacing: -0.01em;
+      font-size: 1.15rem; font-weight: 700;
+      color: var(--text-strong); letter-spacing: -0.01em;
       margin-bottom: var(--space-4);
-      display: flex;
-      align-items: center;
-      gap: 10px;
+      display: flex; align-items: center; gap: 10px;
     }
     .section-sub {
-      color: var(--text-muted);
-      font-size: .9em;
-      margin-top: 2px;
+      color: var(--text-muted); font-size: .9em; margin-top: 2px;
     }
 
-    /* Modern table styling */
-    table {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
-    }
+    /* Modern table styling — TonerWatch gradient header */
+    table { width: 100%; border-collapse: separate; border-spacing: 0; }
     table thead th {
       background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-      font-size: .76em;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .06em;
+      font-size: .76em; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .06em;
       color: var(--ta-gray-500);
       padding: 10px 14px;
       border-bottom: 2px solid var(--ta-gray-300);
       text-align: left;
-      position: sticky;
-      top: 0;
-      z-index: 1;
+      position: sticky; top: 0; z-index: 1;
     }
     table thead th:first-child { border-radius: 10px 0 0 0; }
     table thead th:last-child { border-radius: 0 10px 0 0; }
-    table tbody tr {
-      transition: all .15s ease;
-    }
-    table tbody tr:hover {
-      background: rgba(0, 160, 251, .04);
-    }
+    table tbody tr { transition: background .15s ease; }
+    table tbody tr:hover { background: rgba(0, 160, 251, .04); }
     table tbody td {
       padding: 12px 14px;
       border-bottom: 1px solid #f1f5f9;
@@ -532,22 +672,16 @@
       color: #334155;
       vertical-align: middle;
     }
-    table tbody tr:last-child td {
-      border-bottom: none;
-    }
+    table tbody tr:last-child td { border-bottom: none; }
     table tbody td a {
-      color: var(--ta-cyan-dark);
-      font-weight: 600;
-      text-decoration: none;
-      transition: color .15s;
+      color: var(--ta-cyan-dark); font-weight: 600;
+      text-decoration: none; transition: color .15s;
     }
-    table tbody td a:hover {
-      color: var(--ta-cyan);
-      text-decoration: underline;
-    }
+    table tbody td a:hover { color: var(--ta-cyan); text-decoration: underline; }
 
-    /* Modern search bar */
-    .search-bar, .card input[type="text"][placeholder*="earch"],
+    /* Search bar */
+    .search-bar,
+    .card input[type="text"][placeholder*="earch"],
     .card input[type="text"][placeholder*="uche"],
     .card input[type="text"][placeholder*="ilter"] {
       background: var(--bg);
@@ -563,115 +697,65 @@
       box-shadow: 0 0 0 3px rgba(0,160,251,.15);
     }
 
-    /* Enhanced badges */
+    /* Badges */
     .badge, .role-badge, [class*="badge"] {
-      font-size: .72em;
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 999px;
-      letter-spacing: .02em;
-      white-space: nowrap;
+      font-size: .72em; font-weight: 700;
+      padding: 4px 10px; border-radius: 999px;
+      letter-spacing: .02em; white-space: nowrap;
     }
 
-    /* Queue pills / tags */
+    /* Pills / tags */
     .tag, .queue-tag, .pill {
       display: inline-block;
-      padding: 3px 10px;
-      border-radius: var(--radius-sm);
-      font-size: .78em;
-      font-weight: 600;
+      padding: 3px 10px; border-radius: var(--radius-sm);
+      font-size: .78em; font-weight: 600;
       background: rgba(0,160,251,.10);
       color: var(--primary);
       margin: 2px 3px 2px 0;
       transition: background var(--t-fast);
     }
-    .tag:hover, .queue-tag:hover, .pill:hover {
-      background: rgba(0,160,251,.18);
-    }
+    .tag:hover, .queue-tag:hover, .pill:hover { background: rgba(0,160,251,.18); }
 
     /* Divider */
     .divider, hr {
-      border: none;
-      height: 1px;
-      background: var(--border);
-      margin: var(--space-5) 0;
+      border: none; height: 1px;
+      background: var(--border); margin: var(--space-5) 0;
     }
 
-    /* Modernized alerts — left-bordered */
+    /* Alerts */
     .alert {
       border-radius: var(--radius-sm);
       padding: var(--space-4);
       font-size: .9em;
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
+      display: flex; align-items: flex-start; gap: 10px;
       border: 1px solid var(--border);
       border-left-width: 4px;
-      background: var(--surface);
-      color: var(--text);
+      background: var(--surface); color: var(--text);
+      margin-bottom: var(--space-5);
     }
-    .alert-success {
-      background: #f0fdf4;
-      border-left-color: var(--success);
-      color: #14532d;
-    }
-    .alert-error, .alert-danger {
-      background: #fef2f2;
-      border-left-color: var(--danger);
-      color: #991b1b;
-    }
-    .alert-info {
-      background: #eff6ff;
-      border-left-color: var(--accent);
-      color: #1e40af;
-    }
-    .alert-warning {
-      background: #fffbeb;
-      border-left-color: var(--warning);
-      color: #92400e;
-    }
+    .alert-success { background: #f0fdf4; border-left-color: var(--success); color: #14532d; }
+    .alert-error, .alert-danger { background: #fef2f2; border-left-color: var(--danger); color: #991b1b; }
+    .alert-info { background: #eff6ff; border-left-color: var(--accent); color: #1e40af; }
+    .alert-warning { background: #fffbeb; border-left-color: var(--warning); color: #92400e; }
 
-    /* Filter buttons as pills */
+    /* Filter buttons */
     .filter-btn, .card .btn-sm {
-      font-size: .82em;
-      padding: 6px 14px;
+      font-size: .82em; padding: 6px 14px;
       border-radius: var(--radius-sm);
       border: 1.5px solid var(--border);
-      background: var(--surface);
-      color: var(--text-muted);
-      font-weight: 600;
-      cursor: pointer;
+      background: var(--surface); color: var(--text-muted);
+      font-weight: 600; cursor: pointer;
       transition: border-color var(--t-fast), color var(--t-fast), background var(--t-fast);
     }
     .filter-btn:hover, .card .btn-sm:hover {
-      border-color: var(--accent);
-      color: var(--primary);
+      border-color: var(--accent); color: var(--primary);
       background: rgba(0,160,251,.06);
     }
     .filter-btn.active, .card .btn-sm.active {
-      background: var(--primary);
-      color: #fff;
-      border-color: var(--primary);
+      background: var(--primary); color: #fff; border-color: var(--primary);
     }
 
-    /* Primary button — navy fill, accent on hover */
-    .btn-primary {
-      background: var(--primary);
-      color: #fff;
-      box-shadow: var(--shadow-sm);
-    }
-    .btn-primary:hover {
-      background: var(--primary-hover);
-      box-shadow: var(--shadow);
-    }
-
-    /* Better scrollbar for main area */
-    .main-area {
-      scrollbar-width: thin;
-      scrollbar-color: var(--ta-gray-300) transparent;
-    }
-
-    /* ── Forms ───────────────────────────────────────────────────────────── */
+    /* ── Forms ────────────────────────────────────────────────────── */
     .form-group { margin-bottom: var(--space-5); }
     .form-row { display: flex; gap: var(--space-3); flex-wrap: wrap; }
     label { display: block; font-size: .87em; font-weight: 600; color: var(--text-strong); margin-bottom: 6px; }
@@ -689,67 +773,49 @@
     }
     small.hint { display: block; margin-top: 4px; color: var(--text-muted); font-size: .82em; }
 
-    /* ── Buttons ─────────────────────────────────────────────────────────── */
+    /* ── Buttons ──────────────────────────────────────────────────── */
     .btn, .action-btn {
       display: inline-flex; align-items: center; justify-content: center;
       padding: 10px 18px; border: 0; border-radius: var(--radius-sm);
-      font-size: .95em; font-weight: 600; cursor: pointer;
+      font-size: .95em; font-weight: 700; cursor: pointer;
       font-family: var(--font-sans);
       background: var(--primary); color: #fff;
-      transition: background var(--t), box-shadow var(--t), border-color var(--t);
+      transition: background var(--t), box-shadow var(--t), border-color var(--t), transform var(--t-fast);
       text-decoration: none; white-space: nowrap; gap: 6px;
       -webkit-tap-highlight-color: transparent;
     }
     .btn:hover, .action-btn:hover { background: var(--primary-hover); }
-    .btn-primary { background: var(--primary); color: #fff; font-weight: 600; }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary { background: var(--primary); color: #fff; font-weight: 700; box-shadow: var(--shadow-sm); }
     .btn-primary:hover { background: var(--primary-hover); box-shadow: var(--shadow); }
     .btn-outline {
-      background: transparent;
-      color: var(--primary);
+      background: transparent; color: var(--primary);
       border: 1.5px solid var(--primary);
     }
     .btn-outline:hover { background: var(--primary); color: #fff; }
     .btn-secondary { background: var(--border-subtle); color: var(--text-strong); }
     .btn-secondary:hover { background: var(--border); }
     .btn-danger { background: var(--danger); color: #fff; }
-    .btn-danger:hover { background: #b91c1c; }
+    .btn-danger:hover { background: #E85450; }
     .btn-success { background: var(--success); color: #fff; }
     .btn-success:hover { background: #15803d; }
     .btn-sm { padding: 6px 12px; font-size: .85em; }
 
-    /* ── Alerts ──────────────────────────────────────────────────────────── */
-    /* alert base replaced by v7.9.2 */
-    /* alert-error replaced by v7.9.2 */
-    /* alert-success replaced by v7.9.2 */
-    /* alert-info replaced by v7.9.2 */
-    /* alert-warning replaced by v7.9.2 */
-
-    /* ── Tables ──────────────────────────────────────────────────────────── */
-    /* table base replaced by v7.9.2 */
-    /* th replaced by v7.9.2 */
-    /* td replaced by v7.9.2 */
-    /* tr:last-child replaced by v7.9.2 */
-    /* tr:hover replaced by v7.9.2 */
-    /* Table scroll wrapper (use on wide tables) */
+    /* Table scroll wrapper */
     .table-scroll {
-      width: 100%;
-      overflow-x: auto;
-      overflow-y: hidden;
+      width: 100%; overflow-x: auto; overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
-      border-radius: 12px;
-      border: 1px solid #e5e7eb;
-      background:#fff;
+      border-radius: 12px; border: 1px solid #e5e7eb; background:#fff;
     }
     .table-scroll table { min-width: 720px; }
 
-    /* ── Badges ──────────────────────────────────────────────────────────── */
-    /* badge base replaced by v7.9.2 */
+    /* Badges */
     .badge-green  { background: #dcfce7; color: #166534; }
     .badge-yellow { background: #fef9c3; color: #854d0e; }
     .badge-red    { background: #fee2e2; color: #991b1b; }
     .badge-blue   { background: rgba(0,160,251,.12); color: var(--ta-navy); }
 
-    /* ── Code Block ──────────────────────────────────────────────────────── */
+    /* Code block */
     .code-block {
       background: var(--code-bg); color: var(--code-text); padding: var(--space-4);
       border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: .88em;
@@ -763,7 +829,7 @@
     }
     .copy-btn:hover { background: rgba(255,255,255,.2); }
 
-    /* Status row + URL pill (used in dashboard/status pages) */
+    /* Status row + URL pill */
     .status-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
     .url-pill {
       display: inline-flex; align-items: center; gap: 6px;
@@ -773,10 +839,7 @@
       border: 1px solid var(--border);
     }
 
-    /* ── Divider ─────────────────────────────────────────────────────────── */
-    /* divider replaced by v7.9.2 */
-
-    /* ── Step Indicator ──────────────────────────────────────────────────── */
+    /* Step indicator */
     .steps { display: flex; align-items: center; margin-bottom: 32px; gap: 0; }
     .step-item { display: flex; align-items: center; flex: 1; min-width: 0; }
     .step-circle {
@@ -791,166 +854,22 @@
     .step-label.active { color: var(--primary); font-weight: 700; }
     .step-connector { flex: 1; height: 2px; background: #e5e7eb; margin: 0 8px; min-width: 8px; }
 
-    /* ── Section header ──────────────────────────────────────────────────── */
-    /* section-title replaced by v7.9.2 */
-    /* section-sub replaced by v7.9.2 */
-
-    /* ── Checkbox row ────────────────────────────────────────────────────── */
+    /* Check row */
     .check-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .check-row input[type=checkbox] { width: auto; min-width: 18px; min-height: 18px; }
 
-    /* ── Printix section shell ───────────────────────────────────────────── */
-    .tenant-shell {
-      display: block;
-    }
-    .tenant-main {
-      min-width: 0;
-    }
+    /* Tenant shell */
+    .tenant-shell { display: block; }
+    .tenant-main { min-width: 0; }
     .tenant-main-card {
       border-radius: 20px;
       box-shadow: 0 16px 36px rgba(15, 23, 42, .06);
     }
 
-    /* ── Responsive ──────────────────────────────────────────────────────── */
-    @media (max-width: 768px) {
+    /* Rhombus decorative frame (Tungsten signature) */
+    .rhombus-frame { clip-path: polygon(28% 0, 100% 0, 72% 100%, 0 100%); }
 
-      /* Sidebar → off-screen on mobile */
-      .mobile-hamburger { display: flex; }
-      .sidebar { transform: translateX(-100%); }
-      .sidebar.open { transform: translateX(0); }
-      .main-area { margin-left: 0 !important; }
-      /* Show hamburger, hide desktop links & lang switcher */
-      .hamburger         { display: flex; }
-      .nav-links         { display: none; }
-      .lang-switcher     { display: none; }
-
-      /* Layout */
-      .container { width: 100%; padding: 0 12px; margin: 14px auto; }
-      .card      { padding: 18px 14px; border-radius: 14px; }
-
-      /* All inline grid layouts → single column on mobile.
-         Targets every inline style="display:grid;grid-template-columns:..."
-         across settings, admin_dashboard, notifications, etc. */
-      [style*="grid-template-columns"] {
-        grid-template-columns: 1fr !important;
-      }
-
-      /* Tables: wrap in scrollable container, auto column widths */
-      .card > table,
-      .card > div > table {
-        display: block; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
-      }
-      table { min-width: 520px; font-size: .85em; }
-      td, th { padding: 8px 10px; }
-      th[style*="width"] { width: auto !important; }
-      .table-scroll { margin-inline: -2px; }
-      .table-scroll table { min-width: 520px; }
-
-      /* Tenant sub-tabs: horizontal scroll instead of wrap */
-      .tenant-tabs {
-        overflow-x: auto; -webkit-overflow-scrolling: touch;
-        flex-wrap: nowrap !important; gap: 0 !important;
-        scrollbar-width: none; /* Firefox */
-      }
-      .tenant-tabs::-webkit-scrollbar { display: none; }
-      .tenant-tab { flex-shrink: 0; padding: 8px 14px; font-size: .82em; }
-
-      /* Preset cards (demo page + report presets) — stack vertically */
-      .preset-cards {
-        flex-direction: column !important;
-      }
-      .preset-cards .preset-card { min-width: 0 !important; }
-      .preset-grid { grid-template-columns: 1fr !important; }
-
-      /* Code blocks — smaller font, break long URLs */
-      .code-block { font-size: .78em; padding: 10px 12px; word-break: break-all; }
-
-      /* Demo grid → single column (already has its own @media but enforce) */
-      .demo-grid { grid-template-columns: 1fr !important; }
-
-      .tenant-shell { grid-template-columns: 1fr; gap: 12px; }
-        .tenant-sidebar-card { padding: 14px; }
-      .tenant-sidebar-nav {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-        padding: 0;
-        background: transparent;
-        border: none;
-        backdrop-filter: none;
-      }
-      .tenant-sidebar-link { min-height: 52px; }
-
-      /* Stat boxes — 2 per row on tablet */
-      .stats-summary { gap: 8px; }
-      .stat-box { min-width: 80px; padding: 6px 10px; }
-
-      /* Prevent iOS font-size zoom on inputs */
-      input[type=text], input[type=password], input[type=email],
-      input[type=url], input[type=number], input[type=time], select, textarea {
-        font-size: 16px;
-      }
-
-      /* Step labels hidden on small screens */
-      .step-label { display: none; }
-
-      /* Action buttons — full width on small screens */
-      td[style*="white-space:nowrap"] { white-space: normal !important; }
-
-      /* Search bars — stack vertically */
-      .search-bar { flex-wrap: wrap; }
-      .search-bar input { min-width: 0 !important; }
-
-      /* Reports form — class-based grids → single column */
-      .date-preset-row,
-      .custom-date-row,
-      .cost-grid,
-      .sched-grid {
-        grid-template-columns: 1fr !important;
-      }
-
-      /* Form actions — wrap on mobile */
-      .form-actions { flex-wrap: wrap; }
-      .form-actions > * { max-width: 100%; }
-      textarea, input, select { max-width: 100%; }
-
-      /* Help page — reduce list indent */
-      ol { padding-left: 16px !important; }
-    }
-
-    @media (max-width: 480px) {
-      :root { --workspace-gutter: 12px; }
-      .nav-brand { font-size: .92em; }
-      .card { padding: 14px 12px; }
-      .container { margin: 10px auto; }
-      .btn { padding: 9px 16px; font-size: .9em; }
-
-      /* Very small screens — tables can be narrower */
-      table { min-width: 400px; }
-      .table-scroll table { min-width: 400px; }
-
-      /* Single stat box per row */
-      .stats-summary { flex-direction: column; }
-
-      /* Buttons stack vertically in major flex containers */
-      [style*="display:flex"][style*="gap"] {
-        flex-direction: column !important;
-      }
-      /* But not nav-related or inline flex containers */
-      nav, .nav-right, .nav-links, .mobile-menu,
-      .mobile-lang-grid, .tenant-tabs, .search-bar,
-      .check-row, .slider-wrap, .lang-checkboxes,
-      .fmt-row, .color-row,
-      .preset-cards { flex-direction: row !important; }
-      .preset-cards { flex-direction: column !important; }
-
-
-      /* Full-width buttons — but not small action buttons in tables */
-      .btn:not(.btn-sm) { width: 100%; text-align: center; }
-    }
-
-    /* v7.6.0: Prefetch-Status-Pille — kleines Indikator-Pill in der
-       Top-Nav wenn der Tenant-Background-Prefetch noch läuft. */
+    /* Prefetch pill */
     .prefetch-pill {
       display:flex; align-items:center; gap:6px;
       padding:5px 10px;
@@ -959,18 +878,13 @@
       border-radius:999px;
       font-size:.78em; color:#1e40af;
       box-shadow: 0 1px 3px rgba(30,64,175,.08);
-      cursor:default;
-      user-select:none;
+      cursor:default; user-select:none;
     }
-    .prefetch-pill-spin {
-      display:inline-block;
-      animation: prefetch-spin 1.4s linear infinite;
-    }
+    .prefetch-pill-spin { display:inline-block; animation: prefetch-spin 1.4s linear infinite; }
     @keyframes prefetch-spin { to { transform: rotate(360deg); } }
     .prefetch-pill.done {
       background:linear-gradient(135deg,#dcfce7,#bbf7d0);
-      border-color:#86efac;
-      color:#14532d;
+      border-color:#86efac; color:#14532d;
       animation: prefetch-fade 2.4s ease-out forwards;
     }
     @keyframes prefetch-fade {
@@ -981,63 +895,101 @@
       .prefetch-pill .prefetch-pill-label { display:none; }
     }
 
-    /* v0.7.84: SVG-Icon-Klasse für Sidebar-Kategorie-Toggles */
-    .sb-cat-icon {
-      display: inline-flex; align-items: center; flex-shrink: 0;
-      color: var(--text-muted); width: 16px; height: 16px;
-    }
-    .sb-cat-toggle.open .sb-cat-icon,
-    .sb-cat-toggle:hover .sb-cat-icon { color: var(--primary); }
+    /* ── Responsive ───────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .mobile-hamburger { display: flex; }
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); box-shadow: 0 0 40px rgba(0,0,0,.4); }
+      .main-area { margin-left: 0 !important; }
+      .hamburger { display: flex; }
+      .nav-links { display: none; }
+      .lang-switcher { display: none; }
 
-    /* v0.7.84: Top-Bar (User + Version-Info) */
-    .top-bar {
-      display: flex; justify-content: space-between; align-items: center; gap: 14px;
-      padding: 10px 24px; background: var(--surface);
-      border-bottom: 1px solid var(--border); font-size: .9em;
+      .container { width: 100%; padding: 0 12px; margin: 14px auto; }
+      .card { padding: 18px 14px; border-radius: 14px; }
+
+      [style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+
+      .card > table, .card > div > table {
+        display: block; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
+      }
+      table { min-width: 520px; font-size: .85em; }
+      td, th { padding: 8px 10px; }
+      th[style*="width"] { width: auto !important; }
+      .table-scroll { margin-inline: -2px; }
+      .table-scroll table { min-width: 520px; }
+
+      .tenant-tabs {
+        overflow-x: auto; -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap !important; gap: 0 !important;
+        scrollbar-width: none;
+      }
+      .tenant-tabs::-webkit-scrollbar { display: none; }
+      .tenant-tab { flex-shrink: 0; padding: 8px 14px; font-size: .82em; }
+
+      .preset-cards { flex-direction: column !important; }
+      .preset-cards .preset-card { min-width: 0 !important; }
+      .preset-grid { grid-template-columns: 1fr !important; }
+      .code-block { font-size: .78em; padding: 10px 12px; word-break: break-all; }
+      .demo-grid { grid-template-columns: 1fr !important; }
+      .tenant-shell { grid-template-columns: 1fr; gap: 12px; }
+      .tenant-sidebar-card { padding: 14px; }
+      .tenant-sidebar-nav {
+        display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px; padding: 0; background: transparent; border: none;
+        backdrop-filter: none;
+      }
+      .tenant-sidebar-link { min-height: 52px; }
+      .stats-summary { gap: 8px; }
+      .stat-box { min-width: 80px; padding: 6px 10px; }
+      input[type=text], input[type=password], input[type=email],
+      input[type=url], input[type=number], input[type=time], select, textarea { font-size: 16px; }
+      .step-label { display: none; }
+      td[style*="white-space:nowrap"] { white-space: normal !important; }
+      .search-bar { flex-wrap: wrap; }
+      .search-bar input { min-width: 0 !important; }
+      .date-preset-row, .custom-date-row, .cost-grid, .sched-grid {
+        grid-template-columns: 1fr !important;
+      }
+      .form-actions { flex-wrap: wrap; }
+      .form-actions > * { max-width: 100%; }
+      textarea, input, select { max-width: 100%; }
+      ol { padding-left: 16px !important; }
     }
-    .top-bar-version {
-      color: var(--text-faint); font-family: var(--font-mono); font-size: .82em;
-      display: flex; align-items: center; gap: 8px;
-    }
-    .top-bar-version-badge {
-      background: var(--code-bg); color: #e2e8f0;
-      padding: 2px 8px; border-radius: 6px; font-weight: 600;
-    }
-    .top-bar-right { display: flex; align-items: center; gap: 14px; }
-    .top-bar-user {
-      display: flex; align-items: center; gap: 6px;
-      color: var(--text-muted); font-size: .9em;
-    }
-    .top-bar-user strong { color: var(--text-strong); }
-    .top-bar-logout {
-      color: var(--text-muted); text-decoration: none; font-weight: 600;
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 6px 12px; border-radius: var(--radius-sm);
-      border: 1.5px solid var(--border); font-size: .85em;
-      transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
-    }
-    .top-bar-logout:hover {
-      background: #fef2f2; color: var(--danger); border-color: #fecaca;
+
+    @media (max-width: 480px) {
+      :root { --workspace-gutter: 12px; }
+      .nav-brand { font-size: .92em; }
+      .card { padding: 14px 12px; }
+      .container { margin: 10px auto; }
+      .btn { padding: 9px 16px; font-size: .9em; }
+      table { min-width: 400px; }
+      .table-scroll table { min-width: 400px; }
+      .stats-summary { flex-direction: column; }
+      [style*="display:flex"][style*="gap"] { flex-direction: column !important; }
+      nav, .nav-right, .nav-links, .mobile-menu,
+      .mobile-lang-grid, .tenant-tabs, .search-bar,
+      .check-row, .slider-wrap, .lang-checkboxes,
+      .fmt-row, .color-row, .preset-cards { flex-direction: row !important; }
+      .preset-cards { flex-direction: column !important; }
+      .btn:not(.btn-sm) { width: 100%; text-align: center; }
     }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
 <body{% if async_load %} data-matrix-hold="1"{% endif %}>
-  {# v0.7.286: Matrix-Loader AN DEN ANFANG des Body damit er sofort
-     verfuegbar ist wenn eine Navigation via sessionStorage geflagged
-     wurde. Frueher war er am Ende → sichtbarer Aussetzer zwischen
-     alter-Seite-verschwindet und Matrix-erscheint. #}
+  {# Matrix-Loader at start of body — must be available immediately for
+     sessionStorage-navigation handoff. #}
   {% include "_matrix_loader.html" %}
 
   {% if show_nav | default(true) %}
-  {# v7.9.1: Logged-in users — no top bar, sidebar handles everything.
-     Only a minimal mobile hamburger floats top-right. #}
+  {# Logged-in users: no top bar, sidebar handles everything.
+     Only minimal mobile hamburger floats top-right. #}
   {% if user %}
   <button class="mobile-hamburger" id="hamburger" aria-label="{{ _('common_open_menu') }}"
           aria-expanded="false" onclick="toggleMobileMenu()">
     <span></span><span></span><span></span>
   </button>
-  {# Prefetch pill — floats top-right on desktop #}
   {% if user.role_type != 'employee' %}
   <div id="prefetchPill" class="prefetch-pill prefetch-pill-float" style="display:none;"
        title="{{ _('prefetch_pill_tip') }}">
@@ -1081,18 +1033,15 @@
   </nav>
   {% endif %}
 
-  <!-- Sidebar Navigation (v7.9.0) -->
+  <!-- Sidebar Navigation -->
   {% if user %}
   <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
   <aside class="sidebar" id="sidebar">
-    {# v7.9.1: Branding in Sidebar #}
     <div class="sidebar-brand">
       <span class="sidebar-brand-logo">{% include "_brand_logo.svg" %}</span>
       <span class="sidebar-brand-text">{{ _('brand_console_name') }}</span>
     </div>
     <div class="sidebar-section">
-      {# v0.4.3: /dashboard war ein 404 — admins landen auf /welcome
-         (Setup-Status), Employees auf /my (User-Portal). #}
       {% if user.is_admin %}
       <a href="/welcome" class="sidebar-top-link {% if active_page == 'welcome' %}active{% endif %}">
         <span class="sb-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg></span> {{ _('nav_dashboard') }}
@@ -1104,23 +1053,11 @@
       {% endif %}
     </div>
 
-    {# v0.4.3: Nav-Kategorien „Printix Management" (/tenant/*),
-       „Karten & Codes" (/cards), „Fleet Management" (/fleet, /fleet/
-       package-builder) entfernt — alle Routen sind 404er seit dem
-       Slim-Down. Die entsprechenden Aktionen passieren jetzt via MCP-
-       Tools (claude.ai / ChatGPT) — User mgmt direkt via /admin/users,
-       Karten + Drucker + Queues + Workstations sind read-only via MCP. #}
-
     {% if user.role_type != 'employee' %}
-
-    {# v0.4.6: Nav-Restrukturierung — alle Kategorien open by default,
-       klare Gruppierung: Benutzer / Konfiguration / Sicherheit /
-       Datenschutz / Cloud. Sub-Links per Kategorie statt einem riesigen
-       Admin-Block. #}
 
     {% if user.is_admin %}
 
-    {# ── 👥 Benutzer — v0.7.35: collapsed by default ──────────────────── #}
+    {# ── Benutzer ─────────────────────────────────────────────────── #}
     <button class="sb-cat-toggle" data-cat="users" onclick="toggleSbCat(this)">
       <span class="sb-cat-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> {{ _('nav_cat_users') }}
       <span class="sb-cat-chevron">▸</span>
@@ -1135,7 +1072,7 @@
       <a href="/admin/email-templates"   class="sb-sublink {% if active_page == 'admin_email_templates' %}active{% endif %}"><span class="sb-dot"></span>{{ _('nav_email_templates') }}</a>
     </div>
 
-    {# ── ⚙️ Konfiguration — v0.7.32: collapsed by default ─────────────── #}
+    {# ── Konfiguration ────────────────────────────────────────────── #}
     <button class="sb-cat-toggle" data-cat="config" onclick="toggleSbCat(this)">
       <span class="sb-cat-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span> {{ _('nav_cat_config') }}
       <span class="sb-cat-chevron">▸</span>
@@ -1155,13 +1092,7 @@
       <a href="/admin/settings?section=general"   class="sb-sublink"><span class="sb-dot"></span>{{ _('nav_cfg_advanced') }}</a>
     </div>
 
-    {# v0.5.1: "🔐 Sicherheit" Kategorie entfernt — auf Azure App Service
-       wird HTTPS automatisch bereitgestellt; die SSL/TLS/Auto-TLS/Tunnel-
-       Seiten sind Relikte aus dem HomeAssistant-Addon-Modell und auf
-       Azure irrelevant. Routen existieren noch, sind aber nicht
-       prominent verlinkt. #}
-
-    {# ── 🛡️ Datenschutz / GDPR — v0.7.32: collapsed by default ────────── #}
+    {# ── Datenschutz / GDPR ───────────────────────────────────────── #}
     <button class="sb-cat-toggle" data-cat="gdpr" onclick="toggleSbCat(this)">
       <span class="sb-cat-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span> {{ _('nav_cat_gdpr') }}
       <span class="sb-cat-chevron">▸</span>
@@ -1174,7 +1105,7 @@
       <a href="/privacy"       class="sb-sublink" target="_blank" rel="noopener"><span class="sb-dot"></span>{{ _('nav_gdpr_privacy_preview') }}</a>
     </div>
 
-    {# ── ☁️ Cloud & Integrationen — v0.7.35: collapsed by default ────── #}
+    {# ── Cloud & Integrationen ────────────────────────────────────── #}
     <button class="sb-cat-toggle" data-cat="cloud" onclick="toggleSbCat(this)">
       <span class="sb-cat-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg></span> {{ _('nav_cat_cloud') }}
       <span class="sb-cat-chevron">▸</span>
@@ -1189,7 +1120,7 @@
     {% endif %}
     {% endif %}
 
-    {# ── Employee-Portal ──────────────────────────────────────────────── #}
+    {# ── Employee-Portal ──────────────────────────────────────────── #}
     {% if user.role_type == 'employee' %}
     <div class="sidebar-section">
       <a href="/my" class="sidebar-top-link {% if active_page == 'my_portal' %}active{% endif %}">
@@ -1198,13 +1129,28 @@
     </div>
     {% endif %}
 
-    {# ── Bottom: Connect, Profil, Hilfe, Sprache, Logout ───────────── #}
+    {# ── Bottom: User-Card + Sprache + Logout ─────────────────────── #}
     <div class="sidebar-bottom">
-{# v0.4.3: /settings/password war ein 404 — eigene Passwort-Aenderung
-   gibt's seit dem Slim-Down nicht mehr im Web-UI. Wer Passwoerter aendern
-   muss, geht ueber Admin → User-Edit (oder MS-SSO benutzen). #}
-      <div class="sb-divider"></div>
-      {# v7.9.1: Language switcher in sidebar bottom #}
+      <div class="sidebar-user">
+        <div class="avatar" aria-hidden="true">
+          {%- set n = (user.full_name or user.username or user.email or '?') -%}
+          {%- set parts = n.split() -%}
+          {%- if parts|length >= 2 -%}
+            {{ (parts[0][0] ~ parts[-1][0])|upper }}
+          {%- else -%}
+            {{ n[0]|upper }}
+          {%- endif -%}
+        </div>
+        <div class="who">
+          <strong>{{ user.full_name or user.username }}</strong>
+          {% if user.is_admin %}
+            <span class="role-badge">Admin</span>
+          {% else %}
+            <span>{{ user.role_type or 'User' }}</span>
+          {% endif %}
+        </div>
+      </div>
+
       <div class="sb-lang-switcher">
         <button class="sb-lang-btn" onclick="toggleSbLang(this)">
           <span style="display:inline-flex;align-items:center;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>{{ _('common_language') }}: {{ lang | upper }}
@@ -1222,6 +1168,10 @@
       </div>
       <div class="sb-divider"></div>
       <a href="/logout" class="sb-bottom-link"><span class="sb-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>{{ _('nav_logout') }}</a>
+    </div>
+
+    <div class="sidebar-version" aria-label="running version">
+      <strong>v{{ app_version }}</strong>
     </div>
   </aside>
   {% endif %}
@@ -1250,63 +1200,37 @@
 
   <main class="{% if user %}main-area{% endif %}" id="mainArea">
 
-  {# v0.4.7: Top-Bar mit User-Menü + Logout — Standard-Pattern oben rechts.
-     Sidebar-Bottom-Logout war zwar da, wurde aber gerne uebersehen. #}
-  {% if user %}
-  <div class="top-bar">
-    <span class="top-bar-version">
-      MySecurePrint Server
-      <span class="top-bar-version-badge">v{{ app_version }}</span>
-    </span>
-    <div class="top-bar-right">
-      <span class="top-bar-user">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        <strong>{{ user.full_name or user.username }}</strong>
-        {% if user.is_admin %}<span style="background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:999px; font-size:.78em; font-weight:700;">Admin</span>{% endif %}
-      </span>
-      <a href="/logout" class="top-bar-logout">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        {{ _('nav_logout') }}
-      </a>
-    </div>
-  </div>
-  {% endif %}
-
-  {# v0.4.4: Breadcrumb-Bar — zeigt "← Dashboard" auf jeder Unterseite.
-     Sidebar gibt's zwar, ist aber auf Mobile hinter dem Hamburger. Plus
-     ein klar sichtbarer Zurueck-Pfad ist Standard-UX. Wird auf der
-     Welcome-Seite selbst und auf Login/Register-Seiten ausgeblendet. #}
+  {# Breadcrumb-Bar (TonerWatch style) — shown on every page except welcome/my_portal #}
   {% if user and active_page and active_page not in ('welcome', 'my_portal') %}
-  <div style="background:#f8fafc; border-bottom:1px solid var(--ta-gray-200);
-              padding:10px 24px; font-size:.9em;">
-    <a href="{% if user.is_admin %}/welcome{% else %}/my{% endif %}"
-       style="color:#475569; text-decoration:none; font-weight:600;
-              display:inline-flex; align-items:center; gap:6px;">
-      <span style="font-size:1.1em;">←</span> {{ _('breadcrumb_dashboard') }}
-    </a>
+  <div class="content-topbar">
+    <div class="breadcrumb">
+      <a href="{% if user.is_admin %}/welcome{% else %}/my{% endif %}">
+        <span style="font-size:1.1em;">←</span> {{ _('breadcrumb_dashboard') }}
+      </a>
+      <span class="sep">/</span>
+      <strong>{% block breadcrumb %}{% endblock %}</strong>
+    </div>
   </div>
   {% endif %}
 
   {% block content %}{% endblock %}
 
-  {# v7.9.4: Global footer — privacy + imprint links, visible on every page
-     (logged-in and logged-out). Required for App-Review of MySecurePrint
-     iOS app and for German § 5 TMG / § 18 MStV imprint duty. #}
+  {# Global footer — privacy + imprint links, visible on every page #}
   <footer style="text-align:center; padding:24px 16px 32px; font-size:.85em;
-                 color:#6b7280; border-top:1px solid rgba(0,0,0,.05);
+                 color:var(--text-muted); border-top:1px solid var(--border-subtle);
                  margin-top:32px;">
-    <a href="/privacy" style="color:#475569; text-decoration:none; font-weight:600;">{{ _('legal_nav_privacy') }}</a>
+    <a href="/privacy" style="color:var(--text-strong); text-decoration:none; font-weight:600;">{{ _('legal_nav_privacy') }}</a>
     &nbsp;·&nbsp;
-    <a href="/imprint" style="color:#475569; text-decoration:none; font-weight:600;">{{ _('legal_nav_imprint') }}</a>
+    <a href="/imprint" style="color:var(--text-strong); text-decoration:none; font-weight:600;">{{ _('legal_nav_imprint') }}</a>
     &nbsp;·&nbsp;
-    <a href="/legal" style="color:#475569; text-decoration:none; font-weight:600;">{{ _('legal_nav_legal') }}</a>
+    <a href="/legal" style="color:var(--text-strong); text-decoration:none; font-weight:600;">{{ _('legal_nav_legal') }}</a>
     &nbsp;·&nbsp;
-    <span style="color:#9ca3af;">{{ _('legal_footer_version') }} v{{ app_version }}</span>
+    <span style="color:var(--text-faint); font-family:var(--font-mono);">{{ _('legal_footer_version') }} v{{ app_version }}</span>
   </footer>
   </main>
 
   <script>
-    // ── Sidebar Navigation (v7.9.0) ─────────────────────────────────────
+    // ── Sidebar Navigation ─────────────────────────────────────────────
     function toggleSbLang(btn) {
       btn.classList.toggle('open');
       const grid = btn.nextElementSibling;
@@ -1326,7 +1250,6 @@
       }
     }
 
-    // Mobile: hamburger toggles sidebar (if logged in) or mobile-menu (if not)
     function toggleMobileMenu() {
       const sidebar = document.getElementById('sidebar');
       const overlay = document.getElementById('sidebarOverlay');
@@ -1334,13 +1257,11 @@
       const btn     = document.getElementById('hamburger');
 
       if (sidebar) {
-        // Logged in → toggle sidebar
         const isOpen = sidebar.classList.toggle('open');
         btn.classList.toggle('open', isOpen);
         btn.setAttribute('aria-expanded', String(isOpen));
         if (overlay) overlay.classList.toggle('visible', isOpen);
       } else if (menu) {
-        // Not logged in → toggle old mobile menu
         const isOpen = menu.classList.toggle('open');
         btn.classList.toggle('open', isOpen);
         btn.setAttribute('aria-expanded', String(isOpen));
@@ -1362,11 +1283,9 @@
       if (menu) { menu.classList.remove('open'); menu.setAttribute('aria-hidden','true'); }
       if (btn)  { btn.classList.remove('open'); btn.setAttribute('aria-expanded','false'); }
     }
-    // Close on outside click
     document.addEventListener('click', function(e) {
       const sidebar = document.getElementById('sidebar');
       const btn     = document.getElementById('hamburger');
-      // Only close on mobile (when sidebar uses transform)
       if (sidebar && sidebar.classList.contains('open') &&
           !sidebar.contains(e.target) && btn && !btn.contains(e.target)) {
         closeSidebar();
@@ -1377,7 +1296,6 @@
         closeMobileMenu();
       }
     });
-    // Close on Escape
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') { closeSidebar(); closeMobileMenu(); }
     });
@@ -1395,7 +1313,6 @@
           }
         });
       } catch(e) {}
-      // Always open the category that contains the current active link.
       document.querySelectorAll('.sb-sublink.active').forEach(function(link) {
         const items = link.closest('.sb-cat-items');
         if (items) {
@@ -1408,7 +1325,7 @@
       });
     });
 
-    // ── Language Dropdown (desktop) ───────────────────────────────────────
+    // ── Language Dropdown (desktop, logged-out) ──────────────────────
     function toggleLangDropdown(e) {
       e.stopPropagation();
       document.getElementById('langDropdown').classList.toggle('open');
@@ -1421,7 +1338,7 @@
       }
     });
 
-    // ── Copy to Clipboard ─────────────────────────────────────────────────
+    // ── Copy to Clipboard ────────────────────────────────────────────
     function copyToClipboard(id, btnEl) {
       const el   = document.getElementById(id);
       const text = el ? el.textContent.trim() : '';
@@ -1435,9 +1352,7 @@
       });
     }
 
-    /* v7.6.0: Prefetch-Status-Polling. Solange der Hintergrund-Prefetch
-       läuft, blinkt die ⏳-Pille in der Nav. Sobald 'done' kommt,
-       wechselt sie auf grün und blendet sich nach 2.4s aus. */
+    // Prefetch-Status-Polling
     (function initPrefetchPoll() {
       const pill = document.getElementById('prefetchPill');
       if (!pill) return;
@@ -1463,23 +1378,17 @@
               if (labelEl) labelEl.textContent = I18N_DONE;
               pill.querySelector('.prefetch-pill-spin').textContent = '✓';
             }
-            // Nach erstem 'done' Polling stoppen — Refresher arbeitet im
-            // Hintergrund, User braucht das Feedback nicht mehr.
             if (pollHandle) { clearInterval(pollHandle); pollHandle = null; }
           } else {
-            // anon / error / no_tenant / idle → nicht zeigen
             pill.style.display = 'none';
           }
         } catch (e) { /* offline → still */ }
       }
 
-      // Erstes Poll sofort, danach alle 1.5s bis Done.
       poll();
       pollHandle = setInterval(poll, 1500);
     })();
   </script>
   {% block extra_scripts %}{% endblock %}
-  {# v0.7.286: Matrix-Loader ist jetzt am Anfang von <body> (Zeile 1025)
-     damit er sofort bei sessionStorage-Handoff verfuegbar ist. #}
 </body>
 </html>
