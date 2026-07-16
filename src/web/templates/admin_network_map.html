@@ -385,10 +385,32 @@
   }
 })();
 
+// ── SAFETY-NET: nach 35s Matrix garantiert wegmachen, egal was passiert
+window.__nmSafetyNet = setTimeout(function() {
+  console.warn('[netmap] SAFETY-NET fired — force-hiding matrix loader after 35s');
+  const loader = document.getElementById('nm-loader');
+  const emptyBox = document.getElementById('nm-empty');
+  const emptyMsg = document.getElementById('nm-empty-msg');
+  if (loader) {
+    loader.style.transition = 'opacity .3s';
+    loader.style.opacity = '0';
+    setTimeout(function() {
+      loader.style.display = 'none';
+      window.matrixStop && window.matrixStop();
+    }, 300);
+  }
+  if (emptyBox && emptyMsg) {
+    emptyMsg.innerHTML = 'Netzwerk-Plan konnte nicht geladen werden (Safety-Net nach 35s). ' +
+      '<br><a href="" onclick="location.reload();return false;" ' +
+      'style="color:var(--accent);font-weight:600;text-decoration:underline;">Erneut versuchen</a>';
+    emptyBox.style.display = '';
+  }
+}, 35000);
+
 // ── Async-Load des Netzwerk-Plans ──────────────────────────────────
 (async function nmAsyncLoad() {
   const loader = document.getElementById('nm-loader');
-  if (!loader || loader.style.display === 'none') return;
+  if (!loader || loader.style.display === 'none') { clearTimeout(window.__nmSafetyNet); return; }
 
   const subMsg = document.getElementById('matrix-sub');
   const setSubtle = (t) => { if (subMsg) subMsg.textContent = t; };
@@ -411,9 +433,10 @@
       setSubtle('Azure SQL wacht auf — kann bis zu 60 Sekunden dauern...');
     }, 20000);
 
-    // Harte Deadline: 90s. Danach abbrechen mit klarer Fehlermeldung.
+    // Harte Deadline: 30s. Danach abbrechen mit klarer Fehlermeldung.
+    // (Safety-Net feuert bei 35s, das gibt dieser Route noch 5s Puffer.)
     const ctrl = new AbortController();
-    const abortTimer = setTimeout(() => ctrl.abort(), 90000);
+    const abortTimer = setTimeout(() => ctrl.abort(), 30000);
 
     let r;
     try {
@@ -431,10 +454,12 @@
     }
 
     if (!r.ok) {
+      clearTimeout(window.__nmSafetyNet);
       const data = await r.json().catch(() => ({}));
       showEmpty(data.error || 'error');
       return;
     }
+    clearTimeout(window.__nmSafetyNet);
     const data = await r.json();
     const host = document.getElementById('nm-svg-host');
     host.innerHTML = data.svg || '';

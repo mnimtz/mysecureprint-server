@@ -89,7 +89,7 @@ def register_network_map_routes(app: FastAPI,
             except Exception:
                 topology_cached = None
 
-        return templates.TemplateResponse("admin_network_map.html", {
+        resp = templates.TemplateResponse("admin_network_map.html", {
             "request": request, "user": user,
             "bi_configured": bi_configured,
             "topology": topology_cached,
@@ -99,6 +99,11 @@ def register_network_map_routes(app: FastAPI,
             "active_page": "admin_network_map",
             **t_ctx(request),
         })
+        # Kein Caching der HTML-Huelle — sonst zieht der Browser altes JS
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+        return resp
 
     @app.get("/admin/network-map/ping", response_class=JSONResponse)
     async def netmap_ping(request: Request):
