@@ -119,8 +119,17 @@
   }
 
   @media print {
+    @page { size: landscape; margin: 10mm; }
     aside.sb, .nm-sidebar, .nm-header, .brand-header, header { display: none !important; }
-    .nm-canvas { border: none !important; padding: 0 !important; max-height: none !important; }
+    /* v0.7.303: overflow:hidden entfernen + max-height:none, sonst wird
+       die Karte trotz Zoom-Reset (beforeprint-Handler) am Container-Rand
+       abgeschnitten statt vollstaendig gedruckt. */
+    .nm-canvas {
+      border: none !important; padding: 0 !important;
+      max-height: none !important; overflow: visible !important;
+    }
+    .nm-zoom-controls, #nm-loadgate { display: none !important; }
+    .nm-svg { max-width: 100% !important; height: auto !important; }
     .nm-grid { grid-template-columns: 1fr !important; }
     body, .nm-wrap { max-width: none !important; padding: 0 !important; margin: 0 !important; }
   }
@@ -525,6 +534,9 @@ async function nmAsyncLoad() {
     if (data.svg) {
       document.getElementById('nm-zoom-controls').style.display = '';
       nmSetupPanZoom();
+      // v0.7.303: Auto-Fit beim ersten Rendern, damit sofort die komplette
+      // Karte sichtbar ist statt bei scale=1 nur ein Ausschnitt.
+      requestAnimationFrame(() => { window.nmZoomFit && window.nmZoomFit(); });
     } else {
       showEmpty('nothing_selected');
     }
@@ -720,6 +732,24 @@ function nmSetupPanZoom() {
 
   svg.style.cursor = 'grab';
   apply();
+
+  // v0.7.303: Vor dem Drucken/PDF-Export IMMER auf Vollansicht zuruecksetzen,
+  // egal welchen Zoom/Pan-Stand der User gerade auf dem Bildschirm hat.
+  // Sonst druckt "Als PDF drucken" exakt den aktuell sichtbaren (ggf.
+  // abgeschnittenen, gezoomten) Ausschnitt statt der kompletten Karte.
+  let __preprintState = null;
+  window.addEventListener('beforeprint', () => {
+    __preprintState = {scale, tx, ty};
+    scale = 1; tx = 0; ty = 0;
+    apply();
+  });
+  window.addEventListener('afterprint', () => {
+    if (__preprintState) {
+      scale = __preprintState.scale; tx = __preprintState.tx; ty = __preprintState.ty;
+      apply();
+      __preprintState = null;
+    }
+  });
 }
 </script>
 {% endblock %}

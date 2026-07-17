@@ -44,7 +44,7 @@ SITE_H      = 62      # Höhe der Site-Pill
 ROOT_H      = 56
 LEVEL_GAP   = 90      # Vertikaler Abstand zwischen Ebenen
 TOP_PAD     = 30
-LEFT_PAD    = 40
+LEFT_PAD    = 70      # v0.7.303: 40->70, Sicherheitsabstand gegen linkes Edge-Clipping bei breiten Detail-Karten
 BOTTOM_PAD  = 40
 
 # Y-Positionen der Ebenen (statisch berechnet)
