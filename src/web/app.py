@@ -761,7 +761,7 @@ def create_app(session_secret: str) -> FastAPI:
         Returns: Anzahl tatsaechlich versendeter Mails.
         """
         from db import get_all_users, get_tenant_full_by_user_id
-        from reporting.notify_helper import (
+        from notify_helper import (
             send_event_notification, html_user_registered,
             is_event_enabled, resolve_mail_credentials,
         )
@@ -3209,7 +3209,7 @@ def create_app(session_secret: str) -> FastAPI:
             )
 
             from invite_mail import render_invitation_email
-            from reporting.mail_client import send_report
+            from mail_client import send_report
             login_url = f"{_get_base_url(request)}/login"
             subject, html_body = render_invitation_email(
                 lang=invite_lang.strip(),
@@ -4892,7 +4892,7 @@ def create_app(session_secret: str) -> FastAPI:
                 else:
                     try:
                         from invite_mail import render_invitation_email
-                        from reporting.mail_client import send_report
+                        from mail_client import send_report
                         login_url = f"{_get_base_url(request)}/login"
                         subject, html_body = render_invitation_email(
                             lang=invite_lang.strip(),

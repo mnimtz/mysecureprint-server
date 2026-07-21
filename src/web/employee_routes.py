@@ -1269,7 +1269,7 @@ def register_employee_routes(
             login_url = f"{login_url}/login"
 
         try:
-            from reporting.notify_helper import send_employee_invitation
+            from notify_helper import send_employee_invitation
         except Exception:
             send_employee_invitation = None
 
