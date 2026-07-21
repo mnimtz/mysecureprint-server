@@ -372,11 +372,19 @@ def register_employee_routes(
                     shared_client_secret=full_tenant.get("shared_client_secret", ""),
                 )
                 # IDOR-Schutz: Job muss dem anfragenden Benutzer gehören.
+                # v0.7.306: fail-closed statt fail-open — vorher wurde der
+                # Check komplett uebersprungen wenn ownerEmail leer war
+                # (z.B. bei Anywhere-Queues oder Jobs ohne dieses Feld in
+                # der Printix-API-Antwort), wodurch JEDER eingeloggte
+                # Mitarbeiter einen beliebigen job_id loeschen konnte.
                 job = client.get_print_job(job_id)
                 user_email = (user.get("email") or "").lower()
                 job_owner = (job.get("ownerEmail") or "").lower()
-                if job_owner and job_owner != user_email:
-                    raise PermissionError("Job gehört nicht diesem Benutzer")
+                if not job_owner or job_owner != user_email:
+                    raise PermissionError(
+                        "Job-Eigentuemer nicht verifizierbar oder gehört "
+                        "nicht diesem Benutzer"
+                    )
                 client.delete_print_job(job_id)
         except PermissionError as e:
             logger.warning("Job-Löschung verweigert (IDOR): %s", e)

@@ -20,6 +20,7 @@ Settings -> ENV), die an anderer Stelle in app.py schon inline existiert
 
 from __future__ import annotations
 
+import html as _html
 import json
 import logging
 import os
@@ -58,6 +59,11 @@ def resolve_mail_credentials(tenant: dict) -> dict:
     mail_from_name = (tenant.get("mail_from_name") or "") or _PRODUCT_NAME
     source = "tenant" if api_key else "none"
 
+    # v0.7.306: mail_from-Fallback von der api_key-Verschachtelung entkoppelt.
+    # Vorher: wenn ein Tenant NUR mail_api_key gesetzt hatte (mail_from
+    # leer), wurde der komplette global/env-Block uebersprungen und
+    # mail_from blieb leer -> Mail-Versand brach mit "keine Credentials"
+    # ab, obwohl global_mail_from einen gueltigen Wert gehabt haette.
     if not api_key:
         enc_global = get_setting("global_mail_api_key", "")
         if enc_global:
@@ -66,16 +72,18 @@ def resolve_mail_credentials(tenant: dict) -> dict:
                 source = "global"
             except Exception:
                 api_key = ""
-        mail_from = mail_from or (get_setting("global_mail_from", "") or "")
-        mail_from_name = (get_setting("global_mail_from_name", "")
-                          or mail_from_name)
+    if not mail_from:
+        mail_from = get_setting("global_mail_from", "") or ""
+    if mail_from_name == _PRODUCT_NAME:  # noch kein Tenant-Wert gesetzt
+        mail_from_name = get_setting("global_mail_from_name", "") or mail_from_name
 
     if not api_key:
         env_key = os.environ.get("RESEND_API_KEY", "")
         if env_key:
             api_key = env_key
             source = "env"
-        mail_from = mail_from or os.environ.get("RESEND_FROM", "")
+    if not mail_from:
+        mail_from = os.environ.get("RESEND_FROM", "")
 
     provider = (get_setting("mail_provider", "") or "resend").strip().lower()
     graph_tid = graph_cid = graph_csec = graph_sender = ""
@@ -107,6 +115,14 @@ def resolve_mail_credentials(tenant: dict) -> dict:
 def html_user_registered(username: str, email: str, company: str) -> str:
     """HTML-Body fuer die 'Neuer Benutzer wartet auf Freischaltung'-Mail
     an Admins."""
+    # v0.7.306: username/email/company kommen aus der SELBST-REGISTRIERUNG
+    # (siehe app.py register_step1_post) und werden dort NICHT validiert —
+    # ein anonymer Besucher kontrolliert diese Werte vollstaendig. Ohne
+    # Escaping waere das Stored-XSS im Postfach jedes Admins mit
+    # 'user_registered'-Notification aktiv.
+    username_esc = _html.escape(username or "", quote=True)
+    email_esc = _html.escape(email or "", quote=True)
+    company_esc = _html.escape(company, quote=True) if company else "—"
     return f"""\
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
             color: #231F20; max-width: 480px; margin: 0 auto;">
@@ -121,11 +137,11 @@ def html_user_registered(username: str, email: str, company: str) -> str:
     <table style="border-collapse: collapse; font-size: 14px; width: 100%;
                   background: #F5F7FA; border-radius: 8px; margin-bottom: 20px;">
       <tr><td style="padding: 10px 16px; color: #8094AA; width: 40%;">Benutzername</td>
-          <td style="padding: 10px 16px; font-weight: 700;">{username}</td></tr>
+          <td style="padding: 10px 16px; font-weight: 700;">{username_esc}</td></tr>
       <tr><td style="padding: 10px 16px; color: #8094AA;">Email</td>
-          <td style="padding: 10px 16px; font-weight: 700;">{email}</td></tr>
+          <td style="padding: 10px 16px; font-weight: 700;">{email_esc}</td></tr>
       <tr><td style="padding: 10px 16px; color: #8094AA;">Firma</td>
-          <td style="padding: 10px 16px; font-weight: 700;">{company or "—"}</td></tr>
+          <td style="padding: 10px 16px; font-weight: 700;">{company_esc}</td></tr>
     </table>
     <p style="margin: 0; font-size: 13px; color: #8094AA;">
       Bitte im Admin-Bereich unter Benutzer freischalten.
@@ -205,11 +221,16 @@ def send_employee_invitation(tenant: dict, recipient_email: str,
         password=password, login_url=login_url,
     )
     if admin_name:
-        html_body = html_body.replace(
-            "</div>\n",
-            f'<p style="font-size:12px;color:#8094AA;margin-top:8px;">'
-            f'Eingeladen von {admin_name}.</p></div>\n', 1,
-        )
+        # Vor dem LETZTEN </div> einfuegen (Ende des aeusseren Wrappers),
+        # nicht dem ersten (der waere der Navy-Header und wuerde die
+        # Notiz an der falschen Stelle - noch vor Gruss/Credentials -
+        # platzieren).
+        idx = html_body.rfind("</div>")
+        if idx != -1:
+            admin_name_esc = _html.escape(admin_name, quote=True)
+            note = (f'<p style="font-size:12px;color:#8094AA;margin-top:8px;'
+                    f'text-align:center;">Eingeladen von {admin_name_esc}.</p>')
+            html_body = html_body[:idx] + note + html_body[idx:]
 
     try:
         send_mail(

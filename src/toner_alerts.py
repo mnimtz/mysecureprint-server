@@ -510,6 +510,9 @@ def render_alert_email(cfg: dict, item: dict) -> tuple[str, str]:
 def build_single_alert_html(printer_name: str, location: str, color: str,
                             level: int, severity: str,
                             days_left: Optional[float]) -> str:
+    import html as _html
+    printer_name_esc = _html.escape(printer_name or "", quote=True)
+    location_esc = _html.escape(location, quote=True) if location else "Standort unbekannt"
     label = _COLOR_LABEL_DE.get(color, color.title())
     days_txt = ""
     if days_left is not None:
@@ -521,8 +524,8 @@ def build_single_alert_html(printer_name: str, location: str, color: str,
 <div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif;
             color:#111;max-width:520px;">
   <p>{_severity_chip(severity)} &nbsp; Toner-Nachbestellung empfohlen.</p>
-  <h2 style="margin:12px 0 4px 0;">{printer_name}</h2>
-  <p style="color:#666;margin:0 0 16px 0;">{location or "Standort unbekannt"}</p>
+  <h2 style="margin:12px 0 4px 0;">{printer_name_esc}</h2>
+  <p style="color:#666;margin:0 0 16px 0;">{location_esc}</p>
   <table style="border-collapse:collapse;font-size:14px;">
     <tr>
       <td style="padding:6px 12px 6px 0;color:#666;">Farbe:</td>
@@ -544,16 +547,24 @@ def build_single_alert_html(printer_name: str, location: str, color: str,
 
 
 def build_digest_html(items: list[dict]) -> str:
+    # v0.7.306: printer_name/location kommen aus der Printix BI-DB und
+    # sind fuer jeden Printix-Tenant-Admin frei umbenennbar — ohne
+    # Escaping waere ein umbenannter Drucker ein Script-Injection-Vektor
+    # in der Digest-Mail (dasselbe Muster wie render_alert_email schon
+    # via _render_template absichert, hier fehlte es).
+    import html as _html
     rows = []
     for it in items:
         label = _COLOR_LABEL_DE.get(it["color"], it["color"].title())
         d = it.get("days_left")
         d_txt = f"~{int(round(d))} Tage" if d is not None else "—"
+        printer_name_esc = _html.escape(str(it["printer_name"]), quote=True)
+        location_esc = _html.escape(str(it.get("location", "")), quote=True)
         rows.append(f"""
     <tr>
       <td style="padding:8px 12px 8px 0;">{_severity_chip(it["severity"])}</td>
-      <td style="padding:8px 12px 8px 0;"><b>{it["printer_name"]}</b><br>
-        <span style="color:#666;font-size:12px;">{it.get("location","")}</span></td>
+      <td style="padding:8px 12px 8px 0;"><b>{printer_name_esc}</b><br>
+        <span style="color:#666;font-size:12px;">{location_esc}</span></td>
       <td style="padding:8px 12px 8px 0;">{label}</td>
       <td style="padding:8px 12px 8px 0;">{_bar(it["level"], it["color"])}
         <span style="margin-left:6px;">{it["level"]}%</span></td>

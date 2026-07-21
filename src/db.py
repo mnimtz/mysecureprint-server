@@ -669,13 +669,29 @@ def init_db() -> None:
 # ─── Crypto Helpers ───────────────────────────────────────────────────────────
 
 def _enc(value: str) -> str:
-    """Verschlüsselt einen String — leer bleibt leer."""
+    """Verschlüsselt einen String — leer bleibt leer.
+
+    v0.7.306: Bei Verschluesselungs-Fehler (z.B. FERNET_KEY noch nicht
+    verfuegbar wegen Azure-Files-Mount-Race beim Boot) faellt dies auf
+    Klartext-Speicherung zurueck — bewusst NICHT geaendert auf "raise",
+    weil 21 Call-Sites im Repo nicht einzeln auf sicheres Error-Handling
+    geprueft sind (Risiko fuer neue 500er quer durchs Repo kurz vor der
+    Demo). Stattdessen wird der Vorfall jetzt LAUT geloggt statt komplett
+    unsichtbar zu bleiben — vorher gab es keinerlei Log-Zeile, ein
+    Admin haette nie erfahren dass ein Secret unverschluesselt landete.
+    """
     if not value:
         return ""
     try:
         from crypto import encrypt
         return encrypt(value)
-    except Exception:
+    except Exception as e:
+        logger.error(
+            "SICHERHEITSWARNUNG: Verschluesselung fehlgeschlagen (%s) — "
+            "Wert wird UNVERSCHLUESSELT in der DB gespeichert. Pruefe "
+            "FERNET_KEY / /data/fernet.key. Nach Behebung sollte das "
+            "betroffene Secret neu gesetzt werden.", e,
+        )
         return value
 
 

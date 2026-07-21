@@ -12,6 +12,8 @@ schliesst die Luecke, im gleichen Stil wie toner_alerts.render_alert_email
 
 from __future__ import annotations
 
+import html as _html
+
 NAVY = "#002854"
 DEEP_NAVY = "#00123B"
 ACCENT = "#00A0FB"
@@ -122,8 +124,17 @@ def render_invitation_email(lang: str, full_name: str, username: str,
     s = _t(lang)
     display_name = (full_name or username or "").strip() or username
 
+    # v0.7.306: Alle User-kontrollierten Werte escapen bevor sie in
+    # HTML-f-strings eingebettet werden — full_name/username kommen aus
+    # dem Admin-Invite-Formular und koennten <script>/onerror-Payloads
+    # enthalten (Stored-XSS im Mail-Client des Empfaengers).
+    display_name_esc = _html.escape(display_name, quote=True)
+    username_esc = _html.escape(username, quote=True)
+    password_esc = _html.escape(password, quote=True)
+    login_url_esc = _html.escape(login_url, quote=True)
+
     subject = s["subject"].format(product=_PRODUCT_NAME)
-    greeting = s["greeting"].format(full_name=display_name)
+    greeting = s["greeting"].format(full_name=display_name_esc)
     intro = s["intro"].format(product=_PRODUCT_NAME)
 
     html_body = f"""\
@@ -144,19 +155,19 @@ def render_invitation_email(lang: str, full_name: str, username: str,
                    text-transform: uppercase; letter-spacing: .04em;">{s["username_label"]}</td>
       </tr>
       <tr>
-        <td style="padding: 0 16px 12px 16px; font-weight: 700; font-family: monospace; font-size: 15px;">{username}</td>
+        <td style="padding: 0 16px 12px 16px; font-weight: 700; font-family: monospace; font-size: 15px;">{username_esc}</td>
       </tr>
       <tr>
         <td style="padding: 4px 16px 4px 16px; color: #8094AA; font-size: 12px;
                    text-transform: uppercase; letter-spacing: .04em;">{s["password_label"]}</td>
       </tr>
       <tr>
-        <td style="padding: 0 16px 12px 16px; font-weight: 700; font-family: monospace; font-size: 15px;">{password}</td>
+        <td style="padding: 0 16px 12px 16px; font-weight: 700; font-family: monospace; font-size: 15px;">{password_esc}</td>
       </tr>
     </table>
 
     <div style="text-align: center; margin: 24px 0;">
-      <a href="{login_url}" style="background: {ACCENT}; color: #fff; text-decoration: none;
+      <a href="{login_url_esc}" style="background: {ACCENT}; color: #fff; text-decoration: none;
          padding: 12px 28px; border-radius: 8px; font-weight: 700; font-size: 14px;
          display: inline-block;">{s["cta"]}</a>
     </div>
