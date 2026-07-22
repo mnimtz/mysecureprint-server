@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% set show_nav = false %}
+{% block title %}{{ _('invite_activate_title') }} — {{ _('brand_console_name') }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ── Activate page: gleiches dunkles Stage-Muster wie login.html ── */
+  body {
+    background: linear-gradient(135deg, #00123B 0%, #002854 60%, #003A6E 100%) !important;
+    min-height: 100vh;
+  }
+  .act-stage {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px 60px;
+    background-image: repeating-linear-gradient(
+      65deg,
+      rgba(255,255,255,0.025) 0px,
+      rgba(255,255,255,0.025) 1px,
+      transparent 1px,
+      transparent 40px
+    );
+  }
+  .act-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .act-brand-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .act-brand-icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+  .act-brand-name {
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+  .act-brand-accent {
+    width: 40px;
+    height: 3px;
+    background: #00EB86;
+    border-radius: 2px;
+  }
+
+  .act-card {
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.30);
+    padding: 36px 32px 28px;
+    width: 100%;
+    max-width: 420px;
+  }
+  .act-card-heading {
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #002854;
+    letter-spacing: -0.01em;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  .act-card-sub {
+    font-size: 0.86rem;
+    color: #8094AA;
+    text-align: center;
+    margin-bottom: 22px;
+    line-height: 1.5;
+  }
+
+  .act-card .alert {
+    margin-bottom: 18px;
+    border-radius: 8px;
+  }
+  .act-card .form-group {
+    margin-bottom: 18px;
+  }
+  .act-card label {
+    display: block;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #002854;
+    margin-bottom: 6px;
+  }
+  .act-card input[type="password"] {
+    width: 100%;
+    padding: 10px 13px;
+    border: 1.5px solid #D9DFE6;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    color: #231F20;
+    background: #ffffff;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .act-card input[type="password"]:focus {
+    outline: none;
+    border-color: #00A0FB;
+    box-shadow: 0 0 0 3px rgba(0,160,251,0.15);
+  }
+
+  .act-submit-btn {
+    display: block;
+    width: 100%;
+    padding: 11px 18px;
+    background: #002854;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+    text-align: center;
+    letter-spacing: 0.01em;
+  }
+  .act-submit-btn:hover {
+    background: #003A6E;
+    box-shadow: 0 4px 14px rgba(0,40,84,0.25);
+  }
+
+  .act-success-icon {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: rgba(0,235,134,0.12);
+    color: #016839;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.8rem;
+    margin: 0 auto 18px;
+  }
+  .act-continue-btn {
+    display: block;
+    width: 100%;
+    padding: 11px 18px;
+    background: #00A0FB;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    font-family: 'Red Hat Display', Arial, sans-serif;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    letter-spacing: 0.01em;
+  }
+  .act-continue-btn:hover {
+    background: #0090E0;
+  }
+
+  .act-version {
+    margin-top: 14px;
+    text-align: center;
+    font-size: 0.70rem;
+    color: #b0b5bc;
+  }
+
+  @media (max-width: 480px) {
+    .act-card { padding: 28px 20px 22px; }
+    .act-brand-name { font-size: 1.25rem; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="act-stage">
+
+  <div class="act-brand">
+    <div class="act-brand-row">
+      <img src="/logo/icon.png" alt="MySecurePrint" class="act-brand-icon">
+      <span class="act-brand-name">MySecurePrint</span>
+    </div>
+    <div class="act-brand-accent"></div>
+  </div>
+
+  <div class="act-card">
+    {% if saved %}
+      <div class="act-success-icon">&#10003;</div>
+      <div class="act-card-heading">{{ _('invite_activate_success') }}</div>
+      <a href="{{ redirect_target | default('/login') }}" class="act-continue-btn">
+        {{ _('invite_activate_continue') }}
+      </a>
+    {% else %}
+      <div class="act-card-heading">{{ _('invite_activate_title') }}</div>
+      <div class="act-card-sub">{{ _('invite_activate_sub') }}</div>
+
+      {% if error %}
+      <div class="alert alert-error">{{ error }}</div>
+      {% endif %}
+
+      <form method="post" action="/account/activate">
+        <div class="form-group">
+          <label for="new_password">{{ _('login_password') }}</label>
+          <input type="password" id="new_password" name="new_password"
+                 autocomplete="new-password" minlength="8" required autofocus>
+        </div>
+        <div class="form-group">
+          <label for="new_password2">{{ _('reg_confirm_password') | default(_('login_password')) }}</label>
+          <input type="password" id="new_password2" name="new_password2"
+                 autocomplete="new-password" minlength="8" required>
+        </div>
+        <button type="submit" class="act-submit-btn">
+          {{ _('invite_activate_save') }}
+        </button>
+      </form>
+    {% endif %}
+
+    <div class="act-version">v{{ app_version | default('?') }}</div>
+  </div>
+
+</div>
+{% endblock %}
